@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auth Modal Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 40px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .test-container {
+      background: white;
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 600px;
+      width: 100%;
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+
+    .test-button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 16px 32px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin: 10px;
+      transition: all 0.3s ease;
+    }
+
+    .test-button:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .status {
+      margin-top: 20px;
+      padding: 16px;
+      border-radius: 8px;
+      background: #f0f0f0;
+    }
+
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .console-output {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 20px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .console-line {
+      margin: 4px 0;
+    }
+
+    .console-line.success {
+      color: #4ec9b0;
+    }
+
+    .console-line.error {
+      color: #f48771;
+    }
+
+    .console-line.info {
+      color: #9cdcfe;
+    }
+
+    /* Modal Styles */
+    .auth-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 20px;
+    }
+
+    .auth-modal-overlay.active {
+      display: flex;
+    }
+
+    .auth-modal {
+      position: relative;
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 480px;
+      width: 100%;
+      padding: 40px;
+      animation: modal-slide-up 0.3s ease-out;
+    }
+
+    @keyframes modal-slide-up {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .auth-modal-close {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.05);
+      border: none;
+      cursor: pointer;
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+
+    .auth-modal-close:hover {
+      background: rgba(0, 0, 0, 0.1);
+    }
+
+    .modal-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .modal-content {
+      text-align: center;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="test-container">
+    <h1>🧪 Auth Modal Test Page</h1>
+    <p>This page tests if the modal can open independently of the Vue app.</p>
+
+    <div>
+      <button class="test-button" onclick="openModal()">
+        🚀 Open Modal (Vanilla JS)
+      </button>
+      <button class="test-button" onclick="runTests()">
+        🧪 Run All Tests
+      </button>
+      <button class="test-button" onclick="clearConsole()">
+        🗑️ Clear Console
+      </button>
+    </div>
+
+    <div id="status" class="status" style="display: none;"></div>
+
+    <div class="console-output" id="console">
+      <div class="console-line info">Console output will appear here...</div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="auth-modal-overlay" id="modalOverlay" onclick="closeModalOnOverlay(event)">
+    <div class="auth-modal">
+      <button class="auth-modal-close" onclick="closeModal()">×</button>
+      <h2 class="modal-title">🎉 Modal Works!</h2>
+      <div class="modal-content">
+        <p>If you can see this, the modal is working correctly!</p>
+        <p>This means the issue is likely with:</p>
+        <ul style="text-align: left; margin: 20px 0;">
+          <li>Vue component integration</li>
+          <li>Auth store state management</li>
+          <li>Firebase initialization</li>
+          <li>Environment variables</li>
+        </ul>
+        <button class="test-button" onclick="closeModal()">Close Modal</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const consoleEl = document.getElementById('console')
+    const statusEl = document.getElementById('status')
+
+    function log(message, type = 'info') {
+      const line = document.createElement('div')
+      line.className = `console-line ${type}`
+      line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`
+      consoleEl.appendChild(line)
+      consoleEl.scrollTop = consoleEl.scrollHeight
+      console.log(message)
+    }
+
+    function showStatus(message, isSuccess) {
+      statusEl.textContent = message
+      statusEl.className = `status ${isSuccess ? 'success' : 'error'}`
+      statusEl.style.display = 'block'
+    }
+
+    function clearConsole() {
+      consoleEl.innerHTML = '<div class="console-line info">Console cleared...</div>'
+      statusEl.style.display = 'none'
+    }
+
+    function openModal() {
+      log('🚀 Opening modal...', 'info')
+      const overlay = document.getElementById('modalOverlay')
+      overlay.classList.add('active')
+      log('✅ Modal opened successfully!', 'success')
+      showStatus('Modal opened successfully!', true)
+    }
+
+    function closeModal() {
+      log('🔒 Closing modal...', 'info')
+      const overlay = document.getElementById('modalOverlay')
+      overlay.classList.remove('active')
+      log('✅ Modal closed successfully!', 'success')
+    }
+
+    function closeModalOnOverlay(event) {
+      if (event.target.id === 'modalOverlay') {
+        closeModal()
+      }
+    }
+
+    function runTests() {
+      clearConsole()
+      log('🧪 Starting test suite...', 'info')
+      
+      // Test 1: Check if modal element exists
+      log('\n📋 Test 1: Check Modal Element', 'info')
+      const overlay = document.getElementById('modalOverlay')
+      if (overlay) {
+        log('✅ Modal overlay found', 'success')
+      } else {
+        log('❌ Modal overlay not found', 'error')
+        return
+      }
+
+      // Test 2: Check z-index
+      log('\n📋 Test 2: Check Z-Index', 'info')
+      const zIndex = window.getComputedStyle(overlay).zIndex
+      log(`Z-Index: ${zIndex}`, 'info')
+      if (parseInt(zIndex) >= 9999) {
+        log('✅ Z-index is correct', 'success')
+      } else {
+        log('❌ Z-index might be too low', 'error')
+      }
+
+      // Test 3: Test opening modal
+      log('\n📋 Test 3: Test Opening Modal', 'info')
+      openModal()
+      
+      setTimeout(() => {
+        const isVisible = overlay.classList.contains('active')
+        if (isVisible) {
+          log('✅ Modal is visible', 'success')
+          showStatus('All tests passed! ✅', true)
+        } else {
+          log('❌ Modal is not visible', 'error')
+          showStatus('Some tests failed! ❌', false)
+        }
+
+        // Close modal after test
+        setTimeout(() => {
+          closeModal()
+          log('\n🎯 Test suite complete!', 'info')
+        }, 2000)
+      }, 500)
+    }
+
+    // Auto-run tests on page load
+    window.addEventListener('load', () => {
+      log('🎯 Test page loaded', 'success')
+      log('Click "Run All Tests" to start testing', 'info')
+    })
+  </script>
+</body>
+</html>
+
