@@ -105,3 +105,44 @@ export interface AuthModalState {
   resetToken?: string
 }
 
+// User Settings Types
+export interface UserSettings {
+  // Privacy Settings
+  privacy: {
+    profileVisibility: 'public' | 'private'
+    showEmail: boolean
+    activityVisibility: 'public' | 'friends' | 'private'
+    dataSharing: boolean
+  }
+
+  // Notification Settings
+  notifications: {
+    emailNotifications: boolean
+    pushNotifications: boolean
+    designComments: boolean
+    designLikes: boolean
+    newFollowers: boolean
+    marketplaceUpdates: boolean
+    systemAnnouncements: boolean
+  }
+
+  // Preferences
+  preferences: {
+    language: string
+    timezone: string
+    theme: 'light' | 'dark' | 'auto'
+    autoSave: boolean
+    defaultCanvasSize: string
+  }
+}
+
+// Profile Update Data
+export interface ProfileUpdateData {
+  name?: string
+  username?: string
+  firstName?: string
+  lastName?: string
+  avatar?: string
+  bio?: string
+}
+

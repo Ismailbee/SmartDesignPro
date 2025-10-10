@@ -51,8 +51,26 @@
       />
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col">
+      <!-- Editor Header -->
+      <div class="editor-header">
+        <div class="editor-title">Design Editor</div>
+        <div class="editor-actions">
+          <ThemeToggle />
+          <button @click="goToSettings" class="icon-button" title="Settings">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+          <button @click="goToHome" class="icon-button" title="Home">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+          </button>
+        </div>
+      </div>
 
-      
+
       <div class="flex-1 flex flex-col">
         <WhiteboardCanvas
           ref="whiteboardRef"
@@ -73,6 +91,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useEditorStore } from '@/stores/editor'
 import { useAIRetouchStore } from '@/stores/ai-retouch'
 import { logger } from '@/utils/logger'
@@ -85,7 +104,9 @@ import RetouchButton from './ai-retouch/RetouchButton.vue'
 import AIRetouchPanel from './ai-retouch/AIRetouchPanel.vue'
 import BeforeAfterPreview from './ai-retouch/BeforeAfterPreview.vue'
 import AILoadingIndicator from './ai-retouch/AILoadingIndicator.vue'
+import ThemeToggle from './ThemeToggle.vue'
 
+const router = useRouter()
 const store = useEditorStore()
 const aiRetouchStore = useAIRetouchStore()
 
@@ -102,6 +123,15 @@ onMounted(() => {
 onUnmounted(() => {
   // Cleanup if needed
 })
+
+// Navigation functions
+function goToSettings() {
+  router.push('/settings')
+}
+
+function goToHome() {
+  router.push('/home')
+}
 
 // Simple event handlers for sidebar compatibility
 function handleToggleSidebar() {
@@ -250,3 +280,52 @@ async function handleFontSuggestions() {
   }
 }
 </script>
+
+<style scoped>
+.editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.editor-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.icon-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.icon-button:hover {
+  background: var(--bg-hover);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.icon-button svg {
+  width: 20px;
+  height: 20px;
+}
+</style>

@@ -94,6 +94,8 @@ export async function registerWithEmail(data: RegisterData): Promise<User> {
  */
 export async function loginWithEmail(data: LoginData): Promise<User> {
   try {
+    console.log('🔐 Attempting login for:', data.email)
+
     const userCredential = await signInWithEmailAndPassword(
       auth,
       data.email,
@@ -101,21 +103,49 @@ export async function loginWithEmail(data: LoginData): Promise<User> {
     )
 
     const firebaseUser = userCredential.user
+    console.log('✅ Firebase authentication successful')
 
     // Get user data from Firestore
     const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid))
-    const userData = userDoc.exists() ? userDoc.data() : {}
+    let userData = userDoc.exists() ? userDoc.data() : {}
 
-    // Update last login
-    await setDoc(
-      doc(db, 'users', firebaseUser.uid),
-      { lastLoginAt: serverTimestamp() },
-      { merge: true }
-    )
+    console.log('📄 User document exists:', userDoc.exists())
 
-    return convertFirebaseUser(firebaseUser, userData)
+    // If user document doesn't exist, create it
+    if (!userDoc.exists()) {
+      console.log('📝 Creating user document in Firestore...')
+      userData = {
+        email: firebaseUser.email || '',
+        username: firebaseUser.email?.split('@')[0] || '',
+        name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '',
+        firstName: firebaseUser.displayName?.split(' ')[0] || '',
+        lastName: firebaseUser.displayName?.split(' ').slice(1).join(' ') || '',
+        avatar: firebaseUser.photoURL || '',
+        role: 'user',
+        status: 'active',
+        emailVerified: firebaseUser.emailVerified,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        lastLoginAt: serverTimestamp()
+      }
+
+      await setDoc(doc(db, 'users', firebaseUser.uid), userData)
+      console.log('✅ User document created')
+    } else {
+      // Update last login
+      await setDoc(
+        doc(db, 'users', firebaseUser.uid),
+        { lastLoginAt: serverTimestamp() },
+        { merge: true }
+      )
+      console.log('✅ Last login updated')
+    }
+
+    const user = convertFirebaseUser(firebaseUser, userData)
+    console.log('✅ Login successful for:', user.email)
+    return user
   } catch (error: any) {
-    console.error('Login error:', error)
+    console.error('❌ Login error:', error)
     throw new Error(getFirebaseErrorMessage(error.code))
   }
 }

@@ -2,7 +2,9 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import router from './router'
 import './style.css'
+import './styles/theme.css'
 import App from './App.vue'
+import { useThemeStore } from './stores/theme'
 
 // Vue Konva imports
 import VueKonva from 'vue-konva'
@@ -93,5 +95,9 @@ app.component('font-awesome-icon', FontAwesomeIcon)
 // Use Pinia and Router
 app.use(pinia)
 app.use(router)
+
+// Initialize theme
+const themeStore = useThemeStore()
+themeStore.initTheme()
 
 app.mount('#app')

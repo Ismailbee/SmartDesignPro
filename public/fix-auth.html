@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fix Authentication Issue</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 600px;
+      width: 100%;
+      padding: 40px;
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 16px;
+      font-size: 28px;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 32px;
+      font-size: 16px;
+    }
+
+    .status {
+      padding: 16px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .status.info {
+      background: #e3f2fd;
+      color: #1565c0;
+      border: 1px solid #90caf9;
+    }
+
+    .status.success {
+      background: #e8f5e9;
+      color: #2e7d32;
+      border: 1px solid #81c784;
+    }
+
+    .status.error {
+      background: #ffebee;
+      color: #c62828;
+      border: 1px solid #ef9a9a;
+    }
+
+    .status.warning {
+      background: #fff3e0;
+      color: #e65100;
+      border: 1px solid #ffb74d;
+    }
+
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 16px 32px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      margin-bottom: 12px;
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .console {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 20px;
+      border-radius: 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 24px;
+    }
+
+    .console-line {
+      margin: 4px 0;
+      line-height: 1.5;
+    }
+
+    .console-line.success {
+      color: #4ec9b0;
+    }
+
+    .console-line.error {
+      color: #f48771;
+    }
+
+    .console-line.warning {
+      color: #dcdcaa;
+    }
+
+    .console-line.info {
+      color: #9cdcfe;
+    }
+
+    .progress {
+      width: 100%;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 16px 0;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 Fix Authentication Issue</h1>
+    <p class="subtitle">This tool will clear old authentication data and fix the login modal issue.</p>
+
+    <div id="status" class="status info">
+      <strong>📋 Issue:</strong> Clicking "Start Your Project" goes directly to editor instead of showing login modal.
+      <br><br>
+      <strong>🔧 Solution:</strong> Clear old localStorage data that's causing false authentication.
+    </div>
+
+    <div class="progress" id="progress-container" style="display: none;">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+
+    <button id="fixBtn" onclick="fixAuth()">🚀 Fix Authentication Issue</button>
+    <button id="testBtn" onclick="testAuth()" style="background: linear-gradient(135deg, #06b6d4 0%, #0ea5e9 100%);">
+      🧪 Test Authentication Status
+    </button>
+    <button onclick="goHome()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+      🏠 Go to Home Page
+    </button>
+
+    <div class="console" id="console">
+      <div class="console-line info">Console output will appear here...</div>
+    </div>
+  </div>
+
+  <script>
+    const consoleEl = document.getElementById('console')
+    const statusEl = document.getElementById('status')
+    const progressContainer = document.getElementById('progress-container')
+    const progressBar = document.getElementById('progress-bar')
+    const fixBtn = document.getElementById('fixBtn')
+
+    function log(message, type = 'info') {
+      const line = document.createElement('div')
+      line.className = `console-line ${type}`
+      line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`
+      consoleEl.appendChild(line)
+      consoleEl.scrollTop = consoleEl.scrollHeight
+      console.log(message)
+    }
+
+    function updateStatus(message, type = 'info') {
+      statusEl.className = `status ${type}`
+      statusEl.innerHTML = message
+    }
+
+    function updateProgress(percent) {
+      progressBar.style.width = percent + '%'
+    }
+
+    async function fixAuth() {
+      fixBtn.disabled = true
+      consoleEl.innerHTML = ''
+      progressContainer.style.display = 'block'
+      
+      log('🔧 Starting authentication fix...', 'info')
+      updateProgress(10)
+      
+      // Step 1: Clear localStorage
+      await sleep(500)
+      log('🧹 Clearing localStorage...', 'info')
+      localStorage.clear()
+      log('✅ localStorage cleared', 'success')
+      updateProgress(30)
+      
+      // Step 2: Clear sessionStorage
+      await sleep(500)
+      log('🧹 Clearing sessionStorage...', 'info')
+      sessionStorage.clear()
+      log('✅ sessionStorage cleared', 'success')
+      updateProgress(50)
+      
+      // Step 3: Clear IndexedDB (Firebase local storage)
+      await sleep(500)
+      log('🧹 Clearing IndexedDB...', 'info')
+      try {
+        await indexedDB.deleteDatabase('firebaseLocalStorageDb')
+        log('✅ IndexedDB cleared', 'success')
+      } catch (err) {
+        log('⚠️ IndexedDB clear skipped (not critical)', 'warning')
+      }
+      updateProgress(70)
+      
+      // Step 4: Clear cookies (if any)
+      await sleep(500)
+      log('🧹 Clearing cookies...', 'info')
+      document.cookie.split(";").forEach(c => {
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/")
+      })
+      log('✅ Cookies cleared', 'success')
+      updateProgress(90)
+      
+      await sleep(500)
+      updateProgress(100)
+      
+      log('', 'info')
+      log('🎉 All authentication data cleared!', 'success')
+      log('', 'info')
+      log('🔄 Redirecting to home page in 3 seconds...', 'info')
+      
+      updateStatus(`
+        <strong>✅ Success!</strong> All old authentication data has been cleared.
+        <br><br>
+        <strong>📋 What happens next:</strong>
+        <br>• You'll be redirected to the home page
+        <br>• Click "Start Your Project" or "Get Started"
+        <br>• The login modal should now appear correctly!
+        <br><br>
+        <strong>🔄 Redirecting in 3 seconds...</strong>
+      `, 'success')
+      
+      // Countdown
+      for (let i = 3; i > 0; i--) {
+        await sleep(1000)
+        log(`Redirecting in ${i}...`, 'info')
+      }
+      
+      // Redirect to home
+      window.location.href = '/'
+    }
+
+    async function testAuth() {
+      consoleEl.innerHTML = ''
+      log('🧪 Testing authentication status...', 'info')
+      
+      // Check localStorage
+      log('', 'info')
+      log('📦 Checking localStorage...', 'info')
+      const userKey = localStorage.getItem('auth_user')
+      if (userKey) {
+        log('⚠️ Found user data in localStorage!', 'warning')
+        log('This is causing the issue.', 'warning')
+        updateStatus(`
+          <strong>⚠️ Issue Found!</strong> Old user data exists in localStorage.
+          <br><br>
+          This is making the app think you're authenticated.
+          <br><br>
+          <strong>🔧 Solution:</strong> Click "Fix Authentication Issue" button above.
+        `, 'warning')
+      } else {
+        log('✅ No user data in localStorage', 'success')
+      }
+      
+      // Check sessionStorage
+      log('', 'info')
+      log('📦 Checking sessionStorage...', 'info')
+      const sessionKeys = Object.keys(sessionStorage)
+      if (sessionKeys.length > 0) {
+        log(`Found ${sessionKeys.length} items in sessionStorage`, 'info')
+        sessionKeys.forEach(key => log(`  - ${key}`, 'info'))
+      } else {
+        log('✅ sessionStorage is empty', 'success')
+      }
+      
+      // Check cookies
+      log('', 'info')
+      log('🍪 Checking cookies...', 'info')
+      const cookies = document.cookie.split(';').filter(c => c.trim())
+      if (cookies.length > 0) {
+        log(`Found ${cookies.length} cookies`, 'info')
+      } else {
+        log('✅ No cookies found', 'success')
+      }
+      
+      log('', 'info')
+      log('🎯 Test complete!', 'success')
+      
+      if (userKey) {
+        updateStatus(`
+          <strong>⚠️ Issue Detected!</strong> Old authentication data found.
+          <br><br>
+          <strong>🔧 Click "Fix Authentication Issue" to resolve this.</strong>
+        `, 'warning')
+      } else {
+        updateStatus(`
+          <strong>✅ All Clear!</strong> No old authentication data found.
+          <br><br>
+          If the login modal still doesn't appear, try restarting the dev server.
+        `, 'success')
+      }
+    }
+
+    function goHome() {
+      window.location.href = '/'
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms))
+    }
+
+    // Auto-run test on page load
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        log('👋 Welcome! Click "Test Authentication Status" to check for issues.', 'info')
+      }, 500)
+    })
+  </script>
+</body>
+</html>
+

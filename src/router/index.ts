@@ -7,8 +7,10 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 // Lazy load components for better performance
+const WelcomePage = () => import('@/components/WelcomePage.vue')
 const HomePage = () => import('@/components/HomePage.vue')
 const DesignEditor = () => import('@/components/DesignEditor.vue')
+const UserSettings = () => import('@/views/UserSettings.vue')
 const AdminDashboard = () => import('@/views/admin/AdminDashboard.vue')
 const UserManagement = () => import('@/views/admin/UserManagement.vue')
 const UserDetail = () => import('@/views/admin/UserDetail.vue')
@@ -29,23 +31,43 @@ const routes: RouteRecordRaw[] = [
   // ============================================================
   {
     path: '/',
-    name: 'home',
-    component: HomePage,
+    name: 'welcome',
+    component: WelcomePage,
     meta: {
-      title: 'Home - Design Studio',
+      title: 'Welcome - SmartDesignPro',
       requiresAuth: false
     }
   },
 
   // ============================================================
-  // Editor Route (Requires Authentication)
+  // Authenticated Routes
   // ============================================================
+  {
+    path: '/home',
+    name: 'home',
+    component: HomePage,
+    meta: {
+      title: 'Home - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
   {
     path: '/editor',
     name: 'editor',
     component: DesignEditor,
     meta: {
-      title: 'Editor - Design Studio',
+      title: 'Editor - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/settings',
+    name: 'settings',
+    component: UserSettings,
+    meta: {
+      title: 'Settings - SmartDesignPro',
       requiresAuth: true
     }
   },
@@ -219,27 +241,32 @@ const router = createRouter({
 /**
  * Navigation Guards
  */
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
   const authStore = useAuthStore()
 
   // Update document title
-  document.title = (to.meta.title as string) || 'Design Studio'
+  document.title = (to.meta.title as string) || 'SmartDesignPro'
 
-  // TEMPORARY: Grant admin role to authenticated users (REMOVE IN PRODUCTION)
-  if (authStore.isAuthenticated && authStore.user) {
-    authStore.user.role = 'admin'
-    console.log('🔧 DEV MODE: Admin role granted to user:', authStore.user)
+  console.log('🔀 Navigating to:', to.path, '| Authenticated:', authStore.isAuthenticated)
+  console.log('👤 Current user:', authStore.user)
+  console.log('� User role:', authStore.user?.role)
+
+  // If user is authenticated and trying to access welcome page, redirect to home
+  if (to.name === 'welcome' && authStore.isAuthenticated) {
+    console.log('✅ User authenticated, redirecting to home...')
+    next({ name: 'home' })
+    return
   }
 
   // Check if route requires authentication
   if (to.meta.requiresAuth) {
     if (!authStore.isAuthenticated) {
+      console.log('🔒 Route requires auth, redirecting to welcome page...')
       // Store intended route for redirect after login
       sessionStorage.setItem('intendedRoute', to.fullPath)
-      
-      // Open login modal and stay on current page
-      authStore.openAuthModal('login')
-      next(false) // Cancel navigation
+
+      // Redirect to welcome page
+      next({ name: 'welcome' })
       return
     }
   }
@@ -247,17 +274,28 @@ router.beforeEach((to, from, next) => {
   // Check if route requires admin role
   if (to.meta.requiresAdmin) {
     if (!authStore.isAuthenticated) {
+      console.log('🔒 Admin route requires auth, redirecting to welcome page...')
       sessionStorage.setItem('intendedRoute', to.fullPath)
-      authStore.openAuthModal('login')
-      next(false)
+      next({ name: 'welcome' })
       return
     }
 
-    // Check if user has admin or moderator role
+    // TEMPORARY DEV MODE: Allow all authenticated users to access admin routes
+    // TODO: Remove this in production and use proper role checking
+    const DEV_MODE = true // Set to false in production
+
+    if (DEV_MODE) {
+      console.log('🔧 DEV MODE: Granting admin access to authenticated user')
+      next()
+      return
+    }
+
+    // Production: Check if user has admin or moderator role
     const userRole = authStore.user?.role || 'user'
     if (userRole !== 'admin' && userRole !== 'moderator') {
       // Redirect to home page with error message
-      console.error('Access denied: Admin privileges required')
+      console.error('❌ Access denied: Admin privileges required')
+      console.error('❌ User role:', userRole)
       next({ name: 'home' })
       return
     }
