@@ -69,6 +69,7 @@ export interface AssetItem {
   url?: string
   width?: number
   height?: number
+  templateId?: string
 }
 
 export interface ColorPalette {

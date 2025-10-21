@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overlay Alignment Test Harness</title>
+  <script src="https://unpkg.com/konva@9/konva.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background: #f0f0f0;
+      min-height: 200vh; /* Enable scrolling for scroll tests */
+    }
+    
+    h1 {
+      margin: 0 0 20px 0;
+      color: #333;
+    }
+    
+    .controls {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    button {
+      padding: 8px 16px;
+      margin-right: 10px;
+      margin-bottom: 10px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    button:hover {
+      background: #0056b3;
+    }
+    
+    button.danger {
+      background: #dc3545;
+    }
+    
+    button.danger:hover {
+      background: #c82333;
+    }
+    
+    #container {
+      background: white;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    
+    .test-results {
+      padding: 15px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    
+    .test-case {
+      padding: 10px;
+      margin: 5px 0;
+      border-left: 4px solid #007bff;
+      background: #f8f9fa;
+    }
+    
+    .test-case.pass {
+      border-left-color: #28a745;
+      background: #d4edda;
+    }
+    
+    .test-case.fail {
+      border-left-color: #dc3545;
+      background: #f8d7da;
+    }
+    
+    .metrics {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #666;
+      margin-top: 5px;
+    }
+    
+    .info {
+      padding: 15px;
+      background: #e7f3ff;
+      border-left: 4px solid #007bff;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    
+    .overlay-debug {
+      position: fixed;
+      border: 2px solid red;
+      pointer-events: none;
+      z-index: 9999;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎯 Overlay Alignment Test Harness</h1>
+  
+  <div class="info">
+    <strong>Instructions:</strong>
+    <ul>
+      <li>Click "Run All Tests" to create test text nodes and validate alignment</li>
+      <li>Click any text node to edit it - the overlay should align perfectly</li>
+      <li>Try scrolling, resizing window, or zooming the stage while editing</li>
+      <li>Check the test results below for pixel-perfect validation</li>
+    </ul>
+  </div>
+  
+  <div class="controls">
+    <button onclick="runAllTests()">▶️ Run All Tests</button>
+    <button onclick="clearTests()">🗑️ Clear Tests</button>
+    <button onclick="zoomIn()">🔍 Zoom In</button>
+    <button onclick="zoomOut()">🔍 Zoom Out</button>
+    <button onclick="resetZoom()">↺ Reset Zoom</button>
+    <button onclick="scrollToBottom()">⬇️ Scroll Down</button>
+    <button onclick="scrollToTop()">⬆️ Scroll Up</button>
+  </div>
+  
+  <div id="container"></div>
+  
+  <div class="test-results">
+    <h2>Test Results</h2>
+    <div id="results"></div>
+  </div>
+  
+  <script>
+    // Global variables
+    let stage, layer, overlay, currentTextNode;
+    let testResults = [];
+    
+    // Initialize Konva stage
+    function initStage() {
+      const container = document.getElementById('container');
+      
+      stage = new Konva.Stage({
+        container: 'container',
+        width: 800,
+        height: 600,
+        draggable: true
+      });
+      
+      layer = new Konva.Layer();
+      stage.add(layer);
+      
+      // Add background
+      const bg = new Konva.Rect({
+        x: 0,
+        y: 0,
+        width: stage.width(),
+        height: stage.height(),
+        fill: '#fafafa'
+      });
+      layer.add(bg);
+      
+      // Add grid for reference
+      addGrid();
+      
+      layer.draw();
+    }
+    
+    function addGrid() {
+      const gridSize = 50;
+      const width = stage.width();
+      const height = stage.height();
+      
+      for (let i = 0; i < width / gridSize; i++) {
+        layer.add(new Konva.Line({
+          points: [i * gridSize, 0, i * gridSize, height],
+          stroke: '#ddd',
+          strokeWidth: 1
+        }));
+      }
+      
+      for (let i = 0; i < height / gridSize; i++) {
+        layer.add(new Konva.Line({
+          points: [0, i * gridSize, width, i * gridSize],
+          stroke: '#ddd',
+          strokeWidth: 1
+        }));
+      }
+    }
+    
+    // Test cases
+    const testCases = [
+      {
+        name: 'Left-aligned text',
+        config: { x: 50, y: 50, text: 'Left aligned', align: 'left', fontSize: 24 }
+      },
+      {
+        name: 'Center-aligned text',
+        config: { x: 250, y: 50, text: 'Center aligned', align: 'center', fontSize: 24, width: 200 }
+      },
+      {
+        name: 'Right-aligned text',
+        config: { x: 500, y: 50, text: 'Right aligned', align: 'right', fontSize: 24, width: 200 }
+      },
+      {
+        name: 'Rotated text (45°)',
+        config: { x: 100, y: 150, text: 'Rotated 45°', fontSize: 20, rotation: 45 }
+      },
+      {
+        name: 'Rotated text (-30°)',
+        config: { x: 300, y: 150, text: 'Rotated -30°', fontSize: 20, rotation: -30 }
+      },
+      {
+        name: 'Scaled text (1.5x)',
+        config: { x: 500, y: 150, text: 'Scaled 1.5x', fontSize: 20, scaleX: 1.5, scaleY: 1.5 }
+      },
+      {
+        name: 'Text with padding',
+        config: { x: 50, y: 250, text: 'With padding', fontSize: 18, padding: 10 }
+      },
+      {
+        name: 'Text with stroke',
+        config: { x: 250, y: 250, text: 'With stroke', fontSize: 18, stroke: '#007bff', strokeWidth: 2 }
+      },
+      {
+        name: 'Multiline text',
+        config: { x: 450, y: 250, text: 'Line 1\nLine 2\nLine 3', fontSize: 16, lineHeight: 1.5, width: 150 }
+      },
+      {
+        name: 'Small text',
+        config: { x: 50, y: 380, text: 'Small 12px', fontSize: 12 }
+      },
+      {
+        name: 'Large text',
+        config: { x: 200, y: 380, text: 'Large 36px', fontSize: 36 }
+      },
+      {
+        name: 'Text with letter spacing',
+        config: { x: 450, y: 420, text: 'Letter Spacing', fontSize: 18, letterSpacing: 5 }
+      }
+    ];
+    
+    // Create test text nodes
+    function runAllTests() {
+      clearTests();
+      testResults = [];
+      
+      testCases.forEach((testCase, index) => {
+        const text = new Konva.Text({
+          ...testCase.config,
+          id: `test-text-${index}`,
+          fill: '#333',
+          fontFamily: 'Arial'
+        });
+        
+        text.on('click', () => startEdit(text, testCase.name));
+        text.on('tap', () => startEdit(text, testCase.name));
+        
+        layer.add(text);
+      });
+      
+      layer.draw();
+      
+      displayResults();
+    }
+    
+    // Hardened alignment function (from WhiteboardCanvas.vue)
+    function alignTextareaToKonva(stageNode, textNode, textarea) {
+      // Get transform and dimensions
+      const absTransform = textNode.getAbsoluteTransform();
+      const absPos = absTransform.getTranslation();
+      const rotationDeg = textNode.getAbsoluteRotation();
+      const absScale = textNode.getAbsoluteScale();
+      const scaleX = absScale.x;
+      const scaleY = absScale.y;
+
+      // Use getWidth()/getHeight() for actual rendered dimensions
+      const textWidth = textNode.getWidth();
+      const textHeight = textNode.getHeight();
+      const padding = textNode.padding() || 0;
+      const totalWidth = textWidth + padding * 2;
+      const totalHeight = textHeight + padding * 2;
+
+      // Convert to viewport coordinates
+      const containerRect = stageNode.container().getBoundingClientRect();
+      const scrollX = window.pageXOffset || window.scrollX || 0;
+      const scrollY = window.pageYOffset || window.scrollY || 0;
+      const stageX = stageNode.x();
+      const stageY = stageNode.y();
+      const stageScaleX = stageNode.scaleX();
+      const stageScaleY = stageNode.scaleY();
+
+      const viewportX = containerRect.left + (stageX + absPos.x) * stageScaleX;
+      const viewportY = containerRect.top + (stageY + absPos.y) * stageScaleY;
+
+      const dpr = window.devicePixelRatio || 1;
+
+      // CRITICAL FIX: getAbsoluteScale() already includes stage scale!
+      const finalWidth = totalWidth * scaleX;   // Don't multiply by stageScaleX again
+      const finalHeight = totalHeight * scaleY; // Don't multiply by stageScaleY again
+
+      // Font metrics
+      const fontSize = textNode.fontSize() || 16;
+      const fontFamily = textNode.fontFamily() || 'Arial';
+      const fontStyle = textNode.fontStyle() || 'normal';
+      const lineHeight = textNode.lineHeight() || 1.2;
+      const align = textNode.align() || 'left';
+      const letterSpacing = textNode.letterSpacing?.() || 0;
+
+      let fontWeight = 'normal';
+      let fontStyleCSS = 'normal';
+      if (fontStyle.includes('bold')) fontWeight = 'bold';
+      if (fontStyle.includes('italic')) fontStyleCSS = 'italic';
+
+      // Apply styles
+      textarea.style.position = 'fixed';
+      textarea.style.left = `${viewportX}px`;
+      textarea.style.top = `${viewportY}px`;
+      textarea.style.width = `${finalWidth}px`;
+      textarea.style.height = `${finalHeight}px`;
+      textarea.style.fontSize = `${fontSize}px`;
+      textarea.style.fontFamily = fontFamily;
+      textarea.style.fontWeight = fontWeight;
+      textarea.style.fontStyle = fontStyleCSS;
+      textarea.style.lineHeight = `${lineHeight}`;
+      textarea.style.textAlign = align;
+      textarea.style.letterSpacing = `${letterSpacing}px`;
+      textarea.style.transformOrigin = 'left top';
+      textarea.style.transform = `rotate(${rotationDeg}deg)`;
+      textarea.style.border = '2px solid #007bff';
+      textarea.style.borderRadius = '4px';
+      textarea.style.padding = '2px 4px';
+      textarea.style.margin = '0';
+      textarea.style.background = 'rgba(255, 255, 255, 0.95)';
+      textarea.style.outline = 'none';
+      textarea.style.resize = 'none';
+      textarea.style.overflow = 'hidden';
+      textarea.style.whiteSpace = 'pre-wrap';
+      textarea.style.wordBreak = 'break-word';
+      textarea.style.boxSizing = 'border-box';
+      textarea.style.display = 'block';
+      textarea.style.zIndex = '10000';
+      textarea.style.pointerEvents = 'auto';
+
+      return {
+        viewportX, viewportY, finalWidth, finalHeight,
+        rotation: rotationDeg, scaleX, scaleY, fontSize, dpr
+      };
+    }
+
+    // Start editing a text node
+    function startEdit(textNode, testName) {
+      if (overlay) {
+        overlay.remove();
+      }
+
+      currentTextNode = textNode;
+
+      overlay = document.createElement('div');
+      overlay.contentEditable = true;
+      overlay.textContent = textNode.text();
+      document.body.appendChild(overlay);
+
+      const debugInfo = alignTextareaToKonva(stage, textNode, overlay);
+
+      overlay.focus();
+
+      // Validate alignment
+      setTimeout(() => {
+        validateAlignment(textNode, overlay, testName, debugInfo);
+      }, 100);
+
+      // Re-align on events
+      const realign = () => alignTextareaToKonva(stage, textNode, overlay);
+      window.addEventListener('scroll', realign);
+      window.addEventListener('resize', realign);
+      stage.on('dragmove', realign);
+      stage.on('wheel', realign);
+
+      overlay.addEventListener('blur', () => {
+        textNode.text(overlay.textContent);
+        overlay.remove();
+        overlay = null;
+        currentTextNode = null;
+        window.removeEventListener('scroll', realign);
+        window.removeEventListener('resize', realign);
+        stage.off('dragmove', realign);
+        stage.off('wheel', realign);
+        layer.draw();
+      });
+    }
+
+    // Validate alignment with pixel-perfect checks
+    function validateAlignment(textNode, overlay, testName, debugInfo) {
+      const overlayRect = overlay.getBoundingClientRect();
+      const canvasRect = stage.container().getBoundingClientRect();
+
+      // Get expected position and size from debugInfo
+      const expectedX = debugInfo.viewportX;
+      const expectedY = debugInfo.viewportY;
+      const expectedWidth = debugInfo.finalWidth;
+      const expectedHeight = debugInfo.finalHeight;
+
+      const diffX = Math.abs(overlayRect.left - expectedX);
+      const diffY = Math.abs(overlayRect.top - expectedY);
+      const diffWidth = Math.abs(overlayRect.width - expectedWidth);
+      const diffHeight = Math.abs(overlayRect.height - expectedHeight);
+
+      const tolerance = 5; // 5px tolerance for padding, border, and rounding
+      const pass = diffX < tolerance && diffY < tolerance &&
+                   diffWidth < tolerance * 2 && diffHeight < tolerance * 2;
+
+      const result = {
+        testName,
+        pass,
+        metrics: {
+          position: { expected: `(${expectedX.toFixed(1)}, ${expectedY.toFixed(1)})`,
+                     actual: `(${overlayRect.left.toFixed(1)}, ${overlayRect.top.toFixed(1)})`,
+                     diff: `(${diffX.toFixed(1)}, ${diffY.toFixed(1)})` },
+          size: { expected: `${expectedWidth.toFixed(1)}×${expectedHeight.toFixed(1)}`,
+                 actual: `${overlayRect.width.toFixed(1)}×${overlayRect.height.toFixed(1)}`,
+                 diff: `${diffWidth.toFixed(1)}×${diffHeight.toFixed(1)}` },
+          rotation: `${debugInfo.rotation.toFixed(1)}°`,
+          scale: `${debugInfo.scaleX.toFixed(2)}×${debugInfo.scaleY.toFixed(2)}`,
+          dpr: debugInfo.dpr
+        }
+      };
+
+      testResults.push(result);
+      displayResults();
+
+      console.log(`${pass ? '✅ PASS' : '❌ FAIL'}: ${testName}`, result.metrics);
+    }
+
+    // Display test results
+    function displayResults() {
+      const resultsDiv = document.getElementById('results');
+      if (testResults.length === 0) {
+        resultsDiv.innerHTML = '<p>No tests run yet. Click "Run All Tests" to begin.</p>';
+        return;
+      }
+
+      const passCount = testResults.filter(r => r.pass).length;
+      const totalCount = testResults.length;
+
+      let html = `<h3>Summary: ${passCount}/${totalCount} tests passed</h3>`;
+
+      testResults.forEach(result => {
+        html += `
+          <div class="test-case ${result.pass ? 'pass' : 'fail'}">
+            <strong>${result.pass ? '✅' : '❌'} ${result.testName}</strong>
+            <div class="metrics">
+              Position: ${result.metrics.position.actual} (expected: ${result.metrics.position.expected}, diff: ${result.metrics.position.diff})<br>
+              Size: ${result.metrics.size.actual} (expected: ${result.metrics.size.expected}, diff: ${result.metrics.size.diff})<br>
+              Rotation: ${result.metrics.rotation} | Scale: ${result.metrics.scale} | DPR: ${result.metrics.dpr}
+            </div>
+          </div>
+        `;
+      });
+
+      resultsDiv.innerHTML = html;
+    }
+
+    // Utility functions
+    function clearTests() {
+      layer.destroyChildren();
+      const bg = new Konva.Rect({
+        x: 0, y: 0,
+        width: stage.width(),
+        height: stage.height(),
+        fill: '#fafafa'
+      });
+      layer.add(bg);
+      addGrid();
+      layer.draw();
+      testResults = [];
+      displayResults();
+      if (overlay) {
+        overlay.remove();
+        overlay = null;
+      }
+    }
+
+    function zoomIn() {
+      const newScale = stage.scaleX() * 1.2;
+      stage.scale({ x: newScale, y: newScale });
+      layer.draw();
+    }
+
+    function zoomOut() {
+      const newScale = stage.scaleX() / 1.2;
+      stage.scale({ x: newScale, y: newScale });
+      layer.draw();
+    }
+
+    function resetZoom() {
+      stage.scale({ x: 1, y: 1 });
+      stage.position({ x: 0, y: 0 });
+      layer.draw();
+    }
+
+    function scrollToBottom() {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+
+    function scrollToTop() {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', () => {
+      initStage();
+      displayResults();
+    });
+  </script>
+</body>
+</html>
+
+

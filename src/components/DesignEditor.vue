@@ -16,25 +16,7 @@
       @apply-filters="handleApplyFilters"
       @apply-crop="handleApplyCrop"
       @add-cropped-image="handleAddCroppedImage"
-    />
-
-    <!-- AI Retouch Components -->
-    <RetouchButton
-      @one-click-retouch="handleOneClickRetouch"
-      @color-suggestions="handleColorSuggestions"
-      @layout-optimization="handleLayoutOptimization"
-    />
-    <AIRetouchPanel
-      @one-click-retouch="handleOneClickRetouch"
-      @color-suggestions="handleColorSuggestions"
-      @layout-optimization="handleLayoutOptimization"
-      @font-suggestions="handleFontSuggestions"
-    />
-    <BeforeAfterPreview />
-    <AILoadingIndicator
-      :is-visible="aiRetouchStore.isProcessing"
-      :title="'AI Processing'"
-      :message="'Analyzing your design...'"
+      @load-svg-background="handleLoadSVGBackground"
     />
 
       <!-- Top Toolbar -->
@@ -93,22 +75,16 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEditorStore } from '@/stores/editor'
-import { useAIRetouchStore } from '@/stores/ai-retouch'
 import { logger } from '@/utils/logger'
 
 // Components
 import Sidebar from './Sidebar.vue'
 import Toolbar from './Toolbar.vue'
 import WhiteboardCanvas from './WhiteboardCanvas.vue'
-import RetouchButton from './ai-retouch/RetouchButton.vue'
-import AIRetouchPanel from './ai-retouch/AIRetouchPanel.vue'
-import BeforeAfterPreview from './ai-retouch/BeforeAfterPreview.vue'
-import AILoadingIndicator from './ai-retouch/AILoadingIndicator.vue'
 import ThemeToggle from './ThemeToggle.vue'
 
 const router = useRouter()
 const store = useEditorStore()
-const aiRetouchStore = useAIRetouchStore()
 
 // Refs
 const whiteboardRef = ref<InstanceType<typeof WhiteboardCanvas> | null>(null)
@@ -230,53 +206,17 @@ function handleTextSelected(event: { id: string }) {
   logger.debug('Text selected:', event)
 }
 
-// AI Retouch Handlers
-async function handleOneClickRetouch() {
+// Handle SVG Background Loading
+async function handleLoadSVGBackground() {
   try {
-    // Get current design data from whiteboard
-    const designData = {
-      elements: [], // TODO: Get from whiteboard
-      canvasSize: { width: 500, height: 700 },
-      backgroundColor: '#ffffff'
-    }
+    logger.info('Loading SVG background...')
 
-    await aiRetouchStore.applyOneClickRetouch(designData)
+    // Load the Freedom Ceremony SVG background
+    await store.loadSVGTemplate('/templates/freedom-ceremony-preview.svg')
+
+    logger.info('SVG background loaded successfully')
   } catch (error) {
-    logger.error('One-click retouch failed:', error)
-  }
-}
-
-async function handleColorSuggestions() {
-  try {
-    // Extract colors from current design
-    const colors = ['#667eea', '#764ba2'] // TODO: Extract from whiteboard
-    await aiRetouchStore.getColorPaletteSuggestions(colors)
-    aiRetouchStore.openPanel()
-  } catch (error) {
-    logger.error('Color suggestions failed:', error)
-  }
-}
-
-async function handleLayoutOptimization() {
-  try {
-    // Get elements from whiteboard
-    const elements = [] // TODO: Get from whiteboard
-    const canvasSize = { width: 500, height: 700 }
-
-    await aiRetouchStore.optimizeDesignLayout(elements, canvasSize)
-    aiRetouchStore.openPanel()
-  } catch (error) {
-    logger.error('Layout optimization failed:', error)
-  }
-}
-
-async function handleFontSuggestions() {
-  try {
-    // Get current fonts from design
-    const currentFonts = ['Arial'] // TODO: Extract from whiteboard
-    await aiRetouchStore.getFontPairingSuggestions(currentFonts)
-  } catch (error) {
-    logger.error('Font suggestions failed:', error)
+    logger.error('Failed to load SVG background:', error)
   }
 }
 </script>

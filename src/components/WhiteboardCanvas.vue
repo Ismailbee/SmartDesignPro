@@ -932,6 +932,290 @@ const textEditState = reactive({
   color: '#000000'
 })
 
+/**
+ * HARDENED OVERLAY ALIGNMENT FUNCTION
+ * Aligns an HTML textarea/div exactly over a Konva.Text node for editing.
+ * Handles: rotation, scaling, padding, stroke, DPR, scroll, stage transforms, font metrics.
+ *
+ * @param {Konva.Stage} stageNode - The Konva stage instance
+ * @param {Konva.Text} textNode - The Konva text node to align to
+ * @param {HTMLElement} textarea - The HTML overlay element (textarea or contenteditable div)
+ * @returns {Object} Debug info with computed metrics
+ */
+const alignTextareaToKonva = (stageNode, textNode, textarea) => {
+  // ============================================================================
+  // STEP 1: Get text node transform and dimensions
+  // ============================================================================
+  // Get absolute transform for position and rotation
+  const absTransform = textNode.getAbsoluteTransform()
+  const absPos = absTransform.getTranslation() // Position before rotation
+  const rotationDeg = textNode.getAbsoluteRotation()
+  const absScale = textNode.getAbsoluteScale()
+  const scaleX = absScale.x
+  const scaleY = absScale.y
+
+  // Get text dimensions (before rotation)
+  // CRITICAL: Use getWidth()/getHeight() for auto-sized text
+  // width()/height() return configured values (may be undefined)
+  // getWidth()/getHeight() return actual rendered dimensions
+  const textWidth = textNode.getWidth()
+  const textHeight = textNode.getHeight()
+  const padding = textNode.padding() || 0
+
+  // Total dimensions including padding (stroke is rendered inside for text)
+  const totalWidth = textWidth + padding * 2
+  const totalHeight = textHeight + padding * 2
+
+  console.log('🔍 alignTextareaToKonva - Dimensions:', {
+    textWidth,
+    textHeight,
+    padding,
+    totalWidth,
+    totalHeight,
+    scaleX,
+    scaleY,
+    rotation: rotationDeg,
+    absPos: { x: absPos.x, y: absPos.y }
+  })
+
+  // ============================================================================
+  // STEP 2: Get position using getClientRect (accounts for all transforms)
+  // ============================================================================
+  // Use getClientRect to get the visual bounding box in stage coordinates
+  const clientRect = textNode.getClientRect()
+
+  // Get container position in viewport
+  const containerRect = stageNode.container().getBoundingClientRect()
+
+  // Convert stage coordinates to viewport coordinates
+  const viewportX = containerRect.left + clientRect.x
+  const viewportY = containerRect.top + clientRect.y
+
+  console.log('🔍 Position using getClientRect:', {
+    clientRect: { x: clientRect.x, y: clientRect.y, width: clientRect.width, height: clientRect.height },
+    containerRect: { left: containerRect.left, top: containerRect.top },
+    viewportX,
+    viewportY
+  })
+
+
+
+  // ============================================================================
+  // STEP 3: Compute final dimensions
+  // ============================================================================
+  const dpr = window.devicePixelRatio || 1
+
+  // CRITICAL FIX: getAbsoluteScale() already includes stage scale!
+  // Don't multiply by stageScaleX/stageScaleY again or dimensions will be too small
+  // absScale already = textNode.scaleX * layer.scaleX * stage.scaleX
+  const finalWidth = totalWidth * scaleX   // scaleX already includes stage scale
+  const finalHeight = totalHeight * scaleY  // scaleY already includes stage scale
+
+  console.log('🔍 alignTextareaToKonva - Final dimensions:', {
+    finalWidth,
+    finalHeight,
+    viewportX,
+    viewportY,
+    scaleX,
+    scaleY,
+    note: 'Using getClientRect() for position, getAbsoluteScale() for dimensions'
+  })
+
+  // ============================================================================
+  // STEP 6: Match font metrics exactly
+  // ============================================================================
+  // Extract all font properties from Konva text node
+  const fontSize = textNode.fontSize() || 16
+  const fontFamily = textNode.fontFamily() || 'Arial'
+  const fontStyle = textNode.fontStyle() || 'normal' // 'normal', 'italic', 'bold', 'bold italic'
+  const fontVariant = textNode.fontVariant?.() || 'normal'
+  const textDecoration = textNode.textDecoration?.() || 'none'
+  const lineHeight = textNode.lineHeight() || 1.2
+  const align = textNode.align() || 'left'
+  const letterSpacing = textNode.letterSpacing?.() || 0
+
+  // Parse fontStyle to extract weight and style
+  let fontWeight = 'normal'
+  let fontStyleCSS = 'normal'
+  if (fontStyle.includes('bold')) fontWeight = 'bold'
+  if (fontStyle.includes('italic')) fontStyleCSS = 'italic'
+
+  // ============================================================================
+  // STEP 7: Apply CSS positioning (fixed positioning for viewport coordinates)
+  // ============================================================================
+  textarea.style.position = 'fixed'
+  textarea.style.left = `${viewportX}px`
+  textarea.style.top = `${viewportY}px`
+
+  // ============================================================================
+  // STEP 4: Apply dimensions
+  // ============================================================================
+  // Set dimensions with all scales applied
+  // Don't use minimums - let the text determine the size
+  textarea.style.width = `${finalWidth}px`
+  textarea.style.height = `${finalHeight}px`
+
+  console.log('🎨 Applied styles:', {
+    position: textarea.style.position,
+    left: textarea.style.left,
+    top: textarea.style.top,
+    width: textarea.style.width,
+    height: textarea.style.height,
+    transform: textarea.style.transform
+  })
+
+  // ============================================================================
+  // STEP 5: Apply font metrics
+  // ============================================================================
+  textarea.style.fontSize = `${fontSize}px`
+  textarea.style.fontFamily = fontFamily
+  textarea.style.fontWeight = fontWeight
+  textarea.style.fontStyle = fontStyleCSS
+  textarea.style.fontVariant = fontVariant
+  textarea.style.textDecoration = textDecoration
+  textarea.style.lineHeight = `${lineHeight}`
+  textarea.style.textAlign = align
+  textarea.style.letterSpacing = `${letterSpacing}px`
+
+  // ============================================================================
+  // STEP 6: Apply rotation via CSS transform
+  // ============================================================================
+  // Transform origin must be 'left top' to match Konva's default rotation pivot
+  // We only apply rotation here - scaling is already in the dimensions
+  textarea.style.transformOrigin = 'left top'
+  textarea.style.transform = `rotate(${rotationDeg}deg)`
+
+  // ============================================================================
+  // STEP 11: Visual styling for editing
+  // ============================================================================
+  textarea.style.border = '2px solid #007bff'
+  textarea.style.borderRadius = '4px'
+  textarea.style.padding = '2px 4px'
+  textarea.style.margin = '0'
+  textarea.style.background = 'rgba(255, 255, 255, 0.95)'
+  textarea.style.backdropFilter = 'blur(2px)'
+  textarea.style.outline = 'none'
+  textarea.style.resize = 'none'
+  textarea.style.overflow = 'visible'
+  textarea.style.whiteSpace = 'pre-wrap'
+  textarea.style.wordBreak = 'break-word'
+  textarea.style.boxSizing = 'border-box'
+  textarea.style.display = 'block'
+  textarea.style.verticalAlign = 'top'
+  textarea.style.maxHeight = 'none'
+
+  // ============================================================================
+  // STEP 12: Z-index and pointer events
+  // ============================================================================
+  textarea.style.zIndex = '10000'
+  textarea.style.pointerEvents = 'auto'
+
+  // ============================================================================
+  // STEP 7: Return debug info for validation
+  // ============================================================================
+  const debugInfo = {
+    // Client rect info
+    clientRect,
+
+    // Text dimensions
+    textWidth,
+    textHeight,
+    totalWidth,
+    totalHeight,
+
+    // Viewport coordinates
+    viewportX,
+    viewportY,
+
+    // Final dimensions
+    finalWidth,
+    finalHeight,
+
+    // Transform
+    rotation: rotationDeg,
+    scaleX,
+    scaleY,
+
+    // Font
+    fontSize,
+    fontFamily,
+    lineHeight,
+
+    // DPR
+    dpr,
+
+    // Scroll
+    scrollX,
+    scrollY
+  }
+
+  console.debug('alignTextareaToKonva:', debugInfo)
+
+  return debugInfo
+}
+
+// ============================================================================
+// EVENT HANDLERS FOR OVERLAY REALIGNMENT
+// ============================================================================
+// These handlers ensure the overlay stays aligned when the page/stage changes
+
+// Realign overlay on scroll/resize/transform
+const realignOverlay = () => {
+  if (!textEditState.isEditing || !textEditState.textId) return
+
+  const overlay = textEditOverlay.value
+  const stageNode = stage.value?.getNode()
+  const textNode = stageNode?.findOne(`#text-${textEditState.textId}`)
+
+  if (overlay && stageNode && textNode) {
+    console.debug('Realigning overlay due to scroll/resize/transform')
+    alignTextareaToKonva(stageNode, textNode, overlay)
+    overlay.style.color = textEditState.color
+  }
+}
+
+// Throttle function to limit realignment frequency
+let realignTimeout = null
+const throttledRealign = () => {
+  if (realignTimeout) return
+  realignTimeout = setTimeout(() => {
+    realignOverlay()
+    realignTimeout = null
+  }, 16) // ~60fps
+}
+
+// Stage event handlers
+let stageEventHandlers = null
+
+const attachStageEventHandlers = () => {
+  const stageNode = stage.value?.getNode()
+  if (!stageNode || stageEventHandlers) return
+
+  stageEventHandlers = {
+    dragmove: throttledRealign,
+    transform: throttledRealign,
+    wheel: throttledRealign
+  }
+
+  stageNode.on('dragmove', stageEventHandlers.dragmove)
+  stageNode.on('transform', stageEventHandlers.transform)
+  stageNode.on('wheel', stageEventHandlers.wheel)
+
+  console.debug('Attached stage event handlers for overlay realignment')
+}
+
+const detachStageEventHandlers = () => {
+  const stageNode = stage.value?.getNode()
+  if (!stageNode || !stageEventHandlers) return
+
+  stageNode.off('dragmove', stageEventHandlers.dragmove)
+  stageNode.off('transform', stageEventHandlers.transform)
+  stageNode.off('wheel', stageEventHandlers.wheel)
+
+  stageEventHandlers = null
+  console.debug('Detached stage event handlers for overlay realignment')
+}
+
 // Get actual rendered position of text element using Konva's transform system
 const getTextElementScreenPosition = (textId) => {
   const stageNode = stage.value?.getNode()
@@ -1194,37 +1478,28 @@ const startTextEdit = (id, clickX = null) => {
       // Start continuous position updates for zoom/pan support
       startPositionUpdates()
 
+      // Attach event handlers for realignment on scroll/resize/transform
+      attachStageEventHandlers()
+
       // Emit edit start event
       emit('text-edit-start', { id, initialText: textData.text })
 
       // Focus overlay after position is calculated
       nextTick(() => {
         const overlay = textEditOverlay.value
-        if (overlay) {
+        const stageNode = stage.value?.getNode()
+        const textNode = stageNode?.findOne(`#text-${id}`)
+
+        if (overlay && stageNode && textNode) {
           console.debug('overlay-created', id, 'at position:', position)
 
-          // Apply static style directly to prevent position jumping
-          const style = getOverlayStyle()
+          // Use new alignment function to position overlay
+          alignTextareaToKonva(stageNode, textNode, overlay)
 
-          // Apply styles one by one to ensure they stick
-          overlay.style.position = style.position
-          overlay.style.left = style.left
-          overlay.style.top = style.top
-          overlay.style.transform = style.transform
-          overlay.style.transformOrigin = style.transformOrigin
-          overlay.style.width = style.width
-          overlay.style.fontSize = style.fontSize
-          overlay.style.fontFamily = style.fontFamily
-          overlay.style.color = style.color
-          overlay.style.zIndex = style.zIndex
-          overlay.style.display = style.display
+          // Set color (not handled by alignTextareaToKonva)
+          overlay.style.color = textEditState.color
 
-          console.debug('Applied overlay style:', {
-            transform: overlay.style.transform,
-            position: overlay.style.position,
-            left: overlay.style.left,
-            top: overlay.style.top
-          })
+          console.debug('Applied overlay alignment using alignTextareaToKonva')
 
           // Set text content and focus
           // CRITICAL: Use innerText to preserve line breaks, or convert \n to <br>
@@ -1415,6 +1690,9 @@ const resetTextEditState = () => {
 
   // Stop position updates
   stopPositionUpdates()
+
+  // Detach event handlers for realignment
+  detachStageEventHandlers()
 
   textEditState.isEditing = false
   textEditState.textId = null
@@ -2073,19 +2351,15 @@ const handleWheel = (e) => {
   stageY.value = pointer.y - mousePointTo.y * clampedScale
 
   // Update overlay position if editing (manual update on zoom/pan)
-  if (textEditState.isEditing) {
-    const position = getTextElementScreenPosition(textEditState.textId)
-    if (position) {
-      textEditState.screenX = position.x
-      textEditState.screenY = position.y
-      textEditState.stageScale = position.stageScale
+  if (textEditState.isEditing && textEditState.textId) {
+    const overlay = textEditOverlay.value
+    const stageNode = stage.value?.getNode()
+    const textNode = stageNode?.findOne(`#text-${textEditState.textId}`)
 
-      // Apply updated position directly to overlay
-      const overlay = textEditOverlay.value
-      if (overlay) {
-        const style = getOverlayStyle()
-        Object.assign(overlay.style, style)
-      }
+    if (overlay && stageNode && textNode) {
+      // Use new alignment function to reposition overlay
+      alignTextareaToKonva(stageNode, textNode, overlay)
+      overlay.style.color = textEditState.color
     }
   }
 }
@@ -2117,19 +2391,15 @@ const zoomToCenter = (newScale) => {
   stageY.value = centerY - mousePointTo.y * newScale
 
   // Update overlay position if editing (manual update on zoom)
-  if (textEditState.isEditing) {
-    const position = getTextElementScreenPosition(textEditState.textId)
-    if (position) {
-      textEditState.screenX = position.x
-      textEditState.screenY = position.y
-      textEditState.stageScale = position.stageScale
+  if (textEditState.isEditing && textEditState.textId) {
+    const overlay = textEditOverlay.value
+    const stageNode = stage.value?.getNode()
+    const textNode = stageNode?.findOne(`#text-${textEditState.textId}`)
 
-      // Apply updated position directly to overlay
-      const overlay = textEditOverlay.value
-      if (overlay) {
-        const style = getOverlayStyle()
-        Object.assign(overlay.style, style)
-      }
+    if (overlay && stageNode && textNode) {
+      // Use new alignment function to reposition overlay
+      alignTextareaToKonva(stageNode, textNode, overlay)
+      overlay.style.color = textEditState.color
     }
   }
 }
@@ -2569,6 +2839,45 @@ onMounted(() => {
   // Add keyboard listeners
   window.addEventListener('keydown', handleKeyDown)
 
+  // Add scroll and resize listeners for overlay realignment
+  window.addEventListener('scroll', throttledRealign, { passive: true })
+  window.addEventListener('resize', throttledRealign, { passive: true })
+
+  // Listen for SVG template load events
+  window.addEventListener('load-svg-template', async (event) => {
+    const { svgUrl } = event.detail
+    console.log('🎨 Loading SVG template:', svgUrl)
+
+    try {
+      // Create asset object for the SVG
+      const svgAsset = {
+        id: 'svg-background-' + Date.now(),
+        name: 'SVG Background',
+        url: svgUrl,
+        thumbnail: svgUrl
+      }
+
+      // Load SVG as background image
+      await addImageFromUrl(svgAsset)
+
+      // After loading, find the image and make it fill the canvas
+      nextTick(() => {
+        const lastImage = images.value[images.value.length - 1]
+        if (lastImage) {
+          lastImage.x = 0
+          lastImage.y = 0
+          lastImage.width = stageWidth.value
+          lastImage.height = stageHeight.value
+          lastImage.draggable = false
+          lastImage.locked = true
+          console.log('✅ SVG template loaded successfully')
+        }
+      })
+    } catch (error) {
+      console.error('❌ Failed to load SVG template:', error)
+    }
+  })
+
   // Add resize observer to handle container size changes
   if (canvasContainer.value) {
     const resizeObserver = new ResizeObserver(() => {
@@ -2593,6 +2902,9 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
+  window.removeEventListener('scroll', throttledRealign)
+  window.removeEventListener('resize', throttledRealign)
+  detachStageEventHandlers()
 })
 
 // Watch for image changes to update node IDs
@@ -2782,24 +3094,14 @@ defineExpose({
 
 /* Text editing overlay styles */
 .text-edit-overlay {
-  /* Position will be set by JavaScript - don't override */
-  border: 2px solid #007bff;
-  border-radius: 4px;
-  padding: 4px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(2px);
-  z-index: 1000;
-  outline: none;
-  resize: none;
-  overflow: visible; /* Allow multi-line text to show */
-  white-space: pre-wrap;
-  word-break: break-word;
+  /* All positioning, sizing, and transform styles are set by JavaScript */
+  /* DO NOT override: position, left, top, width, height, transform, padding, box-sizing */
+  /* Only set visual styles that don't affect layout */
   box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
   /* NO transition - prevents position jumping */
 }
 
 .text-edit-overlay:focus {
-  border-color: #0056b3;
   box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
 }
 

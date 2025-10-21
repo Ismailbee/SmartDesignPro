@@ -15,22 +15,51 @@ const crypto = require('crypto')
 const app = express()
 const PORT = process.env.AUTH_PORT || 3003
 
-// JWT Secret Keys (In production, use environment variables)
-const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || 'your-access-token-secret-change-in-production'
-const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'your-refresh-token-secret-change-in-production'
+// ============================================================================
+// SECURITY CONFIGURATION
+// ============================================================================
+
+// JWT Secret Keys - MUST be set via environment variables in production
+const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET
+const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET
+
+// Validate that secrets are set
+if (!ACCESS_TOKEN_SECRET || !REFRESH_TOKEN_SECRET) {
+  console.error('\n❌ CRITICAL SECURITY ERROR: JWT secrets not configured!')
+  console.error('📝 Please set ACCESS_TOKEN_SECRET and REFRESH_TOKEN_SECRET in your .env file')
+  console.error('🔧 Run: node scripts/generate-secrets.js to generate secure secrets\n')
+
+  if (process.env.NODE_ENV === 'production') {
+    // In production, fail immediately
+    throw new Error('Missing required JWT secrets. Cannot start server.')
+  } else {
+    // In development, warn but allow with temporary secrets
+    console.warn('⚠️  WARNING: Using temporary development secrets. DO NOT use in production!')
+    // These will be reassigned below for development only
+  }
+}
+
+// Use environment variables or secure defaults for development
+const FINAL_ACCESS_SECRET = ACCESS_TOKEN_SECRET || crypto.randomBytes(64).toString('hex')
+const FINAL_REFRESH_SECRET = REFRESH_TOKEN_SECRET || crypto.randomBytes(64).toString('hex')
 
 // Token Expiry
-const ACCESS_TOKEN_EXPIRY = '15m' // 15 minutes
-const REFRESH_TOKEN_EXPIRY = '7d' // 7 days
+const ACCESS_TOKEN_EXPIRY = process.env.ACCESS_TOKEN_EXPIRY || '15m'
+const REFRESH_TOKEN_EXPIRY = process.env.REFRESH_TOKEN_EXPIRY || '7d'
 
 // Security Settings
-const MAX_LOGIN_ATTEMPTS = 5
-const LOCKOUT_DURATION = 15 * 60 * 1000 // 15 minutes in milliseconds
-const SALT_ROUNDS = 10
+const MAX_LOGIN_ATTEMPTS = parseInt(process.env.MAX_LOGIN_ATTEMPTS) || 5
+const LOCKOUT_DURATION = parseInt(process.env.LOCKOUT_DURATION) || 15 * 60 * 1000
+const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS) || 10
+
+// CORS Configuration - Use environment variable for allowed origins
+const allowedOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',')
+  : ['http://localhost:5173', 'http://localhost:3000']
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  origin: allowedOrigins,
   credentials: true
 }))
 app.use(express.json())
@@ -90,7 +119,7 @@ function generateAccessToken(user) {
       username: user.username,
       role: user.role
     },
-    ACCESS_TOKEN_SECRET,
+    FINAL_ACCESS_SECRET,
     { expiresIn: ACCESS_TOKEN_EXPIRY }
   )
 }
@@ -101,7 +130,7 @@ function generateRefreshToken() {
 
 function verifyAccessToken(token) {
   try {
-    return jwt.verify(token, ACCESS_TOKEN_SECRET)
+    return jwt.verify(token, FINAL_ACCESS_SECRET)
   } catch (error) {
     return null
   }

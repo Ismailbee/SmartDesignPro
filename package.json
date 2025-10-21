@@ -10,7 +10,17 @@
     "build:check": "vue-tsc && vite build",
     "type-check": "vue-tsc --noEmit",
     "preview": "vite preview",
-    "lint": "eslint --ext .ts,.vue src"
+    "lint": "eslint --ext .ts,.vue src",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "test:run": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:lighthouse": "node scripts/run-lighthouse.js",
+    "test:all": "node scripts/run-all-tests.js",
+    "generate-secrets": "node scripts/generate-secrets.js",
+    "install-security": "node scripts/install-security-packages.ps1"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.7.4",
@@ -24,6 +34,7 @@
     "@vueuse/core": "^10.7.0",
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.4.1",
+    "canvas": "^3.2.0",
     "chart.js": "^4.5.0",
     "cors": "^2.8.5",
     "cropperjs": "^2.0.1",
@@ -39,13 +50,17 @@
     "multer": "^2.0.2",
     "pinia": "^2.1.7",
     "qrcode": "^1.5.4",
+    "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
+    "swiper": "^12.0.2",
     "uuid": "^13.0.0",
     "vue": "^3.4.0",
     "vue-konva": "^3.0.2",
-    "vue-router": "^4.5.1"
+    "vue-router": "^4.5.1",
+    "vue3-lottie": "^3.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.0",
     "@typescript-eslint/eslint-plugin": "^6.14.0",
     "@typescript-eslint/parser": "^6.14.0",
     "@vitejs/plugin-vue": "^4.5.2",

@@ -40,6 +40,16 @@ export const useEditorStore = defineStore('editor', () => {
   // Sample assets
   const sampleAssets = ref<AssetItem[]>([
     {
+      id: 'freedom-ceremony',
+      type: 'template',
+      name: 'Freedom Ceremony',
+      thumbnail: '/templates/freedom-ceremony-preview.svg',
+      url: '/templates/freedom-ceremony-preview.svg',
+      width: 1024,
+      height: 576,
+      templateId: 'freedom-ceremony'
+    },
+    {
       id: '1',
       type: 'image',
       name: 'Sample Image 1',
@@ -284,6 +294,23 @@ export const useEditorStore = defineStore('editor', () => {
     }
   }
 
+  // Load SVG Template
+  async function loadSVGTemplate(svgUrl: string) {
+    try {
+      logger.info('Loading SVG template:', svgUrl)
+
+      // Emit event to WhiteboardCanvas to load the template
+      window.dispatchEvent(new CustomEvent('load-svg-template', {
+        detail: { svgUrl }
+      }))
+
+      return true
+    } catch (error) {
+      logger.error('Failed to load SVG template:', error)
+      throw error
+    }
+  }
+
   // Initialize with first history state
   saveToHistory()
 
@@ -294,12 +321,12 @@ export const useEditorStore = defineStore('editor', () => {
     activeTab,
     sampleAssets,
     colorPalette,
-    
+
     // Computed
     selectedObjects,
     canUndo,
     canRedo,
-    
+
     // Actions
     saveToHistory,
     undo,
@@ -313,6 +340,7 @@ export const useEditorStore = defineStore('editor', () => {
     bringForward,
     sendBackward,
     resetCanvas,
-    loadFromStorage
+    loadFromStorage,
+    loadSVGTemplate
   }
 })

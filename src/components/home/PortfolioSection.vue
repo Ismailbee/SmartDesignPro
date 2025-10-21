@@ -46,7 +46,7 @@ import { ref, computed } from 'vue'
 
 // Portfolio filter state
 const activeFilter = ref('All')
-const filters = ['All', 'Web Design', 'Branding', 'UI/UX']
+const filters = ['All', 'Web Design', 'Branding', 'UI/UX', 'Templates']
 
 // Portfolio projects
 const projects = ref([
@@ -59,6 +59,12 @@ const projects = ref([
   { title: 'Restaurant Website', category: 'Web Design', image: 'https://picsum.photos/400/300?random=7' },
   { title: 'Corporate Identity', category: 'Branding', image: 'https://picsum.photos/400/300?random=8' },
   { title: 'SaaS Platform', category: 'UI/UX', image: 'https://picsum.photos/400/300?random=9' },
+  {
+    title: 'Freedom Ceremony',
+    category: 'Templates',
+    image: '/templates/freedom-ceremony-preview.svg',
+    description: 'Beautiful Freedom Ceremony template with customizable text and images'
+  },
 ])
 
 // Computed filtered projects

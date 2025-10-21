@@ -63,7 +63,7 @@ cd collaboration-server
    - Copy `collaboration-server.js` to this directory
    - Copy `collaboration-server-package.json` and rename to `package.json`
 
-3. **Install and run:**
+3. ** Install and run:**
 ```bash
 npm install
 npm start

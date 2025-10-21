@@ -381,7 +381,7 @@ const handleRegister = () => {
   height: 80px;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   border-radius: 8px;
-    align-items: center;
+  align-items: center;
   justify-content: center;
   animation: pulse 2s ease-in-out infinite;
 }

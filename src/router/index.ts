@@ -11,6 +11,7 @@ const WelcomePage = () => import('@/components/WelcomePage.vue')
 const HomePage = () => import('@/components/HomePage.vue')
 const DesignEditor = () => import('@/components/DesignEditor.vue')
 const UserSettings = () => import('@/views/UserSettings.vue')
+const AutoDesignPage = () => import('@/views/AutoDesignPage.vue')
 const AdminDashboard = () => import('@/views/admin/AdminDashboard.vue')
 const UserManagement = () => import('@/views/admin/UserManagement.vue')
 const UserDetail = () => import('@/views/admin/UserDetail.vue')
@@ -48,7 +49,7 @@ const routes: RouteRecordRaw[] = [
     component: HomePage,
     meta: {
       title: 'Home - SmartDesignPro',
-      requiresAuth: true
+      requiresAuth: false  // Changed to false to make home page public
     }
   },
 
@@ -68,6 +69,16 @@ const routes: RouteRecordRaw[] = [
     component: UserSettings,
     meta: {
       title: 'Settings - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/auto-design',
+    name: 'auto-design',
+    component: AutoDesignPage,
+    meta: {
+      title: 'Auto Design - SmartDesignPro',
       requiresAuth: true
     }
   },
@@ -280,18 +291,19 @@ router.beforeEach((to, _from, next) => {
       return
     }
 
-    // TEMPORARY DEV MODE: Allow all authenticated users to access admin routes
-    // TODO: Remove this in production and use proper role checking
-    const DEV_MODE = true // Set to false in production
+    // Check if user has admin or moderator role
+    const userRole = authStore.user?.role || 'user'
+    const isDevelopment = import.meta.env.DEV
 
-    if (DEV_MODE) {
-      console.log('🔧 DEV MODE: Granting admin access to authenticated user')
+    // In development, allow bypass with environment variable
+    const allowDevBypass = isDevelopment && import.meta.env.VITE_ALLOW_ADMIN_BYPASS === 'true'
+
+    if (allowDevBypass) {
+      console.warn('⚠️  DEV MODE: Admin bypass enabled (set VITE_ALLOW_ADMIN_BYPASS=false to disable)')
       next()
       return
     }
 
-    // Production: Check if user has admin or moderator role
-    const userRole = authStore.user?.role || 'user'
     if (userRole !== 'admin' && userRole !== 'moderator') {
       // Redirect to home page with error message
       console.error('❌ Access denied: Admin privileges required')

@@ -44,6 +44,7 @@ const isOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
 
 const categories = [
+  'Naming Ceremony',
   'Sticker',
   'Receipt',
   'Invoice',
@@ -75,10 +76,10 @@ const toggleDropdown = () => {
 
 const selectCategory = (category: string) => {
   console.log('Selected category:', category)
-  // Navigate to editor with the selected template
+  // Navigate to Auto Design page with the selected category
   router.push({
-    path: '/editor',
-    query: { template: category.toLowerCase().replace(/\s+/g, '-').replace(/\//g, '-') }
+    path: '/auto-design',
+    query: { category: category.toLowerCase().replace(/\s+/g, '-').replace(/\//g, '-') }
   })
   isOpen.value = false
 }

@@ -1,0 +1,58 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - img [ref=e9]
+        - heading "SmartDesignPro" [level=1] [ref=e11]
+      - heading "Create Stunning Designs in Minutes" [level=2] [ref=e12]
+      - paragraph [ref=e13]: Professional design tools at your fingertips. Create logos, posters, social media graphics, and more with our intuitive drag-and-drop editor. No design experience required.
+      - generic [ref=e14]:
+        - button "Login to Get Started" [ref=e15] [cursor=pointer]:
+          - img [ref=e16]
+          - text: Login to Get Started
+        - button "Create Free Account" [ref=e18] [cursor=pointer]:
+          - img [ref=e19]
+          - text: Create Free Account
+      - generic [ref=e21]:
+        - generic [ref=e22]:
+          - img [ref=e23]
+          - generic [ref=e25]: Free Templates
+        - generic [ref=e26]:
+          - img [ref=e27]
+          - generic [ref=e29]: Drag & Drop Editor
+        - generic [ref=e30]:
+          - img [ref=e31]
+          - generic [ref=e33]: Export HD Images
+    - generic [ref=e38]:
+      - generic [ref=e39]: ORGANIZATION
+      - generic [ref=e40]: BUSINESS
+      - generic [ref=e41]: COMMUNITY
+  - generic [ref=e42]:
+    - heading "Everything You Need to Create Amazing Designs" [level=2] [ref=e43]
+    - generic [ref=e44]:
+      - generic [ref=e45]:
+        - img [ref=e47]
+        - heading "Professional Templates" [level=3] [ref=e49]
+        - paragraph [ref=e50]: Choose from hundreds of professionally designed templates for any occasion.
+      - generic [ref=e51]:
+        - img [ref=e53]
+        - heading "Intuitive Editor" [level=3] [ref=e55]
+        - paragraph [ref=e56]: Drag, drop, and customize with our easy-to-use design tools.
+      - generic [ref=e57]:
+        - img [ref=e59]
+        - heading "Export & Share" [level=3] [ref=e61]
+        - paragraph [ref=e62]: Download your designs in high quality or share them directly.
+      - generic [ref=e63]:
+        - img [ref=e65]
+        - heading "Customization" [level=3] [ref=e67]
+        - paragraph [ref=e68]: Full control over colors, fonts, images, and layouts.
+  - generic [ref=e70]:
+    - heading "Ready to Start Creating?" [level=2] [ref=e71]
+    - paragraph [ref=e72]: Join thousands of users creating beautiful designs every day
+    - button "Get Started Now - It's Free" [ref=e73] [cursor=pointer]
+  - contentinfo [ref=e74]:
+    - paragraph [ref=e75]: © 2025 SmartDesignPro. All rights reserved.
+```
