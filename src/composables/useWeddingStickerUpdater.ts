@@ -1,8 +1,11 @@
 /**
  * Wedding Sticker Template Real-time Text Updater
- * 
+ *
  * This composable provides functionality to update SVG text elements
  * in real-time based on user input description.
+ *
+ * Note: For SVG graphic replacement (e.g., Nikkah graphics), see useSVGTextReplacement.ts
+ * which handles replacing text elements with SVG images based on keywords.
  */
 
 export interface WeddingStickerElements {

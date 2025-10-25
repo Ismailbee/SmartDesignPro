@@ -1,0 +1,64 @@
+/**
+ * Wedding Sticker Template Fonts
+ * 
+ * This file defines font families for wedding sticker templates
+ * using free Google Fonts as alternatives to commercial fonts.
+ * 
+ * Font Mappings:
+ * - AlternateGothic2 BT → Oswald (condensed sans-serif)
+ * - Campton Bold → Montserrat Bold (geometric sans-serif)
+ * - Times New Roman → System font (already available)
+ */
+
+/* Main name font - Alternative to AlternateGothic2 BT */
+.wedding-name-font {
+  font-family: 'Oswald', 'Anton', 'Arial Narrow', 'Arial', sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+}
+
+/* Subtitle font - Alternative to Campton Bold */
+.wedding-subtitle-font {
+  font-family: 'Montserrat', 'Poppins', 'Arial', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Ampersand font - Times New Roman (system font) */
+.wedding-ampersand-font {
+  font-family: 'Times New Roman', 'Georgia', serif;
+  font-weight: 400;
+}
+
+/* SVG text elements - Apply fonts globally */
+svg text[id*="name"] {
+  font-family: 'Oswald', 'Anton', 'Arial Narrow', 'Arial', sans-serif;
+}
+
+svg text[id*="subtitle"] {
+  font-family: 'Montserrat', 'Poppins', 'Arial', sans-serif;
+  font-weight: 700;
+}
+
+svg text[id*="ampersand"] {
+  font-family: 'Times New Roman', 'Georgia', serif;
+}
+
+/* Ensure fonts are loaded before rendering */
+@supports (font-display: swap) {
+  @font-face {
+    font-family: 'Oswald';
+    font-display: swap;
+  }
+  
+  @font-face {
+    font-family: 'Montserrat';
+    font-display: swap;
+  }
+  
+  @font-face {
+    font-family: 'Poppins';
+    font-display: swap;
+  }
+}
+

@@ -8,5 +8,36 @@ export default defineConfig({
     alias: {
       '@': '/src'
     }
+  },
+  optimizeDeps: {
+    include: ['onnxruntime-web'],
+    exclude: ['@imgly/background-removal']
+  },
+  build: {
+    commonjsOptions: {
+      include: [/node_modules/]
+    },
+    rollupOptions: {
+      external: []
+    },
+    // Ensure WASM files are copied to dist
+    assetsDir: 'assets',
+    copyPublicDir: true
+  },
+  server: {
+    fs: {
+      strict: false
+    },
+    // Serve WASM files with correct MIME type
+    middlewareMode: false,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    }
+  },
+  // Configure WASM handling
+  define: {
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
   }
 })

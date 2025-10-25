@@ -3,8 +3,18 @@ import { createPinia } from 'pinia'
 import router from './router'
 import './style.css'
 import './styles/theme.css'
+import './styles/wedding-fonts.css'
 import App from './App.vue'
 import { useThemeStore } from './stores/theme'
+
+// Suppress Datadog Browser SDK warning
+const originalWarn = console.warn
+console.warn = (...args: any[]) => {
+  if (args[0]?.includes?.('Datadog Browser SDK')) {
+    return // Suppress Datadog warnings
+  }
+  originalWarn.apply(console, args)
+}
 
 // Vue Konva imports
 import VueKonva from 'vue-konva'

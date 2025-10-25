@@ -28,33 +28,32 @@
       <!-- User Profile (Authenticated) or Get Started Button (Not Authenticated) -->
       <div class="header-actions">
         <ThemeToggle />
+
+        <!-- Token Display (Authenticated Users Only) -->
+        <HeaderTokenDisplay v-if="authStore.isAuthenticated" />
+
         <div v-if="authStore.isAuthenticated" class="user-profile-header">
-          <div class="user-avatar" @click="handleUserProfileClick">
+          <div class="user-avatar" @click="handleUserProfileClick" :title="authStore.userDisplayName">
             <img v-if="authStore.user?.avatar" :src="authStore.user.avatar" :alt="authStore.userDisplayName" />
             <div v-else class="avatar-placeholder">
               {{ getInitials(authStore.userDisplayName) }}
             </div>
           </div>
-          <div class="user-info" @click="handleUserProfileClick">
-            <span class="user-name">{{ authStore.userDisplayName }}</span>
-            <span class="user-email">{{ authStore.user?.email }}</span>
+
+          <!-- Action Buttons (No Divider Needed) -->
+          <div class="action-buttons">
+            <button class="settings-button" @click="goToSettings" title="Settings">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+            <button class="logout-button" @click="handleLogout" title="Logout">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
           </div>
-          <button class="admin-button" @click="goToAdmin" title="Admin Dashboard">
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </button>
-          <button class="settings-button" @click="goToSettings" title="Settings">
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
-          <button class="logout-button" @click="handleLogout" title="Logout">
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-          </button>
         </div>
         <button v-else class="cta-button" @click="handleGetQuote">
           Get Started
@@ -76,6 +75,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import ThemeToggle from '@/components/ThemeToggle.vue'
+import HeaderTokenDisplay from '@/components/HeaderTokenDisplay.vue'
 import AutoDesignDropdown from './AutoDesignDropdown.vue'
 import MoreMenuModal from './MoreMenuModal.vue'
 
@@ -310,7 +310,7 @@ const getInitials = (name: string): string => {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 24px;
 }
 
 /* User Profile Header */
@@ -318,14 +318,23 @@ const getInitials = (name: string): string => {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 16px;
+  padding: 6px 16px;
   background: rgba(6, 182, 212, 0.05);
   border-radius: 12px;
   transition: all 0.3s ease;
+  border: 1px solid rgba(6, 182, 212, 0.1);
 }
 
 .user-profile-header:hover {
   background: rgba(6, 182, 212, 0.1);
+  border-color: rgba(6, 182, 212, 0.2);
+}
+
+/* Action Buttons Container */
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .user-avatar {
@@ -362,34 +371,14 @@ const getInitials = (name: string): string => {
   font-weight: 600;
 }
 
-.user-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  cursor: pointer;
-  min-width: 120px;
-}
-
-.user-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: white;
-}
-
-.user-email {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.admin-button,
 .settings-button,
 .logout-button {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: transparent;
-  border: none;
-  color: #64748b;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -398,26 +387,25 @@ const getInitials = (name: string): string => {
   flex-shrink: 0;
 }
 
-.admin-button:hover {
-  background: rgba(139, 92, 246, 0.1);
-  color: #8b5cf6;
-}
-
 .settings-button:hover {
-  background: rgba(6, 182, 212, 0.1);
-  color: #06b6d4;
+  background: rgba(6, 182, 212, 0.15);
+  border-color: rgba(6, 182, 212, 0.3);
+  color: #22d3ee;
+  transform: translateY(-2px);
 }
 
 .logout-button:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  transform: translateY(-2px);
 }
 
 .admin-button svg,
 .settings-button svg,
 .logout-button svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
 }
 
 /* CTA Button */
@@ -458,9 +446,13 @@ const getInitials = (name: string): string => {
     display: none;
   }
 
+  .header-actions {
+    gap: 12px;
+  }
+
   .user-profile-header {
     padding: 6px 12px;
-    gap: 8px;
+    gap: 10px;
   }
 
   .user-avatar {
@@ -472,30 +464,20 @@ const getInitials = (name: string): string => {
     font-size: 14px;
   }
 
-  .user-info {
-    min-width: 100px;
+  .action-buttons {
+    gap: 8px;
   }
 
-  .user-name {
-    font-size: 13px;
-  }
-
-  .user-email {
-    font-size: 11px;
-  }
-
-  .admin-button,
   .settings-button,
   .logout-button {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
   }
 
-  .admin-button svg,
   .settings-button svg,
   .logout-button svg {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
   }
 }
 </style>

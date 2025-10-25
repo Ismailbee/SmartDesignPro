@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wedding Sticker Font Test</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Montserrat:wght@700&family=Oswald:wght@400;700&family=Poppins:wght@700&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: Arial, sans-serif;
+      min-height: 100vh;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 40px;
+    }
+    
+    .svg-container {
+      background: #2a2a2a;
+      padding: 40px;
+      border-radius: 8px;
+      margin-bottom: 40px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    svg {
+      max-width: 100%;
+      height: auto;
+    }
+    
+    .font-test {
+      margin: 30px 0;
+      padding: 20px;
+      background: #f5f5f5;
+      border-radius: 8px;
+    }
+    
+    .font-test h3 {
+      margin-top: 0;
+      color: #667eea;
+    }
+    
+    .sample-text {
+      font-size: 48px;
+      margin: 10px 0;
+      padding: 10px;
+      background: white;
+      border-radius: 4px;
+    }
+    
+    .oswald-font {
+      font-family: 'Oswald', 'Anton', 'Arial Narrow', 'Arial', sans-serif;
+    }
+    
+    .montserrat-font {
+      font-family: 'Montserrat', 'Poppins', 'Arial', sans-serif;
+      font-weight: 700;
+    }
+    
+    .times-font {
+      font-family: 'Times New Roman', 'Georgia', serif;
+    }
+    
+    .info {
+      background: #e3f2fd;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #2196f3;
+      margin: 20px 0;
+    }
+    
+    .success {
+      background: #e8f5e9;
+      border-left-color: #4caf50;
+    }
+    
+    .status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+    
+    .loaded {
+      background: #4caf50;
+      color: white;
+    }
+    
+    .fallback {
+      background: #ff9800;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎨 Wedding Sticker Font Test</h1>
+    
+    <div class="info success">
+      <strong>✅ Font Loading Test</strong><br>
+      This page tests the Google Fonts integration for the wedding sticker template.
+      Check the Network tab (F12) to see font files loading.
+    </div>
+    
+    <!-- SVG Preview -->
+    <div class="svg-container">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2330.28 412.45" width="800">
+        <!-- First name (top) - HANNATU -->
+        <text id="name1" x="1226.17" y="263.6" fill="#FEFEFE" font-family="Oswald, Anton, Arial Narrow, Arial, sans-serif" font-size="373.36" text-anchor="middle">HANNATU</text>
+        
+        <!-- First name subtitle - ABDULLAHI -->
+        <text id="subtitle1" x="1514" y="410.55" fill="#FFF212" font-family="Montserrat, Poppins, Arial, sans-serif" font-weight="bold" font-size="146.39" text-anchor="middle">ABDULLAHI</text>
+        
+        <!-- Ampersand -->
+        <text id="ampersand" x="1119" y="283.73" fill="#FFF212" font-family="Times New Roman, Georgia, serif" font-size="251.82" text-anchor="middle">&amp;</text>
+        
+        <!-- Second name (bottom) - ABULLAHI -->
+        <text id="name2" x="-133.12" y="263.6" fill="#FEFEFE" font-family="Oswald, Anton, Arial Narrow, Arial, sans-serif" font-size="373.36" text-anchor="middle">ABULLAHI</text>
+        
+        <!-- Second name subtitle - ABDULLAHI -->
+        <text id="subtitle2" x="220.2" y="410.55" fill="#FFF212" font-family="Montserrat, Poppins, Arial, sans-serif" font-weight="bold" font-size="146.39" text-anchor="middle">ABDULLAHI</text>
+      </svg>
+    </div>
+    
+    <!-- Font Samples -->
+    <div class="font-test">
+      <h3>Oswald Font (Main Names) <span class="status" id="oswald-status">Loading...</span></h3>
+      <div class="sample-text oswald-font">HANNATU & ABULLAHI</div>
+      <p><strong>Usage:</strong> Main names in wedding sticker</p>
+      <p><strong>Fallbacks:</strong> Anton → Arial Narrow → Arial → sans-serif</p>
+    </div>
+    
+    <div class="font-test">
+      <h3>Montserrat Bold (Subtitles) <span class="status" id="montserrat-status">Loading...</span></h3>
+      <div class="sample-text montserrat-font">ABDULLAHI</div>
+      <p><strong>Usage:</strong> Subtitle text in wedding sticker</p>
+      <p><strong>Fallbacks:</strong> Poppins Bold → Arial → sans-serif</p>
+    </div>
+    
+    <div class="font-test">
+      <h3>Times New Roman (Ampersand) <span class="status" id="times-status">System Font</span></h3>
+      <div class="sample-text times-font">&amp;</div>
+      <p><strong>Usage:</strong> Decorative ampersand</p>
+      <p><strong>Fallbacks:</strong> Georgia → serif</p>
+    </div>
+    
+    <div class="info">
+      <strong>📊 How to Verify Font Loading:</strong><br>
+      1. Open DevTools (F12)<br>
+      2. Go to Network tab<br>
+      3. Filter by "Font"<br>
+      4. Reload page<br>
+      5. You should see: Oswald-Regular.woff2, Montserrat-Bold.woff2, etc.
+    </div>
+  </div>
+  
+  <script>
+    // Check if fonts are loaded
+    document.fonts.ready.then(() => {
+      // Check Oswald
+      const oswaldLoaded = document.fonts.check('48px Oswald');
+      const oswaldStatus = document.getElementById('oswald-status');
+      if (oswaldLoaded) {
+        oswaldStatus.textContent = '✅ Loaded';
+        oswaldStatus.className = 'status loaded';
+      } else {
+        oswaldStatus.textContent = '⚠️ Fallback';
+        oswaldStatus.className = 'status fallback';
+      }
+      
+      // Check Montserrat
+      const montserratLoaded = document.fonts.check('bold 48px Montserrat');
+      const montserratStatus = document.getElementById('montserrat-status');
+      if (montserratLoaded) {
+        montserratStatus.textContent = '✅ Loaded';
+        montserratStatus.className = 'status loaded';
+      } else {
+        montserratStatus.textContent = '⚠️ Fallback';
+        montserratStatus.className = 'status fallback';
+      }
+      
+      // Times New Roman is a system font
+      const timesStatus = document.getElementById('times-status');
+      timesStatus.textContent = '✅ System Font';
+      timesStatus.className = 'status loaded';
+      
+      console.log('✅ All fonts checked!');
+      console.log('Oswald loaded:', oswaldLoaded);
+      console.log('Montserrat loaded:', montserratLoaded);
+    });
+  </script>
+</body>
+</html>
+

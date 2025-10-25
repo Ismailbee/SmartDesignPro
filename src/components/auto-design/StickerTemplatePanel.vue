@@ -92,6 +92,46 @@
         <div class="svg-image-management">
           <label class="form-label">Add Images to Sticker</label>
 
+          <!-- Background Removal Toggle -->
+          <div class="background-removal-toggle">
+            <label class="toggle-label">
+              <input
+                type="checkbox"
+                v-model="autoRemoveBackground"
+                class="toggle-checkbox"
+              />
+              <span class="toggle-text">Automatically remove background from uploaded images</span>
+            </label>
+            <p class="toggle-hint">Uses AI to remove backgrounds (may take a few seconds)</p>
+          </div>
+
+          <!-- Background Removal Processing Indicator -->
+          <div v-if="isRemovingBackground" class="processing-indicator">
+            <div class="processing-content">
+              <ion-spinner name="crescent" class="processing-spinner"></ion-spinner>
+              <div class="processing-text">
+                <p class="processing-title">Removing background...</p>
+                <p class="processing-progress">{{ backgroundRemovalProgress }}%</p>
+              </div>
+              <button @click="cancelBackgroundRemoval" class="cancel-btn">Cancel</button>
+            </div>
+          </div>
+
+          <!-- Background Removal Error -->
+          <div v-if="backgroundRemovalError" class="background-removal-error">
+            <div class="error-content">
+              <svg class="error-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div class="error-text">
+                <p class="error-title">Background removal failed</p>
+                <p class="error-message">{{ backgroundRemovalError }}</p>
+                <p class="error-hint">Using original image instead.</p>
+              </div>
+              <button @click="backgroundRemovalError = null" class="error-close-btn">×</button>
+            </div>
+          </div>
+
           <!-- Drag & Drop Zone -->
           <div
             class="image-drop-zone"
@@ -115,8 +155,7 @@
             <input
               ref="imageFileInput"
               type="file"
-              accept="image/png,image/jpeg,image/jpg,image/svg+xml"
-              multiple
+              accept="image/png,image/jpeg,image/jpg,image/webp"
               class="hidden"
               @change="handleImageFileSelect"
             />
@@ -157,8 +196,8 @@
               </div>
             </div>
 
-            <!-- Image Positioning Controls (shown when an image is selected) -->
-            <div v-if="selectedSVGImage" class="image-controls-section">
+            <!-- Image Positioning Controls (hidden for wedding sticker) -->
+            <div v-if="false && selectedSVGImage" class="image-controls-section">
               <h4 class="controls-title">Edit: {{ selectedSVGImage.id }}</h4>
 
               <div class="controls-grid">
@@ -457,6 +496,15 @@
         </div>
       </div>
     </Transition>
+
+    <!-- Image Crop Modal -->
+    <ImageCropModal
+      :is-open="showCropModal"
+      :image-src="cropImageSrc"
+      :image-file="cropImageFile || undefined"
+      @close="handleCropModalClose"
+      @crop="handleCropComplete"
+    />
   </div>
 </template>
 
@@ -469,6 +517,10 @@ import { Vue3Lottie } from 'vue3-lottie'
 import { useWeddingStickerUpdater } from '@/composables/useWeddingStickerUpdater'
 import { useSVGImageManager } from '@/composables/useSVGImageManager'
 import { useSVGExport } from '@/composables/useSVGExport'
+import { useSVGTextReplacement } from '@/composables/useSVGTextReplacement'
+import { useBackgroundRemoval } from '@/composables/useBackgroundRemoval'
+import ImageCropModal from '@/components/ImageCropModal.vue'
+import { IonSpinner } from '@ionic/vue'
 
 const router = useRouter()
 const autoDesignStore = useAutoDesignStore()
@@ -485,6 +537,19 @@ const svgImageManager = useSVGImageManager({
 
 const { exportSVG } = useSVGExport()
 
+// SVG Text Replacement (for Nikkah graphics)
+const { handleReplacement, resetReplacement } = useSVGTextReplacement()
+
+// Background Removal
+const {
+  removeBackground,
+  isProcessing: isRemovingBackground,
+  progress: backgroundRemovalProgress,
+  error: bgRemovalError,
+  cancelProcessing: cancelBackgroundRemoval,
+  isSupported: isBackgroundRemovalSupported
+} = useBackgroundRemoval()
+
 // Wedding sticker refs
 const weddingPreviewContainer = ref<HTMLDivElement | null>(null)
 const imageFileInput = ref<HTMLInputElement | null>(null)
@@ -495,6 +560,15 @@ const selectedCategory = ref('naming')
 const previewUrl = ref('')
 const isGenerating = ref(false)
 const viewMode = ref<'form' | 'preview'>('form')
+
+// Image crop modal state
+const showCropModal = ref(false)
+const cropImageSrc = ref('')
+const cropImageFile = ref<File | null>(null)
+
+// Background removal state
+const autoRemoveBackground = ref(false)
+const backgroundRemovalError = ref<string | null>(null)
 
 // Lottie animation data for loading
 const loadingAnimation = {
@@ -712,6 +786,9 @@ async function loadWeddingStickerTemplate() {
   if (!weddingPreviewContainer.value) return
 
   try {
+    // Reset replacement state when loading new template
+    resetReplacement()
+
     // Fetch the SVG template
     const response = await fetch('/templates/wedding-sticker/template.svg')
     const svgText = await response.text()
@@ -728,6 +805,23 @@ async function loadWeddingStickerTemplate() {
       // Apply current description if any
       if (formData.description) {
         updateStickerText(formData.description, svgElements)
+
+        // Check if replacement should be applied
+        await handleReplacement(formData.description, svgElement, {
+          keywords: ['congratulation', 'nikkah'],
+          svgFiles: [
+            '/weddigTitlesNiKkah/Nikkah.svg',
+            '/weddigTitlesNiKkah/Nikkah1.svg',
+            '/weddigTitlesNiKkah/Nikkah2.svg'
+          ],
+          targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
+          position: {
+            x: 850.45,
+            y: 372.07,
+            width: 850,
+            height: 378
+          }
+        })
       }
     }
   } catch (error) {
@@ -735,10 +829,30 @@ async function loadWeddingStickerTemplate() {
   }
 }
 
-function handleDescriptionInput() {
+async function handleDescriptionInput() {
   // Update wedding sticker preview in real-time
   if (selectedCategory.value === 'wedding' && svgElements) {
     updateStickerText(formData.description, svgElements)
+
+    // Handle SVG text replacement for Nikkah graphics
+    const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
+    if (svgElement) {
+      await handleReplacement(formData.description, svgElement, {
+        keywords: ['congratulation', 'nikkah'],
+        svgFiles: [
+          '/weddigTitlesNiKkah/Nikkah.svg',
+          '/weddigTitlesNiKkah/Nikkah1.svg',
+          '/weddigTitlesNiKkah/Nikkah2.svg'
+        ],
+        targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
+        position: {
+          x: 850.45,  // Center x position (same as original text)
+          y: 372.07,  // Top y position (blessing-text y)
+          width: 850,  // Approximate width for scaling
+          height: 378  // Total height (750.44 - 372.07)
+        }
+      })
+    }
   }
 
   // Update SVG with embedded images in real-time
@@ -765,22 +879,116 @@ async function handleImageFileSelect(event: Event) {
   const target = event.target as HTMLInputElement
   const files = target.files
 
-  if (files && files.length > 0) {
-    // Get SVG element to read placeholder position
-    const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
+  console.log('📸 handleImageFileSelect called', { filesCount: files?.length })
 
-    for (let i = 0; i < files.length; i++) {
-      await svgImageManager.addImage(files[i], svgElement)
+  if (files && files.length > 0) {
+    // For now, only handle the first file with cropping
+    let file = files[0]
+
+    console.log('📸 File selected:', {
+      name: file.name,
+      type: file.type,
+      size: file.size
+    })
+
+    // Step 1: Remove background if enabled
+    if (autoRemoveBackground.value && isBackgroundRemovalSupported()) {
+      try {
+        backgroundRemovalError.value = null
+        console.log('🎨 Starting background removal...')
+
+        const result = await removeBackground(file, {
+          quality: 'medium',
+          outputFormat: 'image/png',
+          maxDimensions: 2048,
+          onProgress: (progress) => {
+            console.log(`⏳ Background removal progress: ${progress}%`)
+          }
+        })
+
+        // Convert blob to File
+        file = new File([result.blob], file.name.replace(/\.[^/.]+$/, '.png'), {
+          type: 'image/png',
+          lastModified: Date.now()
+        })
+
+        console.log('✅ Background removed successfully')
+        console.log(`📐 Processed image: ${result.width}×${result.height}, ${result.processingTime}ms`)
+
+      } catch (error: any) {
+        console.error('❌ Background removal failed:', error)
+        backgroundRemovalError.value = error.message || 'Failed to remove background'
+        // Continue with original image
+        console.log('⚠️ Continuing with original image')
+      }
+    } else if (autoRemoveBackground.value && !isBackgroundRemovalSupported()) {
+      backgroundRemovalError.value = 'Background removal is not supported in this browser'
+      console.warn('⚠️ Background removal not supported')
     }
 
-    // Update SVG preview with new images
-    updateSVGWithImages()
+    // Step 2: Create object URL for the image (original or processed)
+    const imageUrl = URL.createObjectURL(file)
+
+    console.log('📸 Object URL created:', imageUrl)
+
+    // Step 3: Set crop modal data
+    cropImageSrc.value = imageUrl
+    cropImageFile.value = file
+    showCropModal.value = true
+
+    console.log('📸 Crop modal state set:', {
+      showCropModal: showCropModal.value,
+      cropImageSrc: cropImageSrc.value,
+      hasCropImageFile: !!cropImageFile.value
+    })
   }
 
   // Reset input
   if (target) {
     target.value = ''
   }
+}
+
+// Image crop modal handlers
+async function handleCropComplete(data: { dataUrl: string; blob: Blob; width: number; height: number }) {
+  console.log('🎨 Crop complete:', { width: data.width, height: data.height })
+
+  // Get SVG element to read placeholder position
+  const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
+
+  if (!svgElement || !cropImageFile.value) {
+    console.error('SVG element or crop image file not found')
+    return
+  }
+
+  // Create a new File object from the cropped blob
+  const croppedFile = new File([data.blob], cropImageFile.value.name, {
+    type: 'image/png',
+    lastModified: Date.now()
+  })
+
+  // Add the cropped image using the existing image manager
+  // This will automatically read the placeholder position from the SVG
+  await svgImageManager.addImage(croppedFile, svgElement)
+
+  // Update SVG preview with new images
+  updateSVGWithImages()
+
+  // Clean up
+  URL.revokeObjectURL(cropImageSrc.value)
+  cropImageSrc.value = ''
+  cropImageFile.value = null
+}
+
+function handleCropModalClose() {
+  showCropModal.value = false
+
+  // Clean up object URL
+  if (cropImageSrc.value) {
+    URL.revokeObjectURL(cropImageSrc.value)
+    cropImageSrc.value = ''
+  }
+  cropImageFile.value = null
 }
 
 function handleImagePropertyInput(property: string, event: Event) {
@@ -1888,6 +2096,163 @@ onMounted(() => {
   .image-gallery {
     grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   }
+}
+
+/* Background Removal Styles */
+.background-removal-toggle {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #0c4a6e;
+  font-weight: 500;
+}
+
+.toggle-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #0284c7;
+}
+
+.toggle-text {
+  flex: 1;
+}
+
+.toggle-hint {
+  margin: 8px 0 0 28px;
+  font-size: 12px;
+  color: #0369a1;
+  font-style: italic;
+}
+
+.processing-indicator {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 2px solid #fbbf24;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(251, 191, 36, 0.1);
+}
+
+.processing-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.processing-spinner {
+  width: 32px;
+  height: 32px;
+  color: #d97706;
+}
+
+.processing-text {
+  flex: 1;
+}
+
+.processing-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #92400e;
+  margin: 0 0 4px 0;
+}
+
+.processing-progress {
+  font-size: 13px;
+  color: #b45309;
+  margin: 0;
+  font-weight: 500;
+}
+
+.cancel-btn {
+  padding: 6px 12px;
+  background: white;
+  color: #d97706;
+  border: 1px solid #fbbf24;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+  background: #fef3c7;
+  border-color: #f59e0b;
+}
+
+.background-removal-error {
+  margin-bottom: 16px;
+  padding: 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+}
+
+.error-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.error-icon {
+  width: 24px;
+  height: 24px;
+  color: #dc2626;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.error-text {
+  flex: 1;
+}
+
+.error-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #991b1b;
+  margin: 0 0 4px 0;
+}
+
+.error-message {
+  font-size: 13px;
+  color: #b91c1c;
+  margin: 0 0 4px 0;
+}
+
+.error-hint {
+  font-size: 12px;
+  color: #dc2626;
+  margin: 0;
+  font-style: italic;
+}
+
+.error-close-btn {
+  padding: 4px 8px;
+  background: transparent;
+  color: #dc2626;
+  border: none;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+  transition: all 0.2s;
+}
+
+.error-close-btn:hover {
+  color: #991b1b;
+  background: rgba(220, 38, 38, 0.1);
+  border-radius: 4px;
 }
 </style>
 

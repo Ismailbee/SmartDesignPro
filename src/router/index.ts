@@ -12,6 +12,7 @@ const HomePage = () => import('@/components/HomePage.vue')
 const DesignEditor = () => import('@/components/DesignEditor.vue')
 const UserSettings = () => import('@/views/UserSettings.vue')
 const AutoDesignPage = () => import('@/views/AutoDesignPage.vue')
+const TokensAndPlans = () => import('@/views/TokensAndPlans.vue')
 const AdminDashboard = () => import('@/views/admin/AdminDashboard.vue')
 const UserManagement = () => import('@/views/admin/UserManagement.vue')
 const UserDetail = () => import('@/views/admin/UserDetail.vue')
@@ -79,6 +80,16 @@ const routes: RouteRecordRaw[] = [
     component: AutoDesignPage,
     meta: {
       title: 'Auto Design - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/tokens-and-plans',
+    name: 'tokens-and-plans',
+    component: TokensAndPlans,
+    meta: {
+      title: 'Tokens & Plans - SmartDesignPro',
       requiresAuth: true
     }
   },

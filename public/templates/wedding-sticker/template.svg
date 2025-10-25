@@ -1,4 +1,4 @@
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2996.9 1685.75" width="4in" height="2.25in">
+﻿  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2996.9 1685.75" width="4in" height="2.25in">
   
   <!-- Background -->
   <rect fill="#F8F8F8" width="2996.89" height="1685.75"/>
@@ -10,7 +10,7 @@
   <path fill="#104C6E" d="M0 616.09c926.95 695.48 1904.9-254.49 2996.89 452.63v617.04H0z"/>
 
   <!-- Placeholder image - Adjust x, y, width, height to position where uploaded images should appear -->
-  <image id="placeholder-image" x="1200" y="800" width="400" height="400" opacity="0" href=""/>
+  <image id="placeholder-image" x="1100" y="2" width="2500" height="2500" opacity="0" href=""/>
 
   <!-- Editable text elements with IDs - All centered horizontally -->
   <text id="blessing-text" x="850.45" y="372.07" text-anchor="middle" font-family="serif" font-size="197.68" fill="#000">Alhamdulillahi</text>

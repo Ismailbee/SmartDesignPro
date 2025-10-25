@@ -172,33 +172,12 @@ export function useSVGImageManager(options: ImageUploadOptions = {}) {
       // Get placeholder position and size from SVG template
       const placeholderAttrs = getPlaceholderAttributes(svgElement)
 
-      // Calculate default dimensions (scale down if too large, maintaining aspect ratio)
-      let defaultWidth = placeholderAttrs.width
-      let defaultHeight = placeholderAttrs.height
+      // Use placeholder dimensions exactly (no scaling)
+      // This ensures uploaded images match the placeholder's exact size and position
+      const defaultWidth = placeholderAttrs.width
+      const defaultHeight = placeholderAttrs.height
 
-      if (originalWidth > 0 && originalHeight > 0) {
-        const aspectRatio = originalWidth / originalHeight
-        const placeholderAspectRatio = placeholderAttrs.width / placeholderAttrs.height
-
-        // Scale to fit within placeholder dimensions while maintaining aspect ratio
-        if (originalWidth > placeholderAttrs.width || originalHeight > placeholderAttrs.height) {
-          if (aspectRatio > placeholderAspectRatio) {
-            // Image is wider than placeholder
-            defaultWidth = placeholderAttrs.width
-            defaultHeight = placeholderAttrs.width / aspectRatio
-          } else {
-            // Image is taller than placeholder
-            defaultHeight = placeholderAttrs.height
-            defaultWidth = placeholderAttrs.height * aspectRatio
-          }
-        } else {
-          // Image is smaller than placeholder, use original size
-          defaultWidth = originalWidth
-          defaultHeight = originalHeight
-        }
-      }
-
-      // Create image object using placeholder position
+      // Create image object using placeholder position and dimensions exactly
       const image: SVGImage = {
         id: `user-image-${++imageCounter}`,
         file,
