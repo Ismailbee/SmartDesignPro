@@ -7,6 +7,19 @@ import './styles/wedding-fonts.css'
 import App from './App.vue'
 import { useThemeStore } from './stores/theme'
 
+// Ionic Vue imports
+import { IonicVue } from '@ionic/vue'
+import '@ionic/vue/css/core.css'
+import '@ionic/vue/css/normalize.css'
+import '@ionic/vue/css/structure.css'
+import '@ionic/vue/css/typography.css'
+import '@ionic/vue/css/padding.css'
+import '@ionic/vue/css/float-elements.css'
+import '@ionic/vue/css/text-alignment.css'
+import '@ionic/vue/css/text-transformation.css'
+import '@ionic/vue/css/flex-utils.css'
+import '@ionic/vue/css/display.css'
+
 // Suppress Datadog Browser SDK warning
 const originalWarn = console.warn
 console.warn = (...args: any[]) => {
@@ -95,6 +108,9 @@ library.add(
 
 const app = createApp(App)
 const pinia = createPinia()
+
+// Register Ionic Vue
+app.use(IonicVue)
 
 // Register Vue Konva
 app.use(VueKonva)

@@ -16,7 +16,7 @@ node payment-server.cjs
 **Expected Output:**
 ```
 🚀 Payment Server running on port 3006
-💳 Paystack mode: LIVE
+💳 Paystack mode: LI        VE
 ✅ Ready to process payments!
 ```
 

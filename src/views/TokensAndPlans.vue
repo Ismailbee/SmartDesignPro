@@ -1,194 +1,266 @@
 <template>
-  
-    <ion-header>
-      <ion-toolbar>
+  <ion-page class="tokens-plans-page">
+    <ion-header class="tokens-header">
+      <ion-toolbar class="tokens-toolbar">
         <ion-buttons slot="start">
-          <ion-button @click="goBack">
+          <ion-button @click="goBack" class="back-button">
             <ion-icon slot="icon-only" :icon="arrowBackOutline"></ion-icon>
           </ion-button>
         </ion-buttons>
-        <ion-title>Tokens & Plans</ion-title>
+        <ion-title class="tokens-title">Tokens & Plans</ion-title>
       </ion-toolbar>
     </ion-header>
 
-    <ion-content :fullscreen="true" class="ion-padding">
+    <ion-content :fullscreen="true" class="tokens-content">
       <!-- Loading State -->
       <div v-if="loading" class="loading-container">
-        <ion-spinner name="crescent"></ion-spinner>
-        <p>Loading your account...</p>
+        <ion-spinner name="crescent" color="primary"></ion-spinner>
+        <p class="loading-text">Loading your account...</p>
       </div>
 
       <!-- Main Content -->
       <div v-else-if="userStore.user" class="tokens-plans-container">
-        <!-- Section 1: Current Plan Display -->
-        <ion-card class="plan-status-card">
-          <ion-card-header>
-            <div class="plan-header">
-              <div class="plan-badge" :class="`plan-${userStore.user.plan.toLowerCase()}`">
-                <span class="plan-icon">{{ getPlanIcon(userStore.user.plan) }}</span>
-                <span class="plan-name">{{ userStore.user.plan }} Plan</span>
-              </div>
-              <ion-button
-                v-if="userStore.user.plan === 'Basic'"
-                color="primary"
-                @click="scrollToPlans"
-              >
-                Upgrade Plan
-              </ion-button>
-              <ion-button
-                v-else-if="userStore.user.plan === 'Premium'"
-                color="secondary"
-                @click="scrollToPlans"
-              >
-                Upgrade to Pro
-              </ion-button>
-              <ion-button
-                v-else
-                color="medium"
-                disabled
-              >
-                Current Plan
-              </ion-button>
-            </div>
-          </ion-card-header>
-          <ion-card-content v-if="userStore.user.plan !== 'Basic'">
-            <div class="plan-details">
-              <p class="expiry-date">
-                Expires on {{ formatDate(userStore.user.planExpiryDate!) }}
-              </p>
-              <p class="days-remaining" :class="{ 'expiring-soon': (userStore.daysUntilExpiry || 0) < 7 }">
+        <!-- HERO SECTION: Account Overview -->
+        <div class="hero-section">
+          <div class="hero-content">
+            <!-- Current Plan Badge -->
+            <div class="plan-status-badge" :class="`plan-${userStore.user.plan.toLowerCase()}`">
+              <span class="plan-icon">{{ getPlanIcon(userStore.user.plan) }}</span>
+              <span class="plan-text">{{ userStore.user.plan }} Plan</span>
+              <span v-if="userStore.user.plan !== 'Basic'" class="plan-expiry">
                 {{ userStore.daysUntilExpiry }} days left
-              </p>
-            </div>
-          </ion-card-content>
-        </ion-card>
-
-        <!-- Section 2: Token Balance Dashboard -->
-        <ion-card class="token-balance-card">
-          <ion-card-header>
-            <ion-card-title>Token Balance</ion-card-title>
-          </ion-card-header>
-          <ion-card-content>
-            <div class="token-display">
-              <div class="token-count">
-                <span class="token-icon">💎</span>
-                <span class="token-number">{{ userStore.user.tokens.toLocaleString() }}</span>
-              </div>
-              <p class="token-label">Available Tokens</p>
+              </span>
             </div>
 
-            <div class="usage-stats">
-              <div class="stat-item">
-                <span class="stat-label">Total Designs</span>
-                <span class="stat-value">{{ userStore.user.totalDesignsGenerated }}</span>
+            <!-- Token Balance Display -->
+            <div class="token-balance-hero">
+              <div class="token-balance-label">Available Tokens</div>
+              <div class="token-balance-display">
+                <span class="token-icon-large">💎</span>
+                <span class="token-count-large">{{ userStore.user.tokens.toLocaleString() }}</span>
               </div>
-              <div class="stat-item">
-                <span class="stat-label">Average per Design</span>
-                <span class="stat-value">
-                  {{ userStore.user.totalDesignsGenerated > 0 
-                    ? Math.round(userStore.user.tokens / userStore.user.totalDesignsGenerated) 
-                    : 0 
+              <div class="token-balance-subtext">
+                Used in {{ userStore.user.totalDesignsGenerated }} designs
+              </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="quick-stats">
+              <div class="stat-card">
+                <div class="stat-label">Total Designs</div>
+                <div class="stat-value">{{ userStore.user.totalDesignsGenerated }}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Avg per Design</div>
+                <div class="stat-value">
+                  {{ userStore.user.totalDesignsGenerated > 0
+                    ? Math.round(userStore.user.tokens / userStore.user.totalDesignsGenerated)
+                    : 0
                   }}
-                </span>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Current Plan</div>
+                <div class="stat-value">{{ userStore.user.plan }}</div>
               </div>
             </div>
 
+            <!-- Primary CTA -->
             <ion-button
               expand="block"
               color="primary"
               size="large"
-              class="buy-tokens-btn"
+              class="primary-cta"
               @click="scrollToTokens"
             >
+              <ion-icon slot="start" :icon="addCircleOutline"></ion-icon>
               Buy More Tokens
             </ion-button>
-          </ion-card-content>
-        </ion-card>
+          </div>
+        </div>
 
-        <!-- Section 3: Token Purchase Options -->
-        <div ref="tokensSection" class="section-header">
-          <h2>Buy Tokens</h2>
-          <p>Choose a token package to get started</p>
+        <!-- SECTION: Token Purchase Options -->
+        <div ref="tokensSection" class="section-divider"></div>
+
+        <div class="section-header">
+          <h2 class="section-title">Buy Tokens</h2>
+          <p class="section-subtitle">Choose a package that fits your needs</p>
         </div>
 
         <ion-grid class="token-packages-grid">
-          <ion-row>
+          <ion-row class="packages-row">
             <ion-col
               v-for="pkg in tokenPackages"
               :key="pkg.amount"
               size="12"
               size-md="6"
               size-lg="4"
+              class="package-col"
             >
-              <ion-card
+              <div
                 class="token-package-card"
                 :class="{ 'best-value': pkg.isBestValue }"
-                button
                 @click="handleTokenPurchase(pkg)"
               >
-                <ion-badge v-if="pkg.isBestValue" color="warning" class="best-value-badge">
-                  ⭐ Best Value
-                </ion-badge>
-                <ion-card-content>
-                  <div class="package-amount">₦{{ pkg.amount.toLocaleString() }}</div>
-                  <div class="package-tokens">
+                <!-- Best Value Badge -->
+                <div v-if="pkg.isBestValue" class="best-value-badge">
+                  <ion-icon :icon="starOutline"></ion-icon>
+                  Best Value
+                </div>
+
+                <!-- Package Content -->
+                <div class="package-content">
+                  <div class="package-price">₦{{ pkg.amount.toLocaleString() }}</div>
+                  <div class="package-tokens-display">
                     <span class="token-icon">💎</span>
-                    {{ pkg.tokens.toLocaleString() }} tokens
+                    <span class="token-amount">{{ pkg.tokens.toLocaleString() }}</span>
                   </div>
-                </ion-card-content>
-              </ion-card>
+                  <div class="package-tokens-label">tokens</div>
+
+                  <!-- Value Indicator -->
+                  <div class="package-value">
+                    {{ (pkg.tokens / pkg.amount).toFixed(2) }} tokens/₦
+                  </div>
+                </div>
+
+                <!-- Purchase Button -->
+                <ion-button
+                  expand="block"
+                  color="primary"
+                  class="package-btn"
+                  :class="{ 'best-value-btn': pkg.isBestValue }"
+                >
+                  Buy Now
+                </ion-button>
+              </div>
+            </ion-col>
+
+            <!-- Custom Token Purchase Card -->
+            <ion-col size="12" size-md="6" size-lg="4" class="package-col">
+              <div class="token-package-card custom-package-card">
+                <!-- Custom Badge -->
+                <div class="custom-badge">
+                  <ion-icon :icon="addCircleOutline"></ion-icon>
+                  Custom Amount
+                </div>
+
+                <!-- Custom Input Section -->
+                <div class="custom-input-section">
+                  <div class="custom-input-group">
+                    <label class="custom-label">How many tokens?</label>
+                    <div class="input-wrapper">
+                      <input
+                        v-model.number="customTokenAmount"
+                        type="number"
+                        class="custom-input"
+                        placeholder="Enter amount (min 100)"
+                        min="100"
+                        step="1"
+                        @input="validateCustomAmount"
+                      />
+                      <span class="input-suffix">💎</span>
+                    </div>
+                    <div v-if="customAmountError" class="error-message">
+                      {{ customAmountError }}
+                    </div>
+                  </div>
+
+                  <!-- Price Display -->
+                  <div class="price-calculation">
+                    <div class="calc-row">
+                      <span class="calc-label">Price:</span>
+                      <span class="calc-value">₦{{ calculatedPrice.toLocaleString() }}</span>
+                    </div>
+                    <div class="calc-row">
+                      <span class="calc-label">Rate:</span>
+                      <span class="calc-value">1 token = ₦1</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Purchase Button -->
+                <ion-button
+                  expand="block"
+                  color="primary"
+                  class="package-btn custom-buy-btn"
+                  :disabled="!isCustomAmountValid"
+                  @click="handleCustomTokenPurchase"
+                >
+                  Buy {{ customTokenAmount > 0 ? customTokenAmount.toLocaleString() : '0' }} Tokens
+                </ion-button>
+              </div>
             </ion-col>
           </ion-row>
         </ion-grid>
 
-        <!-- Section 4: Plan Upgrade Cards -->
-        <div ref="plansSection" class="section-header">
-          <h2>Subscription Plans</h2>
-          <p>Upgrade your plan for more benefits</p>
+        <!-- SECTION: Subscription Plans -->
+        <div ref="plansSection" class="section-divider"></div>
+
+        <div class="section-header">
+          <h2 class="section-title">Subscription Plans</h2>
+          <p class="section-subtitle">Unlock more features and benefits</p>
         </div>
 
         <ion-grid class="plans-grid">
-          <ion-row>
+          <ion-row class="plans-row">
             <ion-col
               v-for="plan in planConfigs"
               :key="plan.name"
               size="12"
               size-md="6"
               size-lg="4"
+              class="plan-col"
             >
-              <ion-card
+              <div
                 class="plan-card"
                 :class="{
                   'current-plan': userStore.user.plan === plan.name,
-                  'has-badge': plan.badge
+                  'recommended': plan.badge === 'Recommended'
                 }"
               >
-                <ion-badge v-if="plan.badge" color="warning" class="plan-badge-label">
+                <!-- Recommended Badge -->
+                <div v-if="plan.badge" class="plan-badge-label">
+                  <ion-icon :icon="checkmarkCircleOutline"></ion-icon>
                   {{ plan.badge }}
-                </ion-badge>
-                <ion-card-header>
-                  <div class="plan-icon-large">{{ plan.icon }}</div>
-                  <ion-card-title>{{ plan.name }} Plan</ion-card-title>
-                  <ion-card-subtitle>
-                    {{ plan.price === 0 ? 'Free Forever' : `₦${plan.price.toLocaleString()} / ${plan.duration}` }}
-                  </ion-card-subtitle>
-                </ion-card-header>
-                <ion-card-content>
+                </div>
+
+                <!-- Plan Header -->
+                <div class="plan-header">
+                  <div class="plan-icon-display">{{ plan.icon }}</div>
+                  <h3 class="plan-name">{{ plan.name }}</h3>
+                  <div class="plan-pricing">
+                    <span v-if="plan.price === 0" class="price-free">Free Forever</span>
+                    <span v-else class="price-amount">₦{{ plan.price.toLocaleString() }}</span>
+                    <span v-if="plan.price > 0" class="price-period">/ {{ plan.duration }}</span>
+                  </div>
+                </div>
+
+                <!-- Plan Benefits -->
+                <div class="plan-benefits">
+                  <div v-if="plan.freeTokens > 0" class="benefit-highlight">
+                    <ion-icon :icon="giftOutline"></ion-icon>
+                    <span>{{ plan.freeTokens.toLocaleString() }} free tokens</span>
+                  </div>
                   <ul class="features-list">
                     <li v-for="(feature, index) in plan.features" :key="index">
-                      {{ feature }}
+                      <ion-icon :icon="checkmarkOutline" class="feature-icon"></ion-icon>
+                      <span>{{ feature }}</span>
                     </li>
                   </ul>
-                  <ion-button
-                    expand="block"
-                    :color="getPlanButtonColor(plan.name)"
-                    :disabled="userStore.user.plan === plan.name || isDowngrade(plan.name)"
-                    @click="handlePlanUpgrade(plan)"
-                  >
-                    {{ getPlanButtonText(plan.name) }}
-                  </ion-button>
-                </ion-card-content>
-              </ion-card>
+                </div>
+
+                <!-- Plan CTA -->
+                <ion-button
+                  expand="block"
+                  :color="getPlanButtonColor(plan.name)"
+                  :disabled="userStore.user.plan === plan.name || isDowngrade(plan.name)"
+                  class="plan-cta"
+                  :class="{ 'recommended-btn': plan.badge === 'Recommended' }"
+                  @click="handlePlanUpgrade(plan)"
+                >
+                  {{ getPlanButtonText(plan.name) }}
+                </ion-button>
+              </div>
             </ion-col>
           </ion-row>
         </ion-grid>
@@ -201,11 +273,11 @@
         <ion-button @click="loadUserData">Retry</ion-button>
       </div>
     </ion-content>
-  
+  </ion-page>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   IonPage,
@@ -229,7 +301,15 @@ import {
   toastController,
   alertController
 } from '@ionic/vue'
-import { alertCircleOutline, arrowBackOutline } from 'ionicons/icons'
+import {
+  alertCircleOutline,
+  arrowBackOutline,
+  addCircleOutline,
+  starOutline,
+  checkmarkOutline,
+  checkmarkCircleOutline,
+  giftOutline
+} from 'ionicons/icons'
 import { useUserStore } from '@/stores/user.store'
 import { useAuthStore } from '@/stores/auth'
 import { TOKEN_PACKAGES, PLAN_CONFIGS, type TokenPackage, type PlanConfig, type PlanType } from '@/types/payment.types'
@@ -248,9 +328,23 @@ const error = ref<string | null>(null)
 const tokensSection = ref<HTMLElement>()
 const plansSection = ref<HTMLElement>()
 
+// Custom token purchase state
+const customTokenAmount = ref<number>(100)
+const customAmountError = ref<string | null>(null)
+const MIN_CUSTOM_TOKENS = 100
+
 // Data
 const tokenPackages = TOKEN_PACKAGES
 const planConfigs = PLAN_CONFIGS
+
+// Computed properties
+const calculatedPrice = computed(() => {
+  return customTokenAmount.value >= MIN_CUSTOM_TOKENS ? customTokenAmount.value : 0
+})
+
+const isCustomAmountValid = computed(() => {
+  return customTokenAmount.value >= MIN_CUSTOM_TOKENS && !customAmountError.value
+})
 
 // Lifecycle
 onMounted(async () => {
@@ -303,6 +397,48 @@ function scrollToTokens() {
 
 function scrollToPlans() {
   plansSection.value?.scrollIntoView({ behavior: 'smooth' })
+}
+
+// Custom token purchase methods
+function validateCustomAmount() {
+  customAmountError.value = null
+
+  if (!customTokenAmount.value || customTokenAmount.value < MIN_CUSTOM_TOKENS) {
+    customAmountError.value = `Minimum purchase is ${MIN_CUSTOM_TOKENS} tokens`
+    return false
+  }
+
+  if (!Number.isInteger(customTokenAmount.value)) {
+    customAmountError.value = 'Please enter a whole number'
+    return false
+  }
+
+  return true
+}
+
+async function handleCustomTokenPurchase() {
+  if (!userStore.user) return
+
+  // Validate before proceeding
+  if (!validateCustomAmount()) {
+    const errorToast = await toastController.create({
+      message: customAmountError.value || 'Invalid token amount',
+      duration: 2000,
+      position: 'top',
+      color: 'danger'
+    })
+    await errorToast.present()
+    return
+  }
+
+  // Create a temporary package object for the custom purchase
+  const customPackage = {
+    amount: calculatedPrice.value,
+    tokens: customTokenAmount.value
+  }
+
+  // Use the existing handleTokenPurchase method
+  await handleTokenPurchase(customPackage)
 }
 
 function getPlanButtonColor(planName: PlanType): string {
@@ -491,10 +627,50 @@ async function handlePlanUpgrade(plan: PlanConfig) {
 </script>
 
 <style scoped>
+/* ============================================================================
+   TOKENS & PLANS PAGE - MODERN PROFESSIONAL DESIGN
+   ============================================================================ */
+
+.tokens-plans-page {
+  --ion-background-color: #f8f9fa;
+}
+
+.tokens-header {
+  --ion-background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.tokens-toolbar {
+  --ion-padding-start: 0;
+  --ion-padding-end: 0;
+}
+
+.tokens-title {
+  font-weight: 600;
+  font-size: 1.25rem;
+  letter-spacing: -0.5px;
+}
+
+.back-button {
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --color: #635bff;
+}
+
+.tokens-content {
+  --ion-padding: 0;
+  --ion-background: #f8f9fa;
+}
+
 .tokens-plans-container {
   max-width: 1200px;
   margin: 0 auto;
+  padding: 0;
 }
+
+/* ============================================================================
+   LOADING & ERROR STATES
+   ============================================================================ */
 
 .loading-container,
 .error-container {
@@ -502,259 +678,753 @@ async function handlePlanUpgrade(plan: PlanConfig) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 400px;
-  gap: 1rem;
+  min-height: 500px;
+  gap: 1.5rem;
+  padding: 2rem;
 }
 
-/* Plan Status Card */
-.plan-status-card {
-  margin-bottom: 1.5rem;
+.loading-text {
+  font-size: 1rem;
+  color: #727f96;
+  font-weight: 500;
 }
 
-.plan-header {
-  display: flex;
-  justify-content: space-between;
+/* ============================================================================
+   HERO SECTION - ACCOUNT OVERVIEW
+   ============================================================================ */
+
+.hero-section {
+  background: linear-gradient(135deg, #635bff 0%, #5a4dd4 100%);
+  color: white;
+  padding: 48px 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-section::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -10%;
+  width: 400px;
+  height: 400px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Plan Status Badge */
+.plan-status-badge {
+  display: inline-flex;
   align-items: center;
-  gap: 1rem;
-}
-
-.plan-badge {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  font-size: 0.9rem;
   font-weight: 600;
+  margin-bottom: 24px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-.plan-badge.plan-basic {
-  background: var(--ion-color-medium-tint);
-  color: var(--ion-color-medium-contrast);
+.plan-status-badge.plan-basic {
+  background: rgba(255, 255, 255, 0.15);
 }
 
-.plan-badge.plan-premium {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  color: white;
+.plan-status-badge.plan-premium {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.4);
 }
 
-.plan-badge.plan-pro {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-  color: white;
+.plan-status-badge.plan-pro {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.4);
 }
 
 .plan-icon {
-  font-size: 1.5rem;
+  font-size: 1.2rem;
 }
 
-.plan-name {
-  font-size: 1.1rem;
-}
-
-.plan-details {
-  margin-top: 1rem;
-}
-
-.expiry-date {
-  font-size: 0.95rem;
-  color: var(--ion-color-medium);
-  margin-bottom: 0.5rem;
-}
-
-.days-remaining {
-  font-size: 1.1rem;
+.plan-text {
   font-weight: 600;
-  color: var(--ion-color-success);
 }
 
-.days-remaining.expiring-soon {
-  color: var(--ion-color-warning);
+.plan-expiry {
+  margin-left: 8px;
+  opacity: 0.9;
+  font-size: 0.85rem;
 }
 
-/* Token Balance Card */
-.token-balance-card {
-  margin-bottom: 2rem;
+/* Token Balance Display */
+.token-balance-hero {
+  margin-bottom: 32px;
 }
 
-.token-display {
-  text-align: center;
-  margin-bottom: 2rem;
+.token-balance-label {
+  font-size: 0.9rem;
+  opacity: 0.9;
+  margin-bottom: 8px;
+  font-weight: 500;
 }
 
-.token-count {
+.token-balance-display {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  margin-bottom: 0.5rem;
+  gap: 16px;
+  margin-bottom: 8px;
 }
 
-.token-icon {
-  font-size: 3rem;
+.token-icon-large {
+  font-size: 3.5rem;
+  line-height: 1;
 }
 
-.token-number {
-  font-size: 3rem;
+.token-count-large {
+  font-size: 3.5rem;
   font-weight: 700;
-  color: var(--ion-color-primary);
+  line-height: 1;
+  letter-spacing: -1px;
 }
 
-.token-label {
-  font-size: 1.1rem;
-  color: var(--ion-color-medium);
+.token-balance-subtext {
+  font-size: 0.95rem;
+  opacity: 0.85;
 }
 
-.usage-stats {
+/* Quick Stats */
+.quick-stats {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-  padding: 1rem;
-  background: var(--ion-color-light);
-  border-radius: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
 }
 
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
+.stat-card {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 16px;
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .stat-label {
-  font-size: 0.85rem;
-  color: var(--ion-color-medium);
+  font-size: 0.8rem;
+  opacity: 0.85;
+  margin-bottom: 8px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .stat-value {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--ion-color-dark);
-}
-
-.buy-tokens-btn {
-  margin-top: 1rem;
-}
-
-/* Section Headers */
-.section-header {
-  margin: 2rem 0 1.5rem;
-  text-align: center;
-}
-
-.section-header h2 {
   font-size: 1.8rem;
   font-weight: 700;
-  margin-bottom: 0.5rem;
+  line-height: 1;
 }
 
-.section-header p {
-  color: var(--ion-color-medium);
+/* Primary CTA */
+.primary-cta {
+  --background: #ffffff;
+  --color: #635bff;
+  --background-hover: #f0f0ff;
+  font-weight: 600;
+  font-size: 1rem;
+  height: 48px;
+  border-radius: 8px;
+  max-width: 300px;
 }
 
-/* Token Packages */
+/* ============================================================================
+   SECTION DIVIDERS & HEADERS
+   ============================================================================ */
+
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #e0e0e0, transparent);
+  margin: 48px 0;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 32px;
+  padding: 0 24px;
+}
+
+.section-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #0a2540;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.section-subtitle {
+  font-size: 1rem;
+  color: #727f96;
+  margin: 0;
+}
+
+/* ============================================================================
+   TOKEN PACKAGES SECTION
+   ============================================================================ */
+
 .token-packages-grid {
-  margin-bottom: 3rem;
+  padding: 0 24px 48px;
+}
+
+.packages-row {
+  row-gap: 24px;
+}
+
+.package-col {
+  display: flex;
 }
 
 .token-package-card {
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid transparent;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  position: relative;
+  width: 100%;
   height: 100%;
 }
 
 .token-package-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-8px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+  border-color: #635bff;
 }
 
 .token-package-card.best-value {
-  border: 2px solid var(--ion-color-warning);
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, #fffbf0 0%, #ffffff 100%);
 }
 
+.token-package-card.best-value:hover {
+  box-shadow: 0 12px 32px rgba(245, 158, 11, 0.2);
+}
+
+/* Best Value Badge */
 .best-value-badge {
   position: absolute;
-  top: -10px;
-  right: 10px;
-  z-index: 1;
-}
-
-.package-amount {
-  font-size: 2rem;
+  top: -12px;
+  right: 16px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
   font-weight: 700;
-  color: var(--ion-color-primary);
-  margin-bottom: 0.5rem;
-  text-align: center;
-}
-
-.package-tokens {
-  font-size: 1.2rem;
-  font-weight: 600;
-  text-align: center;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+  gap: 4px;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
 }
 
-/* Plan Cards */
+.best-value-badge ion-icon {
+  font-size: 0.9rem;
+}
+
+/* Package Content */
+.package-content {
+  flex-grow: 1;
+  margin-bottom: 20px;
+}
+
+.package-price {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #635bff;
+  margin-bottom: 12px;
+  letter-spacing: -1px;
+}
+
+.package-tokens-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.token-icon {
+  font-size: 1.8rem;
+}
+
+.token-amount {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #0a2540;
+}
+
+.package-tokens-label {
+  font-size: 0.9rem;
+  color: #727f96;
+  margin-bottom: 12px;
+}
+
+.package-value {
+  font-size: 0.85rem;
+  color: #10b981;
+  font-weight: 600;
+  background: #ecfdf5;
+  padding: 6px 10px;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+/* Package Button */
+.package-btn {
+  --background: #635bff;
+  --background-hover: #5a4dd4;
+  --color: white;
+  font-weight: 600;
+  height: 44px;
+  border-radius: 8px;
+}
+
+.package-btn.best-value-btn {
+  --background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  --background-hover: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+/* ============================================================================
+   CUSTOM TOKEN PURCHASE SECTION
+   ============================================================================ */
+
+.custom-package-card {
+  background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
+  border-color: #3b82f6;
+  border-style: dashed;
+}
+
+.custom-package-card:hover {
+  border-color: #2563eb;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.15);
+}
+
+.custom-badge {
+  position: absolute;
+  top: -12px;
+  right: 16px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.custom-badge ion-icon {
+  font-size: 0.9rem;
+}
+
+.custom-input-section {
+  flex-grow: 1;
+  margin-bottom: 20px;
+}
+
+.custom-input-group {
+  margin-bottom: 16px;
+}
+
+.custom-label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0a2540;
+  margin-bottom: 8px;
+}
+
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.custom-input {
+  width: 100%;
+  padding: 12px 40px 12px 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0a2540;
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+.custom-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.custom-input::placeholder {
+  color: #9ca3af;
+}
+
+.input-suffix {
+  position: absolute;
+  right: 12px;
+  font-size: 1.2rem;
+  pointer-events: none;
+}
+
+.error-message {
+  font-size: 0.8rem;
+  color: #dc2626;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+.price-calculation {
+  background: #f3f4f6;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.calc-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+}
+
+.calc-row:last-child {
+  margin-bottom: 0;
+}
+
+.calc-label {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.calc-value {
+  color: #0a2540;
+  font-weight: 700;
+}
+
+.custom-buy-btn {
+  --background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  --background-hover: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+.custom-buy-btn:disabled {
+  --background: #d1d5db;
+  --color: #9ca3af;
+  opacity: 0.6;
+}
+
+/* ============================================================================
+   SUBSCRIPTION PLANS SECTION
+   ============================================================================ */
+
 .plans-grid {
-  margin-bottom: 2rem;
+  padding: 0 24px 48px;
+}
+
+.plans-row {
+  row-gap: 24px;
+}
+
+.plan-col {
+  display: flex;
 }
 
 .plan-card {
-  position: relative;
-  height: 100%;
   display: flex;
   flex-direction: column;
+  background: white;
+  border-radius: 12px;
+  padding: 28px;
+  border: 2px solid #e5e7eb;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.plan-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
 }
 
 .plan-card.current-plan {
-  border: 2px solid var(--ion-color-primary);
+  border-color: #635bff;
+  background: linear-gradient(135deg, #f5f3ff 0%, #ffffff 100%);
+  box-shadow: 0 8px 24px rgba(99, 91, 255, 0.15);
 }
 
+.plan-card.recommended {
+  border-color: #10b981;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+}
+
+.plan-card.recommended:hover {
+  box-shadow: 0 12px 32px rgba(16, 185, 129, 0.15);
+}
+
+/* Plan Badge */
 .plan-badge-label {
   position: absolute;
-  top: -10px;
-  right: 10px;
-  z-index: 1;
+  top: -12px;
+  right: 16px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
-.plan-icon-large {
-  font-size: 3rem;
+.plan-badge-label ion-icon {
+  font-size: 0.9rem;
+}
+
+/* Plan Header */
+.plan-header {
+  margin-bottom: 24px;
   text-align: center;
-  margin-bottom: 1rem;
+}
+
+.plan-icon-display {
+  font-size: 3rem;
+  margin-bottom: 12px;
+  line-height: 1;
+}
+
+.plan-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0a2540;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.plan-pricing {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+}
+
+.price-free {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #10b981;
+}
+
+.price-amount {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #635bff;
+  letter-spacing: -1px;
+}
+
+.price-period {
+  font-size: 0.9rem;
+  color: #727f96;
+  font-weight: 500;
+}
+
+/* Plan Benefits */
+.plan-benefits {
+  flex-grow: 1;
+  margin-bottom: 24px;
+}
+
+.benefit-highlight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fef3c7;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  color: #92400e;
+  font-size: 0.95rem;
+}
+
+.benefit-highlight ion-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
 }
 
 .features-list {
   list-style: none;
   padding: 0;
-  margin: 1rem 0;
-  flex-grow: 1;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .features-list li {
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--ion-color-light);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.95rem;
+  color: #374151;
+  line-height: 1.4;
 }
 
-.features-list li:last-child {
-  border-bottom: none;
+.feature-icon {
+  color: #10b981;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
-/* Responsive */
+/* Plan CTA */
+.plan-cta {
+  --background: #635bff;
+  --background-hover: #5a4dd4;
+  --color: white;
+  font-weight: 600;
+  height: 44px;
+  border-radius: 8px;
+}
+
+.plan-cta.recommended-btn {
+  --background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --background-hover: linear-gradient(135deg, #059669 0%, #047857 100%);
+}
+
+/* ============================================================================
+   RESPONSIVE DESIGN
+   ============================================================================ */
+
 @media (max-width: 768px) {
-  .plan-header {
-    flex-direction: column;
-    align-items: stretch;
+  .hero-section {
+    padding: 32px 16px;
   }
 
-  .token-number {
+  .hero-section::before {
+    width: 300px;
+    height: 300px;
+    top: -30%;
+    right: -5%;
+  }
+
+  .token-balance-display {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .token-icon-large,
+  .token-count-large {
     font-size: 2.5rem;
   }
 
-  .section-header h2 {
+  .quick-stats {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .primary-cta {
+    max-width: 100%;
+  }
+
+  .section-header {
+    padding: 0 16px;
+    margin-bottom: 24px;
+  }
+
+  .section-title {
     font-size: 1.5rem;
+  }
+
+  .section-subtitle {
+    font-size: 0.9rem;
+  }
+
+  .token-packages-grid,
+  .plans-grid {
+    padding: 0 16px 32px;
+  }
+
+  .token-package-card,
+  .plan-card {
+    padding: 20px;
+  }
+
+  .package-price {
+    font-size: 2rem;
+  }
+
+  .plan-name {
+    font-size: 1.25rem;
+  }
+
+  .price-amount {
+    font-size: 1.5rem;
+  }
+
+  .custom-input {
+    font-size: 1rem;
+    padding: 12px 40px 12px 12px;
+  }
+
+  .custom-label {
+    font-size: 0.85rem;
+  }
+
+  .calc-row {
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-section {
+    padding: 24px 12px;
+  }
+
+  .token-count-large {
+    font-size: 2rem;
+  }
+
+  .token-icon-large {
+    font-size: 2rem;
+  }
+
+  .section-title {
+    font-size: 1.25rem;
+  }
+
+  .package-price,
+  .price-amount {
+    font-size: 1.5rem;
+  }
+
+  .token-packages-grid,
+  .plans-grid {
+    padding: 0 12px 24px;
   }
 }
 </style>
