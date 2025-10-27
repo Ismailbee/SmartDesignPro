@@ -1,0 +1,24 @@
+﻿  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2996.9 1685.75" width="4in" height="2.25in">
+  
+  <!-- Background -->
+  <rect fill="#F8F8F8" width="2996.89" height="1685.75"/>
+  
+  <!-- Wave layers -->
+  <path fill="#FFCC29" d="M0 776.51c926.95 695.48 1904.9-707.13 2996.89 0v909.24H0z"/>
+  <path fill="url(#g1)" d="M0 776.51c926.95 695.48 1904.9-640.76 2996.89 66.37v842.88H0z"/>
+  <path fill="#507C95" d="M0 539.04c926.95 695.49 1904.9-177.45 2996.89 529.68v617.04H0z"/>
+  <path fill="#104C6E" d="M0 616.09c926.95 695.48 1904.9-254.49 2996.89 452.63v617.04H0z"/>
+
+  <!-- Placeholder image - Adjust x, y, width, height to position where uploaded images should appear -->
+  <image id="placeholder-image" x="1100" y="2" width="2500" height="2500" opacity="0" href=""/>
+
+  <!-- Editable text elements with IDs - All centered horizontally -->
+  <text id="blessing-text" x="850.45" y="372.07" text-anchor="middle" font-family="serif" font-size="197.68" fill="#000">Alhamdulillahi</text>
+  <text id="occasion-text" x="850.45" y="443.52" text-anchor="middle" font-family="Arial" font-size="53.92" font-weight="bold" fill="#000">ON YOUR</text>
+  <text id="event-type-text" x="850.45" y="621.11" text-anchor="middle" font-family="serif" font-size="224.86" font-weight="bold" fill="#104C6E">WEDDING</text>
+  <text id="ceremony-text" x="850.45" y="750.44" text-anchor="middle" font-family="sans-serif" font-size="153.56" font-weight="bold" fill="red">CEREMONY</text>
+  <text id="name1-text" x="850.45" y="1100" text-anchor="middle" font-family="sans-serif" font-size="220.01" font-weight="bold" fill="#FEFEFE">HANNATU</text>
+  <text id="name2-text" x="850.45" y="1280" text-anchor="middle" font-family="sans-serif" font-size="207.87" font-weight="bold" fill="#FFF212">HARUNA</text>
+  <text id="date-text" x="850.45" y="1410" text-anchor="middle" font-family="sans-serif" font-size="80" font-weight="bold" fill="#FFFF">on 7th March, 2025</text>
+  <text id="courtesy-text" x="850.45" y="1600" text-anchor="middle" font-family="sans-serif" font-size="60" font-weight="bold" fill="#FFCC29">CUT-CEE: Maijama'a Famiy</text>
+ </svg>

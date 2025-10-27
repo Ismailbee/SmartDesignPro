@@ -786,24 +786,75 @@ async function loadWeddingStickerTemplate() {
   if (!weddingPreviewContainer.value) return
 
   try {
+    console.log('🎨 Loading wedding sticker template...')
+
     // Reset replacement state when loading new template
     resetReplacement()
 
-    // Fetch the SVG template
-    const response = await fetch('/templates/wedding-sticker/template.svg')
-    const svgText = await response.text()
+    // 🔥 TESTING MODE: Try multiple sources with fallback
+    const sources = [
+      {
+        name: 'CloudFront',
+        url: 'https://d27paqapg0ahqm.cloudfront.net/weddingStiker/template.svg',
+        mode: 'cors'
+      },
+      {
+        name: 'Local (public)',
+        url: '/templates/wedding-sticker/template.svg',
+        mode: 'cors'
+      },
+      {
+        name: 'Local (svg folder)',
+        url: '/svg/weddingStiker/template.svg',
+        mode: 'cors'
+      }
+    ]
+
+    let svgText = null
+    let successSource = null
+
+    // Try each source until one works
+    for (const source of sources) {
+      try {
+        console.log(`📡 Trying ${source.name}: ${source.url}`)
+
+        const response = await fetch(source.url, {
+          mode: source.mode as RequestMode,
+          cache: 'no-cache'
+        })
+
+        if (response.ok) {
+          svgText = await response.text()
+          successSource = source.name
+          console.log(`✅ SVG loaded successfully from ${source.name}`)
+          break
+        } else {
+          console.warn(`⚠️ ${source.name} returned ${response.status}`)
+        }
+      } catch (err) {
+        console.warn(`⚠️ ${source.name} failed:`, err)
+        continue
+      }
+    }
+
+    if (!svgText) {
+      throw new Error('Failed to load SVG from all sources')
+    }
 
     // Insert SVG into container
     weddingPreviewContainer.value.innerHTML = svgText
+    console.log(`✅ SVG inserted into preview container (source: ${successSource})`)
 
     // Get SVG element and its text elements
     await nextTick()
     const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
     if (svgElement) {
       svgElements = getSVGElements(svgElement)
+      console.log('✅ SVG elements retrieved:', Object.keys(svgElements).filter(key => svgElements[key as keyof typeof svgElements] !== null))
 
       // Apply current description if any
       if (formData.description) {
+        console.log('📝 Applying text from description:', formData.description)
         updateStickerText(formData.description, svgElements)
 
         // Check if replacement should be applied
@@ -823,9 +874,23 @@ async function loadWeddingStickerTemplate() {
           }
         })
       }
+
+      console.log('🎉 Wedding sticker template loaded and ready for testing!')
+
+      // Show success notification
+      authStore.showNotification({
+        title: 'Template Loaded',
+        message: `Wedding sticker template loaded from ${successSource}`,
+        type: 'success'
+      })
     }
   } catch (error) {
-    console.error('Failed to load wedding sticker template:', error)
+    console.error('❌ Failed to load wedding sticker template:', error)
+    authStore.showNotification({
+      title: 'Template Load Failed',
+      message: 'Failed to load wedding sticker template. Please check the console for details.',
+      type: 'error'
+    })
   }
 }
 
