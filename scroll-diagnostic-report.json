@@ -1,0 +1,796 @@
+{
+  "timestamp": "2025-10-28T12:46:12.644Z",
+  "issues": [
+    {
+      "file": ".\\src\\components\\ai\\AIBackgroundTab.vue",
+      "issues": [
+        {
+          "type": "overflow_hidden",
+          "line": 326,
+          "content": "/* Changed from overflow: hidden to allow scrolling */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\ai\\AIPanel.vue",
+      "issues": [
+        {
+          "type": "position_fixed",
+          "line": 156,
+          "content": "position: fixed;",
+          "severity": "medium",
+          "fix": "Ensure element has pointer-events: none or is not blocking content"
+        },
+        {
+          "type": "position_fixed",
+          "line": 172,
+          "content": "position: fixed;",
+          "severity": "medium",
+          "fix": "Ensure element has pointer-events: none or is not blocking content"
+        },
+        {
+          "type": "pointer_events_none",
+          "line": 177,
+          "content": "pointer-events: none;",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        },
+        {
+          "type": "pointer_events_none",
+          "line": 178,
+          "content": "/* Added pointer-events: none to allow scrolling through overlay */",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\ai\\AIResultCard.vue",
+      "issues": [
+        {
+          "type": "overflow_hidden",
+          "line": 239,
+          "content": "/* Changed from overflow: hidden to allow scrolling */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 288,
+          "content": "/* Changed from overflow: hidden to allow scrolling */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\auth\\auth-styles.css",
+      "issues": [
+        {
+          "type": "overflow_hidden",
+          "line": 282,
+          "content": "/* Changed from overflow: hidden to allow scrolling */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\auth\\AuthModal.vue",
+      "issues": [
+        {
+          "type": "body_overflow_hidden",
+          "line": 46,
+          "content": "document.body.style.overflow = 'hidden'",
+          "severity": "medium",
+          "fix": "Ensure overflow is restored after modal closes"
+        },
+        {
+          "type": "position_fixed",
+          "line": 60,
+          "content": "position: fixed;",
+          "severity": "medium",
+          "fix": "Ensure element has pointer-events: none or is not blocking content"
+        },
+        {
+          "type": "pointer_events_none",
+          "line": 72,
+          "content": "pointer-events: none;",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        },
+        {
+          "type": "pointer_events_none",
+          "line": 73,
+          "content": "/* Added pointer-events: none to allow scrolling through overlay */",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\auto-design\\StickerTemplatePanel.vue",
+      "issues": [
+        {
+          "type": "overflow_hidden",
+          "line": 1402,
+          "content": "/* Changed from overflow: hidden to allow scrolling in preview container */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 1525,
+          "content": "/* Changed from overflow: hidden to allow scrolling in image slot */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 1609,
+          "content": "/* Changed from overflow: hidden to allow scrolling in modal content */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 1942,
+          "content": "/* Changed from overflow: hidden to allow scrolling in template item */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 1995,
+          "content": "overflow: hidden;",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 1996,
+          "content": "/* Keeping overflow: hidden for text truncation with ellipsis - this is intentional */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\collaboration\\ActivityFeed.vue",
+      "issues": [
+        {
+          "type": "overflow_hidden",
+          "line": 288,
+          "content": "overflow: hidden;",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 289,
+          "content": "/* Keeping overflow: hidden for text truncation with ellipsis - this is intentional */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\collaboration\\CollaborationPanel.vue",
+      "issues": [
+        {
+          "type": "overflow_hidden",
+          "line": 282,
+          "content": "overflow: hidden;",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 283,
+          "content": "/* Keeping overflow: hidden for text truncation with ellipsis - this is intentional */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        },
+        {
+          "type": "position_fixed",
+          "line": 335,
+          "content": "position: fixed;",
+          "severity": "medium",
+          "fix": "Ensure element has pointer-events: none or is not blocking content"
+        },
+        {
+          "type": "pointer_events_none",
+          "line": 344,
+          "content": "pointer-events: none;",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        },
+        {
+          "type": "pointer_events_none",
+          "line": 345,
+          "content": "/* Added pointer-events: none to allow scrolling through overlay */",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 358,
+          "content": "/* Changed from overflow: hidden to allow scrolling in collaboration panel */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\collaboration\\CommentSystem.vue",
+      "issues": [
+        {
+          "type": "pointer_events_none",
+          "line": 289,
+          "content": "pointer-events: none;",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        },
+        {
+          "type": "position_fixed",
+          "line": 345,
+          "content": "position: fixed;",
+          "severity": "medium",
+          "fix": "Ensure element has pointer-events: none or is not blocking content"
+        },
+        {
+          "type": "position_fixed",
+          "line": 584,
+          "content": "position: fixed;",
+          "severity": "medium",
+          "fix": "Ensure element has pointer-events: none or is not blocking content"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\collaboration\\RemoteCursor.vue",
+      "issues": [
+        {
+          "type": "pointer_events_none",
+          "line": 49,
+          "content": "pointer-events: none;",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\ExportPanel.vue",
+      "issues": [
+        {
+          "type": "position_fixed",
+          "line": 370,
+          "content": "position: fixed;",
+          "severity": "medium",
+          "fix": "Ensure element has pointer-events: none or is not blocking content"
+        },
+        {
+          "type": "pointer_events_none",
+          "line": 375,
+          "content": "pointer-events: none;",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        },
+        {
+          "type": "pointer_events_none",
+          "line": 376,
+          "content": "/* Added pointer-events: none to allow scrolling through overlay */",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        },
+        {
+          "type": "position_fixed",
+          "line": 381,
+          "content": "position: fixed;",
+          "severity": "medium",
+          "fix": "Ensure element has pointer-events: none or is not blocking content"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 396,
+          "content": "/* Changed from overflow: hidden to allow scrolling in export panel */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 797,
+          "content": "/* Changed from overflow: hidden to allow scrolling in progress bar */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 927,
+          "content": "/* Changed from overflow: hidden to allow scrolling during transitions */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\home\\AutoDesignDropdown.vue",
+      "issues": [
+        {
+          "type": "overflow_hidden",
+          "line": 158,
+          "content": "/* Changed from overflow: hidden to allow scrolling in dropdown */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\home\\HomeHeader.vue",
+      "issues": [
+        {
+          "type": "position_fixed",
+          "line": 223,
+          "content": "position: fixed;",
+          "severity": "medium",
+          "fix": "Ensure element has pointer-events: none or is not blocking content"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 358,
+          "content": "/* Changed from overflow: hidden to allow scrolling in avatar */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\home\\MoreMenuModal.vue",
+      "issues": [
+        {
+          "type": "body_overflow_hidden",
+          "line": 162,
+          "content": "document.body.style.overflow = 'hidden'",
+          "severity": "medium",
+          "fix": "Ensure overflow is restored after modal closes"
+        },
+        {
+          "type": "position_fixed",
+          "line": 180,
+          "content": "position: fixed;",
+          "severity": "medium",
+          "fix": "Ensure element has pointer-events: none or is not blocking content"
+        },
+        {
+          "type": "pointer_events_none",
+          "line": 192,
+          "content": "pointer-events: none;",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        },
+        {
+          "type": "pointer_events_none",
+          "line": 193,
+          "content": "/* Added pointer-events: none to allow scrolling through overlay */",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\home\\PortfolioSection.vue",
+      "issues": [
+        {
+          "type": "overflow_hidden",
+          "line": 165,
+          "content": "/* Changed from overflow: hidden to allow scrolling in portfolio images */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\home\\TeamSection.vue",
+      "issues": [
+        {
+          "type": "overflow_hidden",
+          "line": 176,
+          "content": "/* Changed from overflow: hidden to allow scrolling in team member images */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\ImageCropModal.vue",
+      "issues": [
+        {
+          "type": "overflow_hidden",
+          "line": 331,
+          "content": "/* Changed from overflow: hidden to allow scrolling */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\ImageCropper.vue",
+      "issues": [
+        {
+          "type": "overflow_hidden",
+          "line": 415,
+          "content": "/* Changed from overflow: hidden to allow scrolling in cropper wrapper */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 442,
+          "content": "/* Changed from overflow: hidden to allow scrolling in preview container */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        },
+        {
+          "type": "touch_action",
+          "line": 638,
+          "content": "-ms-touch-action: none;",
+          "severity": "medium",
+          "fix": "Review if touch-action: none is necessary"
+        },
+        {
+          "type": "touch_action",
+          "line": 639,
+          "content": "touch-action: none;",
+          "severity": "medium",
+          "fix": "Review if touch-action: none is necessary"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 672,
+          "content": "/* Changed from overflow: hidden to allow scrolling in cropper canvas */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 691,
+          "content": "/* Changed from overflow: hidden to allow scrolling in cropper drag box */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\ImageCropperModal.vue",
+      "issues": [
+        {
+          "type": "overflow_hidden",
+          "line": 129,
+          "content": "/* Changed from overflow: hidden to allow scrolling */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\Modal.vue",
+      "issues": [
+        {
+          "type": "body_overflow_hidden",
+          "line": 88,
+          "content": "document.body.style.overflow = 'hidden'",
+          "severity": "medium",
+          "fix": "Ensure overflow is restored after modal closes"
+        },
+        {
+          "type": "position_fixed",
+          "line": 121,
+          "content": "position: fixed;",
+          "severity": "medium",
+          "fix": "Ensure element has pointer-events: none or is not blocking content"
+        },
+        {
+          "type": "pointer_events_none",
+          "line": 133,
+          "content": "pointer-events: none;",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        },
+        {
+          "type": "pointer_events_none",
+          "line": 134,
+          "content": "/* Added pointer-events: none to allow scrolling through overlay */",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 147,
+          "content": "/* Changed from overflow: hidden to allow scrolling in modal content */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\SharePanel.vue",
+      "issues": [
+        {
+          "type": "position_fixed",
+          "line": 397,
+          "content": "position: fixed;",
+          "severity": "medium",
+          "fix": "Ensure element has pointer-events: none or is not blocking content"
+        },
+        {
+          "type": "pointer_events_none",
+          "line": 402,
+          "content": "pointer-events: none;",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        },
+        {
+          "type": "pointer_events_none",
+          "line": 403,
+          "content": "/* Added pointer-events: none to allow scrolling through overlay */",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        },
+        {
+          "type": "position_fixed",
+          "line": 408,
+          "content": "position: fixed;",
+          "severity": "medium",
+          "fix": "Ensure element has pointer-events: none or is not blocking content"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 423,
+          "content": "/* Changed from overflow: hidden to allow scrolling in share panel */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\Sidebar.vue",
+      "issues": [
+        {
+          "type": "prevent_default",
+          "line": 653,
+          "content": "event.preventDefault()",
+          "severity": "high",
+          "fix": "Review if preventDefault is necessary; may block scrolling"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\SimpleFloatingPanel.vue",
+      "issues": [
+        {
+          "type": "overflow_hidden",
+          "line": 376,
+          "content": "/* Changed from overflow: hidden to allow scrolling */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\SuccessNotification.vue",
+      "issues": [
+        {
+          "type": "position_fixed",
+          "line": 107,
+          "content": "position: fixed;",
+          "severity": "medium",
+          "fix": "Ensure element has pointer-events: none or is not blocking content"
+        },
+        {
+          "type": "pointer_events_none",
+          "line": 111,
+          "content": "pointer-events: none;",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 129,
+          "content": "/* Changed from overflow: hidden to allow scrolling */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\ThemeToggle.vue",
+      "issues": [
+        {
+          "type": "overflow_hidden",
+          "line": 57,
+          "content": "/* Changed from overflow: hidden to allow scrolling */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\components\\WhiteboardCanvas.vue",
+      "issues": [
+        {
+          "type": "prevent_default",
+          "line": 2438,
+          "content": "e.evt.preventDefault()",
+          "severity": "high",
+          "fix": "Review if preventDefault is necessary; may block scrolling"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 2968,
+          "content": "/* Changed from overflow: hidden to allow scrolling */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        },
+        {
+          "type": "position_fixed",
+          "line": 3038,
+          "content": "position: fixed;",
+          "severity": "medium",
+          "fix": "Ensure element has pointer-events: none or is not blocking content"
+        },
+        {
+          "type": "pointer_events_none",
+          "line": 3048,
+          "content": "pointer-events: none;",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        },
+        {
+          "type": "pointer_events_none",
+          "line": 3049,
+          "content": "/* Added pointer-events: none to allow scrolling through overlay */",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        },
+        {
+          "type": "position_fixed",
+          "line": 3082,
+          "content": "position: fixed;",
+          "severity": "medium",
+          "fix": "Ensure element has pointer-events: none or is not blocking content"
+        },
+        {
+          "type": "pointer_events_none",
+          "line": 3115,
+          "content": "pointer-events: none;",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        },
+        {
+          "type": "position_fixed",
+          "line": 3120,
+          "content": "position: fixed;",
+          "severity": "medium",
+          "fix": "Ensure element has pointer-events: none or is not blocking content"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\examples\\CollaborationDemo.vue",
+      "issues": [
+        {
+          "type": "overflow_hidden",
+          "line": 473,
+          "content": "/* Changed from overflow: hidden to allow scrolling */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        },
+        {
+          "type": "position_fixed",
+          "line": 508,
+          "content": "position: fixed;",
+          "severity": "medium",
+          "fix": "Ensure element has pointer-events: none or is not blocking content"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\styles\\admin.css",
+      "issues": [
+        {
+          "type": "overflow_hidden",
+          "line": 250,
+          "content": "/* Changed from overflow: hidden to allow scrolling */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\views\\admin\\AdminDashboard.vue",
+      "issues": [
+        {
+          "type": "overflow_hidden",
+          "line": 1297,
+          "content": "overflow: hidden;",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 1298,
+          "content": "/* Keeping overflow: hidden for text truncation with ellipsis - this is intentional */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        },
+        {
+          "type": "overflow_hidden",
+          "line": 1491,
+          "content": "/* Changed from overflow: hidden to allow scrolling */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\views\\TokensAndPlans.vue",
+      "issues": [
+        {
+          "type": "overflow_hidden",
+          "line": 702,
+          "content": "/* Changed from overflow: hidden to allow scrolling in hero section */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        },
+        {
+          "type": "pointer_events_none",
+          "line": 714,
+          "content": "pointer-events: none;",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        },
+        {
+          "type": "pointer_events_none",
+          "line": 1089,
+          "content": "pointer-events: none;",
+          "severity": "low",
+          "fix": "Verify this is intentional and not blocking scroll"
+        }
+      ]
+    },
+    {
+      "file": ".\\src\\views\\UserSettings.vue",
+      "issues": [
+        {
+          "type": "overflow_hidden",
+          "line": 821,
+          "content": "/* Changed from overflow: hidden to allow scrolling */",
+          "severity": "high",
+          "fix": "Remove or change to overflow: auto"
+        }
+      ]
+    }
+  ],
+  "files_scanned": 143,
+  "total_issues": 88,
+  "recommendations": [
+    {
+      "priority": 1,
+      "message": "Found 43 HIGH severity issues. Review overflow and preventDefault calls immediately."
+    },
+    {
+      "priority": 2,
+      "message": "Found 23 MEDIUM severity issues. Check position: fixed elements and body overflow management."
+    },
+    {
+      "priority": 3,
+      "message": "Verify ion-content is used on all pages and scroll-y is not disabled."
+    },
+    {
+      "priority": 4,
+      "message": "Test on real mobile device or emulator to verify touch scrolling works."
+    }
+  ]
+}

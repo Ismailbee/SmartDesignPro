@@ -698,7 +698,8 @@ async function handlePlanUpgrade(plan: PlanConfig) {
   color: white;
   padding: 48px 24px;
   position: relative;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling in hero section */
 }
 
 .hero-section::before {

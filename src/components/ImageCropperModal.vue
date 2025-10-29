@@ -125,7 +125,8 @@ const handleCropped = (imageData) => {
 
 .cropper-modal-body {
   flex: 1;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling */
   display: flex;
   flex-direction: column;
 }

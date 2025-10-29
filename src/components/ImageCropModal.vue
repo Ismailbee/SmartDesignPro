@@ -327,7 +327,8 @@ function formatFileSize(bytes: number): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling */
 }
 
 .crop-image {

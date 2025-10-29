@@ -399,6 +399,8 @@ function close() {
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(4px);
   z-index: 9999;
+  pointer-events: auto;
+  /* Changed to auto to allow modal interaction */
 }
 
 /* Panel */
@@ -417,7 +419,8 @@ function close() {
   z-index: 10000;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling in share panel */
 }
 
 /* Header */

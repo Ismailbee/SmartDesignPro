@@ -19,6 +19,39 @@
 
             <!-- Modal Content Grid -->
             <div class="modal-content">
+              <!-- New Section - Account & Rewards -->
+              <div class="menu-section">
+                <h3 class="section-title">
+                  <svg class="section-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Account & Rewards
+                </h3>
+                <div class="menu-items">
+                  <a href="#" class="menu-item" @click.prevent="handleMenuClick('referral')">
+                    <span class="item-icon">🎁</span>
+                    <span class="item-text">Refer & Earn</span>
+                    <svg class="item-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </a>
+                  <a href="#" class="menu-item" @click.prevent="handleMenuClick('subscription')">
+                    <span class="item-icon">💎</span>
+                    <span class="item-text">Upgrade Plan</span>
+                    <svg class="item-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </a>
+                  <a href="#" class="menu-item" @click.prevent="handleMenuClick('tokens-and-plans')">
+                    <span class="item-icon">🪙</span>
+                    <span class="item-text">Tokens & Plans</span>
+                    <svg class="item-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </a>
+                </div>
+              </div>
+
               <!-- Left Section - Legal & Settings -->
               <div class="menu-section">
                 <h3 class="section-title">
@@ -189,6 +222,8 @@ onUnmounted(() => {
   justify-content: center;
   z-index: 9999;
   padding: 20px;
+  pointer-events: auto;
+  /* Changed to auto to allow modal interaction */
 }
 
 .modal-container {
@@ -198,6 +233,8 @@ onUnmounted(() => {
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+  pointer-events: auto;
+  /* Ensure modal content is clickable */
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   position: relative;
 }

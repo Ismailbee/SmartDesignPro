@@ -105,6 +105,15 @@ const handleMoreMenuNavigate = (action: string) => {
   console.log('More menu navigation:', action)
   // Handle different actions
   switch (action) {
+    case 'referral':
+      router.push('/referral')
+      break
+    case 'subscription':
+      router.push('/subscription')
+      break
+    case 'tokens-and-plans':
+      router.push('/tokens-and-plans')
+      break
     case 'terms':
       router.push('/legal/terms')
       break
@@ -146,16 +155,29 @@ const handleMoreMenuNavigate = (action: string) => {
 
 // Smooth scroll to section
 const scrollToSection = (sectionId: string) => {
+  console.log('🔍 Scrolling to section:', sectionId)
   const element = document.getElementById(sectionId)
+
   if (element) {
+    console.log('✅ Element found:', element)
     const headerOffset = 80 // Height of fixed header
     const elementPosition = element.getBoundingClientRect().top
-    const offsetPosition = elementPosition + window.pageYOffset - headerOffset
+    const currentScrollY = window.scrollY || window.pageYOffset
+    const offsetPosition = elementPosition + currentScrollY - headerOffset
+
+    console.log('📊 Scroll calculation:', {
+      elementPosition,
+      currentScrollY,
+      offsetPosition,
+      headerOffset
+    })
 
     window.scrollTo({
       top: offsetPosition,
       behavior: 'smooth'
     })
+  } else {
+    console.error('❌ Element not found with ID:', sectionId)
   }
 }
 
@@ -341,7 +363,8 @@ const getInitials = (name: string): string => {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling in avatar */
   cursor: pointer;
   border: 2px solid #06b6d4;
   transition: all 0.3s ease;

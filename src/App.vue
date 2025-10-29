@@ -6,7 +6,7 @@
 
       <!-- Global Modals -->
       <AuthModal />
-      <MarketplacePanel />
+    
 
       <!-- Success Notification -->
       <SuccessNotification
@@ -25,7 +25,6 @@ import { storeToRefs } from 'pinia'
 import { useAuthStore } from './stores/auth'
 import ErrorBoundary from './components/ErrorBoundary.vue'
 import AuthModal from './components/auth/AuthModal.vue'
-import MarketplacePanel from './components/marketplace/MarketplacePanel.vue'
 import SuccessNotification from './components/SuccessNotification.vue'
 
 const authStore = useAuthStore()

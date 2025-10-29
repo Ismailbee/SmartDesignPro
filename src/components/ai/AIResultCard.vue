@@ -235,7 +235,8 @@ function formatQRType(type: QRCodeType): string {
 .image-preview {
   position: relative;
   border-radius: 12px;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling */
   background: rgba(0, 0, 0, 0.05);
 }
 
@@ -283,7 +284,8 @@ function formatQRType(type: QRCodeType): string {
 
 .image-comparison {
   border-radius: 12px;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling */
 }
 
 .comparison-image {

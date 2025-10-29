@@ -16,6 +16,9 @@ export interface User {
   planExpiryDate: string | null
   tokens: number
   totalDesignsGenerated: number
+  referralCode?: string
+  referredBy?: string | null
+  referralCount?: number
 }
 
 export interface Payment {
@@ -165,4 +168,89 @@ export const PLAN_CONFIGS: PlanConfig[] = [
     badge: 'Best Value'
   }
 ]
+
+// ============================================================================
+// REFERRAL TYPES
+// ============================================================================
+
+export interface ReferralStats {
+  referralCode: string
+  referralCount: number
+  totalTokensEarned: number
+  referrals: ReferralRecord[]
+}
+
+export interface ReferralRecord {
+  id: string
+  referredName: string
+  tokensAwarded: number
+  createdAt: string
+}
+
+export interface ValidateReferralRequest {
+  referralCode: string
+}
+
+export interface ValidateReferralResponse {
+  valid: boolean
+  error?: string
+  referrer?: {
+    id: string
+    name: string
+  }
+}
+
+export interface ApplyReferralRequest {
+  referralCode: string
+  userId: string
+  email: string
+  name?: string
+}
+
+export interface ApplyReferralResponse {
+  success: boolean
+  message: string
+  rewards: {
+    referrer: {
+      id: string
+      name: string
+      tokensAwarded: number
+    }
+    referee: {
+      id: string
+      tokensAwarded: number
+    }
+  }
+}
+
+// ============================================================================
+// SUBSCRIPTION TYPES
+// ============================================================================
+
+export type TierColor = 'gray' | 'gold' | 'silver'
+
+export interface SubscriptionPlan {
+  id: string
+  name: string
+  price: number
+  duration: string
+  features: string[]
+  tokenBonus: number
+  color: TierColor
+  icon: string
+  popular?: boolean
+  recommended?: boolean
+}
+
+export interface SubscriptionPlansResponse {
+  plans: SubscriptionPlan[]
+}
+
+export interface SubscriptionStatus {
+  plan: PlanType
+  planExpiryDate: string | null
+  isExpired: boolean
+  daysRemaining: number | null
+  canUpgrade: boolean
+}
 

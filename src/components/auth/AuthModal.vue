@@ -28,6 +28,7 @@
 </template>
 
 <script setup lang="ts">
+import { watch, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import LoginView from './LoginView.vue'
@@ -38,6 +39,20 @@ import ResetPasswordView from './ResetPasswordView.vue'
 const authStore = useAuthStore()
 const { isAuthModalOpen, authModalView } = storeToRefs(authStore)
 const { closeAuthModal } = authStore
+
+// Prevent body scroll when modal is open
+watch(isAuthModalOpen, (newValue) => {
+  if (newValue) {
+    document.body.style.overflow = 'hidden'
+  } else {
+    document.body.style.overflow = ''
+  }
+})
+
+// Cleanup on unmount
+onUnmounted(() => {
+  document.body.style.overflow = ''
+})
 </script>
 
 <style scoped>
@@ -54,11 +69,15 @@ const { closeAuthModal } = authStore
   justify-content: center;
   z-index: 9999;
   padding: 20px;
+  pointer-events: auto;
+  /* Changed back to auto to allow clicking on modal */
 }
 
 .auth-modal {
   position: relative;
   background: white;
+  pointer-events: auto;
+  /* Ensure modal content is clickable */
   border-radius: 24px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   max-width: 480px;

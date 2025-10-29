@@ -5,14 +5,16 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { User, PlanType } from '@/types/payment.types'
+import type { User, PlanType, ReferralStats, TierColor } from '@/types/payment.types'
 import { getUser, deductTokens } from '@/services/user.service'
+import { getReferralStats, applyReferralCode as applyReferral } from '@/services/referral.service'
 
 export const useUserStore = defineStore('user', () => {
   // State
   const user = ref<User | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const referralStats = ref<ReferralStats | null>(null)
 
   // Getters
   const hasTokens = computed(() => {
@@ -40,11 +42,30 @@ export const useUserStore = defineStore('user', () => {
 
   const planExpired = computed(() => {
     if (!user.value?.planExpiryDate) return false
-    
+
     const expiryDate = new Date(user.value.planExpiryDate)
     const now = new Date()
-    
+
     return now > expiryDate
+  })
+
+  const tierColor = computed<TierColor>(() => {
+    if (!user.value) return 'gray'
+
+    if (planExpired.value) return 'gray'
+
+    switch (user.value.plan) {
+      case 'Premium':
+        return 'gold'
+      case 'Pro':
+        return 'silver'
+      default:
+        return 'gray'
+    }
+  })
+
+  const isBasic = computed(() => {
+    return user.value?.plan === 'Basic' || planExpired.value
   })
 
   // Actions
@@ -102,6 +123,43 @@ export const useUserStore = defineStore('user', () => {
   function resetUser() {
     user.value = null
     error.value = null
+    referralStats.value = null
+  }
+
+  async function fetchReferralStats(userId: string) {
+    loading.value = true
+    error.value = null
+
+    try {
+      referralStats.value = await getReferralStats(userId)
+    } catch (err: any) {
+      error.value = err.message || 'Failed to fetch referral statistics'
+      console.error('Fetch referral stats error:', err)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function applyReferralCode(referralCode: string, userId: string, email: string, name?: string) {
+    loading.value = true
+    error.value = null
+
+    try {
+      const response = await applyReferral(referralCode, userId, email, name)
+
+      // Update user tokens with referee reward
+      if (user.value) {
+        user.value.tokens += response.rewards.referee.tokensAwarded
+        user.value.referredBy = response.rewards.referrer.id
+      }
+
+      return response
+    } catch (err: any) {
+      error.value = err.message || 'Failed to apply referral code'
+      throw err
+    } finally {
+      loading.value = false
+    }
   }
 
   return {
@@ -109,20 +167,25 @@ export const useUserStore = defineStore('user', () => {
     user,
     loading,
     error,
+    referralStats,
 
     // Getters
     hasTokens,
     isPremium,
     isPro,
+    isBasic,
     daysUntilExpiry,
     planExpired,
+    tierColor,
 
     // Actions
     fetchUser,
     updateTokens,
     deductUserTokens,
     upgradePlan,
-    resetUser
+    resetUser,
+    fetchReferralStats,
+    applyReferralCode
   }
 })
 

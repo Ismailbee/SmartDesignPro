@@ -33,8 +33,10 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useUserStore } from '@/stores/user.store'
 import { useMarketplaceStore } from '@/stores/marketplace'
 
 // Import all home page components
@@ -50,7 +52,24 @@ import HomeFooter from '@/components/home/HomeFooter.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const userStore = useUserStore()
 const marketplaceStore = useMarketplaceStore()
+
+// Refresh user data when page loads (to get latest plan/tokens)
+onMounted(async () => {
+  if (authStore.isAuthenticated && authStore.user?.uid) {
+    try {
+      await userStore.fetchUser(
+        authStore.user.uid,
+        authStore.user.email,
+        authStore.user.displayName || authStore.user.name
+      )
+      console.log('✅ User data refreshed on HomePage')
+    } catch (error) {
+      console.error('Failed to refresh user data:', error)
+    }
+  }
+})
 
 const handleGetQuote = () => {
   console.log('Get Quote clicked')
@@ -70,8 +89,8 @@ const handleStartProject = () => {
     router.push('/editor')
   }
 }
-
 const handleOpenMarketplace = () => {
+  console.log('Open Marketplace clicked')
   marketplaceStore.openMarketplace()
 }
 
@@ -86,14 +105,10 @@ const handleSubmitContact = (formData: any) => {
 </script>
 
 <style scoped>
-html {
-  scroll-behavior: smooth;
-}
-
 .home-page {
   width: 100%;
   min-height: 100vh;
+    overflow-y: auto !important;
   position: relative;
-  overflow-x: hidden;
 }
 </style>

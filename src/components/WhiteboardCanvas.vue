@@ -2964,7 +2964,8 @@ defineExpose({
 .canvas-container {
   flex: 1;
   position: relative;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling */
   background: #e0e0e0;
   min-height: 400px;
   width: 100%;
@@ -3044,12 +3045,16 @@ defineExpose({
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  pointer-events: auto;
+  /* Changed to auto to allow modal interaction */
 }
 
 .modal-content {
   background: white;
   border-radius: 8px;
   width: 400px;
+  pointer-events: auto;
+  /* Ensure modal content is clickable */
   max-width: 90vw;
 }
 

@@ -280,6 +280,7 @@ function sendInvite() {
   font-size: 14px;
   white-space: nowrap;
   overflow: hidden;
+  /* Keeping overflow: hidden for text truncation with ellipsis - this is intentional */
   text-overflow: ellipsis;
 }
 
@@ -340,6 +341,8 @@ function sendInvite() {
   justify-content: center;
   z-index: 10000;
   padding: 20px;
+  pointer-events: auto;
+  /* Changed to auto to allow modal interaction */
 }
 
 .modal-content {
@@ -347,11 +350,14 @@ function sendInvite() {
   backdrop-filter: blur(20px);
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.3);
+  pointer-events: auto;
+  /* Ensure modal content is clickable */
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   width: 100%;
   max-width: 500px;
   max-height: 90vh;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling in collaboration panel */
   display: flex;
   flex-direction: column;
 }

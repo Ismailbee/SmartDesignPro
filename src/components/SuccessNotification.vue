@@ -125,7 +125,8 @@ watch(() => props.show, (newValue) => {
     0 10px 40px rgba(0, 0, 0, 0.1),
     0 4px 12px rgba(0, 0, 0, 0.05);
   pointer-events: auto;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling */
   animation: slide-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 

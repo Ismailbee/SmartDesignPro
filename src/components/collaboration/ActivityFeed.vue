@@ -286,6 +286,7 @@ function formatTime(timestamp: Date): string {
   font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
+  /* Keeping overflow: hidden for text truncation with ellipsis - this is intentional */
   text-overflow: ellipsis;
 }
 

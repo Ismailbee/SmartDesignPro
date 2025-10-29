@@ -469,7 +469,8 @@ function formatTime(timestamp: Date): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling */
 }
 
 .activity-item {

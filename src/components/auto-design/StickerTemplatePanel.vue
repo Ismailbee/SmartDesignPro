@@ -1226,6 +1226,8 @@ onMounted(() => {
   position: relative;
   display: flex;
   justify-content: center;
+  overflow-x: hidden;
+  /* Removed overflow-y: auto to allow natural scrolling */
 }
 
 .form-view {
@@ -1396,7 +1398,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling in preview container */
 }
 
 .preview-placeholder {
@@ -1518,7 +1521,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling in image slot */
 }
 
 .add-image-slot-btn {
@@ -1601,7 +1605,8 @@ onMounted(() => {
   min-height: calc(100vh - 40px);
   background: white;
   border-radius: 16px;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling in modal content */
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
 }
 
@@ -1933,7 +1938,8 @@ onMounted(() => {
   aspect-ratio: 1;
   border: 2px solid #e5e7eb;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling in template item */
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -1987,6 +1993,7 @@ onMounted(() => {
   font-size: 11px;
   text-align: center;
   overflow: hidden;
+  /* Keeping overflow: hidden for text truncation with ellipsis - this is intentional */
   text-overflow: ellipsis;
   white-space: nowrap;
 }

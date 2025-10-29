@@ -246,7 +246,8 @@ body.admin-dark-mode .admin-dashboard {
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 16px;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling */
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 

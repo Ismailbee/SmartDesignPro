@@ -817,7 +817,8 @@ input:checked + .toggle-slider:before {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling */
   border: 2px solid #e2e8f0;
 }
 

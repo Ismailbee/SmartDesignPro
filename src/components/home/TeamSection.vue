@@ -172,7 +172,8 @@
   width: 120px;
   height: 120px;
   border-radius: 50%;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling in team member images */
   margin: 0 auto 24px;
   border: 4px solid #06b6d4;
 }

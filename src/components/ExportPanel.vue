@@ -372,6 +372,8 @@ watch(currentExport, (newExport) => {
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(4px);
   z-index: 9999;
+  pointer-events: auto;
+  /* Changed to auto to allow modal interaction */
 }
 
 /* Panel */
@@ -390,7 +392,8 @@ watch(currentExport, (newExport) => {
   z-index: 10000;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling in export panel */
 }
 
 /* Header */
@@ -790,7 +793,8 @@ watch(currentExport, (newExport) => {
   height: 8px;
   background: rgba(0, 0, 0, 0.1);
   border-radius: 4px;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling in progress bar */
 }
 
 .progress-fill {
@@ -919,7 +923,8 @@ watch(currentExport, (newExport) => {
 .expand-enter-active,
 .expand-leave-active {
   transition: all 0.3s ease;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling during transitions */
 }
 
 .expand-enter-from,

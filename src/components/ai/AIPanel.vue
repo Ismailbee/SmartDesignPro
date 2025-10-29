@@ -174,6 +174,8 @@ onMounted(() => {
   background: rgba(0, 0, 0, 0.2);
   backdrop-filter: blur(2px);
   z-index: 999;
+  pointer-events: auto;
+  /* Changed to auto to allow modal interaction */
 }
 
 /* Header */

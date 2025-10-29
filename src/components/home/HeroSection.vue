@@ -37,16 +37,29 @@ defineEmits<{
 }>()
 
 const scrollToSection = (sectionId: string) => {
+  console.log('🔍 Hero: Scrolling to section:', sectionId)
   const element = document.getElementById(sectionId)
+
   if (element) {
+    console.log('✅ Hero: Element found:', element)
     const headerOffset = 80
     const elementPosition = element.getBoundingClientRect().top
-    const offsetPosition = elementPosition + window.pageYOffset - headerOffset
+    const currentScrollY = window.scrollY || window.pageYOffset
+    const offsetPosition = elementPosition + currentScrollY - headerOffset
+
+    console.log('📊 Hero: Scroll calculation:', {
+      elementPosition,
+      currentScrollY,
+      offsetPosition,
+      headerOffset
+    })
 
     window.scrollTo({
       top: offsetPosition,
       behavior: 'smooth'
     })
+  } else {
+    console.error('❌ Hero: Element not found with ID:', sectionId)
   }
 }
 </script>
@@ -54,14 +67,15 @@ const scrollToSection = (sectionId: string) => {
 <style scoped>
 /* Hero Section */
 .hero-section {
-  min-height: 100vh;
   display: flex;
   align-items: center;
+  min-height: 750px;
   justify-content: left;
   padding: 150px 80px 80px;
   position: relative;
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
 }
+
 
 .hero-content {
   max-width: 800px;
@@ -149,7 +163,8 @@ const scrollToSection = (sectionId: string) => {
 }
 
 .hero-background {
-  position: absolute;
+  
+  position: relative;
   top: 0;
   left: 0;
   right: 0;

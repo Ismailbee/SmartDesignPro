@@ -372,7 +372,8 @@ onUnmounted(() => {
 }
 
 .panel-content {
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling */
   border-radius: 8px;
 }
 

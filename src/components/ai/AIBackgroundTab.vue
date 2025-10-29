@@ -322,7 +322,8 @@ function clearResults() {
 .upload-preview {
   position: relative;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling */
 }
 
 .upload-preview img {

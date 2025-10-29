@@ -95,8 +95,12 @@ db.exec(`
     planExpiryDate TEXT,
     tokens INTEGER DEFAULT 0,
     totalDesignsGenerated INTEGER DEFAULT 0,
+    referralCode TEXT UNIQUE,
+    referredBy TEXT,
+    referralCount INTEGER DEFAULT 0,
     createdAt TEXT NOT NULL,
-    updatedAt TEXT NOT NULL
+    updatedAt TEXT NOT NULL,
+    FOREIGN KEY (referredBy) REFERENCES users(id) ON DELETE SET NULL
   )
 `)
 
@@ -119,12 +123,30 @@ db.exec(`
   )
 `)
 
+// Referrals table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS referrals (
+    id TEXT PRIMARY KEY,
+    referrerId TEXT NOT NULL,
+    referredId TEXT NOT NULL,
+    tokensAwarded INTEGER NOT NULL,
+    createdAt TEXT NOT NULL,
+    FOREIGN KEY (referrerId) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (referredId) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(referrerId, referredId)
+  )
+`)
+
 // Create indexes
 db.exec(`CREATE INDEX IF NOT EXISTS idx_payments_userId ON payments(userId)`)
 db.exec(`CREATE INDEX IF NOT EXISTS idx_payments_reference ON payments(reference)`)
 db.exec(`CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status)`)
 db.exec(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`)
 db.exec(`CREATE INDEX IF NOT EXISTS idx_users_planExpiryDate ON users(planExpiryDate)`)
+db.exec(`CREATE INDEX IF NOT EXISTS idx_users_referralCode ON users(referralCode)`)
+db.exec(`CREATE INDEX IF NOT EXISTS idx_users_referredBy ON users(referredBy)`)
+db.exec(`CREATE INDEX IF NOT EXISTS idx_referrals_referrerId ON referrals(referrerId)`)
+db.exec(`CREATE INDEX IF NOT EXISTS idx_referrals_referredId ON referrals(referredId)`)
 
 console.log('✅ Database initialized successfully')
 
@@ -210,17 +232,19 @@ const paystackService = {
  */
 function getOrCreateUser(userId, email, name) {
   let user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId)
-  
+
   if (!user) {
     const now = new Date().toISOString()
+    const referralCode = generateReferralCode()
+
     db.prepare(`
-      INSERT INTO users (id, email, name, plan, tokens, totalDesignsGenerated, createdAt, updatedAt)
-      VALUES (?, ?, ?, 'Basic', 0, 0, ?, ?)
-    `).run(userId, email, name || email.split('@')[0], now, now)
-    
+      INSERT INTO users (id, email, name, plan, tokens, totalDesignsGenerated, referralCode, referralCount, createdAt, updatedAt)
+      VALUES (?, ?, ?, 'Basic', 0, 0, ?, 0, ?, ?)
+    `).run(userId, email, name || email.split('@')[0], referralCode, now, now)
+
     user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId)
   }
-  
+
   return user
 }
 
@@ -255,6 +279,75 @@ function generateReference(type, userId) {
   const prefix = type === 'token_purchase' ? 'TKN' : 'PLN'
   const timestamp = Date.now()
   return `${prefix}_${userId}_${timestamp}`
+}
+
+/**
+ * Generate unique referral code
+ * Format: DESIGN-{6-char-alphanumeric}
+ */
+function generateReferralCode() {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  let code = 'DESIGN-'
+
+  for (let i = 0; i < 6; i++) {
+    code += characters.charAt(Math.floor(Math.random() * characters.length))
+  }
+
+  // Check if code already exists
+  const existing = db.prepare('SELECT id FROM users WHERE referralCode = ?').get(code)
+  if (existing) {
+    // Recursively generate new code if collision
+    return generateReferralCode()
+  }
+
+  return code
+}
+
+/**
+ * Process referral rewards
+ * Awards tokens to both referrer and referee
+ */
+function processReferral(referrerId, referredId) {
+  const now = new Date().toISOString()
+  const referrerTokens = 500 // Referrer gets 500 tokens
+  const refereeTokens = 750  // Referee gets 750 tokens
+
+  try {
+    // Start transaction
+    const transaction = db.transaction(() => {
+      // Award tokens to referrer
+      db.prepare(`
+        UPDATE users
+        SET tokens = tokens + ?, referralCount = referralCount + 1, updatedAt = ?
+        WHERE id = ?
+      `).run(referrerTokens, now, referrerId)
+
+      // Award tokens to referee
+      db.prepare(`
+        UPDATE users
+        SET tokens = tokens + ?, updatedAt = ?
+        WHERE id = ?
+      `).run(refereeTokens, now, referredId)
+
+      // Create referral record
+      const referralId = uuidv4()
+      db.prepare(`
+        INSERT INTO referrals (id, referrerId, referredId, tokensAwarded, createdAt)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(referralId, referrerId, referredId, referrerTokens + refereeTokens, now)
+    })
+
+    transaction()
+
+    return {
+      success: true,
+      referrerTokens,
+      refereeTokens
+    }
+  } catch (error) {
+    console.error('Process referral error:', error)
+    throw error
+  }
 }
 
 // ============================================================================
@@ -297,7 +390,10 @@ app.get('/api/users/:userId', (req, res) => {
       plan: user.plan,
       planExpiryDate: user.planExpiryDate,
       tokens: user.tokens,
-      totalDesignsGenerated: user.totalDesignsGenerated
+      totalDesignsGenerated: user.totalDesignsGenerated,
+      referralCode: user.referralCode,
+      referredBy: user.referredBy,
+      referralCount: user.referralCount
     })
   } catch (error) {
     console.error('Get user error:', error)
@@ -648,6 +744,300 @@ app.get('/api/payments/verify/:reference', async (req, res) => {
   } catch (error) {
     console.error('Verify payment error:', error)
     res.status(500).json({ error: 'Failed to verify payment' })
+  }
+})
+
+// ============================================================================
+// REFERRAL API ENDPOINTS
+// ============================================================================
+
+/**
+ * POST /api/referral/validate
+ * Validate a referral code before signup
+ */
+app.post('/api/referral/validate', [
+  body('referralCode').notEmpty().withMessage('Referral code is required')
+], (req, res) => {
+  try {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+
+    const { referralCode } = req.body
+
+    const referrer = db.prepare('SELECT id, name, email FROM users WHERE referralCode = ?').get(referralCode)
+
+    if (!referrer) {
+      return res.status(404).json({
+        valid: false,
+        error: 'Invalid referral code'
+      })
+    }
+
+    res.json({
+      valid: true,
+      referrer: {
+        id: referrer.id,
+        name: referrer.name
+      }
+    })
+  } catch (error) {
+    console.error('Validate referral error:', error)
+    res.status(500).json({ error: 'Failed to validate referral code' })
+  }
+})
+
+/**
+ * POST /api/referral/apply
+ * Apply referral code during signup (awards tokens to both users)
+ */
+app.post('/api/referral/apply', [
+  body('referralCode').notEmpty().withMessage('Referral code is required'),
+  body('userId').notEmpty().withMessage('User ID is required'),
+  body('email').isEmail().withMessage('Valid email is required'),
+  body('name').optional()
+], (req, res) => {
+  try {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+
+    const { referralCode, userId, email, name } = req.body
+
+    // Check if user already exists
+    let user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId)
+
+    if (user && user.referredBy) {
+      return res.status(400).json({
+        error: 'User has already used a referral code'
+      })
+    }
+
+    // Find referrer
+    const referrer = db.prepare('SELECT * FROM users WHERE referralCode = ?').get(referralCode)
+
+    if (!referrer) {
+      return res.status(404).json({ error: 'Invalid referral code' })
+    }
+
+    // Prevent self-referral
+    if (referrer.id === userId) {
+      return res.status(400).json({ error: 'Cannot use your own referral code' })
+    }
+
+    // Create user if doesn't exist
+    if (!user) {
+      user = getOrCreateUser(userId, email, name)
+    }
+
+    // Update user's referredBy field
+    const now = new Date().toISOString()
+    db.prepare(`
+      UPDATE users
+      SET referredBy = ?, updatedAt = ?
+      WHERE id = ?
+    `).run(referrer.id, now, userId)
+
+    // Process referral rewards
+    const result = processReferral(referrer.id, userId)
+
+    console.log(`✅ Referral applied: ${referrer.name} referred ${user.name}`)
+
+    res.json({
+      success: true,
+      message: 'Referral code applied successfully',
+      rewards: {
+        referrer: {
+          id: referrer.id,
+          name: referrer.name,
+          tokensAwarded: result.referrerTokens
+        },
+        referee: {
+          id: userId,
+          tokensAwarded: result.refereeTokens
+        }
+      }
+    })
+  } catch (error) {
+    console.error('Apply referral error:', error)
+    res.status(500).json({ error: 'Failed to apply referral code' })
+  }
+})
+
+/**
+ * GET /api/referral/stats/:userId
+ * Get referral statistics for a user
+ */
+app.get('/api/referral/stats/:userId', (req, res) => {
+  try {
+    const { userId } = req.params
+
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId)
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    // Get referral details
+    const referrals = db.prepare(`
+      SELECT
+        r.id,
+        r.tokensAwarded,
+        r.createdAt,
+        u.name as referredName,
+        u.email as referredEmail
+      FROM referrals r
+      JOIN users u ON r.referredId = u.id
+      WHERE r.referrerId = ?
+      ORDER BY r.createdAt DESC
+    `).all(userId)
+
+    const totalTokensEarned = referrals.reduce((sum, ref) => sum + ref.tokensAwarded, 0)
+
+    res.json({
+      referralCode: user.referralCode,
+      referralCount: user.referralCount,
+      totalTokensEarned,
+      referrals: referrals.map(ref => ({
+        id: ref.id,
+        referredName: ref.referredName,
+        tokensAwarded: ref.tokensAwarded,
+        createdAt: ref.createdAt
+      }))
+    })
+  } catch (error) {
+    console.error('Get referral stats error:', error)
+    res.status(500).json({ error: 'Failed to fetch referral statistics' })
+  }
+})
+
+/**
+ * GET /api/referral/code/:userId
+ * Get user's unique referral code
+ */
+app.get('/api/referral/code/:userId', (req, res) => {
+  try {
+    const { userId } = req.params
+
+    const user = db.prepare('SELECT referralCode FROM users WHERE id = ?').get(userId)
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    res.json({
+      referralCode: user.referralCode
+    })
+  } catch (error) {
+    console.error('Get referral code error:', error)
+    res.status(500).json({ error: 'Failed to fetch referral code' })
+  }
+})
+
+// ============================================================================
+// SUBSCRIPTION API ENDPOINTS
+// ============================================================================
+
+/**
+ * GET /api/subscription/plans
+ * Get all available subscription plans with features
+ */
+app.get('/api/subscription/plans', (req, res) => {
+  try {
+    const plans = [
+      {
+        id: 'free',
+        name: 'Free',
+        price: 0,
+        duration: 'Forever',
+        features: [
+          '50 Free Tokens on Signup',
+          'Basic AI Design Tools',
+          'Standard Templates',
+          'Watermarked Exports',
+          'Community Support'
+        ],
+        tokenBonus: 0,
+        color: 'gray',
+        icon: 'diamond-outline'
+      },
+      {
+        id: 'PLN_5x6n9kfpr8z34lu',
+        name: 'Premium',
+        price: 2500,
+        duration: '2 Months',
+        features: [
+          '1,000 Bonus Tokens',
+          'Advanced AI Tools',
+          'Premium Templates',
+          'HD Exports (No Watermark)',
+          'Priority Support',
+          'Collaboration Tools'
+        ],
+        tokenBonus: 1000,
+        color: 'gold',
+        icon: 'diamond',
+        popular: true
+      },
+      {
+        id: 'PLN_31ofmv6h9jplglk',
+        name: 'Pro',
+        price: 5000,
+        duration: '2 Months',
+        features: [
+          '1,500 Bonus Tokens',
+          'All Premium Features',
+          'Exclusive Pro Templates',
+          '4K Exports',
+          'White-Label Options',
+          'Dedicated Account Manager',
+          'API Access'
+        ],
+        tokenBonus: 1500,
+        color: 'silver',
+        icon: 'diamond',
+        recommended: true
+      }
+    ]
+
+    res.json({ plans })
+  } catch (error) {
+    console.error('Get subscription plans error:', error)
+    res.status(500).json({ error: 'Failed to fetch subscription plans' })
+  }
+})
+
+/**
+ * GET /api/subscription/status/:userId
+ * Get user's current subscription status
+ */
+app.get('/api/subscription/status/:userId', (req, res) => {
+  try {
+    const { userId } = req.params
+
+    const user = db.prepare('SELECT plan, planExpiryDate FROM users WHERE id = ?').get(userId)
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    const now = new Date()
+    const expiryDate = user.planExpiryDate ? new Date(user.planExpiryDate) : null
+    const isExpired = expiryDate && expiryDate < now
+    const daysRemaining = expiryDate ? Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24)) : null
+
+    res.json({
+      plan: isExpired ? 'Basic' : user.plan,
+      planExpiryDate: user.planExpiryDate,
+      isExpired,
+      daysRemaining,
+      canUpgrade: user.plan === 'Basic' || isExpired
+    })
+  } catch (error) {
+    console.error('Get subscription status error:', error)
+    res.status(500).json({ error: 'Failed to fetch subscription status' })
   }
 })
 

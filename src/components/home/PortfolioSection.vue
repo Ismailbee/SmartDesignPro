@@ -161,7 +161,8 @@ const filteredProjects = computed(() => {
 .project-image {
   position: relative;
   border-radius: 12px;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling in portfolio images */
   aspect-ratio: 4/3;
   cursor: pointer;
 }

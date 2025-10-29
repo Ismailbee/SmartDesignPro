@@ -154,7 +154,8 @@ onUnmounted(() => {
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
   z-index: 1000;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling in dropdown */
 }
 
 .dropdown-content {

@@ -2,6 +2,7 @@
 
 .auth-view {
   padding: 48px 40px;
+  
 }
 
 /* Header */
@@ -61,6 +62,7 @@
   background: #e6fffa;
   border: 1px solid #81e6d9;
   border-radius: 12px;
+  
   color: #234e52;
   font-size: 14px;
   margin-bottom: 24px;
@@ -278,7 +280,8 @@
   height: 4px;
   background: #e2e8f0;
   border-radius: 2px;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling */
   margin-bottom: 6px;
 }
 

@@ -53,7 +53,8 @@ function toggleTheme() {
   justify-content: center;
   transition: all 0.3s ease;
   position: relative;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling */
 }
 
 .theme-toggle:hover {

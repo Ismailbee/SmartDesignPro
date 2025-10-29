@@ -130,6 +130,8 @@ onUnmounted(() => {
   z-index: 1000;
   padding: 20px;
   backdrop-filter: blur(2px);
+  pointer-events: auto;
+  /* Changed to auto to allow modal interaction */
 }
 
 .modal-container {
@@ -137,11 +139,14 @@ onUnmounted(() => {
   background: white;
   border-radius: 12px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  pointer-events: auto;
+  /* Ensure modal content is clickable */
   max-width: 90vw;
   max-height: 90vh;
   width: 100%;
   height: 100%;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling in modal content */
   display: flex;
   flex-direction: column;
 }

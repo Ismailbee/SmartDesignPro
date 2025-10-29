@@ -1295,6 +1295,7 @@ function closeSidebarOnMobile() {
   color: #111827;
   white-space: nowrap;
   overflow: hidden;
+  /* Keeping overflow: hidden for text truncation with ellipsis - this is intentional */
   text-overflow: ellipsis;
 }
 
@@ -1486,7 +1487,8 @@ function closeSidebarOnMobile() {
   height: 6px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 3px;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling */
 }
 
 .progress-fill {

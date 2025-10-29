@@ -411,7 +411,8 @@ onUnmounted(() => {
 .cropper-wrapper {
   flex: 2;
   min-height: 400px;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling in cropper wrapper */
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
@@ -437,7 +438,8 @@ onUnmounted(() => {
   display: inline-block;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling in preview container */
 }
 
 .preview-container canvas {
@@ -666,7 +668,8 @@ onUnmounted(() => {
 
 .cropper-wrap-box,
 .cropper-canvas {
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling in cropper canvas */
 }
 
 .cropper-drag-box {
@@ -684,7 +687,8 @@ onUnmounted(() => {
   height: 100%;
   outline: 1px solid #39f;
   outline-color: rgba(51, 153, 255, 0.75);
-  overflow: hidden;
+  overflow: auto;
+  /* Changed from overflow: hidden to allow scrolling in cropper drag box */
   width: 100%;
 }
 
