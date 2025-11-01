@@ -45,7 +45,7 @@ const upload = multer({
 })
 
 // In-memory storage (replace with database in production)
-const exports = new Map()
+const exportRecords = new Map()
 const shareLinks = new Map()
 
 // =======================
@@ -278,16 +278,16 @@ app.post('/api/export', async (req, res) => {
       fileSize: null
     }
 
-    exports.set(exportId, exportData)
+    exportRecords.set(exportId, exportData)
 
     // Simulate async processing (in production, use a job queue like Bull)
     setTimeout(() => {
-      const data = exports.get(exportId)
+      const data = exportRecords.get(exportId)
       if (data) {
         data.status = 'complete'
         data.downloadUrl = `http://localhost:${PORT}/api/export/${exportId}/download`
         data.fileSize = Math.floor(Math.random() * 5000000) + 100000 // Simulated size
-        exports.set(exportId, data)
+        exportRecords.set(exportId, data)
       }
     }, 2000)
 
@@ -310,7 +310,7 @@ app.post('/api/export', async (req, res) => {
  */
 app.get('/api/export/:exportId/status', (req, res) => {
   const { exportId } = req.params
-  const exportData = exports.get(exportId)
+  const exportData = exportRecords.get(exportId)
 
   if (!exportData) {
     return res.status(404).json({ error: 'Export not found' })
@@ -334,7 +334,7 @@ app.get('/api/export/:exportId/status', (req, res) => {
  */
 app.get('/api/export/:exportId/download', async (req, res) => {
   const { exportId } = req.params
-  const exportData = exports.get(exportId)
+  const exportData = exportRecords.get(exportId)
 
   if (!exportData) {
     return res.status(404).json({ error: 'Export not found' })
