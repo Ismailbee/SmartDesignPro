@@ -1,943 +1,1394 @@
 <template>
-  <div class="mockup-page">
-    <!-- Header -->
-    <div class="page-header">
-      <div class="header-content">
-        <h1 class="page-title">Design Mockups & Prototypes</h1>
-        <p class="page-subtitle">
-          Bring your designs to life with professional mockups and interactive prototypes
-        </p>
-      </div>
-    </div>
+  <ion-page class="imposition-page">
+    <ion-header translucent>
+      <ion-toolbar>
+        <ion-title>Smart Imposition Studio</ion-title>
+        <ion-buttons slot="end">
+          <ion-button fill="clear" @click="resetForm" :disabled="!canReset">
+            <ion-icon slot="start" :icon="refreshOutline"></ion-icon>
+            Reset
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
 
-    <!-- Mockup Content -->
-    <div class="mockup-content">
-      <div class="container">
-        <!-- Services Overview -->
-        <section class="services-overview">
-          <div class="section-header">
-            <h2 class="section-title">Mockup Services</h2>
-            <p class="section-subtitle">
-              Professional mockup creation to showcase your designs in realistic contexts
-            </p>
-          </div>
+    <ion-content fullscreen>
+      <section class="hero">
+        <h1>Create press-ready layouts in seconds</h1>
+        <p>Upload a PDF or high-resolution image, pick an imposition style, and we’ll return a perfectly imposed PDF ready for print.</p>
+      </section>
 
-          <div class="services-grid">
-            <div class="service-card">
-              <div class="service-icon">📱</div>
-              <h3 class="service-title">Mobile App Mockups</h3>
-              <p class="service-description">
-                Create stunning mobile app presentations with realistic device frames and interactions
-              </p>
-              <ul class="service-features">
-                <li>iOS & Android devices</li>
-                <li>Multiple screen sizes</li>
-                <li>Interactive prototypes</li>
-                <li>User flow animations</li>
-              </ul>
-              <div class="service-price">Starting at $149</div>
-            </div>
+      <ion-grid fixed>
+        <ion-row class="content-grid">
+          <ion-col size="12" size-md="6" class="stack">
+            <ion-card class="upload-card">
+              <ion-card-header>
+                <ion-card-subtitle>Source file</ion-card-subtitle>
+                <ion-card-title>Upload artwork</ion-card-title>
+              </ion-card-header>
+              <ion-card-content>
+                <div
+                  class="drop-zone"
+                  :class="{ dragging: isDragging, ready: files.length > 0 }"
+                  @dragover.prevent="onDragOver"
+                  @dragleave.prevent="onDragLeave"
+                  @drop.prevent="onDrop"
+                  @click="openFilePicker"
+                >
+                  <ion-icon :icon="files.length > 0 ? documentOutline : cloudUploadOutline"></ion-icon>
+                  <template v-if="files.length > 0">
+                    <h3>{{ files.length }} file{{ files.length > 1 ? 's' : '' }} selected</h3>
+                    <div class="file-preview-wrapper">
+                      <div class="file-preview-scroll">
+                        <div
+                          v-for="(file, index) in files"
+                          :key="`${file.name}-${index}`"
+                          :class="[
+                            'file-preview-card',
+                            {
+                              'is-dragging': dragIndex === index,
+                              'is-drop-target': dragOverIndex === index,
+                            }
+                          ]"
+                          draggable="true"
+                          @dragstart="(event) => onTileDragStart(event, index)"
+                          @dragenter.prevent="() => onTileDragEnter(index)"
+                          @dragover.prevent="(event) => onTileDragOver(event, index)"
+                          @dragleave="() => onTileDragLeave(index)"
+                          @drop.prevent="() => onTileDrop(index)"
+                          @dragend="onTileDragEnd"
+                        >
+                          <button
+                            type="button"
+                            class="remove-preview"
+                            @click.stop="removeFile(index)"
+                            :aria-label="`Remove ${file.name}`"
+                          >
+                            <ion-icon :icon="closeCircleOutline"></ion-icon>
+                          </button>
+                          <div class="preview-frame">
+                            <span class="file-index">{{ index + 1 }}</span>
+                            <img
+                              v-if="filePreviews[index]?.type === 'image'"
+                              :src="filePreviews[index].url"
+                              :alt="`${file.name} preview`"
+                              class="preview-image"
+                            />
+                            <div v-else class="preview-placeholder">
+                              <ion-icon :icon="documentOutline"></ion-icon>
+                              <span class="preview-ext">{{ getFileExtension(file.name) }}</span>
+                            </div>
+                          </div>
+                          <span class="file-name" :title="file.name">{{ file.name }}</span>
+                          <small class="file-size">{{ formatFileSize(file.size) }}</small>
+                        </div>
 
-            <div class="service-card">
-              <div class="service-icon">💻</div>
-              <h3 class="service-title">Website Mockups</h3>
-              <p class="service-description">
-                Professional website presentations with responsive layouts and browser frames
-              </p>
-              <ul class="service-features">
-                <li>Desktop & mobile views</li>
-                <li>Browser mockups</li>
-                <li>Responsive layouts</li>
-                <li>Interactive elements</li>
-              </ul>
-              <div class="service-price">Starting at $199</div>
-            </div>
+                        <div
+                          :class="[
+                            'file-preview-card',
+                            'add-card',
+                            { 'is-drop-target': dragOverIndex === files.length }
+                          ]"
+                          @click.stop="openFilePicker"
+                          @dragenter.prevent="() => onTileDragEnter(files.length)"
+                          @dragover.prevent="(event) => onTileDragOver(event, files.length)"
+                          @dragleave="() => onTileDragLeave(files.length)"
+                          @drop.prevent="onAddTileDrop"
+                          @dragend="onTileDragEnd"
+                        >
+                          <div class="preview-frame">
+                            <ion-icon :icon="addOutline"></ion-icon>
+                          </div>
+                          <span class="file-name">Add file</span>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <h3>Drag & drop or browse</h3>
+                    <p>Accepted formats: PDF, PNG, JPG (max 50&nbsp;MB each)</p>
+                    <p><strong>Select multiple files to merge them together</strong></p>
+                    <ion-button expand="block" size="small" fill="outline">Browse files</ion-button>
+                  </template>
+                </div>
+                <input
+                  ref="fileInput"
+                  type="file"
+                  class="sr-only"
+                  accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp"
+                  @change="onFileChange"
+                  multiple
+                />
+                <ion-note color="danger" v-if="fileError" class="message note">{{ fileError }}</ion-note>
+                <ion-note color="success" v-if="successMessage" class="message note">{{ successMessage }}</ion-note>
+              </ion-card-content>
+            </ion-card>
 
-            <div class="service-card">
-              <div class="service-icon">🎨</div>
-              <h3 class="service-title">Branding Mockups</h3>
-              <p class="service-description">
-                Showcase your brand identity across various touchpoints and applications
-              </p>
-              <ul class="service-features">
-                <li>Logo presentations</li>
-                <li>Business card mockups</li>
-                <li>Stationery sets</li>
-                <li>Environmental graphics</li>
-              </ul>
-              <div class="service-price">Starting at $99</div>
-            </div>
-
-            <div class="service-card">
-              <div class="service-icon">📦</div>
-              <h3 class="service-title">Product Mockups</h3>
-              <p class="service-description">
-                3D product visualizations and packaging mockups for marketing materials
-              </p>
-              <ul class="service-features">
-                <li>3D product renders</li>
-                <li>Packaging design</li>
-                <li>Label applications</li>
-                <li>Marketing materials</li>
-              </ul>
-              <div class="service-price">Starting at $249</div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Portfolio Gallery -->
-        <section class="portfolio-gallery">
-          <h2 class="section-title">Recent Mockup Work</h2>
-          <div class="gallery-tabs">
-            <button
-              v-for="category in categories"
-              :key="category"
-              :class="['tab-button', { active: activeCategory === category }]"
-              @click="activeCategory = category"
-            >
-              {{ category }}
-            </button>
-          </div>
-
-          <div class="gallery-grid">
-            <div
-              v-for="item in filteredPortfolio"
-              :key="item.id"
-              class="gallery-item"
-              @click="openLightbox(item)"
-            >
-              <div class="item-image">
-                <img :src="item.image" :alt="item.title" />
-                <div class="item-overlay">
-                  <div class="overlay-content">
-                    <h4 class="item-title">{{ item.title }}</h4>
-                    <p class="item-category">{{ item.category }}</p>
-                    <button class="view-button">View Details</button>
+            <ion-card class="settings-card">
+              <ion-card-header>
+                <ion-card-subtitle>Layout options</ion-card-subtitle>
+                <ion-card-title>Configure imposition</ion-card-title>
+              </ion-card-header>
+              <ion-card-content>
+                <div class="options-group">
+                  <label>Imposition type</label>
+                  <div class="segment-scroll">
+                    <ion-segment v-model="selectedType" mode="md" scrollable class="imposition-segment">
+                      <ion-segment-button
+                        v-for="option in impositionTypes"
+                        :key="option.value"
+                        :value="option.value"
+                      >
+                        <ion-label>
+                          <strong>{{ option.label }}</strong>
+                          <small>{{ option.description }}</small>
+                        </ion-label>
+                      </ion-segment-button>
+                    </ion-segment>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        </section>
 
-        <!-- Process Section -->
-        <section class="process-section">
-          <h2 class="section-title">Our Mockup Process</h2>
-          <div class="process-timeline">
-            <div class="timeline-item">
-              <div class="timeline-marker">1</div>
-              <div class="timeline-content">
-                <h3 class="timeline-title">Brief & Discovery</h3>
-                <p class="timeline-description">
-                  We understand your project requirements, target audience, and design goals
-                </p>
-              </div>
-            </div>
-            <div class="timeline-item">
-              <div class="timeline-marker">2</div>
-              <div class="timeline-content">
-                <h3 class="timeline-title">Concept Development</h3>
-                <p class="timeline-description">
-                  Create initial mockup concepts and present them for your feedback
-                </p>
-              </div>
-            </div>
-            <div class="timeline-item">
-              <div class="timeline-marker">3</div>
-              <div class="timeline-content">
-                <h3 class="timeline-title">Refinement</h3>
-                <p class="timeline-description">
-                  Refine the mockups based on your feedback and brand guidelines
-                </p>
-              </div>
-            </div>
-            <div class="timeline-item">
-              <div class="timeline-marker">4</div>
-              <div class="timeline-content">
-                <h3 class="timeline-title">Final Delivery</h3>
-                <p class="timeline-description">
-                  Deliver high-resolution mockups in multiple formats for your use
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
+                <div class="options-grid">
+                  <ion-item lines="full">
+                    <ion-label>Paper size</ion-label>
+                    <ion-select interface="popover" v-model="pageSizeValue" :disabled="customSizeEnabled">
+                      <ion-select-option v-for="size in pageSizes" :key="size.value" :value="size.value">
+                        {{ size.label }}
+                      </ion-select-option>
+                    </ion-select>
+                  </ion-item>
 
-        <!-- CTA Section -->
-        <section class="cta-section">
-          <div class="cta-container">
-            <h2 class="cta-title">Ready to Bring Your Design to Life?</h2>
-            <p class="cta-subtitle">
-              Get a custom mockup quote for your project today
-            </p>
-            <div class="cta-buttons">
-              <button @click="scrollToQuoteForm" class="cta-primary">Get Quote</button>
-              <button @click="openPortfolio" class="cta-secondary">View Portfolio</button>
-            </div>
-          </div>
-        </section>
+                  <ion-item lines="full">
+                    <ion-label>Orientation</ion-label>
+                    <ion-select 
+                      interface="popover" 
+                      :value="orientation"
+                      @ion-change="(e) => { console.log('Select changed:', e.detail.value); orientation = e.detail.value; }"
+                      :disabled="autoDetectOrientation"
+                      placeholder="Select orientation"
+                    >
+                      <ion-select-option value="portrait">Portrait</ion-select-option>
+                      <ion-select-option value="landscape">Landscape</ion-select-option>
+                    </ion-select>
+                  </ion-item>
 
-        <!-- Quote Form -->
-        <section id="quote-form" class="quote-section">
-          <div class="quote-container">
-            <h2 class="section-title">Get Your Mockup Quote</h2>
-            <p class="section-subtitle">
-              Tell us about your project and we'll provide a custom quote
-            </p>
+                  <ion-item lines="full">
+                    <ion-label>Auto-detect orientation</ion-label>
+                    <ion-toggle 
+                      color="primary" 
+                      :checked="autoDetectOrientation"
+                      @ion-change="(e) => autoDetectOrientation = e.detail.checked"
+                    ></ion-toggle>
+                  </ion-item>
+                  
+                  <ion-note color="success" v-if="orientation" class="orientation-note">
+                    ✓ Current: <strong>{{ orientation === 'portrait' ? 'Portrait' : 'Landscape' }}</strong>
+                  </ion-note>
 
-            <form @submit.prevent="handleSubmit" class="quote-form">
-              <div class="form-grid">
-                <div class="form-group">
-                  <label for="name" class="form-label">Full Name *</label>
-                  <input
-                    id="name"
-                    v-model="form.name"
-                    type="text"
-                    class="form-input"
-                    placeholder="Enter your full name"
-                    required
-                  />
+                  <ion-item lines="full">
+                    <ion-label>Duplex</ion-label>
+                    <ion-select interface="popover" v-model="duplex">
+                      <ion-select-option value="long-edge">Long-edge binding</ion-select-option>
+                      <ion-select-option value="short-edge">Short-edge binding</ion-select-option>
+                      <ion-select-option value="simplex">Single sided</ion-select-option>
+                    </ion-select>
+                  </ion-item>
+
+                  <ion-item lines="none">
+                    <ion-label>Blank page padding</ion-label>
+                    <ion-toggle color="primary" v-model="addBlankPages"></ion-toggle>
+                  </ion-item>
+
+                  <ion-item lines="none">
+                    <ion-label>Crop marks</ion-label>
+                    <ion-toggle color="primary" v-model="addCropMarks"></ion-toggle>
+                  </ion-item>
                 </div>
 
-                <div class="form-group">
-                  <label for="email" class="form-label">Email Address *</label>
-                  <input
-                    id="email"
-                    v-model="form.email"
-                    type="email"
-                    class="form-input"
-                    placeholder="Enter your email address"
-                    required
-                  />
+                <ion-accordion-group class="advanced">
+                  <ion-accordion value="advanced">
+                    <ion-item slot="header" color="light">
+                      <ion-label>Advanced page size</ion-label>
+                    </ion-item>
+                    <div slot="content" class="advanced-content">
+                      <ion-item lines="full">
+                        <ion-label>Use custom size</ion-label>
+                        <ion-toggle color="primary" v-model="customSizeEnabled"></ion-toggle>
+                      </ion-item>
+                      <div class="custom-size" :class="{ disabled: !customSizeEnabled }">
+                        <p class="custom-size-hint">
+                          Enter the finished sheet dimensions in points. We’ll handle the rest.
+                        </p>
+                        <div class="custom-size-fields">
+                          <div class="dimension-field">
+                            <label for="custom-width">Width (pt)</label>
+                            <ion-input
+                              id="custom-width"
+                              class="dimension-input"
+                              type="number"
+                              min="1"
+                              inputmode="decimal"
+                              placeholder="e.g. 595"
+                              v-model="customWidth"
+                              :disabled="!customSizeEnabled"
+                            ></ion-input>
+                          </div>
+                          <div class="dimension-field">
+                            <label for="custom-height">Height (pt)</label>
+                            <ion-input
+                              id="custom-height"
+                              class="dimension-input"
+                              type="number"
+                              min="1"
+                              inputmode="decimal"
+                              placeholder="e.g. 842"
+                              v-model="customHeight"
+                              :disabled="!customSizeEnabled"
+                            ></ion-input>
+                          </div>
+                        </div>
+                        <ion-note color="medium" class="custom-size-note">Values are in PostScript points (1&nbsp;pt = 1/72 inch).</ion-note>
+                      </div>
+                    </div>
+                  </ion-accordion>
+                </ion-accordion-group>
+
+                <ion-button
+                  expand="block"
+                  size="large"
+                  class="submit-btn"
+                  :disabled="!canSubmit"
+                  @click="submitImposition"
+                >
+                  <ion-spinner slot="start" v-if="isSubmitting"></ion-spinner>
+                  <ion-icon slot="start" :icon="documentOutline" v-else></ion-icon>
+                  Generate imposed PDF
+                </ion-button>
+
+                <ion-note color="warning" v-if="validationWarning" class="message">{{ validationWarning }}</ion-note>
+              </ion-card-content>
+            </ion-card>
+          </ion-col>
+
+          <ion-col size="12" size-md="6" class="stack">
+            <ion-card class="preview-card">
+              <ion-card-header>
+                <ion-card-subtitle>Output</ion-card-subtitle>
+                <ion-card-title>Preview & download</ion-card-title>
+              </ion-card-header>
+              <ion-card-content>
+                <div class="status" v-if="isSubmitting">
+                  <ion-spinner name="lines"></ion-spinner>
+                  <p>Processing your file… This can take a moment for larger documents.</p>
                 </div>
-              </div>
 
-              <div class="form-grid">
-                <div class="form-group">
-                  <label for="mockupType" class="form-label">Mockup Type *</label>
-                  <select id="mockupType" v-model="form.mockupType" class="form-select" required>
-                    <option value="">Select mockup type</option>
-                    <option value="mobile-app">Mobile App</option>
-                    <option value="website">Website</option>
-                    <option value="branding">Branding</option>
-                    <option value="product">Product</option>
-                    <option value="print">Print Design</option>
-                    <option value="other">Other</option>
-                  </select>
+                <div class="status" v-else-if="errorMessage">
+                  <ion-icon :icon="warningOutline" color="danger"></ion-icon>
+                  <p>{{ errorMessage }}</p>
                 </div>
 
-                <div class="form-group">
-                  <label for="timeline" class="form-label">Project Timeline</label>
-                  <select id="timeline" v-model="form.timeline" class="form-select">
-                    <option value="">Select timeline</option>
-                    <option value="rush">Rush (1-3 days)</option>
-                    <option value="standard">Standard (1 week)</option>
-                    <option value="extended">Extended (2+ weeks)</option>
-                  </select>
+                <div class="status success" v-else-if="previewUrl">
+                  <ion-icon :icon="checkmarkCircleOutline" color="success"></ion-icon>
+                  <div>
+                    <h3>Ready for review</h3>
+                    <p>Generated in {{ formattedProcessingTime }}.</p>
+                  </div>
                 </div>
-              </div>
 
-              <div class="form-group">
-                <label for="description" class="form-label">Project Description *</label>
-                <textarea
-                  id="description"
-                  v-model="form.description"
-                  class="form-textarea"
-                  rows="4"
-                  placeholder="Describe your project, the type of mockups you need, and any specific requirements..."
-                  required
-                ></textarea>
-              </div>
+                <div v-if="previewUrl" class="preview-frame">
+                  <iframe :src="previewUrl" title="Imposed preview" referrerpolicy="no-referrer" loading="lazy"></iframe>
+                </div>
 
-              <div class="form-group">
-                <label for="budget" class="form-label">Budget Range</label>
-                <select id="budget" v-model="form.budget" class="form-select">
-                  <option value="">Select budget range</option>
-                  <option value="under-500">Under $500</option>
-                  <option value="500-1000">$500 - $1,000</option>
-                  <option value="1000-2500">$1,000 - $2,500</option>
-                  <option value="2500-5000">$2,500 - $5,000</option>
-                  <option value="5000-plus">$5,000+</option>
-                </select>
-              </div>
+                <div class="empty-state" v-else-if="!isSubmitting">
+                  <ion-icon :icon="documentOutline"></ion-icon>
+                  <h3>No output yet</h3>
+                  <p>Upload a file and generate an imposition to see the preview here.</p>
+                </div>
 
-              <button type="submit" class="submit-button" :disabled="isSubmitting">
-                <span v-if="!isSubmitting">Get Mockup Quote</span>
-                <span v-else>Submitting...</span>
-              </button>
-            </form>
-          </div>
-        </section>
-      </div>
-    </div>
-
-    <!-- Lightbox Modal -->
-    <div v-if="lightboxItem" class="lightbox-overlay" @click="closeLightbox">
-      <div class="lightbox-content" @click.stop>
-        <button class="lightbox-close" @click="closeLightbox">×</button>
-        <img :src="lightboxItem.image" :alt="lightboxItem.title" class="lightbox-image" />
-        <div class="lightbox-info">
-          <h3 class="lightbox-title">{{ lightboxItem.title }}</h3>
-          <p class="lightbox-category">{{ lightboxItem.category }}</p>
-          <p class="lightbox-description">{{ lightboxItem.description }}</p>
-        </div>
-      </div>
-    </div>
-  </div>
+                <div class="actions" v-if="downloadUrl">
+                  <ion-button expand="block" fill="solid" color="primary" :href="downloadUrl" download>
+                    <ion-icon slot="start" :icon="downloadOutline"></ion-icon>
+                    Download imposed PDF
+                  </ion-button>
+                  <ion-button expand="block" fill="clear" @click="openPreview" :disabled="!previewUrl">
+                    Open in new tab
+                  </ion-button>
+                </div>
+              </ion-card-content>
+            </ion-card>
+          </ion-col>
+        </ion-row>
+      </ion-grid>
+    </ion-content>
+  </ion-page>
 </template>
 
-<script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+<script setup>
+import { onBeforeUnmount, ref, computed, watch } from 'vue';
+import {
+  IonPage,
+  IonHeader,
+  IonToolbar,
+  IonTitle,
+  IonContent,
+  IonGrid,
+  IonRow,
+  IonCol,
+  IonCard,
+  IonCardHeader,
+  IonCardTitle,
+  IonCardSubtitle,
+  IonCardContent,
+  IonButton,
+  IonButtons,
+  IonIcon,
+  IonLabel,
+  IonNote,
+  IonSegment,
+  IonSegmentButton,
+  IonItem,
+  IonSelect,
+  IonSelectOption,
+  IonToggle,
+  IonInput,
+  IonAccordionGroup,
+  IonAccordion,
+  IonSpinner,
+} from '@ionic/vue';
+import { backendApi } from '@/services/backendApi.js';
+import {
+  cloudUploadOutline,
+  documentOutline,
+  downloadOutline,
+  refreshOutline,
+  checkmarkCircleOutline,
+  warningOutline,
+  closeCircleOutline,
+  addOutline,
+} from 'ionicons/icons';
 
-const router = useRouter()
-
-// Form state
-const form = ref({
-  name: '',
-  email: '',
-  mockupType: '',
-  timeline: '',
-  description: '',
-  budget: ''
-})
-
-const isSubmitting = ref(false)
-const activeCategory = ref('All')
-const lightboxItem = ref(null)
-
-// Portfolio data
-const categories = ['All', 'Mobile App', 'Website', 'Branding', 'Product']
-
-const portfolioItems = [
+const impositionTypes = [
   {
-    id: 1,
-    title: 'E-commerce Mobile App',
-    category: 'Mobile App',
-    image: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=500&h=300&fit=crop',
-    description: 'Modern e-commerce app mockup with clean UI and intuitive navigation'
+    value: 'merge',
+    label: 'Merge PDFs',
+    description: 'Combine multiple uploads into one document',
   },
   {
-    id: 2,
-    title: 'Corporate Website',
-    category: 'Website',
-    image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=500&h=300&fit=crop',
-    description: 'Responsive corporate website mockup with professional design'
+    value: 'booklet',
+    label: 'Booklet',
+    description: 'Arrange spreads for saddle-stitch booklets',
   },
   {
-    id: 3,
-    title: 'Coffee Brand Identity',
-    category: 'Branding',
-    image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=500&h=300&fit=crop',
-    description: 'Complete brand identity mockup for a premium coffee brand'
+    value: '2up',
+    label: '2-Up',
+    description: 'Place two pages per sheet for duplex printing',
   },
   {
-    id: 4,
-    title: 'Smart Watch App',
-    category: 'Mobile App',
-    image: 'https://images.unsplash.com/photo-1434494878577-86c23bcb06b9?w=500&h=300&fit=crop',
-    description: 'Wearable device app interface with health tracking features'
+    value: '4up',
+    label: '4-Up',
+    description: 'Impose four mini pages per sheet',
   },
-  {
-    id: 5,
-    title: 'Cosmetic Product Line',
-    category: 'Product',
-    image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=500&h=300&fit=crop',
-    description: '3D product mockups for luxury cosmetic packaging'
-  },
-  {
-    id: 6,
-    title: 'Food Delivery Website',
-    category: 'Website',
-    image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500&h=300&fit=crop',
-    description: 'Modern food delivery platform with appetizing visuals'
+];
+
+const pageSizes = [
+  { value: 'auto', label: 'Auto (fit to content)' },
+  { value: 'A4', label: 'A4 (210 × 297 mm)' },
+  { value: 'A3', label: 'A3 (297 × 420 mm)' },
+  { value: 'Letter', label: 'US Letter (8.5 × 11 in)' },
+  { value: 'Legal', label: 'US Legal (8.5 × 14 in)' },
+  { value: 'Tabloid', label: 'Tabloid (11 × 17 in)' },
+];
+
+const fileInput = ref(null);
+const file = ref(null); // Keep for backward compatibility
+const files = ref([]); // New: array of files
+const filePreviews = ref([]);
+const dragIndex = ref(null);
+const dragOverIndex = ref(null);
+const isDragging = ref(false);
+const fileError = ref('');
+const successMessage = ref('');
+const errorMessage = ref('');
+const isSubmitting = ref(false);
+const previewUrl = ref('');
+const downloadUrl = ref('');
+const processingTime = ref(0);
+
+const selectedType = ref('booklet');
+const pageSizeValue = ref('auto');
+const orientation = ref('portrait');
+const autoDetectOrientation = ref(false);
+const duplex = ref('long-edge');
+const addBlankPages = ref(true);
+const addCropMarks = ref(false);
+const customSizeEnabled = ref(false);
+const customWidth = ref('');
+const customHeight = ref('');
+
+const validationWarning = ref('');
+
+const canSubmit = computed(() => files.value.length > 0 && !isSubmitting.value && !validationWarning.value);
+const canReset = computed(() => files.value.length > 0 || previewUrl.value || downloadUrl.value || successMessage.value || errorMessage.value);
+const fileTypeLabel = computed(() => {
+  if (files.value.length === 0) return '';
+  if (files.value.length === 1) {
+    const file = files.value[0];
+    if (file.type.includes('pdf')) return 'PDF';
+    if (file.type.startsWith('image/')) return 'Image';
+    return file.type || 'Document';
   }
-]
+  return `${files.value.length} files`;
+});
 
-// Computed
-const filteredPortfolio = computed(() => {
-  if (activeCategory.value === 'All') {
-    return portfolioItems
+const formattedFileSize = computed(() => {
+  if (files.value.length === 0) return '';
+  if (files.value.length === 1) {
+    return formatFileSize(files.value[0].size);
   }
-  return portfolioItems.filter(item => item.category === activeCategory.value)
-})
+  const totalSize = files.value.reduce((sum, file) => sum + file.size, 0);
+  return `Total: ${formatFileSize(totalSize)}`;
+});
 
-// Methods
-const handleSubmit = async () => {
-  isSubmitting.value = true
+function formatFileSize(size) {
+  if (size >= 1024 * 1024) {
+    return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+  }
+  if (size >= 1024) {
+    return `${(size / 1024).toFixed(1)} KB`;
+  }
+  return `${size} bytes`;
+}
+
+function getFileExtension(name) {
+  if (!name) return '';
+  const parts = name.split('.');
+  if (parts.length <= 1) return '';
+  return parts.pop()?.toUpperCase() ?? '';
+}
+
+function createPreview(selectedFile) {
+  if (selectedFile.type.startsWith('image/')) {
+    return {
+      type: 'image',
+      url: URL.createObjectURL(selectedFile),
+    };
+  }
+
+  if (selectedFile.type === 'application/pdf') {
+    return {
+      type: 'pdf',
+      url: '',
+    };
+  }
+
+  return {
+    type: 'generic',
+    url: '',
+  };
+}
+
+function revokePreview(preview) {
+  if (preview?.type === 'image' && preview.url) {
+    URL.revokeObjectURL(preview.url);
+  }
+}
+
+function clearPreviews() {
+  filePreviews.value.forEach(revokePreview);
+  filePreviews.value = [];
+}
+
+function reorderList(list, fromIndex, toIndex) {
+  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) {
+    return list;
+  }
+
+  const updated = [...list];
+  const [moved] = updated.splice(fromIndex, 1);
+  updated.splice(toIndex, 0, moved);
+  return updated;
+}
+
+const formattedProcessingTime = computed(() => {
+  if (!processingTime.value) return '';
+  if (processingTime.value < 1000) {
+    return `${processingTime.value} ms`;
+  }
+  return `${(processingTime.value / 1000).toFixed(1)} seconds`;
+});
+
+watch(customSizeEnabled, (enabled) => {
+  if (enabled) {
+    validationWarning.value = validateCustomSize();
+  } else {
+    customWidth.value = '';
+    customHeight.value = '';
+    validationWarning.value = '';
+  }
+});
+
+watch([customWidth, customHeight], () => {
+  if (customSizeEnabled.value) {
+    validationWarning.value = validateCustomSize();
+  }
+});
+
+watch(autoDetectOrientation, (enabled) => {
+  if (enabled && file.value) {
+    detectOrientation(file.value);
+  }
+});
+
+watch(orientation, (newVal, oldVal) => {
+  console.log('Orientation changed from', oldVal, 'to', newVal);
+});
+
+function openFilePicker() {
+  fileInput.value?.click();
+}
+
+function onDragOver() {
+  isDragging.value = true;
+}
+
+function onDragLeave() {
+  isDragging.value = false;
+}
+
+function onDrop(event) {
+  isDragging.value = false;
+  if (event.dataTransfer?.files?.length) {
+    const droppedFiles = Array.from(event.dataTransfer.files);
+    addFiles(droppedFiles);
+  }
+}
+
+function onFileChange(event) {
+  const target = event.target;
+  if (target?.files?.length) {
+    const selectedFiles = Array.from(target.files);
+    addFiles(selectedFiles);
+    target.value = '';
+  }
+}
+
+function addFiles(newFiles) {
+  fileError.value = '';
+  successMessage.value = '';
+  errorMessage.value = '';
+
+  const validFiles = [];
+  const errors = [];
+
+  for (const selectedFile of newFiles) {
+    // Check file size
+    if (selectedFile.size > 50 * 1024 * 1024) {
+      errors.push(`${selectedFile.name}: exceeds 50 MB limit`);
+      continue;
+    }
+
+    // Check file type
+    const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/tiff', 'image/bmp'];
+    if (!allowed.includes(selectedFile.type.toLowerCase())) {
+      errors.push(`${selectedFile.name}: unsupported file type`);
+      continue;
+    }
+
+    validFiles.push(selectedFile);
+  }
+
+  if (errors.length > 0) {
+    fileError.value = errors.join(', ');
+  }
+
+  if (validFiles.length > 0) {
+    validFiles.forEach((validFile) => {
+      files.value.push(validFile);
+      filePreviews.value.push(createPreview(validFile));
+    });
+
+    file.value = files.value[0]; // Set first file for backward compatibility
+    successMessage.value = `${validFiles.length} file(s) added successfully. Total: ${files.value.length} file(s)`;
+
+    // Auto-detect orientation from first file if enabled
+    if (autoDetectOrientation.value && files.value.length > 0) {
+      detectOrientation(files.value[0]);
+    }
+  }
+}
+
+function removeFile(index) {
+  const [preview] = filePreviews.value.splice(index, 1);
+  revokePreview(preview);
+
+  files.value.splice(index, 1);
+  file.value = files.value.length > 0 ? files.value[0] : null;
   
+  if (files.value.length === 0) {
+    successMessage.value = '';
+    fileError.value = '';
+  } else {
+    successMessage.value = `${files.value.length} file(s) remaining`;
+  }
+
+  if (dragIndex.value !== null) {
+    dragIndex.value = Math.max(Math.min(dragIndex.value, files.value.length - 1), 0);
+  }
+}
+
+function onTileDragStart(event, index) {
+  dragIndex.value = index;
+  dragOverIndex.value = index;
+  event.dataTransfer?.setData('text/plain', String(index));
+  event.dataTransfer?.setDragImage(event.target, 20, 20);
+}
+
+function onTileDragEnter(index) {
+  if (dragIndex.value === null) return;
+  dragOverIndex.value = index;
+}
+
+function onTileDragOver(event, index) {
+  if (dragIndex.value === null) return;
+  dragOverIndex.value = index;
+  event.dataTransfer.dropEffect = 'move';
+}
+
+function onTileDragLeave(index) {
+  if (dragOverIndex.value === index) {
+    dragOverIndex.value = null;
+  }
+}
+
+function finishReorder(targetIndex) {
+  if (dragIndex.value === null || targetIndex === null) return;
+
+  const clampedTarget = Math.min(Math.max(targetIndex, 0), files.value.length - 1);
+
+  if (clampedTarget === dragIndex.value) {
+    dragIndex.value = null;
+    dragOverIndex.value = null;
+    return;
+  }
+
+  files.value = reorderList(files.value, dragIndex.value, clampedTarget);
+  filePreviews.value = reorderList(filePreviews.value, dragIndex.value, clampedTarget);
+
+  file.value = files.value.length > 0 ? files.value[0] : null;
+
+  dragIndex.value = null;
+  dragOverIndex.value = null;
+}
+
+function onTileDrop(index) {
+  finishReorder(index);
+}
+
+function onAddTileDrop() {
+  finishReorder(files.value.length - 1);
+}
+
+function onTileDragEnd() {
+  dragIndex.value = null;
+  dragOverIndex.value = null;
+}
+
+async function detectOrientation(selectedFile) {
   try {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    console.log('Mockup quote form submitted:', form.value)
-    
-    alert('Thank you! Your mockup quote request has been submitted. We\'ll get back to you within 24 hours with a detailed proposal.')
-    
-    // Reset form
-    form.value = {
-      name: '',
-      email: '',
-      mockupType: '',
-      timeline: '',
-      description: '',
-      budget: ''
+    if (selectedFile.type.startsWith('image/')) {
+      // For images, create an Image element to get dimensions
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(selectedFile);
+      
+      img.onload = () => {
+        const width = img.naturalWidth;
+        const height = img.naturalHeight;
+        
+        console.log('Image dimensions detected:', width, 'x', height);
+        
+        if (width > height) {
+          orientation.value = 'landscape';
+          console.log('Set orientation to landscape');
+        } else {
+          orientation.value = 'portrait';
+          console.log('Set orientation to portrait');
+        }
+        
+        URL.revokeObjectURL(objectUrl);
+        successMessage.value = `Detected ${orientation.value} orientation (${width}×${height}px)`;
+      };
+      
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        console.error('Could not detect image dimensions');
+        fileError.value = 'Could not read image dimensions';
+      };
+      
+      img.src = objectUrl;
+    } else if (selectedFile.type === 'application/pdf') {
+      // For PDFs, we'll use a basic heuristic
+      // In a production app, you'd use pdf.js or similar library
+      // For now, we'll default to portrait for PDFs
+      console.log('PDF detected, setting to portrait');
+      orientation.value = 'portrait';
+      successMessage.value = 'PDF detected - orientation set to portrait (can be changed manually)';
     }
   } catch (error) {
-    console.error('Error submitting mockup quote:', error)
-    alert('Sorry, there was an error submitting your request. Please try again.')
+    console.error('Could not auto-detect orientation:', error);
+    fileError.value = 'Orientation detection failed';
+  }
+}
+
+function validateCustomSize() {
+  if (!customSizeEnabled.value) return '';
+  if (!customWidth.value || !customHeight.value) {
+    return 'Enter both width and height to use a custom page size.';
+  }
+  if (Number(customWidth.value) <= 0 || Number(customHeight.value) <= 0) {
+    return 'Width and height must be positive numbers.';
+  }
+  return '';
+}
+
+async function submitImposition() {
+  if (files.value.length === 0 || !canSubmit.value) return;
+
+  const customSizeError = validateCustomSize();
+  if (customSizeError) {
+    validationWarning.value = customSizeError;
+    return;
+  }
+
+  console.log('=== SUBMITTING IMPOSITION ===');
+  console.log('Number of files:', files.value.length);
+  console.log('Orientation:', orientation.value);
+  console.log('Page Size:', pageSizeValue.value);
+  console.log('Type:', selectedType.value);
+
+  const formData = new FormData();
+  
+  // Append all files
+  files.value.forEach((file, index) => {
+    formData.append('files', file); // Use 'files' for multiple, backend needs to handle this
+  });
+  
+  formData.append('type', selectedType.value);
+  formData.append('orientation', orientation.value);
+  formData.append('duplex', duplex.value);
+  formData.append('addBlankPages', addBlankPages.value ? 'true' : 'false');
+  formData.append('addCropMarks', addCropMarks.value ? 'true' : 'false');
+  formData.append('mergeFiles', files.value.length > 1 ? 'true' : 'false');
+
+  // Log all form data
+  console.log('FormData contents:');
+  for (let [key, value] of formData.entries()) {
+    if (value instanceof File) {
+      console.log(`  ${key}:`, value.name);
+    } else {
+      console.log(`  ${key}:`, value);
+    }
+  }
+
+  if (customSizeEnabled.value) {
+    formData.append('pageSize', 'custom');
+    formData.append('customWidth', customWidth.value);
+    formData.append('customHeight', customHeight.value);
+  } else {
+    formData.append('pageSize', pageSizeValue.value);
+  }
+
+  isSubmitting.value = true;
+  errorMessage.value = '';
+  successMessage.value = '';
+
+  const start = performance.now();
+
+  try {
+    const blob = await backendApi.impose(formData);
+    processingTime.value = Math.round(performance.now() - start);
+
+    if (previewUrl.value) {
+      URL.revokeObjectURL(previewUrl.value);
+    }
+
+    const objectUrl = URL.createObjectURL(blob);
+    previewUrl.value = objectUrl;
+    downloadUrl.value = objectUrl;
+    successMessage.value = 'Imposition complete. Preview generated below.';
+  } catch (error) {
+    console.error('Error applying imposition:', error);
+    const message = error instanceof Error ? error.message : 'Failed to generate imposed PDF.';
+    errorMessage.value = message;
   } finally {
-    isSubmitting.value = false
+    isSubmitting.value = false;
   }
 }
 
-const openLightbox = (item: any) => {
-  lightboxItem.value = item
-  document.body.style.overflow = 'hidden'
+function resetForm() {
+  file.value = null;
+  clearPreviews();
+  files.value = [];
+  fileError.value = '';
+  successMessage.value = '';
+  errorMessage.value = '';
+  isSubmitting.value = false;
+  customSizeEnabled.value = false;
+  customWidth.value = '';
+  customHeight.value = '';
+  selectedType.value = 'booklet';
+  pageSizeValue.value = 'auto';
+  orientation.value = 'portrait';
+  autoDetectOrientation.value = false;
+  duplex.value = 'long-edge';
+  addBlankPages.value = true;
+  addCropMarks.value = false;
+  processingTime.value = 0;
+  validationWarning.value = '';
+
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value);
+    previewUrl.value = '';
+  }
+  downloadUrl.value = '';
 }
 
-const closeLightbox = () => {
-  lightboxItem.value = null
-  document.body.style.overflow = 'auto'
-}
-
-const scrollToQuoteForm = () => {
-  const element = document.getElementById('quote-form')
-  if (element) {
-    element.scrollIntoView({ behavior: 'smooth' })
+function openPreview() {
+  if (previewUrl.value) {
+    window.open(previewUrl.value, '_blank', 'noopener');
   }
 }
 
-const openPortfolio = () => {
-  const element = document.querySelector('.portfolio-gallery')
-  if (element) {
-    element.scrollIntoView({ behavior: 'smooth' })
+onBeforeUnmount(() => {
+  clearPreviews();
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value);
   }
-}
+});
 </script>
 
 <style scoped>
-.mockup-page {
-  min-height: 100vh;
-  background: var(--bg-primary);
+.imposition-page ion-content {
+  --background: #f7f8fd;
 }
 
-.page-header {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  color: white;
-  padding: 120px 0 80px;
+.hero {
+  padding: 2rem 1.5rem 1rem;
   text-align: center;
 }
 
-.header-content {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 0 32px;
+.hero h1 {
+  font-size: clamp(1.8rem, 2.4vw, 2.4rem);
+  margin-bottom: 0.5rem;
+  color: #1a1b2f;
 }
 
-.page-title {
-  font-size: 3rem;
-  font-weight: 700;
-  margin-bottom: 24px;
-  line-height: 1.2;
-}
-
-.page-subtitle {
-  font-size: 1.25rem;
-  opacity: 0.9;
-  line-height: 1.6;
-}
-
-.mockup-content {
-  padding: 80px 0;
-}
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 32px;
-}
-
-.section-header {
-  text-align: center;
-  margin-bottom: 64px;
-}
-
-.section-title {
-  font-size: 2.5rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 16px;
-}
-
-.section-subtitle {
-  font-size: 1.125rem;
-  color: var(--text-secondary);
-  max-width: 600px;
+.hero p {
+  max-width: 720px;
   margin: 0 auto;
   line-height: 1.6;
+  color: #5f6173;
 }
 
-.services-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 32px;
-  margin-bottom: 80px;
+.content-grid {
+  align-items: stretch;
 }
 
-.service-card {
-  background: white;
-  border-radius: 16px;
-  padding: 32px;
-  box-shadow: var(--shadow-md);
-  border: 1px solid var(--border-primary);
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
-  position: relative;
-}
-
-.service-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
-}
-
-.service-icon {
-  font-size: 2.5rem;
-  margin-bottom: 16px;
-}
-
-.service-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 12px;
-}
-
-.service-description {
-  color: var(--text-secondary);
-  line-height: 1.6;
-  margin-bottom: 16px;
-}
-
-.service-features {
-  list-style: none;
-  padding: 0;
-  margin-bottom: 20px;
-}
-
-.service-features li {
-  color: var(--text-secondary);
-  padding: 4px 0;
-  padding-left: 16px;
-  position: relative;
-}
-
-.service-features li:before {
-  content: '✓';
-  color: var(--color-success);
-  font-weight: bold;
-  position: absolute;
-  left: 0;
-}
-
-.service-price {
-  font-weight: 600;
-  color: var(--color-primary);
-  font-size: 1.125rem;
-  margin-top: auto;
-}
-
-.portfolio-gallery {
-  margin: 80px 0;
-}
-
-.gallery-tabs {
+.stack {
   display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.upload-card,
+.settings-card,
+.preview-card {
+  border-radius: 20px;
+  box-shadow: 0 18px 45px rgba(23, 34, 71, 0.08);
+  overflow: hidden;
+}
+
+.upload-card ion-card-content,
+.settings-card ion-card-content,
+.preview-card ion-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.drop-zone {
+  border: 2px dashed rgba(88, 101, 242, 0.35);
+  border-radius: 16px;
+  padding: 2.25rem 1.5rem;
+  text-align: center;
+  background: #fff;
+  transition: all 0.25s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.drop-zone ion-icon {
+  font-size: 2rem;
+  color: #5865f2;
+}
+
+.drop-zone h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #1a1b2f;
+}
+
+.drop-zone p {
+  margin: 0;
+  color: #6b6f80;
+}
+
+.drop-zone.dragging {
+  border-color: #5865f2;
+  background: rgba(88, 101, 242, 0.08);
+}
+
+.drop-zone.ready {
+  border-color: rgba(27, 197, 189, 0.6);
+}
+
+.file-preview-wrapper {
+  width: 100%;
+}
+
+.file-preview-scroll {
+  display: flex;
+  gap: 0.85rem;
+  overflow-x: auto;
+  padding: 0.5rem 0.25rem 0.6rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.file-preview-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.file-preview-scroll::-webkit-scrollbar-thumb {
+  background: rgba(88, 101, 242, 0.35);
+  border-radius: 999px;
+}
+
+
+.file-preview-card {
+  position: relative;
+  flex: 0 0 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.45rem 0.5rem 0.55rem;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 8px 22px rgba(23, 34, 71, 0.08);
+  border: 1px solid rgba(88, 101, 242, 0.14);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  user-select: none;
+}
+
+.file-preview-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(23, 34, 71, 0.12);
+}
+
+.file-preview-card.is-dragging {
+  opacity: 0.65;
+  transform: scale(0.97);
+  box-shadow: 0 12px 24px rgba(23, 34, 71, 0.2);
+}
+
+.file-preview-card.is-drop-target {
+  border-style: dashed;
+  border-color: rgba(88, 101, 242, 0.6);
+  box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.2);
+}
+
+.file-preview-card.add-card {
   justify-content: center;
-  gap: 8px;
-  margin: 32px 0;
-  flex-wrap: wrap;
-}
-
-.tab-button {
-  padding: 12px 24px;
-  border: 2px solid var(--border-primary);
-  background: white;
-  color: var(--text-secondary);
-  border-radius: 24px;
-  font-weight: 500;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  border-style: dashed;
+  color: #5865f2;
+  background: rgba(88, 101, 242, 0.05);
 }
 
-.tab-button.active,
-.tab-button:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  background: var(--color-primary-light);
+.file-preview-card.add-card .preview-frame {
+  border-color: rgba(88, 101, 242, 0.4);
+  background: rgba(88, 101, 242, 0.08);
+  color: #5865f2;
 }
 
-.gallery-grid {
+.file-preview-card.add-card ion-icon {
+  font-size: 1.5rem;
+}
+
+.file-preview-card.add-card.is-drop-target {
+  background: rgba(88, 101, 242, 0.12);
+}
+
+.remove-preview {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  background: transparent;
+  border: none;
+  padding: 0.12rem;
+  color: #d62839;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.remove-preview ion-icon {
+  font-size: 1.1rem;
+}
+
+.preview-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 11px;
+  border: 1px solid rgba(88, 101, 242, 0.18);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9ff;
+}
+
+.file-index {
+  position: absolute;
+  top: 0.3rem;
+  left: 0.3rem;
+  background: rgba(88, 101, 242, 0.9);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.12rem 0.38rem;
+  border-radius: 999px;
+}
+
+.preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.preview-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  color: #5865f2;
+}
+
+
+.preview-placeholder ion-icon {
+  font-size: 1.35rem;
+}
+
+.preview-ext {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #3d3f55;
+}
+
+.file-name {
+  display: block;
+  width: 100%;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.72rem;
+  color: #26283e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-size {
+  color: #63657a;
+  font-size: 0.65rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.options-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.options-group label {
+  font-weight: 600;
+  color: #44465f;
+}
+
+.segment-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.35rem;
+  margin: 0 -0.25rem;
+  padding-right: 0.25rem;
+  padding-left: 0.25rem;
+}
+
+.segment-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.segment-scroll::-webkit-scrollbar-thumb {
+  background: rgba(88, 101, 242, 0.3);
+  border-radius: 999px;
+}
+
+ion-segment {
+  --background: #f0f2ff;
+  border-radius: 12px;
+  padding: 0.25rem;
+  min-width: max-content;
+}
+
+.imposition-segment::part(scroll) {
+  display: flex;
+  gap: 0.85rem;
+  padding: 0.1rem 0.35rem;
+}
+
+ion-segment-button {
+  --color-checked: #fff;
+  --background-checked: #5865f2;
+  min-height: 64px;
+  flex: 0 0 auto;
+  min-width: 190px;
+  border-radius: 10px;
+  align-items: flex-start;
+  text-align: left;
+}
+
+ion-segment-button ion-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.95rem;
+  width: 100%;
+  max-width: 180px;
+  min-width: 0;
+}
+
+ion-segment-button ion-label strong {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+ion-segment-button small {
+  font-size: 0.75rem;
+  opacity: 0.65;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.options-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 32px;
+  gap: 0.75rem;
 }
 
-.gallery-item {
-  cursor: pointer;
+.custom-size {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.custom-size-hint {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  background: rgba(88, 101, 242, 0.08);
+  border-radius: 12px;
+  font-size: 0.9rem;
+  color: #4c4f63;
+}
+
+.custom-size-fields {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.dimension-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.85rem 1rem;
+  background: #f5f6ff;
+  border: 1px solid rgba(88, 101, 242, 0.25);
+  border-radius: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dimension-field label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #3d3f55;
+}
+
+.dimension-input {
+  --padding-start: 0.75rem;
+  --padding-end: 0.75rem;
+  --padding-top: 0.5rem;
+  --padding-bottom: 0.5rem;
+  --background: #fff;
+  --color: #1a1b2f;
+  --placeholder-color: #7a7d92;
+  --highlight-color-focused: #5865f2;
+  --border-radius: 10px;
+}
+
+.dimension-input::part(native) {
+  border: 1px solid rgba(88, 101, 242, 0.35);
+  border-radius: 10px;
+  font-size: 0.95rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dimension-field:focus-within {
+  border-color: rgba(88, 101, 242, 0.7);
+  box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.15);
+}
+
+.dimension-field:focus-within .dimension-input::part(native) {
+  border-color: rgba(88, 101, 242, 0.1);
+}
+
+.custom-size-note {
+  margin-top: -0.25rem;
+}
+
+.custom-size.disabled {
+  opacity: 0.55;
+}
+
+.advanced-content {
+  padding: 0.75rem 0.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.submit-btn {
+  margin-top: 0.25rem;
+}
+
+.message {
+  display: block;
+  margin-top: -0.5rem;
+}
+
+.message.note {
+  margin-top: 0.75rem;
+}
+
+.orientation-note {
+  display: block;
+  margin-top: -0.5rem;
+  margin-bottom: 0.5rem;
+  padding-left: 1rem;
+  font-size: 0.875rem;
+}
+
+.preview-card {
+  min-height: 100%;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: rgba(88, 101, 242, 0.08);
+  color: #1a1b2f;
+}
+
+.status.success {
+  background: rgba(45, 206, 137, 0.12);
+}
+
+.status ion-icon {
+  font-size: 1.5rem;
+}
+
+.preview-frame {
+  margin-top: 1rem;
   border-radius: 12px;
   overflow: hidden;
-  transition: transform var(--transition-fast);
+  background: #1a1b2f;
+  min-height: 420px;
+  border: 1px solid rgba(23, 34, 71, 0.1);
 }
 
-.gallery-item:hover {
-  transform: translateY(-4px);
-}
-
-.item-image {
-  position: relative;
-  overflow: hidden;
-}
-
-.item-image img {
+.preview-frame iframe {
   width: 100%;
-  height: 200px;
-  object-fit: cover;
-  transition: transform var(--transition-fast);
-}
-
-.item-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-}
-
-.gallery-item:hover .item-overlay {
-  opacity: 1;
-}
-
-.gallery-item:hover .item-image img {
-  transform: scale(1.05);
-}
-
-.overlay-content {
-  text-align: center;
-  color: white;
-}
-
-.item-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-
-.item-category {
-  font-size: 0.875rem;
-  opacity: 0.8;
-  margin-bottom: 16px;
-}
-
-.view-button {
-  background: var(--color-primary);
-  color: white;
+  height: 480px;
   border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-weight: 500;
-  cursor: pointer;
+  background: #fff;
 }
 
-.process-section {
-  margin: 80px 0;
+.empty-state {
+  margin-top: 1rem;
   text-align: center;
-}
-
-.process-timeline {
-  max-width: 800px;
-  margin: 48px auto 0;
-}
-
-.timeline-item {
+  color: #6b6f80;
   display: flex;
-  align-items: flex-start;
-  gap: 24px;
-  margin-bottom: 40px;
-  text-align: left;
-}
-
-.timeline-marker {
-  width: 48px;
-  height: 48px;
-  background: var(--color-primary);
-  color: white;
-  border-radius: 50%;
-  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  flex-shrink: 0;
+  gap: 0.5rem;
 }
 
-.timeline-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 8px;
+.empty-state ion-icon {
+  font-size: 2.8rem;
+  color: rgba(88, 101, 242, 0.4);
 }
 
-.timeline-description {
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
-
-.cta-section {
-  background: var(--bg-secondary);
-  border-radius: 24px;
-  padding: 64px 32px;
-  text-align: center;
-  margin: 80px 0;
-}
-
-.cta-title {
-  font-size: 2rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 16px;
-}
-
-.cta-subtitle {
-  font-size: 1.125rem;
-  color: var(--text-secondary);
-  margin-bottom: 32px;
-}
-
-.cta-buttons {
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.cta-primary,
-.cta-secondary {
-  padding: 16px 32px;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.cta-primary {
-  background: var(--color-primary);
-  color: white;
-  border: none;
-}
-
-.cta-primary:hover {
-  background: var(--color-primary-hover);
-}
-
-.cta-secondary {
-  background: white;
-  color: var(--color-primary);
-  border: 2px solid var(--color-primary);
-}
-
-.cta-secondary:hover {
-  background: var(--color-primary);
-  color: white;
-}
-
-.quote-section {
-  background: white;
-  border-radius: 24px;
-  padding: 64px;
-  box-shadow: var(--shadow-lg);
-  margin: 80px 0;
-}
-
-.quote-container {
-  max-width: 600px;
-  margin: 0 auto;
-  text-align: center;
-}
-
-.quote-form {
-  margin-top: 48px;
-  text-align: left;
-}
-
-.form-grid {
+.actions {
+  margin-top: 1.5rem;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 0.75rem;
 }
 
-.form-group {
-  margin-bottom: 24px;
-}
-
-.form-label {
-  display: block;
-  font-weight: 500;
-  color: var(--text-primary);
-  margin-bottom: 8px;
-  font-size: 0.875rem;
-}
-
-.form-input,
-.form-select,
-.form-textarea {
-  width: 100%;
-  padding: 12px 16px;
-  border: 2px solid var(--border-primary);
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: border-color var(--transition-fast);
-  background: white;
-}
-
-.form-input:focus,
-.form-select:focus,
-.form-textarea:focus {
-  outline: none;
-  border-color: var(--color-primary);
-}
-
-.form-textarea {
-  resize: vertical;
-  font-family: inherit;
-}
-
-.submit-button {
-  width: 100%;
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  padding: 16px 32px;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-  margin-top: 24px;
-}
-
-.submit-button:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-}
-
-.submit-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Lightbox */
-.lightbox-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-  padding: 32px;
-}
-
-.lightbox-content {
-  max-width: 800px;
-  max-height: 90vh;
-  background: white;
-  border-radius: 16px;
-  overflow: hidden;
-  position: relative;
-}
-
-.lightbox-close {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  background: rgba(0, 0, 0, 0.5);
-  color: white;
-  border: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 1.25rem;
-  z-index: 1;
-}
-
-.lightbox-image {
-  width: 100%;
-  height: 400px;
-  object-fit: cover;
-}
-
-.lightbox-info {
-  padding: 24px;
-}
-
-.lightbox-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 8px;
-}
-
-.lightbox-category {
-  color: var(--color-primary);
-  font-weight: 500;
-  margin-bottom: 12px;
-}
-
-.lightbox-description {
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  .page-title {
-    font-size: 2rem;
+@media (max-width: 991px) {
+  .hero {
+    padding-top: 1.5rem;
   }
-  
-  .section-title {
-    font-size: 2rem;
+
+  .preview-frame iframe {
+    height: 360px;
   }
-  
-  .quote-section {
-    padding: 32px;
+}
+
+@media (max-width: 575px) {
+  .drop-zone {
+    padding: 1.75rem 1rem;
   }
-  
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .cta-buttons {
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  .timeline-item {
-    flex-direction: column;
-    text-align: center;
-  }
-  
-  .header-content,
-  .container {
-    padding: 0 16px;
+
+  ion-segment-button {
+    min-height: 72px;
   }
 }
 </style>
