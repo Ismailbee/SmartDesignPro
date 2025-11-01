@@ -48,6 +48,206 @@ const upload = multer({
 const exports = new Map()
 const shareLinks = new Map()
 
+// =======================
+// Imposition Endpoints
+// =======================
+// Use memory storage for imposition endpoints (we pass buffers to pdf-lib/sharp)
+const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } })
+
+// Lazy-load heavy deps to keep base server lean until first use
+let ImpositionService = null
+async function getImpositionService() {
+  if (!ImpositionService) {
+    const { PDFDocument } = require('pdf-lib')
+    const sharp = require('sharp')
+    class Service {
+      constructor () {
+        this.pageSizes = {
+          A4: { width: 595, height: 842 },
+          A3: { width: 842, height: 1191 },
+          Letter: { width: 612, height: 792 },
+          Legal: { width: 612, height: 1008 },
+          Tabloid: { width: 792, height: 1224 }
+        }
+      }
+      getPageSize (size, orientation = 'portrait') {
+        const base = this.pageSizes[size] || this.pageSizes.A4
+        return orientation === 'landscape' ? { width: base.height, height: base.width } : base
+      }
+      async convertImageToPdf (imageBuffer) {
+        const image = sharp(imageBuffer)
+        const metadata = await image.metadata()
+        const pngBuffer = await image.png().toBuffer()
+        const pdfDoc = await PDFDocument.create()
+        const embeddedImage = await pdfDoc.embedPng(pngBuffer)
+        const page = pdfDoc.addPage([metadata.width, metadata.height])
+        page.drawImage(embeddedImage, { x: 0, y: 0, width: metadata.width, height: metadata.height })
+        return await pdfDoc.save()
+      }
+      async processFile (fileBuffer, fileName, impositionType, options) {
+        let pdfBuffer = fileBuffer
+        if (/\.(jpg|jpeg|png|gif|bmp|tiff)$/i.test(fileName)) {
+          pdfBuffer = await this.convertImageToPdf(fileBuffer)
+        }
+        const sourcePdf = await PDFDocument.load(pdfBuffer)
+        switch (impositionType) {
+          case 'booklet': return await this.createBooklet(sourcePdf, options)
+          case '2up': return await this.create2Up(sourcePdf, options)
+          case '4up': return await this.create4Up(sourcePdf, options)
+          default: return await this.simplePassthrough(sourcePdf)
+        }
+      }
+      async mergeFiles (filesArray, impositionType, options) {
+        const mergedPdf = await PDFDocument.create()
+        for (const fileData of filesArray) {
+          let pdfBuffer = fileData.buffer
+          if (/\.(jpg|jpeg|png|gif|bmp|tiff)$/i.test(fileData.name)) {
+            pdfBuffer = await this.convertImageToPdf(fileData.buffer)
+          }
+          const src = await PDFDocument.load(pdfBuffer)
+          const indices = Array.from({ length: src.getPageCount() }, (_, i) => i)
+          const copied = await mergedPdf.copyPages(src, indices)
+          copied.forEach(p => mergedPdf.addPage(p))
+        }
+        switch (impositionType) {
+          case 'booklet': return await this.createBooklet(mergedPdf, options)
+          case '2up': return await this.create2Up(mergedPdf, options)
+          case '4up': return await this.create4Up(mergedPdf, options)
+          default: return await mergedPdf.save()
+        }
+      }
+      async simplePassthrough (sourcePdf) {
+        const target = await PDFDocument.create()
+        const indices = Array.from({ length: sourcePdf.getPageCount() }, (_, i) => i)
+        const pages = await target.copyPages(sourcePdf, indices)
+        pages.forEach(p => target.addPage(p))
+        return await target.save()
+      }
+      getPageDimensions (sourcePage) {
+        if (!sourcePage) throw new Error('Source page is missing')
+        if (typeof sourcePage.getSize === 'function') return sourcePage.getSize()
+        if (typeof sourcePage.width === 'number' && typeof sourcePage.height === 'number') return { width: sourcePage.width, height: sourcePage.height }
+        if (sourcePage.size && typeof sourcePage.size.width === 'number') return { width: sourcePage.size.width, height: sourcePage.size.height }
+        const scaled = sourcePage.scale?.(1)
+        if (scaled && typeof scaled.width === 'number') return { width: scaled.width, height: scaled.height }
+        throw new Error('Unable to determine source page dimensions')
+      }
+      drawPageScaled (targetSheet, sourcePage, x, y, width, height) {
+        const srcSize = this.getPageDimensions(sourcePage)
+        const scale = Math.min(width / srcSize.width, height / srcSize.height)
+        const w = srcSize.width * scale
+        const h = srcSize.height * scale
+        const cx = x + (width - w) / 2
+        const cy = y + (height - h) / 2
+        targetSheet.drawPage(sourcePage, { x: cx, y: cy, width: w, height: h })
+      }
+      async createBooklet (sourcePdf, options) {
+        const target = await PDFDocument.create()
+        const total = sourcePdf.getPageCount()
+        const first = sourcePdf.getPage(0)
+        const srcSize = first.getSize()
+        const sheetSize = (options.pageSize && options.pageSize !== 'auto') ? this.getPageSize(options.pageSize, options.orientation) : { width: srcSize.width * 2, height: srcSize.height }
+        const pageW = sheetSize.width / 2
+        const pageH = sheetSize.height
+        const padded = total % 4 === 0 ? total : total + (4 - (total % 4))
+        const indices = Array.from({ length: total }, (_, i) => i)
+        const copied = await target.copyPages(sourcePdf, indices)
+        const embedded = await Promise.all(copied.map(p => target.embedPage(p)))
+        for (let i = 0; i < Math.ceil(padded / 4); i++) {
+          const front = target.addPage([sheetSize.width, sheetSize.height])
+          const back = target.addPage([sheetSize.width, sheetSize.height])
+          const outerLeft = padded - 1 - (i * 2)
+          const innerLeft = i * 2
+          const innerRight = innerLeft + 1
+          const outerRight = outerLeft - 1
+          if (innerLeft < embedded.length) this.drawPageScaled(front, embedded[innerLeft], 0, 0, pageW, pageH)
+          if (outerLeft < embedded.length) this.drawPageScaled(front, embedded[outerLeft], pageW, 0, pageW, pageH)
+          if (innerRight < embedded.length) this.drawPageScaled(back, embedded[innerRight], pageW, 0, pageW, pageH)
+          if (outerRight < embedded.length) this.drawPageScaled(back, embedded[outerRight], 0, 0, pageW, pageH)
+        }
+        return await target.save()
+      }
+      async create2Up (sourcePdf, options) {
+        const target = await PDFDocument.create()
+        const total = sourcePdf.getPageCount()
+        const first = sourcePdf.getPage(0)
+        const srcSize = first.getSize()
+        const sheetSize = (options.pageSize && options.pageSize !== 'auto') ? this.getPageSize(options.pageSize, options.orientation) : { width: srcSize.width * 2, height: srcSize.height }
+        const pageW = sheetSize.width / 2
+        const pageH = sheetSize.height
+        const indices = Array.from({ length: total }, (_, i) => i)
+        const copied = await target.copyPages(sourcePdf, indices)
+        const embedded = await Promise.all(copied.map(p => target.embedPage(p)))
+        for (let i = 0; i < Math.ceil(total / 2); i++) {
+          const sheet = target.addPage([sheetSize.width, sheetSize.height])
+          const leftIdx = i * 2
+          const rightIdx = i * 2 + 1
+          if (leftIdx < embedded.length) this.drawPageScaled(sheet, embedded[leftIdx], 0, 0, pageW, pageH)
+          if (rightIdx < embedded.length) this.drawPageScaled(sheet, embedded[rightIdx], pageW, 0, pageW, pageH)
+        }
+        return await target.save()
+      }
+      async create4Up (sourcePdf, options) {
+        const target = await PDFDocument.create()
+        const total = sourcePdf.getPageCount()
+        const first = sourcePdf.getPage(0)
+        const srcSize = first.getSize()
+        const sheetSize = (options.pageSize && options.pageSize !== 'auto') ? this.getPageSize(options.pageSize, options.orientation) : { width: srcSize.width * 2, height: srcSize.height * 2 }
+        const pageW = sheetSize.width / 2
+        const pageH = sheetSize.height / 2
+        const indices = Array.from({ length: total }, (_, i) => i)
+        const copied = await target.copyPages(sourcePdf, indices)
+        const embedded = await Promise.all(copied.map(p => target.embedPage(p)))
+        for (let i = 0; i < Math.ceil(total / 4); i++) {
+          const sheet = target.addPage([sheetSize.width, sheetSize.height])
+          const start = i * 4
+          const positions = [ { x: 0, y: pageH }, { x: pageW, y: pageH }, { x: 0, y: 0 }, { x: pageW, y: 0 } ]
+          for (let j = 0; j < 4; j++) {
+            const idx = start + j
+            if (idx < embedded.length) this.drawPageScaled(sheet, embedded[idx], positions[j].x, positions[j].y, pageW, pageH)
+          }
+        }
+        return await target.save()
+      }
+    }
+    ImpositionService = new Service()
+  }
+  return ImpositionService
+}
+
+app.post('/api/imposition/process', memoryUpload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' })
+    const svc = await getImpositionService()
+    let { impositionType = 'booklet', pageSize = 'auto', orientation = 'portrait', addBlankPages = false, type } = req.body || {}
+    if (!impositionType && type) impositionType = type
+    const resultBuffer = await svc.processFile(req.file.buffer, req.file.originalname, impositionType, { pageSize, orientation, addBlankPages })
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="imposed-${Date.now()}.pdf"`)
+    res.send(Buffer.from(resultBuffer))
+  } catch (err) {
+    console.error('Imposition process error:', err)
+    res.status(500).json({ error: err.message || 'Failed to process file' })
+  }
+})
+
+app.post('/api/imposition/merge', memoryUpload.array('files', 20), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files uploaded' })
+    const svc = await getImpositionService()
+    let { impositionType = 'booklet', pageSize = 'auto', orientation = 'portrait', addBlankPages = false, type } = req.body || {}
+    if (!impositionType && type) impositionType = type
+    const filesArray = req.files.map(f => ({ name: f.originalname, buffer: f.buffer }))
+    const resultBuffer = await svc.mergeFiles(filesArray, impositionType, { pageSize, orientation, addBlankPages })
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="imposed-merged-${Date.now()}.pdf"`)
+    res.send(Buffer.from(resultBuffer))
+  } catch (err) {
+    console.error('Imposition merge error:', err)
+    res.status(500).json({ error: err.message || 'Failed to merge files' })
+  }
+})
+
 /**
  * POST /api/export
  * Create a new export job

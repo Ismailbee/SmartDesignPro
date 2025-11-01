@@ -26,7 +26,7 @@
             class="dropdown-item"
             @click="selectCategory(category)"
           >
-            <span class="category-icon">📐</span>
+            
             <span class="category-name">{{ category }}</span>
           </button>
         </div>

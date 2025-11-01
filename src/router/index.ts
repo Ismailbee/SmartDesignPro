@@ -15,6 +15,19 @@ const AutoDesignPage = () => import('@/views/AutoDesignPage.vue')
 const TokensAndPlans = () => import('@/views/TokensAndPlans.vue')
 const ReferralPage = () => import('@/views/ReferralPage.vue')
 const SubscriptionPage = () => import('@/views/SubscriptionPage.vue')
+
+// New Pages
+const SchedulingPage = () => import('@/views/SchedulingPage.vue')
+const ImpositionPage = () => import('@/views/ImpositionPage.vue')
+const MockupPage = () => import('@/views/MockupPage.vue')
+const VideosPage = () => import('@/views/VideosPage.vue')
+const PrivacySettings = () => import('@/views/PrivacySettings.vue')
+
+// Legal Pages
+const PrivacyPolicy = () => import('@/views/legal/PrivacyPolicy.vue')
+const TermsOfService = () => import('@/views/legal/TermsOfService.vue')
+
+// Admin Components
 const AdminDashboard = () => import('@/views/admin/AdminDashboard.vue')
 const UserManagement = () => import('@/views/admin/UserManagement.vue')
 const UserDetail = () => import('@/views/admin/UserDetail.vue')
@@ -113,6 +126,82 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: 'Upgrade Plan - SmartDesignPro',
       requiresAuth: true
+    }
+  },
+
+  // ============================================================
+  // Service Routes
+  // ============================================================
+  {
+    path: '/scheduling',
+    name: 'scheduling',
+    component: SchedulingPage,
+    meta: {
+      title: 'Scheduling - SmartDesignPro',
+      requiresAuth: false
+    }
+  },
+
+  {
+    path: '/imposition',
+    name: 'imposition',
+    component: ImpositionPage,
+    meta: {
+      title: 'Imposition - SmartDesignPro',
+      requiresAuth: false
+    }
+  },
+
+  {
+    path: '/mockup',
+    name: 'mockup',
+    component: MockupPage,
+    meta: {
+      title: 'Mockup - SmartDesignPro',
+      requiresAuth: false
+    }
+  },
+
+  {
+    path: '/videos',
+    name: 'videos',
+    component: VideosPage,
+    meta: {
+      title: 'Videos - SmartDesignPro',
+      requiresAuth: false
+    }
+  },
+
+  // ============================================================
+  // Legal Routes
+  // ============================================================
+  {
+    path: '/legal/privacy-policy',
+    name: 'privacy-policy',
+    component: PrivacyPolicy,
+    meta: {
+      title: 'Privacy Policy - SmartDesignPro',
+      requiresAuth: false
+    }
+  },
+
+  {
+    path: '/legal/terms-of-service',
+    name: 'terms-of-service',
+    component: TermsOfService,
+    meta: {
+      title: 'Terms of Service - SmartDesignPro',
+      requiresAuth: false
+    }
+  },
+
+  {
+    path: '/privacy-settings',
+    name: 'privacy-settings',
+    component: PrivacySettings,
+    meta: {
+      title: 'Privacy Settings - SmartDesignPro',
+      requiresAuth: false
     }
   },
 

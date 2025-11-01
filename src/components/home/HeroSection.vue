@@ -19,8 +19,8 @@
         <button class="btn-marketplace" @click="$emit('openMarketplace')">
           🎨 Browse Templates
         </button>
-        <button class="btn-secondary" @click="scrollToSection('portfolio')">
-          View Our Work
+        <button class="btn-secondary" @click="scrollToSection('template')">
+          View Templates
         </button>
       </div>
     </div>
