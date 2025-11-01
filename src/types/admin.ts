@@ -189,7 +189,6 @@ export interface AdminSettings {
   requireEmailVerification: boolean
   maxUploadSize: number // in MB
   enableAI: boolean
-  enableMarketplace: boolean
   defaultUserPlan: UserPlan
   sessionTimeout: number // in minutes
 }

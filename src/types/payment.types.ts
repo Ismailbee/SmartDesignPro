@@ -227,7 +227,7 @@ export interface ApplyReferralResponse {
 // SUBSCRIPTION TYPES
 // ============================================================================
 
-export type TierColor = 'gray' | 'gold' | 'silver'
+export type TierColor = 'blue' | 'gold' | 'red'
 
 export interface SubscriptionPlan {
   id: string

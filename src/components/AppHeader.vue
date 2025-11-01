@@ -52,15 +52,6 @@
 
         <!-- Right Section: User Profile -->
         <div class="flex items-center space-x-4">
-          <!-- Marketplace Button -->
-          <button
-            @click="handleOpenMarketplace"
-            class="hidden sm:flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-105 active:scale-95"
-            title="Browse Templates"
-          >
-            <span class="text-lg">🎨</span>
-            <span class="text-sm font-medium">Marketplace</span>
-          </button>
 
           <!-- Mobile Navigation Menu -->
           <div class="md:hidden">
@@ -163,9 +154,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/vue'
-import { useMarketplaceStore } from '@/stores/marketplace'
-
-const marketplaceStore = useMarketplaceStore()
 
 // Props
 interface Props {
@@ -229,10 +217,6 @@ const userMenuItems = [
 // Methods
 function handleUserMenuClick(action: string) {
   emit('userAction', action)
-}
-
-function handleOpenMarketplace() {
-  marketplaceStore.openMarketplace()
 }
 </script>
 

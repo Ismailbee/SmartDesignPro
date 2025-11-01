@@ -4,9 +4,8 @@
     <HomeHeader @get-quote="handleGetQuote" />
 
     <!-- Hero Section -->
-    <HeroSection 
-      @start-project="handleStartProject" 
-      @open-marketplace="handleOpenMarketplace" 
+    <HeroSection
+      @start-project="handleStartProject"
     />
 
     <!-- Portfolio Section -->
@@ -37,7 +36,6 @@ import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user.store'
-import { useMarketplaceStore } from '@/stores/marketplace'
 
 // Import all home page components
 import HomeHeader from '@/components/home/HomeHeader.vue'
@@ -53,7 +51,6 @@ import HomeFooter from '@/components/home/HomeFooter.vue'
 const router = useRouter()
 const authStore = useAuthStore()
 const userStore = useUserStore()
-const marketplaceStore = useMarketplaceStore()
 
 // Refresh user data when page loads (to get latest plan/tokens)
 onMounted(async () => {
@@ -88,10 +85,6 @@ const handleStartProject = () => {
   } else {
     router.push('/editor')
   }
-}
-const handleOpenMarketplace = () => {
-  console.log('Open Marketplace clicked')
-  marketplaceStore.openMarketplace()
 }
 
 const handleLearnMore = (service: string) => {

@@ -960,7 +960,7 @@ app.get('/api/subscription/plans', (req, res) => {
           'Community Support'
         ],
         tokenBonus: 0,
-        color: 'gray',
+        color: 'blue',
         icon: 'diamond-outline'
       },
       {
@@ -996,7 +996,7 @@ app.get('/api/subscription/plans', (req, res) => {
           'API Access'
         ],
         tokenBonus: 1500,
-        color: 'silver',
+        color: 'red',
         icon: 'diamond',
         recommended: true
       }

@@ -50,18 +50,36 @@ export const useUserStore = defineStore('user', () => {
   })
 
   const tierColor = computed<TierColor>(() => {
-    if (!user.value) return 'gray'
+    console.log('🎨 tierColor computed - user:', user.value)
+    console.log('🎨 tierColor computed - plan:', user.value?.plan)
+    console.log('🎨 tierColor computed - planExpiryDate:', user.value?.planExpiryDate)
+    console.log('🎨 tierColor computed - planExpired:', planExpired.value)
 
-    if (planExpired.value) return 'gray'
+    if (!user.value) {
+      console.log('🎨 tierColor: blue (no user)')
+      return 'blue'
+    }
 
+    if (planExpired.value) {
+      console.log('🎨 tierColor: blue (plan expired)')
+      return 'blue'
+    }
+
+    let color: TierColor
     switch (user.value.plan) {
       case 'Premium':
-        return 'gold'
+        color = 'gold'
+        break
       case 'Pro':
-        return 'silver'
+        color = 'red'
+        break
       default:
-        return 'gray'
+        color = 'blue'
+        break
     }
+
+    console.log('🎨 tierColor result:', color)
+    return color
   })
 
   const isBasic = computed(() => {
@@ -70,14 +88,18 @@ export const useUserStore = defineStore('user', () => {
 
   // Actions
   async function fetchUser(userId: string, email?: string, name?: string) {
+    console.log('👤 fetchUser called with:', { userId, email, name })
     loading.value = true
     error.value = null
 
     try {
-      user.value = await getUser(userId, email, name)
+      const fetchedUser = await getUser(userId, email, name)
+      console.log('👤 fetchUser response:', fetchedUser)
+      user.value = fetchedUser
+      console.log('👤 user.value updated:', user.value)
     } catch (err: any) {
       error.value = err.message || 'Failed to fetch user data'
-      console.error('Fetch user error:', err)
+      console.error('❌ Fetch user error:', err)
     } finally {
       loading.value = false
     }

@@ -17,7 +17,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  color: 'gray',
+  color: 'blue',
   showGlow: false,
   outline: false
 })
@@ -40,13 +40,18 @@ const diamondIcon = computed(() => {
   transition: all 0.3s ease;
 }
 
-/* Gray Tier (Free/Basic) */
-.diamond-gray {
-  color: #9ca3af;
+/* Blue Tier (Free/Basic) */
+.diamond-blue {
+  color: #3b82f6;
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-.tier-gray.glow .diamond-gray {
-  filter: drop-shadow(0 0 8px rgba(156, 163, 175, 0.5));
+.tier-blue.glow .diamond-blue {
+  filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.6));
+  animation: pulse-blue 2s ease-in-out infinite;
 }
 
 /* Gold Tier (Premium) */
@@ -63,18 +68,18 @@ const diamondIcon = computed(() => {
   animation: pulse-gold 2s ease-in-out infinite;
 }
 
-/* Silver Tier (Pro) */
-.diamond-silver {
-  color: #e5e7eb;
-  background: linear-gradient(135deg, #f3f4f6 0%, #d1d5db 50%, #f9fafb 100%);
+/* Red Tier (Pro) */
+.diamond-red {
+  color: #ef4444;
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 50%, #dc2626 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-.tier-silver.glow .diamond-silver {
-  filter: drop-shadow(0 0 12px rgba(229, 231, 235, 0.8));
-  animation: pulse-silver 2s ease-in-out infinite;
+.tier-red.glow .diamond-red {
+  filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.8));
+  animation: pulse-red 2s ease-in-out infinite;
 }
 
 /* Hover Effects */
@@ -83,6 +88,15 @@ const diamondIcon = computed(() => {
 }
 
 /* Pulse Animations */
+@keyframes pulse-blue {
+  0%, 100% {
+    filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.6));
+  }
+  50% {
+    filter: drop-shadow(0 0 18px rgba(59, 130, 246, 0.9));
+  }
+}
+
 @keyframes pulse-gold {
   0%, 100% {
     filter: drop-shadow(0 0 12px rgba(251, 191, 36, 0.6));
@@ -92,12 +106,12 @@ const diamondIcon = computed(() => {
   }
 }
 
-@keyframes pulse-silver {
+@keyframes pulse-red {
   0%, 100% {
-    filter: drop-shadow(0 0 12px rgba(229, 231, 235, 0.8));
+    filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.8));
   }
   50% {
-    filter: drop-shadow(0 0 20px rgba(229, 231, 235, 1));
+    filter: drop-shadow(0 0 20px rgba(239, 68, 68, 1));
   }
 }
 

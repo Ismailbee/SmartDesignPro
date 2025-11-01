@@ -16,9 +16,6 @@
         <button class="btn-primary" @click="$emit('startProject')">
           Start Your Project
         </button>
-        <button class="btn-marketplace" @click="$emit('openMarketplace')">
-          🎨 Browse Templates
-        </button>
         <button class="btn-secondary" @click="scrollToSection('portfolio')">
           View Our Work
         </button>
@@ -33,7 +30,6 @@
 <script setup lang="ts">
 defineEmits<{
   startProject: []
-  openMarketplace: []
 }>()
 
 const scrollToSection = (sectionId: string) => {
@@ -120,7 +116,6 @@ const scrollToSection = (sectionId: string) => {
 }
 
 .btn-primary,
-.btn-marketplace,
 .btn-secondary {
   padding: 16px 32px;
   border: none;
@@ -139,16 +134,6 @@ const scrollToSection = (sectionId: string) => {
 .btn-primary:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 25px rgba(6, 182, 212, 0.3);
-}
-
-.btn-marketplace {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-  color: white;
-}
-
-.btn-marketplace:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(139, 92, 246, 0.3);
 }
 
 .btn-secondary {
@@ -194,7 +179,6 @@ const scrollToSection = (sectionId: string) => {
   }
 
   .btn-primary,
-  .btn-marketplace,
   .btn-secondary {
     width: 100%;
     text-align: center;
