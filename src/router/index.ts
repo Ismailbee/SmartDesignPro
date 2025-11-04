@@ -23,6 +23,15 @@ const MockupPage = () => import('@/views/MockupPage.vue')
 const VideosPage = () => import('@/views/VideosPage.vue')
 const PrivacySettings = () => import('@/views/PrivacySettings.vue')
 
+// Help & Support Pages
+const HelpCenterPage = () => import('@/views/HelpCenterPage.vue')
+const SupportPage = () => import('@/views/SupportPage.vue')
+const FAQPage = () => import('@/views/FAQPage.vue')
+const AboutPage = () => import('@/views/AboutPage.vue')
+const CookiesPage = () => import('@/views/CookiesPage.vue')
+const NotificationsPage = () => import('@/views/NotificationsPage.vue')
+const SuggestFeaturePage = () => import('@/views/SuggestFeaturePage.vue')
+
 // Legal Pages
 const PrivacyPolicy = () => import('@/views/legal/PrivacyPolicy.vue')
 const TermsOfService = () => import('@/views/legal/TermsOfService.vue')
@@ -130,6 +139,19 @@ const routes: RouteRecordRaw[] = [
   },
 
   // ============================================================
+  // User Pages
+  // ============================================================
+  {
+    path: '/notifications',
+    name: 'notifications',
+    component: NotificationsPage,
+    meta: {
+      title: 'Notifications - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  // ============================================================
   // Service Routes
   // ============================================================
   {
@@ -204,6 +226,76 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: false
     }
   },
+
+    // ============================================================
+    // Help & Support Routes
+    // ============================================================
+    {
+      path: '/help-center',
+      name: 'help-center',
+      component: HelpCenterPage,
+      meta: {
+        title: 'Help Center - SmartDesignPro',
+        requiresAuth: false
+      }
+    },
+
+    {
+      path: '/support',
+      name: 'support',
+      component: SupportPage,
+      meta: {
+        title: 'Contact Support - SmartDesignPro',
+        requiresAuth: false
+      }
+    },
+
+    {
+      path: '/faq',
+      name: 'faq',
+      component: FAQPage,
+      meta: {
+        title: 'FAQ - SmartDesignPro',
+        requiresAuth: false
+      }
+    },
+
+    {
+      path: '/about',
+      name: 'about',
+      component: AboutPage,
+      meta: {
+        title: 'About Us - SmartDesignPro',
+        requiresAuth: false
+      }
+    },
+
+    {
+      path: '/cookies',
+      name: 'cookies',
+      component: CookiesPage,
+      meta: {
+        title: 'Cookie Policy - SmartDesignPro',
+        requiresAuth: false
+      }
+    },
+
+    {
+      path: '/feedback/suggest',
+      name: 'suggest-feature',
+      component: SuggestFeaturePage,
+      meta: {
+        title: 'Suggest a Feature - SmartDesignPro',
+        requiresAuth: false
+      }
+    },
+
+    // Aliases for compatibility
+    { path: '/legal/cookies', name: 'legal-cookies', component: CookiesPage, meta: { title: 'Cookie Policy - SmartDesignPro', requiresAuth: false } },
+    { path: '/help', name: 'help', component: HelpCenterPage, meta: { title: 'Help Center - SmartDesignPro', requiresAuth: false } },
+    { path: '/schedule', name: 'schedule', component: SchedulingPage, meta: { title: 'Scheduling - SmartDesignPro', requiresAuth: false } },
+    { path: '/legal/terms', name: 'terms', component: TermsOfService, meta: { title: 'Terms of Service - SmartDesignPro', requiresAuth: false } },
+    { path: '/legal/privacy', name: 'privacy', component: PrivacyPolicy, meta: { title: 'Privacy Policy - SmartDesignPro', requiresAuth: false } },
 
   // ============================================================
   // Admin Routes (Requires Admin Role)
@@ -380,13 +472,11 @@ router.beforeEach((to, _from, next) => {
   // Update document title
   document.title = (to.meta.title as string) || 'SmartDesignPro'
 
-  console.log('🔀 Navigating to:', to.path, '| Authenticated:', authStore.isAuthenticated)
-  console.log('👤 Current user:', authStore.user)
-  console.log('� User role:', authStore.user?.role)
+  // Debug logs removed to satisfy lint rules
 
   // If user is authenticated and trying to access welcome page, redirect to home
   if (to.name === 'welcome' && authStore.isAuthenticated) {
-    console.log('✅ User authenticated, redirecting to home...')
+  // User authenticated, redirect to home
     next({ name: 'home' })
     return
   }
@@ -394,7 +484,7 @@ router.beforeEach((to, _from, next) => {
   // Check if route requires authentication
   if (to.meta.requiresAuth) {
     if (!authStore.isAuthenticated) {
-      console.log('🔒 Route requires auth, redirecting to welcome page...')
+  // Route requires auth, redirect to welcome page
       // Store intended route for redirect after login
       sessionStorage.setItem('intendedRoute', to.fullPath)
 
@@ -407,7 +497,7 @@ router.beforeEach((to, _from, next) => {
   // Check if route requires admin role
   if (to.meta.requiresAdmin) {
     if (!authStore.isAuthenticated) {
-      console.log('🔒 Admin route requires auth, redirecting to welcome page...')
+  // Admin route requires auth
       sessionStorage.setItem('intendedRoute', to.fullPath)
       next({ name: 'welcome' })
       return
@@ -421,15 +511,15 @@ router.beforeEach((to, _from, next) => {
     const allowDevBypass = isDevelopment && import.meta.env.VITE_ALLOW_ADMIN_BYPASS === 'true'
 
     if (allowDevBypass) {
-      console.warn('⚠️  DEV MODE: Admin bypass enabled (set VITE_ALLOW_ADMIN_BYPASS=false to disable)')
+  // DEV MODE: Admin bypass enabled (set VITE_ALLOW_ADMIN_BYPASS=false to disable)
       next()
       return
     }
 
     if (userRole !== 'admin' && userRole !== 'moderator') {
       // Redirect to home page with error message
-      console.error('❌ Access denied: Admin privileges required')
-      console.error('❌ User role:', userRole)
+  // Access denied: Admin privileges required
+  // User role: ' + userRole
       next({ name: 'home' })
       return
     }
@@ -442,9 +532,9 @@ router.beforeEach((to, _from, next) => {
 /**
  * After navigation hook
  */
-router.afterEach((to, from) => {
+router.afterEach((_to, _from) => {
   // Log navigation for analytics
-  console.log(`Navigated from ${from.path} to ${to.path}`)
+  // Navigation complete
 })
 
 export default router

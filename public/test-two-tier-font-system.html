@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Two-Tier Font System Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: white;
+      padding: 30px;
+      border-radius: 16px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      color: #667eea;
+      margin-bottom: 15px;
+      font-size: 32px;
+    }
+
+    .info-box {
+      background: #e3f2fd;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+      border-left: 4px solid #2196f3;
+    }
+
+    .info-box h2 {
+      color: #1976d2;
+      margin-bottom: 10px;
+      font-size: 20px;
+    }
+
+    .info-box ul {
+      margin-left: 20px;
+      color: #0d47a1;
+    }
+
+    .info-box li {
+      margin: 8px 0;
+    }
+
+    .test-section {
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+
+    .test-section h3 {
+      color: #333;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #667eea;
+    }
+
+    .test-case {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 15px 0;
+      border-left: 4px solid #28a745;
+    }
+
+    .test-case.fail {
+      border-left-color: #dc3545;
+    }
+
+    .test-name {
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    .test-details {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      margin: 10px 0;
+      font-size: 14px;
+    }
+
+    .detail-item {
+      background: white;
+      padding: 8px 12px;
+      border-radius: 4px;
+    }
+
+    .detail-label {
+      color: #666;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .detail-value {
+      color: #333;
+      font-weight: bold;
+      margin-top: 4px;
+    }
+
+    .visual-preview {
+      margin: 15px 0;
+      padding: 20px;
+      background: white;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+
+    .status-pass {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status-fail {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .summary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 25px;
+      border-radius: 12px;
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    .summary h2 {
+      margin-bottom: 15px;
+    }
+
+    .summary-stats {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      margin-top: 20px;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 36px;
+      font-weight: bold;
+    }
+
+    .stat-label {
+      font-size: 14px;
+      opacity: 0.9;
+      margin-top: 5px;
+    }
+
+    code {
+      background: #f4f4f4;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      color: #d63384;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎨 Two-Tier Font System Test Suite</h1>
+      <p class="subtitle">Testing dynamic font family and size based on name length</p>
+      
+      <div class="info-box">
+        <h2>📋 Two-Tier Font System Rules</h2>
+        <ul>
+          <li><strong>Short Names (1-8 letters):</strong> Times New Roman at original size</li>
+          <li><strong>Long Names (9+ letters):</strong> AlternateGothic2 BT with proportional reduction</li>
+          <li><strong>Formula for long names:</strong> <code>newSize = baseSize × (9 / letterCount)</code></li>
+          <li><strong>Character Counting:</strong> Only alphabetic characters (A-Z, a-z)</li>
+          <li><strong>Position:</strong> x, y coordinates never change - only font-size and font-family</li>
+        </ul>
+      </div>
+    </div>
+
+    <div id="test-results"></div>
+
+    <div class="summary" id="summary"></div>
+  </div>
+
+  <script>
+    // Two-tier font sizing function
+    function calculateNameFontSize(text, baseFontSize) {
+      const letterCount = text.replace(/[^a-zA-Z]/g, '').length;
+      
+      if (letterCount <= 8) {
+        // Short names (1-8 letters): Times New Roman at original size
+        return {
+          fontSize: baseFontSize,
+          fontFamily: 'Times New Roman'
+        };
+      } else {
+        // Long names (9+ letters): AlternateGothic2 BT with proportional reduction
+        const scaleFactor = 9 / letterCount;
+        return {
+          fontSize: baseFontSize * scaleFactor,
+          fontFamily: 'AlternateGothic2 BT'
+        };
+      }
+    }
+
+    // Test cases
+    const testCases = [
+      // Short names (1-8 letters) - Times New Roman
+      { name: 'Sarah', baseSize: 68.31, expectedFont: 'Times New Roman', expectedSize: 68.31, category: 'Short Names (1-8 letters)' },
+      { name: 'John', baseSize: 68.31, expectedFont: 'Times New Roman', expectedSize: 68.31, category: 'Short Names (1-8 letters)' },
+      { name: 'Ramatu', baseSize: 68.31, expectedFont: 'Times New Roman', expectedSize: 68.31, category: 'Short Names (1-8 letters)' },
+      { name: 'Suleiman', baseSize: 68.31, expectedFont: 'Times New Roman', expectedSize: 68.31, category: 'Short Names (1-8 letters)' },
+      
+      // Boundary case (exactly 8 letters) - Times New Roman
+      { name: 'Mohammed', baseSize: 68.31, expectedFont: 'Times New Roman', expectedSize: 68.31, category: 'Boundary (8 letters)' },
+      
+      // Long names (9+ letters) - AlternateGothic2 BT
+      { name: 'Abdullahi', baseSize: 28.06, expectedFont: 'AlternateGothic2 BT', expectedSize: 28.06, category: 'Long Names (9 letters - no reduction)' },
+      { name: 'Elizabeth', baseSize: 68.31, expectedFont: 'AlternateGothic2 BT', expectedSize: 68.31, category: 'Long Names (9 letters - no reduction)' },
+      { name: 'Washington', baseSize: 28.06, expectedFont: 'AlternateGothic2 BT', expectedSize: 25.25, category: 'Long Names (10+ letters)' },
+      { name: 'Christopher', baseSize: 68.31, expectedFont: 'AlternateGothic2 BT', expectedSize: 55.89, category: 'Long Names (10+ letters)' },
+      { name: 'Montgomery', baseSize: 28.06, expectedFont: 'AlternateGothic2 BT', expectedSize: 25.25, category: 'Long Names (10+ letters)' },
+      
+      // Last names
+      { name: 'AHMED', baseSize: 28.06, expectedFont: 'Times New Roman', expectedSize: 28.06, category: 'Last Names (Short)' },
+      { name: 'SMITH', baseSize: 28.06, expectedFont: 'Times New Roman', expectedSize: 28.06, category: 'Last Names (Short)' },
+      { name: 'YUNUSA', baseSize: 28.06, expectedFont: 'Times New Roman', expectedSize: 28.06, category: 'Last Names (Short)' },
+    ];
+
+    // Run tests
+    let passCount = 0;
+    let failCount = 0;
+    const resultsByCategory = {};
+
+    testCases.forEach(test => {
+      const result = calculateNameFontSize(test.name, test.baseSize);
+      const letterCount = test.name.replace(/[^a-zA-Z]/g, '').length;
+      const fontSizeMatch = Math.abs(result.fontSize - test.expectedSize) < 0.01;
+      const fontFamilyMatch = result.fontFamily === test.expectedFont;
+      const passed = fontSizeMatch && fontFamilyMatch;
+
+      if (passed) passCount++;
+      else failCount++;
+
+      if (!resultsByCategory[test.category]) {
+        resultsByCategory[test.category] = [];
+      }
+
+      resultsByCategory[test.category].push({
+        name: test.name,
+        letterCount,
+        baseSize: test.baseSize,
+        expectedFont: test.expectedFont,
+        expectedSize: test.expectedSize,
+        actualFont: result.fontFamily,
+        actualSize: result.fontSize,
+        passed
+      });
+    });
+
+    // Render results
+    const resultsContainer = document.getElementById('test-results');
+    
+    Object.keys(resultsByCategory).forEach(category => {
+      const section = document.createElement('div');
+      section.className = 'test-section';
+      section.innerHTML = `<h3>${category}</h3>`;
+      
+      resultsByCategory[category].forEach(test => {
+        const testCase = document.createElement('div');
+        testCase.className = `test-case ${test.passed ? '' : 'fail'}`;
+        
+        testCase.innerHTML = `
+          <div class="test-name">
+            "${test.name}"
+            <span class="status-badge ${test.passed ? 'status-pass' : 'status-fail'}">
+              ${test.passed ? '✓ PASS' : '✗ FAIL'}
+            </span>
+          </div>
+          
+          <div class="test-details">
+            <div class="detail-item">
+              <div class="detail-label">Letter Count</div>
+              <div class="detail-value">${test.letterCount} letters</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Base Size</div>
+              <div class="detail-value">${test.baseSize}px</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Expected Font</div>
+              <div class="detail-value">${test.expectedFont}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Actual Font</div>
+              <div class="detail-value" style="color: ${test.actualFont === test.expectedFont ? '#28a745' : '#dc3545'}">${test.actualFont}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Expected Size</div>
+              <div class="detail-value">${test.expectedSize.toFixed(2)}px</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Actual Size</div>
+              <div class="detail-value" style="color: ${Math.abs(test.actualSize - test.expectedSize) < 0.01 ? '#28a745' : '#dc3545'}">${test.actualSize.toFixed(2)}px</div>
+            </div>
+          </div>
+          
+          <div class="visual-preview">
+            <div style="font-family: '${test.actualFont}'; font-size: ${test.actualSize}px;">${test.name}</div>
+          </div>
+        `;
+        
+        section.appendChild(testCase);
+      });
+      
+      resultsContainer.appendChild(section);
+    });
+
+    // Render summary
+    const totalTests = passCount + failCount;
+    const passRate = ((passCount / totalTests) * 100).toFixed(1);
+    
+    document.getElementById('summary').innerHTML = `
+      <h2>📊 Test Summary</h2>
+      <div class="summary-stats">
+        <div class="stat">
+          <div class="stat-value">${totalTests}</div>
+          <div class="stat-label">Total Tests</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">${passCount}</div>
+          <div class="stat-label">Passed</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">${failCount}</div>
+          <div class="stat-label">Failed</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">${passRate}%</div>
+          <div class="stat-label">Pass Rate</div>
+        </div>
+      </div>
+    `;
+  </script>
+</body>
+</html>
+

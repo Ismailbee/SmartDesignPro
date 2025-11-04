@@ -13,69 +13,16 @@
         <!-- New Service Pages -->
         <router-link to="/scheduling" class="nav-link">Scheduling</router-link>
         <router-link to="/imposition" class="nav-link">Imposition</router-link>
-        <router-link to="/mockup" class="nav-link">Mockup</router-link>
-        <router-link to="/videos" class="nav-link">Videos</router-link>
-       
-        <!-- Legal Dropdown -->
-        <div class="dropdown" @mouseover="showLegalDropdown" @mouseleave="hideLegalDropdown">
-          <button class="dropdown-toggle">
-            Legal
-            <svg class="dropdown-icon" :class="{ 'rotate-180': isLegalDropdownOpen }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          
-          <div class="dropdown-menu" :class="{ 'show': isLegalDropdownOpen }">
-            <!-- Services Section -->
-            <div class="dropdown-section">
-              <h4 class="dropdown-section-title">Services</h4>
-              <a href="#services" class="dropdown-link" @click.prevent="scrollToSection('services')">
-                <span class="dropdown-icon">🎨</span>
-                Our Services
-              </a>
-            </div>
+  <router-link to="/mockup" class="nav-link">Mockup</router-link>
 
-            <!-- Team Section -->
-            <div class="dropdown-section">
-              <h4 class="dropdown-section-title">Team</h4>
-              <a href="#team" class="dropdown-link" @click.prevent="scrollToSection('team')">
-                <span class="dropdown-icon">👥</span>
-                Meet Our Team
-              </a>
-            </div>
 
-            <!-- Contact Section -->
-            <div class="dropdown-section">
-              <h4 class="dropdown-section-title">Contact</h4>
-              <a href="#contact" class="dropdown-link" @click.prevent="scrollToSection('contact')">
-                <span class="dropdown-icon">📧</span>
-                Contact Us
-              </a>
-            </div>
-
-            <div class="dropdown-divider"></div>
-
-            <!-- Legal Documents -->
-            <div class="dropdown-section">
-              <h4 class="dropdown-section-title">Legal</h4>
-              <router-link to="/legal/privacy-policy" class="dropdown-link">
-                <span class="dropdown-icon">🛡️</span>
-                Privacy Policy
-              </router-link>
-              <router-link to="/legal/terms-of-service" class="dropdown-link">
-                <span class="dropdown-icon">📄</span>
-                Terms of Service
-              </router-link>
-              <router-link to="/privacy-settings" class="dropdown-link">
-                <span class="dropdown-icon">⚙️</span>
-                Privacy Settings
-              </router-link>
-            </div>
-          </div>
-        </div>
-
-        <!-- Auto Design Dropdown -->
-        <AutoDesignDropdown />
+        <!-- Auto Design Modal Trigger (replaces dropdown) -->
+        <button class="more-button" @click="toggleAutoDesign">
+          Auto Design
+          <svg class="more-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v3m0 10v3m5-11l2.121-2.121M4.879 19.121L7 17m10 0l2.121 2.121M4.879 4.879L7 7" />
+          </svg>
+        </button>
 
 
         <!-- More Menu Button -->
@@ -94,29 +41,50 @@
         <!-- Token Display (Authenticated Users Only) -->
         <HeaderTokenDisplay v-if="authStore.isAuthenticated" />
 
-        <div v-if="authStore.isAuthenticated" class="user-profile-header">
-          <div class="user-avatar" @click="handleUserProfileClick" :title="authStore.userDisplayName">
+        <!-- Notifications (Authenticated Users Only) -->
+        <NotificationBell v-if="authStore.isAuthenticated" />
+
+        <!-- User Profile Dropdown -->
+        <div v-if="authStore.isAuthenticated" class="user-profile-wrapper">
+          <div 
+            class="user-avatar" 
+            :title="authStore.userDisplayName" 
+            @click="toggleUserDropdown"
+          >
             <img v-if="authStore.user?.avatar" :src="authStore.user.avatar" :alt="authStore.userDisplayName" />
             <div v-else class="avatar-placeholder">
               {{ getInitials(authStore.userDisplayName) }}
             </div>
           </div>
 
-          <!-- Action Buttons (No Divider Needed) -->
-          <div class="action-buttons">
-            <button class="settings-button" @click="goToSettings" title="Settings">
+          <!-- Dropdown Menu -->
+          <div v-if="isUserDropdownOpen" class="user-dropdown-menu">
+            <div class="user-info">
+              <div class="user-name">{{ authStore.userDisplayName }}</div>
+              <div class="user-email">{{ authStore.user?.email }}</div>
+            </div>
+            
+            <div class="dropdown-divider"></div>
+                                   
+            <button class="dropdown-item" @click="goToSettings">
               <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
+              <span>Settings</span>
             </button>
-            <button class="logout-button" @click="handleLogout" title="Logout">
+            
+            <div class="dropdown-divider"></div>
+            
+            <button class="dropdown-item logout-item" @click="handleLogout">
               <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
+              <span>Logout</span>
             </button>
           </div>
         </div>
+        
         <button v-else class="cta-button" @click="handleGetQuote">
           Get Started
         </button>
@@ -129,16 +97,23 @@
       @close="closeMoreMenu"
       @navigate="handleMoreMenuNavigate"
     />
+    
+      <!-- Auto Design Modal -->
+      <AutoDesignModal
+        :is-open="isAutoDesignOpen"
+        @close="closeAutoDesign"
+      />
   </header>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import HeaderTokenDisplay from '@/components/HeaderTokenDisplay.vue'
-import AutoDesignDropdown from './AutoDesignDropdown.vue'
+import NotificationBell from '@/components/NotificationBell.vue'
+import AutoDesignModal from './AutoDesignModal.vue'
 import MoreMenuModal from './MoreMenuModal.vue'
 
 const router = useRouter()
@@ -147,9 +122,11 @@ const authStore = useAuthStore()
 // State for More Menu Modal
 const isMoreMenuOpen = ref(false)
 
-// State for Legal Dropdown
-const isLegalDropdownOpen = ref(false)
-let legalDropdownTimer: number | null = null
+// State for Auto Design Modal
+const isAutoDesignOpen = ref(false)
+
+// State for User Dropdown
+const isUserDropdownOpen = ref(false)
 
 // Emit events for parent component
 const emit = defineEmits<{
@@ -166,24 +143,46 @@ const closeMoreMenu = () => {
   isMoreMenuOpen.value = false
 }
 
-// Legal Dropdown functions
-const showLegalDropdown = () => {
-  if (legalDropdownTimer) {
-    window.clearTimeout(legalDropdownTimer)
-    legalDropdownTimer = null
-  }
-  isLegalDropdownOpen.value = true
+// Toggle Auto Design Modal
+const toggleAutoDesign = () => {
+  isAutoDesignOpen.value = !isAutoDesignOpen.value
 }
 
-const hideLegalDropdown = () => {
-  legalDropdownTimer = window.setTimeout(() => {
-    isLegalDropdownOpen.value = false
-  }, 300) // 300ms delay before hiding
+// Close Auto Design Modal
+const closeAutoDesign = () => {
+  isAutoDesignOpen.value = false
 }
+
+// Toggle User Dropdown
+const toggleUserDropdown = () => {
+  isUserDropdownOpen.value = !isUserDropdownOpen.value
+}
+
+// Close User Dropdown
+const closeUserDropdown = () => {
+  isUserDropdownOpen.value = false
+}
+
+// Close dropdown when clicking outside
+const handleClickOutside = (event: MouseEvent) => {
+  const target = event.target as HTMLElement
+  if (isUserDropdownOpen.value && !target.closest('.user-profile-wrapper')) {
+    closeUserDropdown()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
+
+// (Removed Legal dropdown handlers)
 
 // Handle More Menu navigation
 const handleMoreMenuNavigate = (action: string) => {
-  console.log('More menu navigation:', action)
   // Handle different actions
   switch (action) {
     case 'referral':
@@ -196,13 +195,13 @@ const handleMoreMenuNavigate = (action: string) => {
       router.push('/tokens-and-plans')
       break
     case 'terms':
-      router.push('/legal/terms')
+      router.push('/legal/terms-of-service')
       break
     case 'privacy':
-      router.push('/legal/privacy')
+      router.push('/legal/privacy-policy')
       break
     case 'privacy-settings':
-      router.push('/settings?tab=privacy')
+      router.push('/privacy-settings')
       break
     case 'cookies':
       router.push('/legal/cookies')
@@ -214,14 +213,13 @@ const handleMoreMenuNavigate = (action: string) => {
       router.push('/feedback/suggest')
       break
     case 'help':
-      router.push('/help')
+      router.push('/help-center')
       break
     case 'rate':
       // Open rating modal or external link
-      console.log('Open rating modal')
       break
     case 'schedule':
-      router.push('/schedule')
+      router.push('/scheduling')
       break
     case 'support':
       router.push('/support')
@@ -229,28 +227,46 @@ const handleMoreMenuNavigate = (action: string) => {
     case 'faq':
       router.push('/faq')
       break
+    case 'notifications':
+      router.push('/notifications')
+      break
+    case 'videos':
+      router.push('/videos')
+      break
     default:
-      console.log('Unknown action:', action)
   }
 }
 
 // Smooth scroll to section
 const scrollToSection = async (sectionId: string) => {
-  // console.log('🔍 Scrolling to section:', sectionId)
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.log('🔍 Scrolling to section:', sectionId)
+  }
   
   const currentPath = router.currentRoute.value.path
-  // console.log('📍 Current path:', currentPath)
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.log('📍 Current path:', currentPath)
+  }
 
   // Check if we're on a home page (either / or /home)
   const isHomePage = currentPath === '/' || currentPath === '/home'
   
   if (!isHomePage) {
-    // console.log('📍 Not on home page, navigating first...')
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log('📍 Not on home page, navigating to /home first...')
+    }
     // Navigate to home page first, then scroll
     await router.push('/home')
     // Wait longer for DOM to fully render and Vue components to mount
     await new Promise(resolve => setTimeout(resolve, 300))
   } else {
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log('✅ Already on home page')
+    }
     // Still wait a bit for any pending renders
     await new Promise(resolve => setTimeout(resolve, 50))
   }
@@ -263,30 +279,105 @@ const scrollToSection = async (sectionId: string) => {
   while (!element && attempts < maxAttempts) {
     element = document.getElementById(sectionId)
     if (!element) {
-      // console.log(`⏳ Attempt ${attempts + 1}: Element not found, waiting...`)
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.log(`⏳ Attempt ${attempts + 1}: Element #${sectionId} not found, waiting...`)
+      }
       await new Promise(resolve => setTimeout(resolve, 100))
       attempts++
+    } else {
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.log(`✅ Found element #${sectionId} on attempt ${attempts + 1}`)
+      }
     }
   }
 
   if (element) {
-    // console.log('✅ Element found:', element)
-    const headerOffset = 80 // Height of fixed header
+    // Calculate header height dynamically
+    const header = document.querySelector('.header') as HTMLElement
+    const headerOffset = header ? header.offsetHeight + 20 : 100 // Add 20px extra spacing
+    
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log('📏 Header offset:', headerOffset + 'px')
+    }
+    
+    // Debug page scrollability
+    const documentHeight = document.documentElement.scrollHeight
+    const windowHeight = window.innerHeight
+    const canScroll = documentHeight > windowHeight
+    
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log('📊 Page scrollability check:', {
+        documentHeight,
+        windowHeight,
+        canScroll,
+        difference: documentHeight - windowHeight
+      })
+    }
+    
     const elementPosition = element.getBoundingClientRect().top
     const currentScrollY = window.scrollY || window.pageYOffset
     const offsetPosition = elementPosition + currentScrollY - headerOffset
 
-    // console.log('📊 Scroll calculation:', { elementPosition, currentScrollY, offsetPosition, headerOffset })
-
-    // Ensure we don't scroll to negative positions
     const finalPosition = Math.max(0, offsetPosition)
 
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log('📍 Scroll details:', {
+        elementPosition,
+        currentScrollY,
+        offsetPosition,
+        finalPosition,
+        elementTop: element.offsetTop
+      })
+    }
+
+    // Force body overflow to ensure scrollability
+    document.body.style.overflow = ''
+    document.documentElement.style.overflow = ''
+    
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log('✅ Scrolling to position:', finalPosition)
+    }
+    
+    // Try multiple scroll methods for maximum compatibility
     window.scrollTo({
       top: finalPosition,
       behavior: 'smooth'
     })
     
-    // console.log('🎯 Scrolled to position:', finalPosition)
+    // Fallback: Try instant scroll if smooth doesn't work
+    setTimeout(() => {
+      const currentScroll = window.scrollY || window.pageYOffset
+      if (Math.abs(currentScroll - finalPosition) > 10) {
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.log('⚠️ Smooth scroll failed, trying instant scroll')
+        }
+        window.scrollTo(0, finalPosition)
+        document.documentElement.scrollTop = finalPosition
+        document.body.scrollTop = finalPosition
+      }
+    }, 100)
+    
+    // Check if scroll actually happened after a delay
+    if (import.meta.env.DEV) {
+      setTimeout(() => {
+        const newScrollY = window.scrollY || window.pageYOffset
+        // eslint-disable-next-line no-console
+        console.log('🔍 Scroll verification:', {
+          targetPosition: finalPosition,
+          actualPosition: newScrollY,
+          scrollWorked: Math.abs(newScrollY - finalPosition) < 50,
+          bodyOverflow: document.body.style.overflow || 'auto',
+          htmlOverflow: document.documentElement.style.overflow || 'auto'
+        })
+      }, 600)
+    }
   } else {
     console.error('❌ Element not found with ID after all attempts:', sectionId)
     console.error('📍 Current route:', router.currentRoute.value.path)
@@ -307,17 +398,17 @@ const handleGetQuote = () => {
 }
 
 const handleUserProfileClick = () => {
-  // console.log('👤 User profile clicked')
+  closeUserDropdown()
   router.push('/editor')
 }
 
 const goToSettings = () => {
-  // console.log('⚙️ Opening settings...')
+  closeUserDropdown()
   router.push('/settings')
 }
 
 const handleLogout = async () => {
-  console.log('🚪 Logging out...')
+  closeUserDropdown()
   try {
     await authStore.logoutUser()
     authStore.showNotification({
@@ -365,11 +456,11 @@ const getInitials = (name: string): string => {
 .header-content {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 16px 80px;
+  padding: 16px 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 32px;
+  gap: 24px;
 }
 
 /* Logo */
@@ -382,6 +473,8 @@ const getInitials = (name: string): string => {
   cursor: pointer;
   transition: all 0.3s ease;
   letter-spacing: -0.5px;
+  flex-shrink: 0;
+  min-width: fit-content;
 }
 
 .logo:hover {
@@ -421,9 +514,10 @@ const getInitials = (name: string): string => {
 .nav-menu {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex: 1;
   justify-content: center;
+  max-width: 100%;
 }
 
 .nav-link {
@@ -614,34 +708,14 @@ const getInitials = (name: string): string => {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
-}
-
-/* User Profile Header */
-.user-profile-header {
-  display: flex;
-  align-items: center;
   gap: 12px;
-  padding: 6px 12px 6px 6px;
-  background: rgba(6, 182, 212, 0.06);
-  border-radius: 50px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px solid rgba(6, 182, 212, 0.15);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+  min-width: fit-content;
 }
 
-.user-profile-header:hover {
-  background: rgba(6, 182, 212, 0.12);
-  border-color: rgba(6, 182, 212, 0.3);
-  box-shadow: 0 4px 16px rgba(6, 182, 212, 0.2);
-  transform: translateY(-1px);
-}
-
-/* Action Buttons Container */
-.action-buttons {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* User Profile Wrapper (Dropdown Container) */
+.user-profile-wrapper {
+  position: relative;
 }
 
 .user-avatar {
@@ -701,72 +775,92 @@ const getInitials = (name: string): string => {
   letter-spacing: 0.5px;
 }
 
-.settings-button,
-.logout-button {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.06);
+/* User Dropdown Menu */
+.user-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 240px;
+  background: rgba(15, 23, 42, 0.98);
+  backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.75);
-  cursor: pointer;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  padding: 8px;
+  z-index: 1001;
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.user-info {
+  padding: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 4px;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 4px;
+}
+
+.user-email {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.dropdown-item {
   display: flex;
   align-items: center;
-  justify-content: center;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  flex-shrink: 0;
-  position: relative;
-  overflow: hidden;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
 }
 
-.settings-button::before,
-.logout-button::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at center, currentColor 0%, transparent 70%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.settings-button:hover {
-  background: rgba(6, 182, 212, 0.18);
-  border-color: rgba(6, 182, 212, 0.4);
+.dropdown-item:hover {
+  background: rgba(6, 182, 212, 0.12);
   color: #22d3ee;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.25);
 }
 
-.settings-button:hover::before {
-  opacity: 0.1;
-}
-
-.logout-button:hover {
-  background: rgba(239, 68, 68, 0.18);
-  border-color: rgba(239, 68, 68, 0.4);
-  color: #f87171;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
-}
-
-.logout-button:hover::before {
-  opacity: 0.1;
-}
-
-.admin-button svg,
-.settings-button svg,
-.logout-button svg {
+.dropdown-item svg {
   width: 18px;
   height: 18px;
-  transition: transform 0.3s ease;
+  flex-shrink: 0;
 }
 
-.settings-button:hover svg {
-  transform: rotate(90deg);
+.dropdown-item.logout-item {
+  color: rgba(255, 100, 100, 0.85);
 }
 
-.logout-button:hover svg {
-  transform: translateX(2px);
+.dropdown-item.logout-item:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 4px 0;
 }
 
 /* CTA Button */
@@ -813,7 +907,7 @@ const getInitials = (name: string): string => {
 /* Responsive */
 @media (max-width: 1200px) {
   .header-content {
-    padding: 16px 40px;
+    padding: 16px 32px;
   }
 
   .nav-menu {
@@ -821,27 +915,35 @@ const getInitials = (name: string): string => {
   }
 
   .nav-link {
-    padding: 10px 16px;
+    padding: 10px 14px;
     font-size: 13px;
+  }
+
+  .header-actions {
+    gap: 10px;
   }
 }
 
 @media (max-width: 1024px) {
   .header-content {
-    padding: 14px 32px;
+    padding: 14px 24px;
   }
 
   .nav-menu {
-    gap: 2px;
+    gap: 3px;
   }
 
   .nav-link {
-    padding: 8px 12px;
+    padding: 8px 10px;
     font-size: 13px;
   }
 
   .logo {
     font-size: 22px;
+  }
+
+  .header-actions {
+    gap: 8px;
   }
 }
 

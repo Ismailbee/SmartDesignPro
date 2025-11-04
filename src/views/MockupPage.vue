@@ -13,6 +13,11 @@
     <!-- Mockup Content -->
     <div class="mockup-content">
       <div class="container">
+        <!-- DIY Mockup Generator -->
+        <section class="diy-generator">
+          <MockupGenerator />
+        </section>
+
         <!-- Services Overview -->
         <section class="services-overview">
           <div class="section-header">
@@ -171,8 +176,8 @@
               Get a custom mockup quote for your project today
             </p>
             <div class="cta-buttons">
-              <button @click="scrollToQuoteForm" class="cta-primary">Get Quote</button>
-              <button @click="openPortfolio" class="cta-secondary">View Portfolio</button>
+              <button class="cta-primary" @click="scrollToQuoteForm">Get Quote</button>
+              <button class="cta-secondary" @click="openPortfolio">View Portfolio</button>
             </div>
           </div>
         </section>
@@ -185,7 +190,7 @@
               Tell us about your project and we'll provide a custom quote
             </p>
 
-            <form @submit.prevent="handleSubmit" class="quote-form">
+            <form class="quote-form" @submit.prevent="handleSubmit">
               <div class="form-grid">
                 <div class="form-group">
                   <label for="name" class="form-label">Full Name *</label>
@@ -288,9 +293,9 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import MockupGenerator from '@/components/mockup/MockupGenerator.vue'
 
-const router = useRouter()
+// Router not needed here currently
 
 // Form state
 const form = ref({
@@ -304,12 +309,13 @@ const form = ref({
 
 const isSubmitting = ref(false)
 const activeCategory = ref('All')
-const lightboxItem = ref(null)
+type PortfolioItem = { id: number; title: string; category: string; image: string; description: string }
+const lightboxItem = ref<PortfolioItem | null>(null)
 
 // Portfolio data
 const categories = ['All', 'Mobile App', 'Website', 'Branding', 'Product']
 
-const portfolioItems = [
+const portfolioItems: PortfolioItem[] = [
   {
     id: 1,
     title: 'E-commerce Mobile App',
@@ -370,7 +376,7 @@ const handleSubmit = async () => {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 2000))
     
-    console.log('Mockup quote form submitted:', form.value)
+  // Submission successful; would post to API in production
     
     alert('Thank you! Your mockup quote request has been submitted. We\'ll get back to you within 24 hours with a detailed proposal.')
     
@@ -384,14 +390,14 @@ const handleSubmit = async () => {
       budget: ''
     }
   } catch (error) {
-    console.error('Error submitting mockup quote:', error)
+    // Handle error silently or surface via UI if needed
     alert('Sorry, there was an error submitting your request. Please try again.')
   } finally {
     isSubmitting.value = false
   }
 }
 
-const openLightbox = (item: any) => {
+const openLightbox = (item: PortfolioItem) => {
   lightboxItem.value = item
   document.body.style.overflow = 'hidden'
 }

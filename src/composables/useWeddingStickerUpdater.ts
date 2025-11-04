@@ -72,7 +72,50 @@ export function useWeddingStickerUpdater() {
     }
   }
 
+  /**
+   * Helper function to convert text to Title Case (first letter uppercase, rest lowercase)
+   */
+  const toTitleCase = (text: string): string => {
+    return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase()
+  }
 
+  /**
+   * Calculate dynamic font size based on name length
+   * Font family is determined separately based on whether ANY name has 9+ letters
+   *
+   * @param text - The name text to measure
+   * @param baseFontSize - Original font size from SVG (68.31px for first names, 28.06px for last names)
+   * @returns Calculated font size in pixels
+   */
+  const calculateFontSize = (text: string, baseFontSize: number): number => {
+    // Count only alphabetic characters (ignore spaces, punctuation, numbers)
+    const letterCount = text.replace(/[^a-zA-Z]/g, '').length
+
+    if (letterCount <= 8) {
+      // Short names (1-8 letters): keep original size
+      return baseFontSize
+    } else {
+      // Long names (9+ letters): reduce proportionally
+      // Formula: newSize = baseSize * (9 / letterCount)
+      const scaleFactor = 9 / letterCount
+      return baseFontSize * scaleFactor
+    }
+  }
+
+  /**
+   * Check if any name in the collection has 9 or more letters
+   * This determines whether to use Times New Roman or AlternateGothic2 BT for ALL names
+   *
+   * @param names - Array of name strings to check
+   * @returns true if any name has 9+ letters, false otherwise
+   */
+  const hasLongName = (names: (string | null)[]): boolean => {
+    return names.some(name => {
+      if (!name) return false
+      const letterCount = name.replace(/[^a-zA-Z]/g, '').length
+      return letterCount >= 9
+    })
+  }
 
   /**
    * Check if description contains congratulations variations (flexible matching)
@@ -202,14 +245,24 @@ export function useWeddingStickerUpdater() {
 
   /**
    * Extract names from brackets () or []
-   * Enhanced to support full names with first and last names for couples
-   * Examples: 
-   * - "(Suleiman Abdullahi & Hauwa Yunusa)" → first1: Suleiman, last1: Abdullahi, first2: Hauwa, last2: Yunusa
-   * - "(Sarah Ahmed and John Smith)" → first1: Sarah, last1: Ahmed, first2: John, last2: Smith
-   * - "(Hannatu)" → first1: Hannatu, last1: null
+   * Enhanced to support full names with multi-word surnames
+   *
+   * Name Formatting Rules:
+   * - First names: Title Case (first letter uppercase, rest lowercase)
+   * - Surnames: UPPERCASE (all letters uppercase)
+   *
+   * Parsing Logic:
+   * - First word = First Name (Title Case)
+   * - Everything after first word = Surname (UPPERCASE, can be multi-word)
+   * - Ampersand (&) or "and" separates the two people
+   *
+   * Examples:
+   * - "(Suleiman Abdullahi & Ramatu Yunusa)" → first1: "Suleiman", last1: "ABDULLAHI", first2: "Ramatu", last2: "YUNUSA"
+   * - "(John Paul Smith & Mary Jane Doe)" → first1: "John", last1: "PAUL SMITH", first2: "Mary", last2: "JANE DOE"
+   * - "(Sarah Ahmed and Tom Lee)" → first1: "Sarah", last1: "AHMED", first2: "Tom", last2: "LEE"
    */
-  const extractNamesFromBrackets = (description: string): { 
-    name1: string | null; 
+  const extractNamesFromBrackets = (description: string): {
+    name1: string | null;
     name2: string | null;
     name1First: string | null;
     name1Last: string | null;
@@ -232,52 +285,57 @@ export function useWeddingStickerUpdater() {
         const person1 = coupleMatch[1].trim()
         const person2 = coupleMatch[2].trim()
 
-        // Parse person 1 (first token = first name, last token = last name)
+        // Parse person 1: first word = first name (Title Case), rest = surname (UPPERCASE)
         const person1Parts = person1.split(/\s+/).filter(w => w.length > 0)
-        const first1 = person1Parts.length > 0 ? person1Parts[0] : null
-        const last1 = person1Parts.length > 1 ? person1Parts[person1Parts.length - 1] : null
+        const first1 = person1Parts.length > 0 ? toTitleCase(person1Parts[0]) : null
+        const last1 = person1Parts.length > 1
+          ? person1Parts.slice(1).join(' ').toUpperCase()
+          : null
 
-        // Parse person 2 (first token = first name, last token = last name)
+        // Parse person 2: first word = first name (Title Case), rest = surname (UPPERCASE)
         const person2Parts = person2.split(/\s+/).filter(w => w.length > 0)
-        const first2 = person2Parts.length > 0 ? person2Parts[0] : null
-        const last2 = person2Parts.length > 1 ? person2Parts[person2Parts.length - 1] : null
+        const first2 = person2Parts.length > 0 ? toTitleCase(person2Parts[0]) : null
+        const last2 = person2Parts.length > 1
+          ? person2Parts.slice(1).join(' ').toUpperCase()
+          : null
 
         // For backward compatibility, combine first + last for name1 and name2
-        const fullName1 = [first1, last1].filter(Boolean).join(' ').toUpperCase()
-        const fullName2 = [first2, last2].filter(Boolean).join(' ').toUpperCase()
+        const fullName1 = [first1, last1].filter(Boolean).join(' ')
+        const fullName2 = [first2, last2].filter(Boolean).join(' ')
 
         return {
           name1: fullName1 || null,
           name2: fullName2 || null,
-          name1First: first1 ? first1.toUpperCase() : null,
-          name1Last: last1 ? last1.toUpperCase() : null,
-          name2First: first2 ? first2.toUpperCase() : null,
-          name2Last: last2 ? last2.toUpperCase() : null
+          name1First: first1,
+          name1Last: last1,
+          name2First: first2,
+          name2Last: last2
         }
       }
 
       // Single person or simple format
       const words = namesText.split(/\s+/).filter(w => w.length > 0)
       if (words.length >= 2) {
-        // Multiple words - first is first name, last is last name
-        const firstName = words[0]
-        const lastName = words[words.length - 1]
-        const fullName = words.join(' ').toUpperCase()
+        // Multiple words - first is first name (Title Case), rest is surname (UPPERCASE)
+        const firstName = toTitleCase(words[0])
+        const lastName = words.slice(1).join(' ').toUpperCase()
+        const fullName = [firstName, lastName].join(' ')
 
         return {
           name1: fullName,
           name2: null,
-          name1First: firstName.toUpperCase(),
-          name1Last: lastName.toUpperCase(),
+          name1First: firstName,
+          name1Last: lastName,
           name2First: null,
           name2Last: null
         }
       } else if (words.length === 1) {
-        // Single word
+        // Single word - treat as first name only (Title Case)
+        const firstName = toTitleCase(words[0])
         return {
-          name1: words[0].toUpperCase(),
+          name1: firstName,
           name2: null,
-          name1First: words[0].toUpperCase(),
+          name1First: firstName,
           name1Last: null,
           name2First: null,
           name2Last: null
@@ -285,8 +343,8 @@ export function useWeddingStickerUpdater() {
       }
     }
 
-    return { 
-      name1: null, 
+    return {
+      name1: null,
       name2: null,
       name1First: null,
       name1Last: null,
@@ -552,7 +610,18 @@ export function useWeddingStickerUpdater() {
 
     // 3. Extract names (ONLY from brackets) - Enhanced with first/last name support
     const { name1, name2, name1First, name1Last, name2First, name2Last } = extractNames(description)
-    
+
+    console.log('🔍 Name Extraction Debug:', {
+      description,
+      extracted: { name1, name2, name1First, name1Last, name2First, name2Last },
+      elementsFound: {
+        name1First: !!elements.name1First,
+        name1Last: !!elements.name1Last,
+        name2First: !!elements.name2First,
+        name2Last: !!elements.name2Last
+      }
+    })
+
     // Update full name elements (backward compatibility)
     if (name1) {
       data.name1 = name1
@@ -569,29 +638,93 @@ export function useWeddingStickerUpdater() {
       }
     }
 
-    // Update separated first/last name elements (new feature)
+    // Update separated first/last name elements with dynamic font sizing
+    // Base font sizes from SVG template:
+    // - First names (fnt0): 68.31px
+    // - Last names (fnt2): 28.06px
+
+    // Two-Tier Font System Logic:
+    // - Check if ANY FIRST NAME has 9+ letters (ignore surnames)
+    // - If yes: ALL names (first names AND surnames) use AlternateGothic2 BT
+    // - If no: ALL names use Times New Roman
+    // - Font size reduction still applies individually based on each name's letter count
+
+    const firstNamesOnly = [name1First, name2First]
+    const useAlternateFont = hasLongName(firstNamesOnly)
+    const fontFamily = useAlternateFont ? 'AlternateGothic2 BT' : 'Times New Roman'
+
+    console.log(`🎨 Font Family Decision: ${fontFamily} (Has long first name: ${useAlternateFont})`)
+    console.log(`   First names checked: ${firstNamesOnly.filter(Boolean).join(', ')}`)
+
     if (name1First) {
       if (elements.name1First) {
         elements.name1First.textContent = name1First
-        console.log(`👤 Name 1 First updated: "${name1First}"`)
+
+        // Calculate font size based on individual name length
+        const fontSize = calculateFontSize(name1First, 68.31)
+
+        // Use style.setProperty to override CSS class styles
+        elements.name1First.style.setProperty('font-size', `${fontSize}px`, 'important')
+        elements.name1First.style.setProperty('font-family', fontFamily, 'important')
+
+        const letterCount = name1First.replace(/[^a-zA-Z]/g, '').length
+        console.log(`👤 Name 1 First: "${name1First}" (${letterCount} letters, ${fontSize.toFixed(2)}px, ${fontFamily})`)
+      } else {
+        console.warn('⚠️ name1First element not found in SVG')
       }
     }
+
     if (name1Last) {
       if (elements.name1Last) {
         elements.name1Last.textContent = name1Last
-        console.log(`👤 Name 1 Last updated: "${name1Last}"`)
+
+        // Calculate font size based on individual name length
+        const fontSize = calculateFontSize(name1Last, 28.06)
+
+        // Use style.setProperty to override CSS class styles
+        elements.name1Last.style.setProperty('font-size', `${fontSize}px`, 'important')
+        elements.name1Last.style.setProperty('font-family', fontFamily, 'important')
+
+        const letterCount = name1Last.replace(/[^a-zA-Z]/g, '').length
+        console.log(`👤 Name 1 Last: "${name1Last}" (${letterCount} letters, ${fontSize.toFixed(2)}px, ${fontFamily})`)
+      } else {
+        console.warn('⚠️ name1Last element not found in SVG')
       }
     }
+
     if (name2First) {
       if (elements.name2First) {
         elements.name2First.textContent = name2First
-        console.log(`👤 Name 2 First updated: "${name2First}"`)
+
+        // Calculate font size based on individual name length
+        const fontSize = calculateFontSize(name2First, 68.31)
+
+        // Use style.setProperty to override CSS class styles
+        elements.name2First.style.setProperty('font-size', `${fontSize}px`, 'important')
+        elements.name2First.style.setProperty('font-family', fontFamily, 'important')
+
+        const letterCount = name2First.replace(/[^a-zA-Z]/g, '').length
+        console.log(`👤 Name 2 First: "${name2First}" (${letterCount} letters, ${fontSize.toFixed(2)}px, ${fontFamily})`)
+      } else {
+        console.warn('⚠️ name2First element not found in SVG')
       }
     }
+
     if (name2Last) {
       if (elements.name2Last) {
         elements.name2Last.textContent = name2Last
-        console.log(`👤 Name 2 Last updated: "${name2Last}"`)
+
+        // Calculate font size based on individual name length
+        const fontSize = calculateFontSize(name2Last, 28.06)
+
+        // Use style.setProperty to override CSS class styles
+        elements.name2Last.style.setProperty('font-size', `${fontSize}px`, 'important')
+        elements.name2Last.style.setProperty('font-family', fontFamily, 'important')
+
+        const letterCount = name2Last.replace(/[^a-zA-Z]/g, '').length
+        console.log(`👤 Name 2 Last: "${name2Last}" (${letterCount} letters, ${fontSize.toFixed(2)}px, ${fontFamily})`)
+      } else {
+        console.warn('⚠️ name2Last element not found in SVG')
       }
     }
 
@@ -620,44 +753,9 @@ export function useWeddingStickerUpdater() {
       elements.name2Last.removeAttribute('display')
     }
 
-    // Apply font change if either name exceeds 7-8 characters
-    if (name1 || name2) {
-      const name1Length = name1 ? name1.length : 0
-      const name2Length = name2 ? name2.length : 0
-
-      // Check if either name is longer than 7 characters
-      if (name1Length > 7 || name2Length > 7) {
-        // Apply AlternateGothic2 BT font to BOTH name elements
-        if (elements.name1Text) {
-          elements.name1Text.setAttribute('font-family', 'AlternateGothic2 BT')
-          console.log(`🔤 Name 1 font changed to AlternateGothic2 BT (${name1Length} chars)`)
-        }
-        if (elements.name2Text) {
-          elements.name2Text.setAttribute('font-family', 'AlternateGothic2 BT')
-          console.log(`🔤 Name 2 font changed to AlternateGothic2 BT (${name2Length} chars)`)
-        }
-        // Also apply to separated name elements
-        if (elements.name1First) elements.name1First.setAttribute('font-family', 'AlternateGothic2 BT')
-        if (elements.name1Last) elements.name1Last.setAttribute('font-family', 'AlternateGothic2 BT')
-        if (elements.name2First) elements.name2First.setAttribute('font-family', 'AlternateGothic2 BT')
-        if (elements.name2Last) elements.name2Last.setAttribute('font-family', 'AlternateGothic2 BT')
-      } else {
-        // Reset to original font if both names are 7 characters or less
-        if (elements.name1Text) {
-          elements.name1Text.removeAttribute('font-family')
-          console.log(`🔤 Name 1 font reset to original (${name1Length} chars)`)
-        }
-        if (elements.name2Text) {
-          elements.name2Text.removeAttribute('font-family')
-          console.log(`🔤 Name 2 font reset to original (${name2Length} chars)`)
-        }
-        // Also reset separated name elements
-        if (elements.name1First) elements.name1First.removeAttribute('font-family')
-        if (elements.name1Last) elements.name1Last.removeAttribute('font-family')
-        if (elements.name2First) elements.name2First.removeAttribute('font-family')
-        if (elements.name2Last) elements.name2Last.removeAttribute('font-family')
-      }
-    }
+    // NOTE: Old font-family switching logic (7+ characters → AlternateGothic2 BT) has been removed
+    // New implementation uses dynamic font-size reduction at 9+ letters while preserving Times New Roman
+    // See calculateNameFontSize() function and name update logic above (lines 601-668)
 
     // 4. Extract date with enhanced pattern matching
     const extractedDate = extractDate(description)

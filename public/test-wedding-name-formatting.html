@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wedding Name Formatting Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: white;
+      padding: 30px;
+      border-radius: 16px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      color: #667eea;
+      margin-bottom: 15px;
+      font-size: 32px;
+    }
+
+    .info-box {
+      background: #e3f2fd;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+      border-left: 4px solid #2196f3;
+    }
+
+    .info-box h2 {
+      color: #1976d2;
+      margin-bottom: 10px;
+      font-size: 20px;
+    }
+
+    .info-box ul {
+      margin-left: 20px;
+      color: #0d47a1;
+    }
+
+    .info-box li {
+      margin: 8px 0;
+    }
+
+    .test-section {
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+
+    .test-section h3 {
+      color: #333;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #667eea;
+    }
+
+    .test-case {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 15px 0;
+      border-left: 4px solid #28a745;
+    }
+
+    .test-input {
+      font-weight: bold;
+      color: #495057;
+      margin-bottom: 15px;
+      padding: 10px;
+      background: white;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .name-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      margin: 15px 0;
+    }
+
+    .name-card {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      border: 2px solid #dee2e6;
+    }
+
+    .name-label {
+      font-size: 12px;
+      color: #6c757d;
+      text-transform: uppercase;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .name-value {
+      font-size: 18px;
+      color: #212529;
+      margin-bottom: 5px;
+    }
+
+    .name-details {
+      font-size: 12px;
+      color: #6c757d;
+      margin-top: 8px;
+    }
+
+    .font-decision {
+      background: #fff3cd;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 15px 0;
+      border-left: 4px solid #ffc107;
+    }
+
+    .font-decision-title {
+      font-weight: bold;
+      color: #856404;
+      margin-bottom: 8px;
+    }
+
+    .font-decision-value {
+      font-size: 18px;
+      color: #856404;
+      font-weight: bold;
+    }
+
+    .visual-preview {
+      margin: 20px 0;
+      padding: 30px;
+      background: #f8f8f8;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .preview-label {
+      font-size: 14px;
+      color: #6c757d;
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      font-weight: bold;
+    }
+
+    .name-display {
+      margin: 10px 0;
+    }
+
+    code {
+      background: #f4f4f4;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      color: #d63384;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: bold;
+      margin-left: 8px;
+    }
+
+    .badge-times {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .badge-alternate {
+      background: #fff3cd;
+      color: #856404;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎨 Wedding Name Formatting Test Suite</h1>
+      <p class="subtitle">Testing Title Case, UPPERCASE surnames, and two-tier font system</p>
+      
+      <div class="info-box">
+        <h2>📋 Formatting Rules</h2>
+        <ul>
+          <li><strong>First Names:</strong> Title Case (first letter uppercase, rest lowercase)</li>
+          <li><strong>Surnames:</strong> UPPERCASE (all letters uppercase)</li>
+          <li><strong>Multi-word Surnames:</strong> Everything after first word becomes surname</li>
+          <li><strong>Font Family Trigger:</strong> If ANY <strong>FIRST NAME</strong> has 9+ letters → ALL names use AlternateGothic2 BT</li>
+          <li><strong>Surnames Ignored:</strong> Surname length does NOT affect font family decision</li>
+          <li><strong>Font Size:</strong> Individual reduction based on each name's letter count (applies to both first names and surnames)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div id="test-results"></div>
+  </div>
+
+  <script>
+    // Helper function to convert text to Title Case
+    function toTitleCase(text) {
+      return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+    }
+
+    // Calculate font size based on name length
+    function calculateFontSize(text, baseFontSize) {
+      const letterCount = text.replace(/[^a-zA-Z]/g, '').length;
+      
+      if (letterCount <= 8) {
+        return baseFontSize;
+      } else {
+        const scaleFactor = 9 / letterCount;
+        return baseFontSize * scaleFactor;
+      }
+    }
+
+    // Check if any FIRST NAME has 9+ letters (ignore surnames)
+    function hasLongName(names) {
+      return names.some(name => {
+        if (!name) return false;
+        const letterCount = name.replace(/[^a-zA-Z]/g, '').length;
+        return letterCount >= 9;
+      });
+    }
+
+    // Extract names from brackets
+    function extractNamesFromBrackets(description) {
+      const bracketPattern = /[\(\[]([^\)\]]+)[\)\]]/;
+      const match = description.match(bracketPattern);
+
+      if (match && match[1]) {
+        const namesText = match[1].trim();
+        const couplePattern = /([^&]+)\s*(?:&|and)\s*([^&]+)/i;
+        const coupleMatch = namesText.match(couplePattern);
+
+        if (coupleMatch) {
+          const person1 = coupleMatch[1].trim();
+          const person2 = coupleMatch[2].trim();
+
+          // Parse person 1: first word = first name (Title Case), rest = surname (UPPERCASE)
+          const person1Parts = person1.split(/\s+/).filter(w => w.length > 0);
+          const first1 = person1Parts.length > 0 ? toTitleCase(person1Parts[0]) : null;
+          const last1 = person1Parts.length > 1 
+            ? person1Parts.slice(1).join(' ').toUpperCase() 
+            : null;
+
+          // Parse person 2: first word = first name (Title Case), rest = surname (UPPERCASE)
+          const person2Parts = person2.split(/\s+/).filter(w => w.length > 0);
+          const first2 = person2Parts.length > 0 ? toTitleCase(person2Parts[0]) : null;
+          const last2 = person2Parts.length > 1 
+            ? person2Parts.slice(1).join(' ').toUpperCase() 
+            : null;
+
+          return {
+            name1First: first1,
+            name1Last: last1,
+            name2First: first2,
+            name2Last: last2
+          };
+        }
+      }
+
+      return {
+        name1First: null,
+        name1Last: null,
+        name2First: null,
+        name2Last: null
+      };
+    }
+
+    // Test cases
+    const testCases = [
+      {
+        input: '(Suleiman Abdullahi & Ramatu Yunusa)',
+        description: 'First names ≤8 letters (Suleiman=8, Ramatu=6) → Times New Roman (surname length ignored)'
+      },
+      {
+        input: '(John Paul Smith & Mary Jane Doe)',
+        description: 'Multi-word surnames, all names ≤8 letters'
+      },
+      {
+        input: '(Sarah Ahmed & Tom Lee)',
+        description: 'All short names (≤8 letters)'
+      },
+      {
+        input: '(Christopher Washington & Elizabeth Montgomery)',
+        description: 'All long names (9+ letters)'
+      },
+      {
+        input: '(Mohammed Ali & Fatima Hassan)',
+        description: 'Boundary case: Mohammed = 8 letters (short), all others short'
+      },
+      {
+        input: '(Alexander Thompson & Catherine Rodriguez)',
+        description: 'First names: Alexander (9), Catherine (9) → AlternateGothic2 BT for ALL names'
+      },
+      {
+        input: '(Christopher Ahmed & Sarah Smith)',
+        description: 'First name Christopher (11 letters) → AlternateGothic2 BT for ALL names'
+      }
+    ];
+
+    // Run tests
+    const resultsContainer = document.getElementById('test-results');
+
+    testCases.forEach((test, index) => {
+      const extracted = extractNamesFromBrackets(test.input);
+      const firstNamesOnly = [extracted.name1First, extracted.name2First];
+      const useAlternateFont = hasLongName(firstNamesOnly);
+      const fontFamily = useAlternateFont ? 'AlternateGothic2 BT' : 'Times New Roman';
+
+      // Calculate font sizes
+      const name1FirstSize = extracted.name1First ? calculateFontSize(extracted.name1First, 68.31) : null;
+      const name1LastSize = extracted.name1Last ? calculateFontSize(extracted.name1Last, 28.06) : null;
+      const name2FirstSize = extracted.name2First ? calculateFontSize(extracted.name2First, 68.31) : null;
+      const name2LastSize = extracted.name2Last ? calculateFontSize(extracted.name2Last, 28.06) : null;
+
+      const section = document.createElement('div');
+      section.className = 'test-section';
+      
+      section.innerHTML = `
+        <h3>Test Case ${index + 1}</h3>
+        
+        <div class="test-input">
+          Input: ${test.input}
+        </div>
+        
+        <div style="color: #6c757d; margin-bottom: 15px; font-style: italic;">
+          ${test.description}
+        </div>
+
+        <div class="font-decision">
+          <div class="font-decision-title">🎨 Font Family Decision</div>
+          <div class="font-decision-value">
+            ${fontFamily}
+            <span class="badge ${useAlternateFont ? 'badge-alternate' : 'badge-times'}">
+              ${useAlternateFont ? 'Has 9+ letter name' : 'All names ≤8 letters'}
+            </span>
+          </div>
+        </div>
+
+        <div class="name-grid">
+          <div class="name-card">
+            <div class="name-label">Person 1 - First Name</div>
+            <div class="name-value">${extracted.name1First || 'N/A'}</div>
+            <div class="name-details">
+              ${extracted.name1First ? `${extracted.name1First.replace(/[^a-zA-Z]/g, '').length} letters, ${name1FirstSize.toFixed(2)}px` : ''}
+            </div>
+          </div>
+
+          <div class="name-card">
+            <div class="name-label">Person 1 - Surname</div>
+            <div class="name-value">${extracted.name1Last || 'N/A'}</div>
+            <div class="name-details">
+              ${extracted.name1Last ? `${extracted.name1Last.replace(/[^a-zA-Z]/g, '').length} letters, ${name1LastSize.toFixed(2)}px` : ''}
+            </div>
+          </div>
+
+          <div class="name-card">
+            <div class="name-label">Person 2 - First Name</div>
+            <div class="name-value">${extracted.name2First || 'N/A'}</div>
+            <div class="name-details">
+              ${extracted.name2First ? `${extracted.name2First.replace(/[^a-zA-Z]/g, '').length} letters, ${name2FirstSize.toFixed(2)}px` : ''}
+            </div>
+          </div>
+
+          <div class="name-card">
+            <div class="name-label">Person 2 - Surname</div>
+            <div class="name-value">${extracted.name2Last || 'N/A'}</div>
+            <div class="name-details">
+              ${extracted.name2Last ? `${extracted.name2Last.replace(/[^a-zA-Z]/g, '').length} letters, ${name2LastSize.toFixed(2)}px` : ''}
+            </div>
+          </div>
+        </div>
+
+        <div class="visual-preview">
+          <div class="preview-label">Visual Preview</div>
+          ${extracted.name1First ? `<div class="name-display" style="font-family: '${fontFamily}'; font-size: ${name1FirstSize}px;">${extracted.name1First}</div>` : ''}
+          ${extracted.name1Last ? `<div class="name-display" style="font-family: '${fontFamily}'; font-size: ${name1LastSize}px;">${extracted.name1Last}</div>` : ''}
+          ${extracted.name2First ? `<div class="name-display" style="font-family: '${fontFamily}'; font-size: ${name2FirstSize}px;">${extracted.name2First}</div>` : ''}
+          ${extracted.name2Last ? `<div class="name-display" style="font-family: '${fontFamily}'; font-size: ${name2LastSize}px;">${extracted.name2Last}</div>` : ''}
+        </div>
+      `;
+
+      resultsContainer.appendChild(section);
+    });
+  </script>
+</body>
+</html>
+

@@ -174,8 +174,8 @@ async function uploadFile(filePath) {
       Bucket: AWS_CONFIG.bucketName,
       Key: s3Key,
       Body: fileContent,
-      ContentType: 'image/svg+xml',
-      ACL: 'public-read'  // Make files publicly accessible
+      ContentType: 'image/svg+xml'
+      // ACL removed - bucket uses bucket policy for public access instead
     };
     
     // Upload to S3

@@ -18,8 +18,8 @@
               </p>
             </div>
             <button
-              @click="goBack"
               class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+              @click="goBack"
             >
               ← Back to Home
             </button>
@@ -241,16 +241,31 @@
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Size
             </label>
-            <select
-              v-model="formData.size"
-              class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+            <button
+              class="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-left hover:border-cyan-500 dark:hover:border-cyan-400 transition-all duration-200 bg-white dark:bg-gray-700 group"
+              @click="showSizePopup = true"
             >
-              <option value="A4">A4 (210 × 297 mm)</option>
-              <option value="A5">A5 (148 × 210 mm)</option>
-              <option value="Letter">Letter (8.5 × 11 in)</option>
-              <option value="Business Card">Business Card (3.5 × 2 in)</option>
-              <option value="Custom">Custom Size</option>
-            </select>
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                  <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <span class="text-sm font-semibold text-gray-900 dark:text-white block">
+                      {{ selectedSizeText }}
+                    </span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">
+                      {{ selectedSizeDescription }}
+                    </span>
+                  </div>
+                </div>
+                <svg class="w-5 h-5 text-gray-400 group-hover:text-cyan-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </button>
           </div>
 
           <!-- Logo Upload (hide for naming ceremony) -->
@@ -272,8 +287,8 @@
               Background
             </h3>
             <button
-              @click="showBackgroundPopup = true"
               class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-left hover:border-cyan-500 dark:hover:border-cyan-400 transition-colors"
+              @click="showBackgroundPopup = true"
             >
               <div class="flex items-center justify-between">
                 <span class="text-sm text-gray-700 dark:text-gray-300">
@@ -302,9 +317,9 @@
 
           <!-- Generate Button -->
           <button
-            @click="handleGenerate"
             :disabled="isGenerating"
             class="w-full py-3 px-6 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold rounded-lg hover:from-cyan-600 hover:to-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            @click="handleGenerate"
           >
             <span v-if="!isGenerating">Generate Design</span>
             <span v-else class="flex items-center justify-center">
@@ -415,6 +430,102 @@
         @select="handleBackgroundSelect"
       />
 
+      <!-- Size Selection Modal -->
+      <Teleport to="body">
+        <Transition name="modal">
+          <div
+            v-if="showSizePopup"
+            class="fixed inset-0 z-50 overflow-y-auto"
+            @click.self="showSizePopup = false"
+          >
+            <div class="flex min-h-screen items-center justify-center p-4">
+              <!-- Backdrop -->
+              <div class="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"></div>
+
+              <!-- Modal -->
+              <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full p-6 transform transition-all">
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 class="text-2xl font-bold text-gray-900 dark:text-white">Select Size</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose the perfect dimensions for your design</p>
+                  </div>
+                  <button
+                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                    @click="showSizePopup = false"
+                  >
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- Size Options Grid -->
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                  <button
+                    v-for="size in sizeOptions"
+                    :key="size.value"
+                    :class="[
+                      'p-5 rounded-xl border-2 text-left transition-all duration-200 hover:scale-[1.02]',
+                      formData.size === size.value
+                        ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-900/20'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-cyan-300 dark:hover:border-cyan-600'
+                    ]"
+                    @click="selectSize(size.value)"
+                  >
+                    <div class="flex items-start justify-between mb-2">
+                      <div
+                        :class="[
+                          'w-12 h-12 rounded-lg flex items-center justify-center',
+                          formData.size === size.value
+                            ? 'bg-gradient-to-br from-cyan-500 to-blue-600'
+                            : 'bg-gray-100 dark:bg-gray-700'
+                        ]"
+                      >
+                        <svg
+                          :class="[
+                            'w-6 h-6',
+                            formData.size === size.value ? 'text-white' : 'text-gray-600 dark:text-gray-400'
+                          ]"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="size.icon" />
+                        </svg>
+                      </div>
+                      <div v-if="formData.size === size.value" class="flex items-center justify-center w-6 h-6 rounded-full bg-cyan-500">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    </div>
+                    <h4 class="font-semibold text-gray-900 dark:text-white mb-1">{{ size.label }}</h4>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ size.description }}</p>
+                  </button>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex gap-3">
+                  <button
+                    class="flex-1 px-6 py-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    @click="showSizePopup = false"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    class="flex-1 px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold rounded-xl hover:from-cyan-600 hover:to-blue-700 transition-all duration-200 shadow-lg shadow-cyan-500/30"
+                    @click="confirmSize"
+                  >
+                    Apply Size
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
+
       <!-- Design Preview Modal -->
       <DesignPreviewModal
         v-model="autoDesignStore.showPreviewModal"
@@ -447,7 +558,58 @@ const authStore = useAuthStore()
 
 const selectedCategory = ref<string>('')
 const showBackgroundPopup = ref(false)
+const showSizePopup = ref(false)
 const selectedBackground = ref<{ type: string; value: string } | null>(null)
+
+const sizeOptions = [
+  {
+    value: 'A4',
+    label: 'A4',
+    description: '210 × 297 mm',
+    icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
+  },
+  {
+    value: 'A5',
+    label: 'A5',
+    description: '148 × 210 mm',
+    icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
+  },
+  {
+    value: 'Letter',
+    label: 'Letter',
+    description: '8.5 × 11 in',
+    icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
+  },
+  {
+    value: 'Business Card',
+    label: 'Business Card',
+    description: '3.5 × 2 in',
+    icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z'
+  },
+  {
+    value: 'Custom',
+    label: 'Custom Size',
+    description: 'Set your own dimensions',
+    icon: 'M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4'
+  },
+  {
+    value: 'Instagram Post',
+    label: 'Instagram Post',
+    description: '1080 × 1080 px',
+    icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z'
+  }
+]
+
+const selectedSizeText = computed(() => {
+  const size = sizeOptions.find(s => s.value === formData.value.size)
+  return size?.label || 'Select Size'
+})
+
+const selectedSizeDescription = computed(() => {
+  const size = sizeOptions.find(s => s.value === formData.value.size)
+  return size?.description || 'Choose dimensions'
+})
+
 
 const categoryName = computed(() => {
   return selectedCategory.value
@@ -497,13 +659,28 @@ function handleBackgroundSelect(type: string, value: string) {
   })
 }
 
+function selectSize(size: string) {
+  autoDesignStore.updateFormData('size', size)
+}
+
+function confirmSize() {
+  showSizePopup.value = false
+  authStore.showNotification({
+    title: 'Size Applied',
+    message: `Design size set to ${selectedSizeText.value}`,
+    type: 'success'
+  })
+}
+
+
 async function handleGenerate() {
   try {
     await autoDesignStore.generateDesign()
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to generate design'
     authStore.showNotification({
       title: 'Generation Failed',
-      message: error.message || 'Failed to generate design',
+      message: errorMessage,
       type: 'error'
     })
   }
@@ -534,10 +711,11 @@ async function handleDownload(format: 'png' | 'jpeg' | 'pdf') {
       message: `Downloading design as ${format.toUpperCase()}`,
       type: 'success'
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to download design'
     authStore.showNotification({
       title: 'Download Failed',
-      message: error.message || 'Failed to download design',
+      message: errorMessage,
       type: 'error'
     })
   }
@@ -572,15 +750,50 @@ function handleCreateMore() {
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-gray-100 dark:bg-gray-800;
+  background-color: #f1f5f9;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background-color: #1e293b;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+  background-color: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background-color: #475569;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-400 dark:bg-gray-500;
+  background-color: #94a3b8;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: #64748b;
+}
+
+/* Modal Transitions */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-active .relative,
+.modal-leave-active .relative {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.modal-enter-from .relative,
+.modal-leave-to .relative {
+  transform: scale(0.95);
+  opacity: 0;
 }
 </style>
 
