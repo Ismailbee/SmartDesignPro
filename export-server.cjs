@@ -2,13 +2,13 @@
  * Export & Share Backend Server
  * Handles export processing and share link management
  */
+/* eslint-disable no-console */
+/* eslint-disable global-require */
 
 const express = require('express')
 const cors = require('cors')
 const multer = require('multer')
 const { v4: uuidv4 } = require('uuid')
-const path = require('path')
-const fs = require('fs').promises
 const crypto = require('crypto')
 
 const app = express()
@@ -22,27 +22,7 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ extended: true, limit: '50mb' }))
 
-// Storage configuration
-const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    const dir = path.join(__dirname, 'exports')
-    try {
-      await fs.mkdir(dir, { recursive: true })
-      cb(null, dir)
-    } catch (error) {
-      cb(error)
-    }
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`
-    cb(null, uniqueName)
-  }
-})
-
-const upload = multer({ 
-  storage,
-  limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
-})
+// (Removed unused disk storage + upload middleware; using memory storage for imposition endpoints)
 
 // In-memory storage (replace with database in production)
 const exportRecords = new Map()
@@ -219,9 +199,9 @@ app.post('/api/imposition/process', memoryUpload.single('file'), async (req, res
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' })
     const svc = await getImpositionService()
-    let { impositionType = 'booklet', pageSize = 'auto', orientation = 'portrait', addBlankPages = false, type } = req.body || {}
-    if (!impositionType && type) impositionType = type
-    const resultBuffer = await svc.processFile(req.file.buffer, req.file.originalname, impositionType, { pageSize, orientation, addBlankPages })
+    const { impositionType, pageSize = 'auto', orientation = 'portrait', addBlankPages = false, type } = req.body || {}
+    const finalType = impositionType || type || 'booklet'
+    const resultBuffer = await svc.processFile(req.file.buffer, req.file.originalname, finalType, { pageSize, orientation, addBlankPages })
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('Content-Disposition', `attachment; filename="imposed-${Date.now()}.pdf"`)
     res.send(Buffer.from(resultBuffer))
@@ -235,10 +215,10 @@ app.post('/api/imposition/merge', memoryUpload.array('files', 20), async (req, r
   try {
     if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files uploaded' })
     const svc = await getImpositionService()
-    let { impositionType = 'booklet', pageSize = 'auto', orientation = 'portrait', addBlankPages = false, type } = req.body || {}
-    if (!impositionType && type) impositionType = type
+    const { impositionType, pageSize = 'auto', orientation = 'portrait', addBlankPages = false, type } = req.body || {}
+    const finalType = impositionType || type || 'booklet'
     const filesArray = req.files.map(f => ({ name: f.originalname, buffer: f.buffer }))
-    const resultBuffer = await svc.mergeFiles(filesArray, impositionType, { pageSize, orientation, addBlankPages })
+    const resultBuffer = await svc.mergeFiles(filesArray, finalType, { pageSize, orientation, addBlankPages })
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('Content-Disposition', `attachment; filename="imposed-merged-${Date.now()}.pdf"`)
     res.send(Buffer.from(resultBuffer))
@@ -389,7 +369,7 @@ app.post('/api/share', async (req, res) => {
     shareLinks.set(shareId, shareData)
 
     // Remove password hash from response
-    const { passwordHash, ...responseData } = shareData
+  const { passwordHash: _passwordHash, ...responseData } = shareData
 
     res.json(responseData)
   } catch (error) {
@@ -431,7 +411,7 @@ app.get('/api/share/:shareId', (req, res) => {
   shareLinks.set(shareId, shareData)
 
   // Remove password hash from response
-  const { passwordHash, ...responseData } = shareData
+  const { passwordHash: _passwordHash2, ...responseData } = shareData
 
   res.json(responseData)
 })
@@ -463,7 +443,7 @@ app.get('/api/share/project/:projectId', (req, res) => {
 
   const projectLinks = Array.from(shareLinks.values())
     .filter(link => link.projectId === projectId)
-    .map(({ passwordHash, ...link }) => link)
+    .map(({ passwordHash: _passwordHash3, ...link }) => link)
 
   res.json(projectLinks)
 })
@@ -541,7 +521,7 @@ function verifyPassword(password, hash) {
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
-    exports: exports.size,
+    exports: exportRecords.size,
     shareLinks: shareLinks.size
   })
 })

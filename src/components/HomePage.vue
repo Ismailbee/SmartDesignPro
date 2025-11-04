@@ -69,6 +69,22 @@ onMounted(async () => {
       console.error('Failed to refresh user data:', error)
     }
   }
+
+  // Debug: Check if page is scrollable
+  setTimeout(() => {
+    const docHeight = document.documentElement.scrollHeight
+    const winHeight = window.innerHeight
+    const canScroll = docHeight > winHeight
+    
+    console.log('🔍 HomePage Scrollability Check:', {
+      documentHeight: docHeight,
+      windowHeight: winHeight,
+      canScroll,
+      difference: docHeight - winHeight,
+      templateSection: document.getElementById('template'),
+      allSectionIds: Array.from(document.querySelectorAll('[id]')).map(el => el.id)
+    })
+  }, 1000)
 })
 
 const handleGetQuote = () => {

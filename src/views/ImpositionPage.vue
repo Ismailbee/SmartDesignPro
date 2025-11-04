@@ -1,10 +1,11 @@
 <template>
+  <!-- eslint-disable vue/no-deprecated-slot-attribute -->
   <ion-page class="imposition-page">
     <ion-header translucent>
       <ion-toolbar>
         <ion-title>Smart Imposition Studio</ion-title>
         <ion-buttons slot="end">
-          <ion-button fill="clear" @click="resetForm" :disabled="!canReset">
+          <ion-button fill="clear" :disabled="!canReset" @click="resetForm">
             <ion-icon slot="start" :icon="refreshOutline"></ion-icon>
             Reset
           </ion-button>
@@ -41,8 +42,8 @@
                     <div class="file-preview-wrapper">
                       <div class="file-preview-scroll">
                         <div
-                          v-for="(file, index) in files"
-                          :key="`${file.name}-${index}`"
+                          v-for="(f, index) in files"
+                          :key="`${f.name}-${index}`"
                           :class="[
                             'file-preview-card',
                             {
@@ -61,8 +62,8 @@
                           <button
                             type="button"
                             class="remove-preview"
+                            :aria-label="`Remove ${f.name}`"
                             @click.stop="removeFile(index)"
-                            :aria-label="`Remove ${file.name}`"
                           >
                             <ion-icon :icon="closeCircleOutline"></ion-icon>
                           </button>
@@ -71,16 +72,16 @@
                             <img
                               v-if="filePreviews[index]?.type === 'image'"
                               :src="filePreviews[index].url"
-                              :alt="`${file.name} preview`"
+                              :alt="`${f.name} preview`"
                               class="preview-image"
                             />
                             <div v-else class="preview-placeholder">
                               <ion-icon :icon="documentOutline"></ion-icon>
-                              <span class="preview-ext">{{ getFileExtension(file.name) }}</span>
+                              <span class="preview-ext">{{ getFileExtension(f.name) }}</span>
                             </div>
                           </div>
-                          <span class="file-name" :title="file.name">{{ file.name }}</span>
-                          <small class="file-size">{{ formatFileSize(file.size) }}</small>
+                          <span class="file-name" :title="f.name">{{ f.name }}</span>
+                          <small class="file-size">{{ formatFileSize(f.size) }}</small>
                         </div>
 
                         <div
@@ -108,7 +109,10 @@
                     <h3>Drag & drop or browse</h3>
                     <p>Accepted formats: PDF, PNG, JPG (max 50&nbsp;MB each)</p>
                     <p><strong>Select multiple files to merge them together</strong></p>
-                    <ion-button expand="block" size="small" fill="outline">Browse files</ion-button>
+                    <ion-button expand="block" size="default" class="browse-btn">
+                      <ion-icon slot="start" :icon="cloudUploadOutline"></ion-icon>
+                      Browse files
+                    </ion-button>
                   </template>
                 </div>
                 <input
@@ -116,11 +120,11 @@
                   type="file"
                   class="sr-only"
                   accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp"
-                  @change="onFileChange"
                   multiple
+                  @change="onFileChange"
                 />
-                <ion-note color="danger" v-if="fileError" class="message note">{{ fileError }}</ion-note>
-                <ion-note color="success" v-if="successMessage" class="message note">{{ successMessage }}</ion-note>
+                <ion-note v-if="fileError" color="danger" class="message note">{{ fileError }}</ion-note>
+                <ion-note v-if="successMessage" color="success" class="message note">{{ successMessage }}</ion-note>
               </ion-card-content>
             </ion-card>
 
@@ -151,7 +155,7 @@
                 <div class="options-grid">
                   <ion-item lines="full">
                     <ion-label>Paper size</ion-label>
-                    <ion-select interface="popover" v-model="pageSizeValue" :disabled="customSizeEnabled">
+                    <ion-select v-model="pageSizeValue" :disabled="customSizeEnabled" interface="popover">
                       <ion-select-option v-for="size in pageSizes" :key="size.value" :value="size.value">
                         {{ size.label }}
                       </ion-select-option>
@@ -161,11 +165,11 @@
                   <ion-item lines="full">
                     <ion-label>Orientation</ion-label>
                     <ion-select 
-                      interface="popover" 
                       :value="orientation"
-                      @ion-change="(e) => { console.log('Select changed:', e.detail.value); orientation = e.detail.value; }"
                       :disabled="autoDetectOrientation"
                       placeholder="Select orientation"
+                      interface="popover" 
+                      @ion-change="(e) => { orientation = e.detail.value; }"
                     >
                       <ion-select-option value="portrait">Portrait</ion-select-option>
                       <ion-select-option value="landscape">Landscape</ion-select-option>
@@ -175,19 +179,19 @@
                   <ion-item lines="full">
                     <ion-label>Auto-detect orientation</ion-label>
                     <ion-toggle 
-                      color="primary" 
                       :checked="autoDetectOrientation"
+                      color="primary" 
                       @ion-change="(e) => autoDetectOrientation = e.detail.checked"
                     ></ion-toggle>
                   </ion-item>
                   
-                  <ion-note color="success" v-if="orientation" class="orientation-note">
+                  <ion-note v-if="orientation" color="success" class="orientation-note">
                     ✓ Current: <strong>{{ orientation === 'portrait' ? 'Portrait' : 'Landscape' }}</strong>
                   </ion-note>
 
                   <ion-item lines="full">
                     <ion-label>Duplex</ion-label>
-                    <ion-select interface="popover" v-model="duplex">
+                    <ion-select v-model="duplex" interface="popover">
                       <ion-select-option value="long-edge">Long-edge binding</ion-select-option>
                       <ion-select-option value="short-edge">Short-edge binding</ion-select-option>
                       <ion-select-option value="simplex">Single sided</ion-select-option>
@@ -196,12 +200,12 @@
 
                   <ion-item lines="none">
                     <ion-label>Blank page padding</ion-label>
-                    <ion-toggle color="primary" v-model="addBlankPages"></ion-toggle>
+                    <ion-toggle v-model="addBlankPages" color="primary"></ion-toggle>
                   </ion-item>
 
                   <ion-item lines="none">
                     <ion-label>Crop marks</ion-label>
-                    <ion-toggle color="primary" v-model="addCropMarks"></ion-toggle>
+                    <ion-toggle v-model="addCropMarks" color="primary"></ion-toggle>
                   </ion-item>
                 </div>
 
@@ -213,7 +217,7 @@
                     <div slot="content" class="advanced-content">
                       <ion-item lines="full">
                         <ion-label>Use custom size</ion-label>
-                        <ion-toggle color="primary" v-model="customSizeEnabled"></ion-toggle>
+                        <ion-toggle v-model="customSizeEnabled" color="primary"></ion-toggle>
                       </ion-item>
                       <div class="custom-size" :class="{ disabled: !customSizeEnabled }">
                         <p class="custom-size-hint">
@@ -224,12 +228,12 @@
                             <label for="custom-width">Width (pt)</label>
                             <ion-input
                               id="custom-width"
+                              v-model="customWidth"
                               class="dimension-input"
                               type="number"
                               min="1"
                               inputmode="decimal"
                               placeholder="e.g. 595"
-                              v-model="customWidth"
                               :disabled="!customSizeEnabled"
                             ></ion-input>
                           </div>
@@ -237,12 +241,12 @@
                             <label for="custom-height">Height (pt)</label>
                             <ion-input
                               id="custom-height"
+                              v-model="customHeight"
                               class="dimension-input"
                               type="number"
                               min="1"
                               inputmode="decimal"
                               placeholder="e.g. 842"
-                              v-model="customHeight"
                               :disabled="!customSizeEnabled"
                             ></ion-input>
                           </div>
@@ -260,12 +264,12 @@
                   :disabled="!canSubmit"
                   @click="submitImposition"
                 >
-                  <ion-spinner slot="start" v-if="isSubmitting"></ion-spinner>
-                  <ion-icon slot="start" :icon="documentOutline" v-else></ion-icon>
+                  <ion-spinner v-if="isSubmitting" slot="start"></ion-spinner>
+                  <ion-icon v-else slot="start" :icon="documentOutline"></ion-icon>
                   Generate imposed PDF
                 </ion-button>
 
-                <ion-note color="warning" v-if="validationWarning" class="message">{{ validationWarning }}</ion-note>
+                <ion-note v-if="validationWarning" color="warning" class="message">{{ validationWarning }}</ion-note>
               </ion-card-content>
             </ion-card>
           </ion-col>
@@ -277,17 +281,17 @@
                 <ion-card-title>Preview & download</ion-card-title>
               </ion-card-header>
               <ion-card-content>
-                <div class="status" v-if="isSubmitting">
+                <div v-if="isSubmitting" class="status">
                   <ion-spinner name="lines"></ion-spinner>
                   <p>Processing your file… This can take a moment for larger documents.</p>
                 </div>
 
-                <div class="status" v-else-if="errorMessage">
+                <div v-else-if="errorMessage" class="status">
                   <ion-icon :icon="warningOutline" color="danger"></ion-icon>
                   <p>{{ errorMessage }}</p>
                 </div>
 
-                <div class="status success" v-else-if="previewUrl">
+                <div v-else-if="previewUrl" class="status success">
                   <ion-icon :icon="checkmarkCircleOutline" color="success"></ion-icon>
                   <div>
                     <h3>Ready for review</h3>
@@ -299,18 +303,18 @@
                   <iframe :src="previewUrl" title="Imposed preview" referrerpolicy="no-referrer" loading="lazy"></iframe>
                 </div>
 
-                <div class="empty-state" v-else-if="!isSubmitting">
+                <div v-else-if="!isSubmitting" class="empty-state">
                   <ion-icon :icon="documentOutline"></ion-icon>
                   <h3>No output yet</h3>
                   <p>Upload a file and generate an imposition to see the preview here.</p>
                 </div>
 
-                <div class="actions" v-if="downloadUrl">
+                <div v-if="downloadUrl" class="actions">
                   <ion-button expand="block" fill="solid" color="primary" :href="downloadUrl" download>
                     <ion-icon slot="start" :icon="downloadOutline"></ion-icon>
                     Download imposed PDF
                   </ion-button>
-                  <ion-button expand="block" fill="clear" @click="openPreview" :disabled="!previewUrl">
+                  <ion-button expand="block" fill="clear" :disabled="!previewUrl" @click="openPreview">
                     Open in new tab
                   </ion-button>
                 </div>
@@ -429,7 +433,7 @@ const validationWarning = ref('');
 
 const canSubmit = computed(() => files.value.length > 0 && !isSubmitting.value && !validationWarning.value);
 const canReset = computed(() => files.value.length > 0 || previewUrl.value || downloadUrl.value || successMessage.value || errorMessage.value);
-const fileTypeLabel = computed(() => {
+const _fileTypeLabel = computed(() => {
   if (files.value.length === 0) return '';
   if (files.value.length === 1) {
     const file = files.value[0];
@@ -440,7 +444,7 @@ const fileTypeLabel = computed(() => {
   return `${files.value.length} files`;
 });
 
-const formattedFileSize = computed(() => {
+const _formattedFileSize = computed(() => {
   if (files.value.length === 0) return '';
   if (files.value.length === 1) {
     return formatFileSize(files.value[0].size);
@@ -539,8 +543,8 @@ watch(autoDetectOrientation, (enabled) => {
   }
 });
 
-watch(orientation, (newVal, oldVal) => {
-  console.log('Orientation changed from', oldVal, 'to', newVal);
+watch(orientation, (_newVal, _oldVal) => {
+  // Orientation changed - no action needed
 });
 
 function openFilePicker() {
@@ -704,14 +708,10 @@ async function detectOrientation(selectedFile) {
         const width = img.naturalWidth;
         const height = img.naturalHeight;
         
-        console.log('Image dimensions detected:', width, 'x', height);
-        
         if (width > height) {
           orientation.value = 'landscape';
-          console.log('Set orientation to landscape');
         } else {
           orientation.value = 'portrait';
-          console.log('Set orientation to portrait');
         }
         
         URL.revokeObjectURL(objectUrl);
@@ -729,12 +729,11 @@ async function detectOrientation(selectedFile) {
       // For PDFs, we'll use a basic heuristic
       // In a production app, you'd use pdf.js or similar library
       // For now, we'll default to portrait for PDFs
-      console.log('PDF detected, setting to portrait');
       orientation.value = 'portrait';
       successMessage.value = 'PDF detected - orientation set to portrait (can be changed manually)';
     }
   } catch (error) {
-    console.error('Could not auto-detect orientation:', error);
+    // Could not auto-detect orientation
     fileError.value = 'Orientation detection failed';
   }
 }
@@ -759,18 +758,18 @@ async function submitImposition() {
     return;
   }
 
-  console.log('=== SUBMITTING IMPOSITION ===');
-  console.log('Number of files:', files.value.length);
-  console.log('Orientation:', orientation.value);
-  console.log('Page Size:', pageSizeValue.value);
-  console.log('Type:', selectedType.value);
-
   const formData = new FormData();
   
-  // Append all files
-  files.value.forEach((file, index) => {
-    formData.append('files', file); // Use 'files' for multiple, backend needs to handle this
-  });
+    // Append file(s) based on count
+    if (files.value.length === 1) {
+      // Single file - use 'file' field for /api/imposition/process
+      formData.append('file', files.value[0]);
+    } else {
+      // Multiple files - use 'files' field for /api/imposition/merge
+      files.value.forEach((file) => {
+        formData.append('files', file);
+      });
+    }
   
   formData.append('type', selectedType.value);
   formData.append('orientation', orientation.value);
@@ -778,16 +777,6 @@ async function submitImposition() {
   formData.append('addBlankPages', addBlankPages.value ? 'true' : 'false');
   formData.append('addCropMarks', addCropMarks.value ? 'true' : 'false');
   formData.append('mergeFiles', files.value.length > 1 ? 'true' : 'false');
-
-  // Log all form data
-  console.log('FormData contents:');
-  for (let [key, value] of formData.entries()) {
-    if (value instanceof File) {
-      console.log(`  ${key}:`, value.name);
-    } else {
-      console.log(`  ${key}:`, value);
-    }
-  }
 
   if (customSizeEnabled.value) {
     formData.append('pageSize', 'custom');
@@ -804,7 +793,11 @@ async function submitImposition() {
   const start = performance.now();
 
   try {
-    const blob = await backendApi.impose(formData);
+      // Use the appropriate endpoint based on file count
+      const blob = files.value.length === 1 
+        ? await backendApi.impose(formData)
+        : await backendApi.merge(formData);
+    
     processingTime.value = Math.round(performance.now() - start);
 
     if (previewUrl.value) {
@@ -867,44 +860,137 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* Professional Color Palette */
+:root {
+  --primary-blue: #2563eb;
+  --primary-dark: #1e40af;
+  --primary-light: #3b82f6;
+  --accent-teal: #0d9488;
+  --accent-teal-light: #14b8a6;
+  --success-green: #059669;
+  --warning-amber: #d97706;
+  --danger-red: #dc2626;
+  --neutral-50: #f8fafc;
+  --neutral-100: #f1f5f9;
+  --neutral-200: #e2e8f0;
+  --neutral-300: #cbd5e1;
+  --neutral-400: #94a3b8;
+  --neutral-500: #64748b;
+  --neutral-600: #475569;
+  --neutral-700: #334155;
+  --neutral-800: #1e293b;
+  --neutral-900: #0f172a;
+}
+
 .imposition-page ion-content {
-  --background: #f7f8fd;
+  --background: linear-gradient(135deg, #f8fafc 0%, #e7f0f7 100%);
+}
+
+.imposition-page ion-header ion-toolbar {
+  --background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  --color: #ffffff;
+  --border-width: 0;
+  box-shadow: 0 4px 24px rgba(37, 99, 235, 0.15);
+}
+
+.imposition-page ion-header ion-title {
+  font-weight: 700;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.imposition-page ion-header ion-button {
+  --color: #ffffff;
+  --background-hover: rgba(255, 255, 255, 0.15);
+  --border-radius: 10px;
+  font-weight: 600;
 }
 
 .hero {
-  padding: 2rem 1.5rem 1rem;
+  padding: 3rem 1.5rem 2rem;
   text-align: center;
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.03) 0%, transparent 100%);
+  border-bottom: 1px solid rgba(37, 99, 235, 0.08);
 }
 
 .hero h1 {
-  font-size: clamp(1.8rem, 2.4vw, 2.4rem);
-  margin-bottom: 0.5rem;
-  color: #1a1b2f;
+  font-size: clamp(2rem, 3vw, 2.75rem);
+  margin-bottom: 0.75rem;
+  color: var(--neutral-900);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #0d9488 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .hero p {
-  max-width: 720px;
+  max-width: 680px;
   margin: 0 auto;
-  line-height: 1.6;
-  color: #5f6173;
+  line-height: 1.7;
+  color: var(--neutral-600);
+  font-size: 1.05rem;
+  font-weight: 500;
 }
 
 .content-grid {
   align-items: stretch;
+  padding: 2rem 0;
 }
 
 .stack {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.5rem;
 }
 
 .upload-card,
 .settings-card,
 .preview-card {
-  border-radius: 20px;
-  box-shadow: 0 18px 45px rgba(23, 34, 71, 0.08);
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08),
+              0 2px 8px rgba(15, 23, 42, 0.04);
   overflow: hidden;
+  background: #ffffff;
+  border: 1px solid rgba(37, 99, 235, 0.08);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.upload-card:hover,
+.settings-card:hover,
+.preview-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12),
+              0 4px 12px rgba(37, 99, 235, 0.08);
+}
+
+.upload-card ion-card-header,
+.settings-card ion-card-header,
+.preview-card ion-card-header {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  padding: 1.5rem 1.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.upload-card ion-card-subtitle,
+.settings-card ion-card-subtitle,
+.preview-card ion-card-subtitle {
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.25rem;
+}
+
+.upload-card ion-card-title,
+.settings-card ion-card-title,
+.preview-card ion-card-title {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
 }
 
 .upload-card ion-card-content,
@@ -912,46 +998,103 @@ onBeforeUnmount(() => {
 .preview-card ion-card-content {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.75rem;
+  padding: 2rem 1.75rem;
 }
 
 .drop-zone {
-  border: 2px dashed rgba(88, 101, 242, 0.35);
-  border-radius: 16px;
-  padding: 2.25rem 1.5rem;
+  border: 2.5px dashed rgba(37, 99, 235, 0.3);
+  border-radius: 20px;
+  padding: 2.5rem 1.75rem;
   text-align: center;
-  background: #fff;
-  transition: all 0.25s ease;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.drop-zone::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(37, 99, 235, 0.05) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.drop-zone:hover::before {
+  opacity: 1;
 }
 
 .drop-zone ion-icon {
-  font-size: 2rem;
-  color: #5865f2;
+  font-size: 3rem;
+  color: var(--primary-blue);
+  transition: transform 0.3s ease, color 0.3s ease;
+}
+
+.drop-zone:hover ion-icon {
+  transform: scale(1.1);
+  color: var(--primary-dark);
 }
 
 .drop-zone h3 {
   margin: 0;
-  font-size: 1.2rem;
-  color: #1a1b2f;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--neutral-800);
+  letter-spacing: -0.01em;
 }
 
 .drop-zone p {
   margin: 0;
-  color: #6b6f80;
+  color: var(--neutral-600);
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.drop-zone p strong {
+  color: var(--accent-teal);
+  font-weight: 700;
 }
 
 .drop-zone.dragging {
-  border-color: #5865f2;
-  background: rgba(88, 101, 242, 0.08);
+  border-color: var(--primary-blue);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(37, 99, 235, 0.04) 100%);
+  transform: scale(1.02);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
 }
 
 .drop-zone.ready {
-  border-color: rgba(27, 197, 189, 0.6);
+  border-color: var(--accent-teal);
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.04) 0%, rgba(20, 184, 166, 0.02) 100%);
+}
+
+.browse-btn {
+  --background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-dark) 100%);
+  --background-hover: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-blue) 100%);
+  --background-activated: var(--primary-dark);
+  --color: #ffffff;
+  --border-radius: 12px;
+  --box-shadow: 0 4px 16px rgba(37, 99, 235, 0.25);
+  --padding-top: 0.85rem;
+  --padding-bottom: 0.85rem;
+  font-weight: 700;
+  font-size: 1rem;
+  text-transform: none;
+  margin-top: 0.5rem;
+  letter-spacing: -0.01em;
+  transition: all 0.3s ease;
+}
+
+.browse-btn:hover:not([disabled]) {
+  transform: translateY(-2px);
+  --box-shadow: 0 6px 24px rgba(37, 99, 235, 0.35);
 }
 
 .file-preview-wrapper {
@@ -960,117 +1103,151 @@ onBeforeUnmount(() => {
 
 .file-preview-scroll {
   display: flex;
-  gap: 0.85rem;
+  gap: 1rem;
   overflow-x: auto;
-  padding: 0.5rem 0.25rem 0.6rem;
+  padding: 0.75rem 0.5rem 1rem;
   -webkit-overflow-scrolling: touch;
 }
 
 .file-preview-scroll::-webkit-scrollbar {
-  height: 8px;
+  height: 10px;
 }
 
-.file-preview-scroll::-webkit-scrollbar-thumb {
-  background: rgba(88, 101, 242, 0.35);
+.file-preview-scroll::-webkit-scrollbar-track {
+  background: var(--neutral-100);
   border-radius: 999px;
 }
 
+.file-preview-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-dark) 100%);
+  border-radius: 999px;
+  border: 2px solid var(--neutral-100);
+}
+
+.file-preview-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-blue) 100%);
+}
 
 .file-preview-card {
   position: relative;
-  flex: 0 0 92px;
+  flex: 0 0 110px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.45rem 0.5rem 0.55rem;
-  border-radius: 14px;
+  gap: 0.5rem;
+  padding: 0.75rem 0.65rem;
+  border-radius: 16px;
   background: #ffffff;
-  box-shadow: 0 8px 22px rgba(23, 34, 71, 0.08);
-  border: 1px solid rgba(88, 101, 242, 0.14);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08),
+              0 1px 4px rgba(37, 99, 235, 0.06);
+  border: 1.5px solid rgba(37, 99, 235, 0.12);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
 }
 
 .file-preview-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(23, 34, 71, 0.12);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12),
+              0 2px 8px rgba(37, 99, 235, 0.1);
+  border-color: var(--primary-blue);
 }
 
 .file-preview-card.is-dragging {
-  opacity: 0.65;
-  transform: scale(0.97);
-  box-shadow: 0 12px 24px rgba(23, 34, 71, 0.2);
+  opacity: 0.6;
+  transform: scale(0.95) rotate(2deg);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.2);
+  z-index: 100;
 }
 
 .file-preview-card.is-drop-target {
   border-style: dashed;
-  border-color: rgba(88, 101, 242, 0.6);
-  box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.2);
+  border-color: var(--primary-blue);
+  border-width: 2px;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+  background: rgba(37, 99, 235, 0.03);
 }
 
 .file-preview-card.add-card {
   justify-content: center;
   cursor: pointer;
   border-style: dashed;
-  color: #5865f2;
-  background: rgba(88, 101, 242, 0.05);
+  border-width: 2px;
+  color: var(--primary-blue);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.04) 0%, rgba(37, 99, 235, 0.02) 100%);
+}
+
+.file-preview-card.add-card:hover {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(37, 99, 235, 0.04) 100%);
+  border-color: var(--primary-dark);
 }
 
 .file-preview-card.add-card .preview-frame {
-  border-color: rgba(88, 101, 242, 0.4);
-  background: rgba(88, 101, 242, 0.08);
-  color: #5865f2;
+  border-color: rgba(37, 99, 235, 0.3);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(37, 99, 235, 0.04) 100%);
+  color: var(--primary-blue);
 }
 
 .file-preview-card.add-card ion-icon {
-  font-size: 1.5rem;
+  font-size: 1.75rem;
+  font-weight: bold;
 }
 
 .file-preview-card.add-card.is-drop-target {
-  background: rgba(88, 101, 242, 0.12);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.12) 0%, rgba(37, 99, 235, 0.06) 100%);
 }
 
 .remove-preview {
   position: absolute;
-  top: 0.35rem;
-  right: 0.35rem;
-  background: transparent;
+  top: 0.45rem;
+  right: 0.45rem;
+  background: var(--danger-red);
   border: none;
-  padding: 0.12rem;
-  color: #d62839;
+  padding: 0.2rem;
+  color: #ffffff;
   cursor: pointer;
   display: flex;
   align-items: center;
+  border-radius: 50%;
+  z-index: 10;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+}
+
+.remove-preview:hover {
+  background: #b91c1c;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
 }
 
 .remove-preview ion-icon {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
 }
 
 .preview-frame {
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
-  border-radius: 11px;
-  border: 1px solid rgba(88, 101, 242, 0.18);
+  border-radius: 12px;
+  border: 1.5px solid rgba(37, 99, 235, 0.15);
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f8f9ff;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
 }
 
 .file-index {
   position: absolute;
-  top: 0.3rem;
-  left: 0.3rem;
-  background: rgba(88, 101, 242, 0.9);
-  color: #fff;
+  top: 0.4rem;
+  left: 0.4rem;
+  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-dark) 100%);
+  color: #ffffff;
   font-size: 0.7rem;
-  font-weight: 600;
-  padding: 0.12rem 0.38rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
   border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+  z-index: 5;
 }
 
 .preview-image {
@@ -1083,20 +1260,19 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.35rem;
-  color: #5865f2;
+  gap: 0.4rem;
+  color: var(--primary-blue);
 }
 
-
 .preview-placeholder ion-icon {
-  font-size: 1.35rem;
+  font-size: 1.5rem;
 }
 
 .preview-ext {
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  color: #3d3f55;
+  letter-spacing: 0.1em;
+  color: var(--neutral-700);
 }
 
 .file-name {
@@ -1104,16 +1280,18 @@ onBeforeUnmount(() => {
   width: 100%;
   text-align: center;
   font-weight: 600;
-  font-size: 0.72rem;
-  color: #26283e;
+  font-size: 0.75rem;
+  color: var(--neutral-700);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.3;
 }
 
 .file-size {
-  color: #63657a;
-  font-size: 0.65rem;
+  color: var(--neutral-500);
+  font-size: 0.68rem;
+  font-weight: 500;
 }
 
 .sr-only {
@@ -1131,186 +1309,334 @@ onBeforeUnmount(() => {
 .options-group {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
 .options-group label {
-  font-weight: 600;
-  color: #44465f;
+  font-weight: 700;
+  color: var(--neutral-800);
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
 }
 
 .segment-scroll {
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 0.35rem;
-  margin: 0 -0.25rem;
-  padding-right: 0.25rem;
-  padding-left: 0.25rem;
+  padding-bottom: 0.5rem;
+  margin: 0 -0.5rem;
+  padding-right: 0.5rem;
+  padding-left: 0.5rem;
 }
 
 .segment-scroll::-webkit-scrollbar {
-  height: 6px;
+  height: 8px;
 }
 
-.segment-scroll::-webkit-scrollbar-thumb {
-  background: rgba(88, 101, 242, 0.3);
+.segment-scroll::-webkit-scrollbar-track {
+  background: var(--neutral-100);
   border-radius: 999px;
 }
 
+.segment-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-dark) 100%);
+  border-radius: 999px;
+  border: 2px solid var(--neutral-100);
+}
+
 ion-segment {
-  --background: #f0f2ff;
-  border-radius: 12px;
-  padding: 0.25rem;
+  --background: var(--neutral-100);
+  border-radius: 14px;
+  padding: 0.35rem;
   min-width: max-content;
+  box-shadow: inset 0 2px 4px rgba(15, 23, 42, 0.06);
 }
 
 .imposition-segment::part(scroll) {
   display: flex;
-  gap: 0.85rem;
-  padding: 0.1rem 0.35rem;
+  gap: 0.75rem;
+  padding: 0.15rem 0.4rem;
 }
 
 ion-segment-button {
-  --color-checked: #fff;
-  --background-checked: #5865f2;
-  min-height: 64px;
+  --color: var(--neutral-700);
+  --color-checked: #ffffff;
+  --background-checked: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-dark) 100%);
+  --indicator-color: transparent;
+  min-height: 72px;
   flex: 0 0 auto;
-  min-width: 190px;
-  border-radius: 10px;
+  min-width: 200px;
+  border-radius: 12px;
   align-items: flex-start;
   text-align: left;
+  transition: all 0.25s ease;
+  border: 1.5px solid transparent;
+}
+
+ion-segment-button:hover {
+  background: var(--neutral-50);
+  border-color: rgba(37, 99, 235, 0.2);
+}
+
+ion-segment-button::part(indicator-background) {
+  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-dark) 100%);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.3);
 }
 
 ion-segment-button ion-label {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.25rem;
   font-size: 0.95rem;
   width: 100%;
-  max-width: 180px;
+  max-width: 190px;
   min-width: 0;
+  padding: 0.25rem;
 }
 
 ion-segment-button ion-label strong {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 ion-segment-button small {
-  font-size: 0.75rem;
-  opacity: 0.65;
+  font-size: 0.76rem;
+  opacity: 0.75;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 500;
+  line-height: 1.3;
 }
 
 .options-grid {
   display: grid;
-  gap: 0.75rem;
+  gap: 1rem;
+}
+
+.options-grid ion-item {
+  --background: var(--neutral-50);
+  --border-color: rgba(37, 99, 235, 0.12);
+  --border-radius: 14px;
+  --padding-start: 1.25rem;
+  --padding-end: 1.25rem;
+  --inner-padding-end: 0;
+  --min-height: 60px;
+  border-radius: 14px;
+  margin: 0;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.options-grid ion-item:hover {
+  --background: #ffffff;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.options-grid ion-item ion-label {
+  font-weight: 600;
+  color: var(--neutral-700);
+  font-size: 0.95rem;
+}
+
+.options-grid ion-select,
+.options-grid ion-toggle {
+  --placeholder-color: var(--neutral-400);
+}
+
+.options-grid ion-toggle {
+  --background: var(--neutral-300);
+  --background-checked: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-dark) 100%);
+  --handle-background: #ffffff;
+  --handle-background-checked: #ffffff;
+  --handle-box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
 }
 
 .custom-size {
   display: grid;
-  gap: 0.75rem;
-  margin-top: 0.75rem;
+  gap: 1rem;
+  margin-top: 1rem;
 }
 
 .custom-size-hint {
   margin: 0;
-  padding: 0.75rem 1rem;
-  background: rgba(88, 101, 242, 0.08);
-  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.06) 0%, rgba(13, 148, 136, 0.04) 100%);
+  border-radius: 14px;
+  border-left: 4px solid var(--accent-teal);
   font-size: 0.9rem;
-  color: #4c4f63;
+  color: var(--neutral-700);
+  font-weight: 500;
+  line-height: 1.6;
 }
 
 .custom-size-fields {
   display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .dimension-field {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.85rem 1rem;
-  background: #f5f6ff;
-  border: 1px solid rgba(88, 101, 242, 0.25);
-  border-radius: 14px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+  background: #ffffff;
+  border: 2px solid rgba(37, 99, 235, 0.15);
+  border-radius: 16px;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.dimension-field:hover {
+  border-color: rgba(37, 99, 235, 0.3);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
 }
 
 .dimension-field label {
   font-size: 0.85rem;
-  font-weight: 600;
-  color: #3d3f55;
+  font-weight: 700;
+  color: var(--neutral-700);
+  letter-spacing: -0.01em;
 }
 
 .dimension-input {
-  --padding-start: 0.75rem;
-  --padding-end: 0.75rem;
-  --padding-top: 0.5rem;
-  --padding-bottom: 0.5rem;
-  --background: #fff;
-  --color: #1a1b2f;
-  --placeholder-color: #7a7d92;
-  --highlight-color-focused: #5865f2;
-  --border-radius: 10px;
+  --padding-start: 1rem;
+  --padding-end: 1rem;
+  --padding-top: 0.7rem;
+  --padding-bottom: 0.7rem;
+  --background: var(--neutral-50);
+  --color: var(--neutral-900);
+  --placeholder-color: var(--neutral-400);
+  --highlight-color-focused: var(--primary-blue);
+  --border-radius: 12px;
+  font-weight: 600;
 }
 
 .dimension-input::part(native) {
-  border: 1px solid rgba(88, 101, 242, 0.35);
-  border-radius: 10px;
-  font-size: 0.95rem;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  border: 1.5px solid rgba(37, 99, 235, 0.2);
+  border-radius: 12px;
+  font-size: 1rem;
+  transition: all 0.25s ease;
+  font-weight: 600;
 }
 
 .dimension-field:focus-within {
-  border-color: rgba(88, 101, 242, 0.7);
-  box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.15);
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12),
+              0 4px 12px rgba(15, 23, 42, 0.08);
 }
 
 .dimension-field:focus-within .dimension-input::part(native) {
-  border-color: rgba(88, 101, 242, 0.1);
+  border-color: var(--primary-blue);
+  background: #ffffff;
 }
 
 .custom-size-note {
-  margin-top: -0.25rem;
+  margin-top: 0;
+  padding: 0 0.5rem;
+  font-size: 0.82rem;
+  color: var(--neutral-500);
+  font-weight: 500;
 }
 
 .custom-size.disabled {
-  opacity: 0.55;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.advanced {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(37, 99, 235, 0.12);
+}
+
+.advanced ion-item {
+  --background: var(--neutral-50);
+  font-weight: 600;
 }
 
 .advanced-content {
-  padding: 0.75rem 0.5rem 1rem;
+  padding: 1.25rem 1rem 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
+  background: var(--neutral-50);
 }
 
 .submit-btn {
-  margin-top: 0.25rem;
+  margin-top: 0.5rem;
+  --background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-dark) 100%);
+  --background-hover: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-blue) 100%);
+  --background-activated: var(--primary-dark);
+  --border-radius: 14px;
+  --box-shadow: 0 6px 20px rgba(37, 99, 235, 0.3);
+  --padding-top: 1.1rem;
+  --padding-bottom: 1.1rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  transition: all 0.3s ease;
+}
+
+.submit-btn:hover:not([disabled]) {
+  transform: translateY(-2px);
+  --box-shadow: 0 8px 28px rgba(37, 99, 235, 0.4);
+}
+
+.submit-btn:active:not([disabled]) {
+  transform: translateY(0);
 }
 
 .message {
   display: block;
-  margin-top: -0.5rem;
+  margin-top: 0;
+  padding: 0.85rem 1.1rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 .message.note {
-  margin-top: 0.75rem;
+  margin-top: 0;
+}
+
+.message[color="danger"] {
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--danger-red);
+  border-left: 4px solid var(--danger-red);
+}
+
+.message[color="success"] {
+  background: rgba(5, 150, 105, 0.1);
+  color: var(--success-green);
+  border-left: 4px solid var(--success-green);
+}
+
+.message[color="warning"] {
+  background: rgba(217, 119, 6, 0.1);
+  color: var(--warning-amber);
+  border-left: 4px solid var(--warning-amber);
 }
 
 .orientation-note {
   display: block;
-  margin-top: -0.5rem;
-  margin-bottom: 0.5rem;
-  padding-left: 1rem;
-  font-size: 0.875rem;
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem 1.1rem;
+  font-size: 0.88rem;
+  background: rgba(5, 150, 105, 0.08);
+  color: var(--success-green);
+  border-left: 4px solid var(--success-green);
+  border-radius: 10px;
+  font-weight: 600;
 }
 
 .preview-card {
@@ -1320,75 +1646,189 @@ ion-segment-button small {
 .status {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  border-radius: 12px;
-  background: rgba(88, 101, 242, 0.08);
-  color: #1a1b2f;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(37, 99, 235, 0.04) 100%);
+  color: var(--neutral-800);
+  font-weight: 600;
+  border-left: 4px solid var(--primary-blue);
 }
 
 .status.success {
-  background: rgba(45, 206, 137, 0.12);
+  background: linear-gradient(135deg, rgba(5, 150, 105, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%);
+  border-left-color: var(--success-green);
+  color: var(--success-green);
 }
 
 .status ion-icon {
-  font-size: 1.5rem;
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.status h3 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--neutral-900);
+}
+
+.status p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--neutral-600);
+  font-weight: 500;
 }
 
 .preview-frame {
-  margin-top: 1rem;
-  border-radius: 12px;
+  margin-top: 1.5rem;
+  border-radius: 16px;
   overflow: hidden;
-  background: #1a1b2f;
-  min-height: 420px;
-  border: 1px solid rgba(23, 34, 71, 0.1);
+  background: var(--neutral-900);
+  min-height: 480px;
+  border: 2px solid rgba(37, 99, 235, 0.15);
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.15);
 }
 
 .preview-frame iframe {
   width: 100%;
-  height: 480px;
+  height: 520px;
   border: none;
-  background: #fff;
+  background: #ffffff;
 }
 
 .empty-state {
-  margin-top: 1rem;
+  margin-top: 1.5rem;
   text-align: center;
-  color: #6b6f80;
+  color: var(--neutral-500);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  padding: 3rem 1.5rem;
+  background: linear-gradient(135deg, var(--neutral-50) 0%, var(--neutral-100) 100%);
+  border-radius: 16px;
+  border: 2px dashed rgba(37, 99, 235, 0.2);
 }
 
 .empty-state ion-icon {
-  font-size: 2.8rem;
-  color: rgba(88, 101, 242, 0.4);
+  font-size: 3.5rem;
+  color: rgba(37, 99, 235, 0.35);
+}
+
+.empty-state h3 {
+  margin: 0;
+  color: var(--neutral-700);
+  font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+}
+
+.empty-state p {
+  margin: 0;
+  color: var(--neutral-600);
+  font-weight: 500;
+  line-height: 1.6;
 }
 
 .actions {
-  margin-top: 1.5rem;
+  margin-top: 1.75rem;
   display: grid;
-  gap: 0.75rem;
+  gap: 1rem;
+}
+
+.actions ion-button[fill="solid"] {
+  --background: linear-gradient(135deg, var(--accent-teal) 0%, var(--accent-teal-light) 100%);
+  --background-hover: linear-gradient(135deg, var(--accent-teal-light) 0%, var(--accent-teal) 100%);
+  --background-activated: var(--accent-teal);
+  --border-radius: 14px;
+  --box-shadow: 0 6px 20px rgba(13, 148, 136, 0.3);
+  --padding-top: 1rem;
+  --padding-bottom: 1rem;
+  font-weight: 700;
+  font-size: 1.02rem;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  transition: all 0.3s ease;
+}
+
+.actions ion-button[fill="solid"]:hover:not([disabled]) {
+  transform: translateY(-2px);
+  --box-shadow: 0 8px 28px rgba(13, 148, 136, 0.4);
+}
+
+.actions ion-button[fill="clear"] {
+  --color: var(--neutral-600);
+  --color-hover: var(--primary-blue);
+  --border-radius: 12px;
+  --padding-top: 0.9rem;
+  --padding-bottom: 0.9rem;
+  font-weight: 600;
+  font-size: 0.98rem;
+  text-transform: none;
+  transition: all 0.25s ease;
+}
+
+.actions ion-button[fill="clear"]:hover:not([disabled]) {
+  --background: var(--neutral-100);
 }
 
 @media (max-width: 991px) {
   .hero {
-    padding-top: 1.5rem;
+    padding-top: 2rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .content-grid {
+    padding: 1.5rem 0;
+  }
+
+  .preview-frame iframe {
+    height: 400px;
+  }
+}
+
+@media (max-width: 575px) {
+  .hero {
+    padding: 1.5rem 1rem 1.25rem;
+  }
+
+  .hero h1 {
+    font-size: 1.75rem;
+  }
+
+  .hero p {
+    font-size: 0.95rem;
+  }
+
+  .upload-card ion-card-header,
+  .settings-card ion-card-header,
+  .preview-card ion-card-header {
+    padding: 1.25rem 1.5rem;
+  }
+
+  .upload-card ion-card-content,
+  .settings-card ion-card-content,
+  .preview-card ion-card-content {
+    padding: 1.5rem 1.5rem;
+    gap: 1.5rem;
+  }
+
+  .drop-zone {
+    padding: 2rem 1.25rem;
+  }
+
+  ion-segment-button {
+    min-height: 76px;
+    min-width: 180px;
   }
 
   .preview-frame iframe {
     height: 360px;
   }
-}
 
-@media (max-width: 575px) {
-  .drop-zone {
-    padding: 1.75rem 1rem;
-  }
-
-  ion-segment-button {
-    min-height: 72px;
+  .file-preview-card {
+    flex: 0 0 100px;
   }
 }
 </style>

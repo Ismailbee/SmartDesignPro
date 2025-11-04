@@ -41,7 +41,7 @@
           <!-- Action Bar -->
           <div class="action-bar">
             <!-- Like Button -->
-            <button @click="toggleLike(template)" class="action-btn like-btn">
+            <button class="action-btn like-btn" @click="toggleLike(template)">
               <svg v-if="template.liked" class="icon" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
               </svg>
@@ -52,7 +52,7 @@
 
             <!-- Menu Button -->
             <div class="menu-wrapper">
-              <button @click.stop="openMenu(template.id)" class="action-btn menu-btn">
+              <button class="action-btn menu-btn" @click.stop="openMenu(template.id)">
                 <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
                 </svg>
@@ -148,21 +148,30 @@ const openMenu = (id: number) => {
 
 // Preview template
 const previewTemplate = (template: Template) => {
-  console.log('Preview template:', template.title)
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.log('Preview template:', template.title)
+  }
   activeMenu.value = null
   // Add your preview logic here
 }
 
 // Edit template
 const editTemplate = (template: Template) => {
-  console.log('Edit template:', template.title)
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.log('Edit template:', template.title)
+  }
   activeMenu.value = null
   // Add your edit logic here
 }
 
 // Report template
 const reportTemplate = (template: Template) => {
-  console.log('Report template:', template.title)
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.log('Report template:', template.title)
+  }
   activeMenu.value = null
   // Add your report logic here
 }

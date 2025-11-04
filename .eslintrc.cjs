@@ -35,6 +35,19 @@ module.exports = {
     'no-debugger': 'warn',
     'prefer-const': 'warn',
   },
+  overrides: [
+    {
+      files: ['*.cjs'],
+      parserOptions: {
+        sourceType: 'script',
+      },
+      rules: {
+        '@typescript-eslint/no-var-requires': 'off',
+        'no-console': 'off',
+        'global-require': 'off',
+      },
+    },
+  ],
   ignorePatterns: ['dist', 'node_modules', '*.config.js', '*.config.ts'],
 }
 
