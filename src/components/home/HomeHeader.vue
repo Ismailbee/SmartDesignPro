@@ -44,29 +44,47 @@
         <!-- Notifications (Authenticated Users Only) -->
         <NotificationBell v-if="authStore.isAuthenticated" />
 
-        <div v-if="authStore.isAuthenticated" class="user-profile-header">
-          <div class="user-avatar" :title="authStore.userDisplayName" @click="handleUserProfileClick">
+        <!-- User Profile Dropdown -->
+        <div v-if="authStore.isAuthenticated" class="user-profile-wrapper">
+          <div 
+            class="user-avatar" 
+            :title="authStore.userDisplayName" 
+            @click="toggleUserDropdown"
+          >
             <img v-if="authStore.user?.avatar" :src="authStore.user.avatar" :alt="authStore.userDisplayName" />
             <div v-else class="avatar-placeholder">
               {{ getInitials(authStore.userDisplayName) }}
             </div>
           </div>
 
-          <!-- Action Buttons (No Divider Needed) -->
-          <div class="action-buttons">
-            <button class="settings-button" title="Settings" @click="goToSettings">
+          <!-- Dropdown Menu -->
+          <div v-if="isUserDropdownOpen" class="user-dropdown-menu">
+            <div class="user-info">
+              <div class="user-name">{{ authStore.userDisplayName }}</div>
+              <div class="user-email">{{ authStore.user?.email }}</div>
+            </div>
+            
+            <div class="dropdown-divider"></div>
+                                   
+            <button class="dropdown-item" @click="goToSettings">
               <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
+              <span>Settings</span>
             </button>
-            <button class="logout-button" title="Logout" @click="handleLogout">
+            
+            <div class="dropdown-divider"></div>
+            
+            <button class="dropdown-item logout-item" @click="handleLogout">
               <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
+              <span>Logout</span>
             </button>
           </div>
         </div>
+        
         <button v-else class="cta-button" @click="handleGetQuote">
           Get Started
         </button>
@@ -89,7 +107,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import ThemeToggle from '@/components/ThemeToggle.vue'
@@ -107,7 +125,8 @@ const isMoreMenuOpen = ref(false)
 // State for Auto Design Modal
 const isAutoDesignOpen = ref(false)
 
-// (Removed Legal dropdown state)
+// State for User Dropdown
+const isUserDropdownOpen = ref(false)
 
 // Emit events for parent component
 const emit = defineEmits<{
@@ -133,6 +152,32 @@ const toggleAutoDesign = () => {
 const closeAutoDesign = () => {
   isAutoDesignOpen.value = false
 }
+
+// Toggle User Dropdown
+const toggleUserDropdown = () => {
+  isUserDropdownOpen.value = !isUserDropdownOpen.value
+}
+
+// Close User Dropdown
+const closeUserDropdown = () => {
+  isUserDropdownOpen.value = false
+}
+
+// Close dropdown when clicking outside
+const handleClickOutside = (event: MouseEvent) => {
+  const target = event.target as HTMLElement
+  if (isUserDropdownOpen.value && !target.closest('.user-profile-wrapper')) {
+    closeUserDropdown()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 
 // (Removed Legal dropdown handlers)
 
@@ -353,17 +398,17 @@ const handleGetQuote = () => {
 }
 
 const handleUserProfileClick = () => {
-  // console.log('👤 User profile clicked')
+  closeUserDropdown()
   router.push('/editor')
 }
 
 const goToSettings = () => {
-  // console.log('⚙️ Opening settings...')
+  closeUserDropdown()
   router.push('/settings')
 }
 
 const handleLogout = async () => {
-  // console.log('🚪 Logging out...')
+  closeUserDropdown()
   try {
     await authStore.logoutUser()
     authStore.showNotification({
@@ -668,31 +713,9 @@ const getInitials = (name: string): string => {
   min-width: fit-content;
 }
 
-/* User Profile Header */
-.user-profile-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 6px 12px 6px 6px;
-  background: rgba(6, 182, 212, 0.06);
-  border-radius: 50px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px solid rgba(6, 182, 212, 0.15);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.user-profile-header:hover {
-  background: rgba(6, 182, 212, 0.12);
-  border-color: rgba(6, 182, 212, 0.3);
-  box-shadow: 0 4px 16px rgba(6, 182, 212, 0.2);
-  transform: translateY(-1px);
-}
-
-/* Action Buttons Container */
-.action-buttons {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* User Profile Wrapper (Dropdown Container) */
+.user-profile-wrapper {
+  position: relative;
 }
 
 .user-avatar {
@@ -752,72 +775,92 @@ const getInitials = (name: string): string => {
   letter-spacing: 0.5px;
 }
 
-.settings-button,
-.logout-button {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.06);
+/* User Dropdown Menu */
+.user-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 240px;
+  background: rgba(15, 23, 42, 0.98);
+  backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.75);
-  cursor: pointer;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  padding: 8px;
+  z-index: 1001;
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.user-info {
+  padding: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 4px;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 4px;
+}
+
+.user-email {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.dropdown-item {
   display: flex;
   align-items: center;
-  justify-content: center;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  flex-shrink: 0;
-  position: relative;
-  overflow: hidden;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
 }
 
-.settings-button::before,
-.logout-button::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at center, currentColor 0%, transparent 70%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.settings-button:hover {
-  background: rgba(6, 182, 212, 0.18);
-  border-color: rgba(6, 182, 212, 0.4);
+.dropdown-item:hover {
+  background: rgba(6, 182, 212, 0.12);
   color: #22d3ee;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.25);
 }
 
-.settings-button:hover::before {
-  opacity: 0.1;
-}
-
-.logout-button:hover {
-  background: rgba(239, 68, 68, 0.18);
-  border-color: rgba(239, 68, 68, 0.4);
-  color: #f87171;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
-}
-
-.logout-button:hover::before {
-  opacity: 0.1;
-}
-
-.admin-button svg,
-.settings-button svg,
-.logout-button svg {
+.dropdown-item svg {
   width: 18px;
   height: 18px;
-  transition: transform 0.3s ease;
+  flex-shrink: 0;
 }
 
-.settings-button:hover svg {
-  transform: rotate(90deg);
+.dropdown-item.logout-item {
+  color: rgba(255, 100, 100, 0.85);
 }
 
-.logout-button:hover svg {
-  transform: translateX(2px);
+.dropdown-item.logout-item:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 4px 0;
 }
 
 /* CTA Button */
