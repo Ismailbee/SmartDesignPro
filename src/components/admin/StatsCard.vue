@@ -119,4 +119,3 @@ const changeIcon = computed(() => props.trend === 'up' ? trendingUpOutline : tre
   color: #ef4444;
 }
 </style>
-

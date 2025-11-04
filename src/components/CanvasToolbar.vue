@@ -84,13 +84,6 @@
         <span class="btn-text">Export & Share</span>
       </button>
 
-      <button @click="$emit('open-ai-panel')" class="toolbar-btn toolbar-btn-ai">
-        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-        <span class="btn-text">AI Assistant</span>
-      </button>
-
       <div class="toolbar-divider"></div>
 
       <button @click="$emit('save')" class="toolbar-btn">
@@ -121,7 +114,7 @@ defineProps({
 // Emits
 const emit = defineEmits([
   'add-image', 'add-image-url', 'zoom-in', 'zoom-out', 'fit-stage', 'undo', 'redo',
-  'toggle-grid', 'toggle-snap', 'export-png', 'export-jpg', 'save', 'load', 'open-export-panel', 'open-ai-panel'
+  'toggle-grid', 'toggle-snap', 'export-png', 'export-jpg', 'save', 'load', 'open-export-panel'
 ])
 
 // Local state

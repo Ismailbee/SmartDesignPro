@@ -15,6 +15,11 @@ export interface WeddingStickerElements {
   ceremonyText: SVGTextElement | null
   name1Text: SVGTextElement | null
   name2Text: SVGTextElement | null
+  // Enhanced name elements for first/last name separation
+  name1First: SVGTextElement | null
+  name1Last: SVGTextElement | null
+  name2First: SVGTextElement | null
+  name2Last: SVGTextElement | null
   dateText: SVGTextElement | null
   courtesyText: SVGTextElement | null
 }
@@ -197,9 +202,20 @@ export function useWeddingStickerUpdater() {
 
   /**
    * Extract names from brackets () or []
-   * Examples: "(Sarah Ahmed)", "[John Mary]", "(Fatima and Ibrahim)"
+   * Enhanced to support full names with first and last names for couples
+   * Examples: 
+   * - "(Suleiman Abdullahi & Hauwa Yunusa)" → first1: Suleiman, last1: Abdullahi, first2: Hauwa, last2: Yunusa
+   * - "(Sarah Ahmed and John Smith)" → first1: Sarah, last1: Ahmed, first2: John, last2: Smith
+   * - "(Hannatu)" → first1: Hannatu, last1: null
    */
-  const extractNamesFromBrackets = (description: string): { name1: string | null; name2: string | null } => {
+  const extractNamesFromBrackets = (description: string): { 
+    name1: string | null; 
+    name2: string | null;
+    name1First: string | null;
+    name1Last: string | null;
+    name2First: string | null;
+    name2Last: string | null;
+  } => {
     // Match content inside () or []
     const bracketPattern = /[\(\[]([^\)\]]+)[\)\]]/
     const match = description.match(bracketPattern)
@@ -207,45 +223,107 @@ export function useWeddingStickerUpdater() {
     if (match && match[1]) {
       const namesText = match[1].trim()
 
-      // Try to split by "and" or "&"
-      const andPattern = /([A-Za-z]+)\s+(?:and|&)\s+([A-Za-z]+)/i
-      const andMatch = namesText.match(andPattern)
+      // Try to split by "and" or "&" to get couples
+      const couplePattern = /([^&]+)\s*(?:&|and)\s*([^&]+)/i
+      const coupleMatch = namesText.match(couplePattern)
 
-      if (andMatch) {
+      if (coupleMatch) {
+        // We have two people
+        const person1 = coupleMatch[1].trim()
+        const person2 = coupleMatch[2].trim()
+
+        // Parse person 1 (first token = first name, last token = last name)
+        const person1Parts = person1.split(/\s+/).filter(w => w.length > 0)
+        const first1 = person1Parts.length > 0 ? person1Parts[0] : null
+        const last1 = person1Parts.length > 1 ? person1Parts[person1Parts.length - 1] : null
+
+        // Parse person 2 (first token = first name, last token = last name)
+        const person2Parts = person2.split(/\s+/).filter(w => w.length > 0)
+        const first2 = person2Parts.length > 0 ? person2Parts[0] : null
+        const last2 = person2Parts.length > 1 ? person2Parts[person2Parts.length - 1] : null
+
+        // For backward compatibility, combine first + last for name1 and name2
+        const fullName1 = [first1, last1].filter(Boolean).join(' ').toUpperCase()
+        const fullName2 = [first2, last2].filter(Boolean).join(' ').toUpperCase()
+
         return {
-          name1: andMatch[1].toUpperCase(),
-          name2: andMatch[2].toUpperCase()
+          name1: fullName1 || null,
+          name2: fullName2 || null,
+          name1First: first1 ? first1.toUpperCase() : null,
+          name1Last: last1 ? last1.toUpperCase() : null,
+          name2First: first2 ? first2.toUpperCase() : null,
+          name2Last: last2 ? last2.toUpperCase() : null
         }
       }
 
-      // Try to split by space (two words)
+      // Single person or simple format
       const words = namesText.split(/\s+/).filter(w => w.length > 0)
       if (words.length >= 2) {
+        // Multiple words - first is first name, last is last name
+        const firstName = words[0]
+        const lastName = words[words.length - 1]
+        const fullName = words.join(' ').toUpperCase()
+
+        return {
+          name1: fullName,
+          name2: null,
+          name1First: firstName.toUpperCase(),
+          name1Last: lastName.toUpperCase(),
+          name2First: null,
+          name2Last: null
+        }
+      } else if (words.length === 1) {
+        // Single word
         return {
           name1: words[0].toUpperCase(),
-          name2: words[1].toUpperCase()
+          name2: null,
+          name1First: words[0].toUpperCase(),
+          name1Last: null,
+          name2First: null,
+          name2Last: null
         }
       }
     }
 
-    return { name1: null, name2: null }
+    return { 
+      name1: null, 
+      name2: null,
+      name1First: null,
+      name1Last: null,
+      name2First: null,
+      name2Last: null
+    }
   }
 
   /**
    * Extract names from description
    * ONLY extracts names from content inside brackets () or []
-   * Newline-based extraction is DISABLED
-   * Examples: "(Sarah Ahmed)", "[John Mary]", "(Fatima and Ibrahim)"
+   * Returns both full names and separated first/last names
+   * Examples: "(Sarah Ahmed)", "[John Mary]", "(Fatima and Ibrahim)", "(Suleiman Abdullahi & Hauwa Yunusa)"
    */
-  const extractNames = (description: string): { name1: string | null; name2: string | null } => {
+  const extractNames = (description: string): { 
+    name1: string | null; 
+    name2: string | null;
+    name1First: string | null;
+    name1Last: string | null;
+    name2First: string | null;
+    name2Last: string | null;
+  } => {
     // ONLY use bracket-based extraction
     const bracketNames = extractNamesFromBrackets(description)
-    if (bracketNames.name1 && bracketNames.name2) {
+    if (bracketNames.name1First || bracketNames.name2First) {
       return bracketNames
     }
 
     // Return null if no brackets found
-    return { name1: null, name2: null }
+    return { 
+      name1: null, 
+      name2: null,
+      name1First: null,
+      name1Last: null,
+      name2First: null,
+      name2Last: null
+    }
   }
 
   /**
@@ -472,8 +550,10 @@ export function useWeddingStickerUpdater() {
       }
     }
 
-    // 3. Extract names (ONLY from brackets)
-    const { name1, name2 } = extractNames(description)
+    // 3. Extract names (ONLY from brackets) - Enhanced with first/last name support
+    const { name1, name2, name1First, name1Last, name2First, name2Last } = extractNames(description)
+    
+    // Update full name elements (backward compatibility)
     if (name1) {
       data.name1 = name1
       if (elements.name1Text) {
@@ -487,6 +567,57 @@ export function useWeddingStickerUpdater() {
         elements.name2Text.textContent = data.name2
         console.log(`👤 Name 2 updated: "${data.name2}"`)
       }
+    }
+
+    // Update separated first/last name elements (new feature)
+    if (name1First) {
+      if (elements.name1First) {
+        elements.name1First.textContent = name1First
+        console.log(`👤 Name 1 First updated: "${name1First}"`)
+      }
+    }
+    if (name1Last) {
+      if (elements.name1Last) {
+        elements.name1Last.textContent = name1Last
+        console.log(`👤 Name 1 Last updated: "${name1Last}"`)
+      }
+    }
+    if (name2First) {
+      if (elements.name2First) {
+        elements.name2First.textContent = name2First
+        console.log(`👤 Name 2 First updated: "${name2First}"`)
+      }
+    }
+    if (name2Last) {
+      if (elements.name2Last) {
+        elements.name2Last.textContent = name2Last
+        console.log(`👤 Name 2 Last updated: "${name2Last}"`)
+      }
+    }
+
+    // Hide empty name elements to keep layout clean
+    if (!name1First && elements.name1First) {
+      elements.name1First.setAttribute('display', 'none')
+    } else if (elements.name1First) {
+      elements.name1First.removeAttribute('display')
+    }
+    
+    if (!name1Last && elements.name1Last) {
+      elements.name1Last.setAttribute('display', 'none')
+    } else if (elements.name1Last) {
+      elements.name1Last.removeAttribute('display')
+    }
+    
+    if (!name2First && elements.name2First) {
+      elements.name2First.setAttribute('display', 'none')
+    } else if (elements.name2First) {
+      elements.name2First.removeAttribute('display')
+    }
+    
+    if (!name2Last && elements.name2Last) {
+      elements.name2Last.setAttribute('display', 'none')
+    } else if (elements.name2Last) {
+      elements.name2Last.removeAttribute('display')
     }
 
     // Apply font change if either name exceeds 7-8 characters
@@ -505,6 +636,11 @@ export function useWeddingStickerUpdater() {
           elements.name2Text.setAttribute('font-family', 'AlternateGothic2 BT')
           console.log(`🔤 Name 2 font changed to AlternateGothic2 BT (${name2Length} chars)`)
         }
+        // Also apply to separated name elements
+        if (elements.name1First) elements.name1First.setAttribute('font-family', 'AlternateGothic2 BT')
+        if (elements.name1Last) elements.name1Last.setAttribute('font-family', 'AlternateGothic2 BT')
+        if (elements.name2First) elements.name2First.setAttribute('font-family', 'AlternateGothic2 BT')
+        if (elements.name2Last) elements.name2Last.setAttribute('font-family', 'AlternateGothic2 BT')
       } else {
         // Reset to original font if both names are 7 characters or less
         if (elements.name1Text) {
@@ -515,6 +651,11 @@ export function useWeddingStickerUpdater() {
           elements.name2Text.removeAttribute('font-family')
           console.log(`🔤 Name 2 font reset to original (${name2Length} chars)`)
         }
+        // Also reset separated name elements
+        if (elements.name1First) elements.name1First.removeAttribute('font-family')
+        if (elements.name1Last) elements.name1Last.removeAttribute('font-family')
+        if (elements.name2First) elements.name2First.removeAttribute('font-family')
+        if (elements.name2Last) elements.name2Last.removeAttribute('font-family')
       }
     }
 
@@ -554,6 +695,10 @@ export function useWeddingStickerUpdater() {
         ceremonyText: null,
         name1Text: null,
         name2Text: null,
+        name1First: null,
+        name1Last: null,
+        name2First: null,
+        name2Last: null,
         dateText: null,
         courtesyText: null
       }
@@ -566,6 +711,10 @@ export function useWeddingStickerUpdater() {
       ceremonyText: svgElement.querySelector('#ceremony-text') as SVGTextElement,
       name1Text: svgElement.querySelector('#name1-text') as SVGTextElement,
       name2Text: svgElement.querySelector('#name2-text') as SVGTextElement,
+      name1First: svgElement.querySelector('#name1-first') as SVGTextElement,
+      name1Last: svgElement.querySelector('#name1-last') as SVGTextElement,
+      name2First: svgElement.querySelector('#name2-first') as SVGTextElement,
+      name2Last: svgElement.querySelector('#name2-last') as SVGTextElement,
       dateText: svgElement.querySelector('#date-text') as SVGTextElement,
       courtesyText: svgElement.querySelector('#courtesy-text') as SVGTextElement
     }

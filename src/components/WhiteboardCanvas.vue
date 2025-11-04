@@ -46,7 +46,6 @@
       @export-png="exportToPNG"
       @export-jpg="exportToJPG"
       @open-export-panel="openExportPanel"
-      @open-ai-panel="openAIPanel"
       @save="saveToJSON"
       @load="loadFromJSON"
       :zoom="stageScale"
@@ -325,9 +324,6 @@
     <div v-if="isConnected" class="activity-feed-container">
       <ActivityFeed ref="activityFeedRef" />
     </div>
-
-    <!-- AI Panel -->
-    <AIPanel />
   </div>
 </template>
 
@@ -340,10 +336,8 @@ import SharePanel from './SharePanel.vue'
 import RemoteCursor from './collaboration/RemoteCursor.vue'
 import CommentSystem from './collaboration/CommentSystem.vue'
 import ActivityFeed from './collaboration/ActivityFeed.vue'
-import AIPanel from './ai/AIPanel.vue'
 import { useWhiteboardStore } from '@/stores/whiteboard'
 import { useCollaborationStore } from '@/stores/collaboration'
-import { useAIStore } from '@/stores/ai'
 import { storeToRefs } from 'pinia'
 import { exportStageToBlob, exportStageToDataURL, snapToGrid } from '@/utils/konva-helpers'
 
@@ -369,9 +363,6 @@ const store = useWhiteboardStore()
 // Collaboration Store
 const collaborationStore = useCollaborationStore()
 const { remoteCursorsList, isConnected, canEdit } = storeToRefs(collaborationStore)
-
-// AI Store
-const aiStore = useAIStore()
 
 // Refs
 const stage = ref(null)
@@ -2693,11 +2684,6 @@ const exportToJPG = async () => {
 // Export Panel handlers
 const openExportPanel = () => {
   showExportPanel.value = true
-}
-
-// AI Panel handlers
-const openAIPanel = () => {
-  aiStore.openPanel()
 }
 
 const handleExportComplete = (result) => {

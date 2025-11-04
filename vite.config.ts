@@ -11,7 +11,9 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['onnxruntime-web'],
-    exclude: ['@imgly/background-removal']
+    exclude: ['@imgly/background-removal'],
+    // Force optimization to avoid OneDrive sync issues
+    force: true
   },
   build: {
     commonjsOptions: {
@@ -26,7 +28,9 @@ export default defineConfig({
   },
   server: {
     fs: {
-      strict: false
+      strict: false,
+      // Allow serving files from outside the root
+      allow: ['..']
     },
     // Serve WASM files with correct MIME type
     middlewareMode: false,
@@ -34,6 +38,11 @@ export default defineConfig({
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type'
+    },
+    // Watch options to handle OneDrive
+    watch: {
+      usePolling: true,
+      interval: 100
     }
   },
   // Configure WASM handling

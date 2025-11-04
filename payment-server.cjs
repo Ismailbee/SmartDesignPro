@@ -65,8 +65,10 @@ const TOKEN_PACKAGES = {
 
 // CORS Configuration
 const allowedOrigins = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(',')
-  : ['http://localhost:5173', 'http://localhost:8100', 'http://localhost:3000']
+  ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
+  : ['http://localhost:5173', 'http://localhost:5176', 'http://localhost:8100', 'http://localhost:3000']
+
+console.log('🌐 CORS Allowed Origins:', allowedOrigins)
 
 // Middleware
 app.use(cors({
@@ -103,6 +105,23 @@ db.exec(`
     FOREIGN KEY (referredBy) REFERENCES users(id) ON DELETE SET NULL
   )
 `)
+
+// Check if referralCode column exists, if not add it (migration)
+try {
+  const tableInfo = db.prepare("PRAGMA table_info(users)").all()
+  const hasReferralCode = tableInfo.some(col => col.name === 'referralCode')
+
+  if (!hasReferralCode) {
+    console.log('🔄 Migrating database: Adding referralCode column...')
+    db.exec(`ALTER TABLE users ADD COLUMN referralCode TEXT UNIQUE`)
+    db.exec(`ALTER TABLE users ADD COLUMN referredBy TEXT`)
+    db.exec(`ALTER TABLE users ADD COLUMN referralCount INTEGER DEFAULT 0`)
+    console.log('✅ Migration complete')
+  }
+} catch (error) {
+  // Table doesn't exist yet or migration not needed
+  console.log('ℹ️  No migration needed')
+}
 
 // Payments table
 db.exec(`

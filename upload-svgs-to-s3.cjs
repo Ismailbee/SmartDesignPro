@@ -52,7 +52,7 @@ const AWS_CONFIG = {
 // LOCAL CONFIGURATION
 // ========================================
 const LOCAL_CONFIG = {
-  sourceDirectory: './svg',
+  sourceDirectory: './public/svg',
   outputJsonFile: 'cloudfront-urls.json'
 };
 
@@ -174,8 +174,8 @@ async function uploadFile(filePath) {
       Bucket: AWS_CONFIG.bucketName,
       Key: s3Key,
       Body: fileContent,
-      ContentType: 'image/svg+xml'
-      // ACL removed - bucket uses bucket policy for public access instead
+      ContentType: 'image/svg+xml',
+      ACL: 'public-read'  // Make files publicly accessible
     };
     
     // Upload to S3

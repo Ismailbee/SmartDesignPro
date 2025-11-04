@@ -2,14 +2,14 @@
 
 /**
  * Generate Secure Secrets for Environment Variables
- * 
+ *
  * Usage:
  *   node scripts/generate-secrets.js
- * 
+ *
  * This will generate secure random strings for JWT secrets and other sensitive values
  */
 
-const crypto = require('crypto')
+import crypto from 'crypto'
 
 console.log('\n🔐 SECURE SECRET GENERATOR\n')
 console.log('=' .repeat(80))

@@ -794,18 +794,18 @@ async function loadWeddingStickerTemplate() {
     // 🔥 TESTING MODE: Try multiple sources with fallback
     const sources = [
       {
-        name: 'CloudFront',
-        url: 'https://d27paqapg0ahqm.cloudfront.net/weddingStiker/template.svg',
+        name: 'Local (svg folder)',
+        url: '/svg/weddingStiker/template.svg',
         mode: 'cors'
       },
       {
-        name: 'Local (public)',
+        name: 'Local (templates folder)',
         url: '/templates/wedding-sticker/template.svg',
         mode: 'cors'
       },
       {
-        name: 'Local (svg folder)',
-        url: '/svg/weddingStiker/template.svg',
+        name: 'CloudFront',
+        url: 'https://d27paqapg0ahqm.cloudfront.net/svg/weddingStiker/template.svg',
         mode: 'cors'
       }
     ]

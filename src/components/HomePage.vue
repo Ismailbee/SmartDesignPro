@@ -8,8 +8,8 @@
       @start-project="handleStartProject"
     />
 
-    <!-- Portfolio Section -->
-    <PortfolioSection />
+    <!-- Template Section -->
+    <TemplateSection />
 
     <!-- Services Section -->
     <ServicesSection @learn-more="handleLearnMore" />
@@ -40,7 +40,7 @@ import { useUserStore } from '@/stores/user.store'
 // Import all home page components
 import HomeHeader from '@/components/home/HomeHeader.vue'
 import HeroSection from '@/components/home/HeroSection.vue'
-import PortfolioSection from '@/components/home/PortfolioSection.vue'
+import TemplateSection from '@/components/home/TemplateSection.vue'
 import ServicesSection from '@/components/home/ServicesSection.vue'
 import ProcessSection from '@/components/home/ProcessSection.vue'
 import TeamSection from '@/components/home/TeamSection.vue'
@@ -101,7 +101,6 @@ const handleSubmitContact = (formData: any) => {
 .home-page {
   width: 100%;
   min-height: 100vh;
-    overflow-y: auto !important;
   position: relative;
 }
 </style>
