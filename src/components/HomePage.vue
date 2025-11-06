@@ -1,7 +1,33 @@
 ﻿<template>
   <div class="home-page">
+    <!-- Mobile Hamburger Button (Fixed Position) -->
+    <button 
+      class="mobile-hamburger-button"
+      aria-label="Open menu"
+      @click="toggleSidebar"
+    >
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <line x1="3" y1="6" x2="21" y2="6"></line>
+        <line x1="3" y1="18" x2="21" y2="18"></line>
+      </svg>
+    </button>
+
+    <!-- Sidebar Component -->
+    <Sidebar 
+      :is-open="isSidebarOpen"
+      :user="authStore.user"
+      @close="closeSidebar"
+      @navigate="handleSidebarNavigation"
+      @auto-design="handleSidebarAutoDesign"
+      @toggle-auto-design="handleSidebarToggleAutoDesign"
+      @more="handleSidebarMore"
+      @settings="handleSidebarSettings"
+      @logout="handleSidebarLogout"
+    />
+
     <!-- Professional Header -->
-    <HomeHeader @get-quote="handleGetQuote" />
+    <HomeHeader ref="homeHeaderRef" @get-quote="handleGetQuote" />
 
     <!-- Hero Section -->
     <HeroSection
@@ -32,12 +58,13 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user.store'
 
 // Import all home page components
+import Sidebar from '@/components/home/Sidebar.vue'
 import HomeHeader from '@/components/home/HomeHeader.vue'
 import HeroSection from '@/components/home/HeroSection.vue'
 import TemplateSection from '@/components/home/TemplateSection.vue'
@@ -51,6 +78,79 @@ import HomeFooter from '@/components/home/HomeFooter.vue'
 const router = useRouter()
 const authStore = useAuthStore()
 const userStore = useUserStore()
+
+// Component refs
+const homeHeaderRef = ref<InstanceType<typeof HomeHeader> | null>(null)
+
+// Sidebar state
+const isSidebarOpen = ref(false)
+
+// Sidebar functions
+const toggleSidebar = () => {
+  isSidebarOpen.value = !isSidebarOpen.value
+}
+
+const closeSidebar = () => {
+  isSidebarOpen.value = false
+}
+
+const handleSidebarNavigation = (section: string) => {
+  closeSidebar()
+  // Wait for sidebar to close, then navigate
+  setTimeout(() => {
+    const element = document.querySelector(section)
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, 300)
+}
+
+const handleSidebarAutoDesign = () => {
+  closeSidebar()
+  // Wait for sidebar to close, then navigate to editor
+  setTimeout(() => {
+    if (!authStore.isAuthenticated) {
+      authStore.openAuthModal('login')
+    } else {
+      router.push('/editor')
+    }
+  }, 300)
+}
+
+const handleSidebarToggleAutoDesign = () => {
+  closeSidebar()
+  // Wait for sidebar to close, then trigger AutoDesign modal via HomeHeader
+  setTimeout(() => {
+    homeHeaderRef.value?.toggleAutoDesign()
+  }, 300)
+}
+
+const handleSidebarMore = () => {
+  closeSidebar()
+  // Use the HomeHeader ref to toggle the More menu
+  setTimeout(() => {
+    homeHeaderRef.value?.toggleMoreMenu()
+  }, 300)
+}
+
+const handleSidebarSettings = () => {
+  closeSidebar()
+  setTimeout(() => {
+    router.push('/settings')
+  }, 300)
+}
+
+const handleSidebarLogout = async () => {
+  closeSidebar()
+  setTimeout(async () => {
+    try {
+      await authStore.logoutUser()
+      router.push('/')
+    } catch (error) {
+      console.error('Logout failed:', error)
+    }
+  }, 300)
+}
 
 // Refresh user data when page loads (to get latest plan/tokens)
 onMounted(async () => {
@@ -117,6 +217,61 @@ const handleSubmitContact = (formData: any) => {
 .home-page {
   width: 100%;
   min-height: 100vh;
-  position: relative;
+  /* Removed position: relative to allow fixed mobile menu to display above */
+}
+
+/* Mobile Hamburger Button */
+.mobile-hamburger-button {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 20px;
+  z-index: 10001;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.95) 0%, rgba(139, 92, 246, 0.95) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: none;
+  border-radius: 12px;
+  padding: 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+  transition: all 0.3s ease;
+  color: white;
+}
+
+.mobile-hamburger-button:hover {
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.95) 0%, rgba(124, 58, 237, 0.95) 100%);
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+}
+
+.mobile-hamburger-button:active {
+  transform: scale(0.95);
+}
+
+.mobile-hamburger-button svg {
+  display: block;
+}
+
+/* Show hamburger on mobile */
+@media (max-width: 768px) {
+  .mobile-hamburger-button {
+    display: block;
+  }
+}
+
+/* Smaller button on tiny screens */
+@media (max-width: 480px) {
+  .mobile-hamburger-button {
+    top: 10px;
+    left: 12px;
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .mobile-hamburger-button svg {
+    width: 20px;
+    height: 20px;
+  }
 }
 </style>

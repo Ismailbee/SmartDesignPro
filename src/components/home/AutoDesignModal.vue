@@ -2,10 +2,9 @@
   <Teleport to="body">
     <Transition name="modal-fade">
       <div v-if="isOpen" class="modal-overlay" @click="closeModal">
-        <Transition name="modal-scale">
-          <div v-if="isOpen" class="modal-container" @click.stop>
-            <!-- Close Button -->
-            <button class="close-button" aria-label="Close menu" @click="closeModal">
+        <div class="modal-container" @click.stop>
+          <!-- Close Button -->
+          <button class="close-button" aria-label="Close menu" @click="closeModal">
               <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -70,8 +69,7 @@
                 <p class="no-results-subtext">Try a different search term</p>
               </div>
             </div>
-          </div>
-        </Transition>
+        </div>
       </div>
     </Transition>
   </Teleport>
@@ -90,10 +88,8 @@ const searchQuery = ref('')
 const closeModal = () => emit('close')
 
 const categories = [
-  { name: 'Naming Ceremony', image: 'https://images.unsplash.com/photo-1530023367847-a683933f4172?w=100&h=100&fit=crop' },
+  { name: 'Invoice/Receipt', image: 'https://images.unsplash.com/photo-1554224154-26032ffc0d07?w=100&h=100&fit=crop' },
   { name: 'Sticker', image: 'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=100&h=100&fit=crop' },
-  { name: 'Receipt', image: 'https://images.unsplash.com/photo-1554224311-9b748a0a0748?w=100&h=100&fit=crop' },
-  { name: 'Invoice', image: 'https://images.unsplash.com/photo-1554224154-26032ffc0d07?w=100&h=100&fit=crop' },
   { name: 'Letter Head', image: 'https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=100&h=100&fit=crop' },
   { name: 'Exercise Book', image: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=100&h=100&fit=crop' },
   { name: 'Calendar', image: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=100&h=100&fit=crop' },
@@ -129,7 +125,17 @@ const filteredCategories = computed(() => {
 const slugify = (s: string) => s.toLowerCase().replace(/\s+/g, '-').replace(/\//g, '-')
 
 const selectCategory = (category: string) => {
-  router.push({ path: '/auto-design', query: { category: slugify(category) } })
+  // Special handling for Invoice/Receipt - route to dedicated page
+  if (category === 'Invoice/Receipt') {
+    router.push({ path: '/invoice-receipt' })
+  } 
+  // Special handling for Letter Head - route to templates dashboard
+  else if (category === 'Letter Head') {
+    router.push({ path: '/letterhead-templates' })
+  } 
+  else {
+    router.push({ path: '/auto-design', query: { category: slugify(category) } })
+  }
   closeModal()
 }
 
@@ -147,13 +153,20 @@ const handleEscape = (e: KeyboardEvent) => {
   if (e.key === 'Escape' && props.isOpen) closeModal()
 }
 
-// Prevent body scroll when modal is open
+// Prevent body scroll when modal is open and clear search when closing
 watch(() => props.isOpen, (newValue) => {
+  /* eslint-disable no-console */
+  console.log('🎯 AutoDesignModal isOpen changed:', newValue)
   if (newValue) {
     document.body.style.overflow = 'hidden'
+    console.log('🚀 AutoDesignModal opened - content should be visible')
   } else {
     document.body.style.overflow = ''
+    // Clear search query when modal closes
+    searchQuery.value = ''
+    console.log('❌ AutoDesignModal closed')
   }
+  /* eslint-enable no-console */
 })
 
 onMounted(() => document.addEventListener('keydown', handleEscape))
@@ -173,7 +186,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: 10003;
   padding: 20px;
 }
 
@@ -183,6 +196,10 @@ onUnmounted(() => {
   max-width: 900px;
   width: 100%;
   max-height: 90vh;
+  opacity: 1;
+  transform: scale(1);
+  visibility: visible;
+  pointer-events: auto;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   position: relative;
@@ -356,10 +373,21 @@ onUnmounted(() => {
 /* Modal animations */
 .modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.3s ease; }
 .modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; }
-.modal-scale-enter-active { transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.modal-scale-leave-active { transition: all 0.3s ease; }
-.modal-scale-enter-from { opacity: 0; transform: scale(0.9) translateY(-20px); }
-.modal-scale-leave-to { opacity: 0; transform: scale(0.95) translateY(10px); }
+
+.modal-fade-enter-active .modal-container,
+.modal-fade-leave-active .modal-container {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.modal-fade-enter-from .modal-container {
+  opacity: 0;
+  transform: scale(0.9) translateY(-20px);
+}
+
+.modal-fade-leave-to .modal-container {
+  opacity: 0;
+  transform: scale(0.95) translateY(10px);
+}
 
 /* Scrollbar */
 .modal-container::-webkit-scrollbar { width: 8px; }

@@ -62,9 +62,27 @@ export const useAuthStore = defineStore('auth', () => {
         user.value = firebaseUser
         localStorage.setItem(USER_KEY, JSON.stringify(firebaseUser))
         console.log('✅ User authenticated:', firebaseUser.email)
+        
+        // Set authenticated member for Invoice/Receipt/Signature pages
+        // Extract name from email or display name
+        const userName = firebaseUser.displayName || 
+                        firebaseUser.email?.split('@')[0] || 
+                        'User';
+        
+        // TODO: In future, fetch branch and role from user profile database
+        const memberData = {
+          name: userName.charAt(0).toUpperCase() + userName.slice(1), // Capitalize first letter
+          branch: 'Main Branch', // Default branch - should be fetched from database
+          role: 'Member' // Default role - should be fetched from database
+        };
+        
+        localStorage.setItem('authenticatedMember', JSON.stringify(memberData));
+        console.log('✅ Authenticated member set:', memberData);
+        
       } else {
         user.value = null
         localStorage.removeItem(USER_KEY)
+        localStorage.removeItem('authenticatedMember') // Clear authenticated member
         console.log('🔓 User logged out')
       }
     })
@@ -81,6 +99,7 @@ export const useAuthStore = defineStore('auth', () => {
     console.log('🧹 Clearing auth data...')
     user.value = null
     localStorage.removeItem(USER_KEY)
+    localStorage.removeItem('authenticatedMember')
     console.log('✅ Auth data cleared')
   }
 
@@ -91,6 +110,7 @@ export const useAuthStore = defineStore('auth', () => {
     console.log('🚪 Force logout - clearing all data...')
     user.value = null
     localStorage.removeItem(USER_KEY)
+    localStorage.removeItem('authenticatedMember')
     sessionStorage.clear()
     console.log('✅ All auth data cleared')
   }

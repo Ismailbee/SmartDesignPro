@@ -1,0 +1,33 @@
+<svg width="400" height="520" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="520" fill="#ffffff"/>
+  <rect x="1" y="1" width="398" height="518" fill="none" stroke="#e5e7eb" stroke-width="2"/>
+  
+  <!-- Top bar -->
+  <rect x="0" y="0" width="400" height="8" fill="#D97706"/>
+  
+  <!-- Side accent -->
+  <rect x="392" y="0" width="8" height="200" fill="#D97706"/>
+  
+  <!-- Logo (left) -->
+  <circle cx="55" cy="60" r="26" fill="#D97706" opacity="0.3"/>
+  <text x="55" y="67" font-family="Arial" font-size="11" fill="#D97706" text-anchor="middle" font-weight="bold">LOGO</text>
+  
+  <!-- Organization name -->
+  <text x="100" y="55" font-family="Arial" font-size="16" fill="#D97706" font-weight="bold">Organization Name</text>
+  <text x="100" y="72" font-family="Arial" font-size="9" fill="#6b7280" font-weight="600">Luxurious tagline</text>
+  
+  <!-- Contact info (right) -->
+  <text x="340" y="55" font-family="Arial" font-size="7" fill="#4b5563" text-anchor="end" font-weight="500">456 Premium Street</text>
+  <text x="340" y="68" font-family="Arial" font-size="10" fill="#D97706" text-anchor="end" font-weight="bold">+1 234 567 8900</text>
+  
+  <!-- Border line -->
+  <line x1="50" y1="100" x2="380" y2="100" stroke="#D97706" stroke-width="2"/>
+  
+  <!-- Content lines -->
+  <line x1="50" y1="150" x2="350" y2="150" stroke="#e5e7eb" stroke-width="1.5"/>
+  <line x1="50" y1="170" x2="350" y2="170" stroke="#e5e7eb" stroke-width="1.5"/>
+  
+  <!-- Footer -->
+  <rect x="0" y="480" width="400" height="40" fill="#D97706"/>
+  <text x="200" y="503" font-family="Arial" font-size="9" fill="#ffffff" text-anchor="middle" font-weight="bold">Organization Name</text>
+</svg>

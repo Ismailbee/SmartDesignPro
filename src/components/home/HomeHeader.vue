@@ -1,20 +1,20 @@
 <template>
   <header class="header">
     <div class="header-content">
-      <div class="logo">
+      <div class=" logo">
         <span class="logo-text">Design</span>
         <span class="logo-text-accent">Studio</span>
       </div>
 
-      <nav class="nav-menu">
+      <!-- Desktop Navigation -->
+      <nav class="nav-menu desktop-nav">
         <a href="#home" class="nav-link" @click.prevent="scrollToSection('home')">Home</a>
         <a href="#template" class="nav-link" @click.prevent="scrollToSection('template')">Template</a>
         
         <!-- New Service Pages -->
         <router-link to="/scheduling" class="nav-link">Scheduling</router-link>
         <router-link to="/imposition" class="nav-link">Imposition</router-link>
-  <router-link to="/mockup" class="nav-link">Mockup</router-link>
-
+        <router-link to="/mockup" class="nav-link">Mockup</router-link>
 
         <!-- Auto Design Modal Trigger (replaces dropdown) -->
         <button class="more-button" @click="toggleAutoDesign">
@@ -24,7 +24,6 @@
           </svg>
         </button>
 
-
         <!-- More Menu Button -->
         <button class="more-button" @click="toggleMoreMenu">
           More
@@ -33,7 +32,6 @@
           </svg>
         </button>
       </nav>
-
       <!-- User Profile (Authenticated) or Get Started Button (Not Authenticated) -->
       <div class="header-actions">
         <ThemeToggle />
@@ -44,48 +42,8 @@
         <!-- Notifications (Authenticated Users Only) -->
         <NotificationBell v-if="authStore.isAuthenticated" />
 
-        <!-- User Profile Dropdown -->
-        <div v-if="authStore.isAuthenticated" class="user-profile-wrapper">
-          <div 
-            class="user-avatar" 
-            :title="authStore.userDisplayName" 
-            @click="toggleUserDropdown"
-          >
-            <img v-if="authStore.user?.avatar" :src="authStore.user.avatar" :alt="authStore.userDisplayName" />
-            <div v-else class="avatar-placeholder">
-              {{ getInitials(authStore.userDisplayName) }}
-            </div>
-          </div>
-
-          <!-- Dropdown Menu -->
-          <div v-if="isUserDropdownOpen" class="user-dropdown-menu">
-            <div class="user-info">
-              <div class="user-name">{{ authStore.userDisplayName }}</div>
-              <div class="user-email">{{ authStore.user?.email }}</div>
-            </div>
-            
-            <div class="dropdown-divider"></div>
-                                   
-            <button class="dropdown-item" @click="goToSettings">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <span>Settings</span>
-            </button>
-            
-            <div class="dropdown-divider"></div>
-            
-            <button class="dropdown-item logout-item" @click="handleLogout">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              <span>Logout</span>
-            </button>
-          </div>
-        </div>
-        
-        <button v-else class="cta-button" @click="handleGetQuote">
+        <!-- Get Started Button (Not Authenticated) -->
+        <button v-if="!authStore.isAuthenticated" class="cta-button" @click="handleGetQuote">
           Get Started
         </button>
       </div>
@@ -125,9 +83,6 @@ const isMoreMenuOpen = ref(false)
 // State for Auto Design Modal
 const isAutoDesignOpen = ref(false)
 
-// State for User Dropdown
-const isUserDropdownOpen = ref(false)
-
 // Emit events for parent component
 const emit = defineEmits<{
   getQuote: []
@@ -153,30 +108,19 @@ const closeAutoDesign = () => {
   isAutoDesignOpen.value = false
 }
 
-// Toggle User Dropdown
-const toggleUserDropdown = () => {
-  isUserDropdownOpen.value = !isUserDropdownOpen.value
-}
-
-// Close User Dropdown
-const closeUserDropdown = () => {
-  isUserDropdownOpen.value = false
-}
-
-// Close dropdown when clicking outside
-const handleClickOutside = (event: MouseEvent) => {
-  const target = event.target as HTMLElement
-  if (isUserDropdownOpen.value && !target.closest('.user-profile-wrapper')) {
-    closeUserDropdown()
-  }
-}
+// Expose methods to parent component
+defineExpose({
+  toggleMoreMenu,
+  toggleAutoDesign
+})
 
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
+  // Removed click outside handler
 })
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
+  // Clean up body scroll
+  document.body.style.overflow = ''
 })
 
 // (Removed Legal dropdown handlers)
@@ -296,7 +240,8 @@ const scrollToSection = async (sectionId: string) => {
   if (element) {
     // Calculate header height dynamically
     const header = document.querySelector('.header') as HTMLElement
-    const headerOffset = header ? header.offsetHeight + 20 : 100 // Add 20px extra spacing
+    // Add extra offset to hide HeroSection completely
+    const headerOffset = header ? header.offsetHeight + -110 : 150
     
     if (import.meta.env.DEV) {
       // eslint-disable-next-line no-console
@@ -396,41 +341,6 @@ const scrollToSection = async (sectionId: string) => {
 const handleGetQuote = () => {
   emit('getQuote')
 }
-
-const handleUserProfileClick = () => {
-  closeUserDropdown()
-  router.push('/editor')
-}
-
-const goToSettings = () => {
-  closeUserDropdown()
-  router.push('/settings')
-}
-
-const handleLogout = async () => {
-  closeUserDropdown()
-  try {
-    await authStore.logoutUser()
-    authStore.showNotification({
-      title: 'Logged out',
-      message: 'You have been successfully logged out',
-      type: 'info'
-    })
-    // Redirect to welcome page
-    router.push('/')
-  } catch (err) {
-    console.error('❌ Logout error:', err)
-  }
-}
-
-const getInitials = (name: string): string => {
-  if (!name) return '?'
-  const parts = name.split(' ')
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase()
-  }
-  return name.substring(0, 2).toUpperCase()
-}
 </script>
 
 <style scoped>
@@ -447,6 +357,13 @@ const getInitials = (name: string): string => {
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Ensure header stays below mobile menu */
+@media (max-width: 768px) {
+  .header {
+    z-index: 1000;
+  }
 }
 
 .header:hover {
@@ -947,17 +864,266 @@ const getInitials = (name: string): string => {
   }
 }
 
+/* Mobile Hamburger Button */
+.mobile-menu-button {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 0;
+  z-index: 10001;
+  position: relative;
+}
+
+.mobile-menu-button:hover {
+  background: rgba(6, 182, 212, 0.15);
+  border-color: rgba(6, 182, 212, 0.4);
+  transform: scale(1.05);
+}
+
+.mobile-menu-button svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Mobile Auto Design Button (Always Visible on Mobile) */
+.mobile-auto-design-button {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.25);
+}
+
+.mobile-auto-design-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(6, 182, 212, 0.35);
+}
+
+.mobile-auto-design-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.mobile-auto-design-button span {
+  font-size: 12px;
+}
+
+/* Mobile Menu Overlay */
+.mobile-menu-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.mobile-menu-overlay.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* Mobile Slide Menu */
+.mobile-menu {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  max-width: 80vw;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.95) 100%);
+  backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+  z-index: 10000;
+  transform: translateX(-100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow-y: auto;
+}
+
+.mobile-menu.active {
+  transform: translateX(0);
+}
+
+/* Mobile Menu Header */
+.mobile-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  position: sticky;
+  top: 0;
+  background: rgba(15, 23, 42, 0.98);
+  backdrop-filter: blur(20px);
+  z-index: 10;
+  min-height: 70px;
+}
+
+.mobile-menu-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: white;
+  letter-spacing: 0.5px;
+}
+
+.mobile-menu-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 0;
+}
+
+.mobile-menu-close:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  transform: rotate(90deg);
+}
+
+.mobile-menu-close svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Mobile Menu Content */
+.mobile-menu-content {
+  padding: 16px;
+  min-height: 200px;
+  background: rgba(15, 23, 42, 0.95);
+}
+
+/* Mobile Nav Links */
+.mobile-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 500;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+  margin-bottom: 6px;
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.mobile-nav-link::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #06b6d4, #22d3ee);
+  transform: scaleY(0);
+  transition: transform 0.3s ease;
+}
+
+.mobile-nav-link:hover::before,
+.mobile-nav-link.active::before {
+  transform: scaleY(1);
+}
+
+.mobile-nav-link:hover {
+  background: rgba(6, 182, 212, 0.12);
+  color: #22d3ee;
+  transform: translateX(4px);
+}
+
+.mobile-nav-link svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.mobile-nav-link span {
+  flex: 1;
+}
+
+/* Mobile Nav Button (for More menu) */
+.mobile-nav-button {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 15px;
+  width: 100%;
+  text-align: left;
+}
+
+.mobile-nav-button:hover {
+  background: rgba(6, 182, 212, 0.15);
+  border-color: rgba(6, 182, 212, 0.3);
+}
+
+/* Mobile Menu Divider */
+.mobile-menu-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 16px 0;
+}
+
 @media (max-width: 768px) {
   .header-content {
     padding: 12px 20px;
+    gap: 12px;
   }
 
-  .nav-menu {
-    display: none;
+  /* Hide desktop navigation */
+  .desktop-nav {
+    display: none !important;
+  }
+
+  /* Show mobile elements */
+  .mobile-menu-button {
+    display: flex;
+  }
+
+  .mobile-auto-design-button {
+    display: flex;
+  }
+
+  .mobile-menu-overlay,
+  .mobile-menu {
+    display: block;
   }
 
   .header-actions {
-    gap: 12px;
+    gap: 8px;
   }
 
   .user-profile-header {
@@ -991,8 +1157,8 @@ const getInitials = (name: string): string => {
   }
 
   .cta-button {
-    padding: 10px 24px;
-    font-size: 13px;
+    padding: 10px 20px;
+    font-size: 12px;
   }
 
   .logo {
@@ -1000,17 +1166,44 @@ const getInitials = (name: string): string => {
   }
 }
 
+@media (max-width: 640px) {
+  .mobile-auto-design-button span {
+    display: none;
+  }
+
+  .mobile-auto-design-button {
+    padding: 10px;
+    min-width: 40px;
+  }
+
+  .mobile-auto-design-button svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
 @media (max-width: 480px) {
   .header-content {
     padding: 10px 16px;
+    gap: 8px;
   }
 
   .logo {
     font-size: 18px;
   }
 
+  .mobile-menu-button {
+    width: 36px;
+    height: 36px;
+  }
+
+  .mobile-menu-button svg {
+    width: 20px;
+    height: 20px;
+  }
+
   .header-actions {
-    gap: 8px;
+    gap: 6px;
   }
 
   .user-profile-header {
@@ -1030,8 +1223,12 @@ const getInitials = (name: string): string => {
   }
 
   .cta-button {
-    padding: 8px 20px;
-    font-size: 12px;
+    padding: 8px 16px;
+    font-size: 11px;
+  }
+
+  .mobile-menu {
+    width: 260px;
   }
 }
 </style>

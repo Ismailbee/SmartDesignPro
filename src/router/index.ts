@@ -12,6 +12,12 @@ const HomePage = () => import('@/components/HomePage.vue')
 const DesignEditor = () => import('@/components/DesignEditor.vue')
 const UserSettings = () => import('@/views/UserSettings.vue')
 const AutoDesignPage = () => import('@/views/AutoDesignPage.vue')
+const InvoiceReceiptPage = () => import('@/views/InvoiceReceiptPage.vue')
+const SignaturePage = () => import('@/views/SignaturePage.vue')
+const InvoicePage = () => import('@/views/InvoicePage.vue')
+const ReceiptPage = () => import('@/views/ReceiptPage.vue')
+const LetterHeadPage = () => import('@/views/LetterHeadPage.vue')
+const LetterHeadDashboard = () => import('@/views/LetterHeadDashboard.vue')
 const TokensAndPlans = () => import('@/views/TokensAndPlans.vue')
 const ReferralPage = () => import('@/views/ReferralPage.vue')
 const SubscriptionPage = () => import('@/views/SubscriptionPage.vue')
@@ -104,6 +110,66 @@ const routes: RouteRecordRaw[] = [
     component: AutoDesignPage,
     meta: {
       title: 'Auto Design - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/invoice-receipt',
+    name: 'invoice-receipt',
+    component: InvoiceReceiptPage,
+    meta: {
+      title: 'Invoice & Receipt Generator - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/signature',
+    name: 'signature',
+    component: SignaturePage,
+    meta: {
+      title: 'Signature Generator - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/invoice',
+    name: 'invoice',
+    component: InvoicePage,
+    meta: {
+      title: 'Create Invoice - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/receipt',
+    name: 'receipt',
+    component: ReceiptPage,
+    meta: {
+      title: 'Create Receipt - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/letterhead',
+    name: 'letterhead',
+    component: LetterHeadPage,
+    meta: {
+      title: 'Letter Head Designer - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/letterhead-templates',
+    name: 'letterhead-templates',
+    component: LetterHeadDashboard,
+    meta: {
+      title: 'Letter Head Templates - SmartDesignPro',
       requiresAuth: true
     }
   },

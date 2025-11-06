@@ -2,10 +2,9 @@
   <Teleport to="body">
     <Transition name="modal-fade">
       <div v-if="isOpen" class="modal-overlay" @click="closeModal">
-        <Transition name="modal-scale">
-          <div v-if="isOpen" class="modal-container" @click.stop>
-            <!-- Header with Close Button -->
-            <div class="modal-header">
+        <div class="modal-container" @click.stop>
+          <!-- Header with Close Button -->
+          <div class="modal-header">
               <div class="header-content">
                 <div class="header-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -245,8 +244,7 @@
               </div>
             </div>
           </div>
-        </Transition>
-      </div>
+        </div>
     </Transition>
   </Teleport>
 </template>
@@ -311,7 +309,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: 10002;
   padding: 20px;
 }
 
@@ -325,6 +323,8 @@ onUnmounted(() => {
   overflow-y: auto;
   box-shadow: 0 25px 70px rgba(0, 0, 0, 0.4);
   position: relative;
+  opacity: 1;
+  transform: scale(1);
 }
 
 /* Modal Header */
