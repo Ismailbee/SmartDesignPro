@@ -97,9 +97,10 @@
           <Menu as="div" class="relative">
             <MenuButton class="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
               <!-- User Avatar -->
-              <div class="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+              <div v-if="!authStore.user?.avatar" class="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
                 <span class="text-sm font-medium text-white">{{ userInitials }}</span>
               </div>
+              <img v-else :src="authStore.user.avatar" :alt="userName" class="w-8 h-8 rounded-full object-cover" />
               
               <!-- User Name (hidden on small screens) -->
               <div class="hidden sm:block text-left">
