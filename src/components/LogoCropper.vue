@@ -18,6 +18,7 @@
               Crop Logo Image
             </h3>
             <button
+              type="button"
               @click="handleClose"
               class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             >
@@ -47,6 +48,7 @@
                 <div class="flex items-center gap-4">
                   <label class="text-sm font-medium text-slate-700 dark:text-slate-300 w-20">Zoom:</label>
                   <button
+                    type="button"
                     @click="zoomOut"
                     class="px-3 py-1.5 bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 rounded text-slate-900 dark:text-white transition-colors"
                   >
@@ -62,6 +64,7 @@
                     class="flex-1 h-2 bg-gray-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
                   />
                   <button
+                    type="button"
                     @click="zoomIn"
                     class="px-3 py-1.5 bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 rounded text-slate-900 dark:text-white transition-colors"
                   >
@@ -75,8 +78,9 @@
                   <label class="text-sm font-medium text-slate-700 dark:text-slate-300 w-20">Transform:</label>
                   <div class="flex gap-2">
                     <button
-                      @click="rotateLeft"
-                      class="px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded font-medium transition-colors flex items-center gap-2"
+                 type="button"
+                 @click="rotateLeft"
+                 class="px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded font-medium transition-colors flex items-center gap-2"
                     >
                       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
@@ -84,8 +88,9 @@
                       Rotate Left
                     </button>
                     <button
-                      @click="rotateRight"
-                      class="px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded font-medium transition-colors flex items-center gap-2"
+                 type="button"
+                 @click="rotateRight"
+                 class="px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded font-medium transition-colors flex items-center gap-2"
                     >
                       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10H11a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" />
@@ -93,8 +98,9 @@
                       Rotate Right
                     </button>
                     <button
-                      @click="flipHorizontal"
-                      class="px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded font-medium transition-colors flex items-center gap-2"
+                 type="button"
+                 @click="flipHorizontal"
+                 class="px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded font-medium transition-colors flex items-center gap-2"
                     >
                       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
@@ -102,8 +108,9 @@
                       Flip
                     </button>
                     <button
-                      @click="reset"
-                      class="px-4 py-2 bg-gray-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-gray-300 dark:hover:bg-slate-600 rounded font-medium transition-colors"
+                        type="button"
+                        @click="reset"
+                        class="px-4 py-2 bg-gray-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-gray-300 dark:hover:bg-slate-600 rounded font-medium transition-colors"
                     >
                       Reset
                     </button>
@@ -116,14 +123,16 @@
           <!-- Footer Actions -->
           <div class="flex items-center justify-end gap-3 p-4 border-t border-gray-200 dark:border-gray-700">
             <button
-              @click="handleClose"
-              class="px-4 py-2 bg-gray-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-gray-300 dark:hover:bg-slate-600 rounded-lg font-medium transition-colors"
+                type="button"
+                @click="handleClose"
+                class="px-4 py-2 bg-gray-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-gray-300 dark:hover:bg-slate-600 rounded-lg font-medium transition-colors"
             >
               Cancel
             </button>
             <button
-              @click="handleCrop"
-              class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                type="button"
+                @click="handleCrop"
+                class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
             >
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -261,7 +270,14 @@ const reset = () => {
 };
 
 const handleCrop = () => {
-  if (!cropper.value) return;
+  console.log('🎯 LogoCropper: handleCrop called');
+  
+  if (!cropper.value) {
+    console.error('❌ LogoCropper: cropper.value is null/undefined');
+    return;
+  }
+
+  console.log('✅ LogoCropper: cropper instance exists');
 
   // Get cropped canvas
   const canvas = cropper.value.getCroppedCanvas({
@@ -272,13 +288,30 @@ const handleCrop = () => {
     imageSmoothingQuality: 'high'
   });
 
-  if (!canvas) return;
+  if (!canvas) {
+    console.error('❌ LogoCropper: getCroppedCanvas returned null');
+    return;
+  }
+
+  console.log('✅ LogoCropper: canvas created successfully', canvas);
 
   // Convert to data URL (PNG format for transparency)
   canvas.toBlob((blob) => {
+    if (!blob) {
+      console.error('❌ LogoCropper: toBlob returned null');
+      return;
+    }
+    
+    console.log('✅ LogoCropper: blob created', blob.size, 'bytes');
+    
     const reader = new FileReader();
     reader.onloadend = () => {
+      console.log('✅ LogoCropper: FileReader complete, emitting crop event');
+      console.log('📤 LogoCropper: Data URL length:', reader.result ? reader.result.length : 0);
       emit('crop', reader.result);
+    };
+    reader.onerror = (error) => {
+      console.error('❌ LogoCropper: FileReader error:', error);
     };
     reader.readAsDataURL(blob);
   }, 'image/png', 0.95);
