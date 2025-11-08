@@ -1,4 +1,4 @@
-﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2996.9 1685.75" width="4in" height="2.25in">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2996.9 1685.75" width="4in" height="2.25in">
   
   <!-- Background -->
   <rect fill="#F8F8F8" width="2996.89" height="1685.75"/>
@@ -9,42 +9,30 @@
   <path fill="#507C95" d="M0 539.04c926.95 695.49 1904.9-177.45 2996.89 529.68v617.04H0z"/>
   <path fill="#104C6E" d="M0 616.09c926.95 695.48 1904.9-254.49 2996.89 452.63v617.04H0z"/>
 
-  <!-- Placeholder image - Adjust x, y, width, height to position where uploaded images should appear -->
+  <!-- Placeholder image -->
   <image id="placeholder-image" x="1100" y="2" width="2500" height="2500" opacity="0" href=""/>
 
-  <!-- Define styles for wedding names (from name1 SVG) -->
+  <!-- Define styles -->
   <defs>
     <!-- Gradient for wave layer -->
     <linearGradient id="g1" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" style="stop-color:#FFCC29;stop-opacity:1" />
       <stop offset="100%" style="stop-color:#FF9900;stop-opacity:1" />
     </linearGradient>
-    
-    <style>
-      .fil0 {fill:#FEFEFE}
-      .fil1 {fill:#FFF212}
-      .fnt2 {font-weight:bold;font-size:28.06px;font-family:'Times New Roman'}
-      .fnt0 {font-weight:normal;font-size:68.31px;font-family:'Times New Roman'}
-      .fnt1 {font-weight:normal;font-size:84.02px;font-family:'Times New Roman'}
-    </style>
   </defs>
 
-  <!-- Editable text elements with IDs - All centered horizontally -->
+  <!-- Editable text elements with IDs -->
   <text id="blessing-text" x="850.45" y="372.07" text-anchor="middle" font-family="serif" font-size="197.68" fill="#000">Alhamdulillahi</text>
   <text id="occasion-text" x="850.45" y="443.52" text-anchor="middle" font-family="Arial" font-size="53.92" font-weight="bold" fill="#000">ON YOUR</text>
   <text id="event-type-text" x="850.45" y="621.11" text-anchor="middle" font-family="serif" font-size="224.86" font-weight="bold" fill="#104C6E">WEDDING</text>
   <text id="ceremony-text" x="850.45" y="750.44" text-anchor="middle" font-family="sans-serif" font-size="153.56" font-weight="bold" fill="red">CEREMONY</text>
   
-  <!-- Wedding Names Group - Direct embed from name1 SVG, scaled and positioned -->
-  <!-- Original viewBox: 0 0 275.89 143.67 | Scaled up by 3x and positioned where HANNATU/HARUNA were -->
-  <g id="wedding-names-group" transform="translate(270, 950) scale(3)">
-    <text id="name1-first" x="10" y="42" class="fil0 fnt0">Suleiman </text>
-    <text id="name-separator" x="-5.11" y="124.72" class="fil1 fnt1">&amp; </text>
-    <text id="name2-first" x="60" y="122" class="fil0 fnt0">Ramatu </text>
-    <text id="name1-last" x="65" y="70" class="fil1 fnt2">ABDULLAHI </text>
-    <text id="name2-last" x="120" y="149.3" class="fil1 fnt2">YUNUSA </text>
+  <!-- New Wedding Names - Clean version positioned where the old names were -->
+  <g id="wedding-names-group" transform="translate(400, 900) scale(2.5)">
+    <text x="-50" y="104.31" fill="#FEFEFE" font-size="84.15" font-weight="bold">Muhammad</text>
+    <text x="10.23" y="190.77" fill="#FEFEFE" font-size="84.15" font-weight="bold">Hauwawu</text>
+    <text x="-70.3" y="186.4" fill="#FFF212" font-size="84.15" font-weight="bold">&amp;</text>
   </g>
-  
-  <text id="date-text" x="650.45" y="1510" text-anchor="middle" font-family="sans-serif" font-size="80" font-weight="bold" fill="#FFFF">on 7th March, 2025</text>
-  <text id="courtesy-text" x="650.45" y="1600" text-anchor="middle" font-family="sans-serif" font-size="70" font-weight="bold" fill="#FFCC29">CUT-CEE: Maijama'a Famiy</text>
- </svg>
+  <text id="courtesy-text" x="800.45" y="1600" text-anchor="middle" font-family="sans-serif" font-size="80" font-weight="bold" fill="#FFCC29">Courtesy: Maijama'a Famiy</text>
+  <text id="courtesy-text" x="800.45" y="1600" text-anchor="middle" font-family="sans-serif" font-size="80" font-weight="bold" fill="#FFCC29">Courtesy: Maijama'a Famiy</text>
+</svg>

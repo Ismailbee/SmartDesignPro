@@ -31,7 +31,8 @@
 }
 
 /* SVG text elements - Apply fonts globally */
-svg text[id*="name"] {
+/* Exclude decorative name elements (name1-first, name2-first) that use Cinzel Decorative */
+svg text[id*="name"]:not([id*="name1-first"]):not([id*="name2-first"]):not([id*="name-separator"]) {
   font-family: 'Oswald', 'Anton', 'Arial Narrow', 'Arial', sans-serif;
 }
 

@@ -8,7 +8,7 @@
 
 import { initializeApp, type FirebaseApp } from 'firebase/app'
 import { getAuth, type Auth } from 'firebase/auth'
-import { getFirestore, type Firestore } from 'firebase/firestore'
+import { getFirestore, type Firestore, enableIndexedDbPersistence, enableMultiTabIndexedDbPersistence } from 'firebase/firestore'
 import { getStorage, type FirebaseStorage } from 'firebase/storage'
 
 // Validate environment variables
@@ -56,6 +56,20 @@ try {
   auth = getAuth(app)
   db = getFirestore(app)
   storage = getStorage(app)
+
+  // Enable offline persistence for Firestore
+  // This allows the app to work offline and sync when back online
+  enableMultiTabIndexedDbPersistence(db).catch((err) => {
+    if (err.code === 'failed-precondition') {
+      // Multiple tabs open, persistence can only be enabled in one tab at a time
+      console.warn('⚠️ Firestore persistence failed: Multiple tabs open')
+    } else if (err.code === 'unimplemented') {
+      // The current browser doesn't support persistence
+      console.warn('⚠️ Firestore persistence not available in this browser')
+    } else {
+      console.warn('⚠️ Firestore persistence error:', err)
+    }
+  })
 
   console.log('✅ Firebase initialized successfully')
   console.log('📊 Project ID:', firebaseConfig.projectId)

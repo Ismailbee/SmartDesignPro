@@ -207,9 +207,11 @@
           <li><strong>First Names:</strong> Title Case (first letter uppercase, rest lowercase)</li>
           <li><strong>Surnames:</strong> UPPERCASE (all letters uppercase)</li>
           <li><strong>Multi-word Surnames:</strong> Everything after first word becomes surname</li>
-          <li><strong>Font Family Trigger:</strong> If ANY <strong>FIRST NAME</strong> has 9+ letters → ALL names use AlternateGothic2 BT</li>
+          <li><strong>Default Font:</strong> Montserrat (changed from Times New Roman)</li>
+          <li><strong>Font Family Trigger:</strong> If ANY <strong>FIRST NAME</strong> has 12+ letters → ALL names use AlternateGothic2 BT</li>
           <li><strong>Surnames Ignored:</strong> Surname length does NOT affect font family decision</li>
-          <li><strong>Font Size:</strong> Individual reduction based on each name's letter count (applies to both first names and surnames)</li>
+          <li><strong>First Names Font Size:</strong> Step-down - Reduce by <strong>1px per letter beyond 8</strong></li>
+          <li><strong>Surnames Font Size:</strong> Fixed 30px (no dynamic sizing)</li>
         </ul>
       </div>
     </div>
@@ -224,23 +226,25 @@
     }
 
     // Calculate font size based on name length
+    // Minimal Step-Down Approach: Reduce by 1px per letter beyond 8
     function calculateFontSize(text, baseFontSize) {
       const letterCount = text.replace(/[^a-zA-Z]/g, '').length;
-      
+
       if (letterCount <= 8) {
         return baseFontSize;
       } else {
-        const scaleFactor = 9 / letterCount;
-        return baseFontSize * scaleFactor;
+        // Reduce by 1px per additional letter beyond 8
+        const reduction = letterCount - 8;
+        return baseFontSize - reduction;
       }
     }
 
-    // Check if any FIRST NAME has 9+ letters (ignore surnames)
+    // Check if any FIRST NAME has 12+ letters (ignore surnames)
     function hasLongName(names) {
       return names.some(name => {
         if (!name) return false;
         const letterCount = name.replace(/[^a-zA-Z]/g, '').length;
-        return letterCount >= 9;
+        return letterCount >= 12;
       });
     }
 
@@ -293,31 +297,31 @@
     const testCases = [
       {
         input: '(Suleiman Abdullahi & Ramatu Yunusa)',
-        description: 'First names ≤8 letters (Suleiman=8, Ramatu=6) → Times New Roman (surname length ignored)'
+        description: 'First names ≤11 letters (Suleiman=8, Ramatu=6) → Montserrat (surname length ignored)'
       },
       {
         input: '(John Paul Smith & Mary Jane Doe)',
-        description: 'Multi-word surnames, all names ≤8 letters'
+        description: 'Multi-word surnames, all first names ≤11 letters → Montserrat'
       },
       {
         input: '(Sarah Ahmed & Tom Lee)',
-        description: 'All short names (≤8 letters)'
+        description: 'All short first names (≤8 letters) → Montserrat'
       },
       {
         input: '(Christopher Washington & Elizabeth Montgomery)',
-        description: 'All long names (9+ letters)'
+        description: 'First names: Christopher (11), Elizabeth (9) → Montserrat (both <12)'
       },
       {
-        input: '(Mohammed Ali & Fatima Hassan)',
-        description: 'Boundary case: Mohammed = 8 letters (short), all others short'
+        input: '(Bartholomew Thompson & Catherine Rodriguez)',
+        description: 'First name Bartholomew (11 letters) → Montserrat (11 < 12)'
       },
       {
-        input: '(Alexander Thompson & Catherine Rodriguez)',
-        description: 'First names: Alexander (9), Catherine (9) → AlternateGothic2 BT for ALL names'
+        input: '(Constantinopolis Ahmed & Sarah Smith)',
+        description: 'First name Constantinopolis (16 letters) → AlternateGothic2 BT for ALL names (16 >= 12)'
       },
       {
-        input: '(Christopher Ahmed & Sarah Smith)',
-        description: 'First name Christopher (11 letters) → AlternateGothic2 BT for ALL names'
+        input: '(Alexander Rodriguez & Christopher Washington)',
+        description: 'First names: Alexander (9), Christopher (11) → Montserrat (both <12)'
       }
     ];
 
@@ -328,13 +332,14 @@
       const extracted = extractNamesFromBrackets(test.input);
       const firstNamesOnly = [extracted.name1First, extracted.name2First];
       const useAlternateFont = hasLongName(firstNamesOnly);
-      const fontFamily = useAlternateFont ? 'AlternateGothic2 BT' : 'Times New Roman';
+      const fontFamily = useAlternateFont ? 'AlternateGothic2 BT' : 'Montserrat';
 
       // Calculate font sizes
+      // First names use step-down formula, surnames use fixed 30px
       const name1FirstSize = extracted.name1First ? calculateFontSize(extracted.name1First, 68.31) : null;
-      const name1LastSize = extracted.name1Last ? calculateFontSize(extracted.name1Last, 28.06) : null;
+      const name1LastSize = 30; // Fixed size for surnames
       const name2FirstSize = extracted.name2First ? calculateFontSize(extracted.name2First, 68.31) : null;
-      const name2LastSize = extracted.name2Last ? calculateFontSize(extracted.name2Last, 28.06) : null;
+      const name2LastSize = 30; // Fixed size for surnames
 
       const section = document.createElement('div');
       section.className = 'test-section';
@@ -373,7 +378,7 @@
             <div class="name-label">Person 1 - Surname</div>
             <div class="name-value">${extracted.name1Last || 'N/A'}</div>
             <div class="name-details">
-              ${extracted.name1Last ? `${extracted.name1Last.replace(/[^a-zA-Z]/g, '').length} letters, ${name1LastSize.toFixed(2)}px` : ''}
+              ${extracted.name1Last ? `${extracted.name1Last.replace(/[^a-zA-Z]/g, '').length} letters, ${name1LastSize}px (fixed)` : ''}
             </div>
           </div>
 
@@ -389,7 +394,7 @@
             <div class="name-label">Person 2 - Surname</div>
             <div class="name-value">${extracted.name2Last || 'N/A'}</div>
             <div class="name-details">
-              ${extracted.name2Last ? `${extracted.name2Last.replace(/[^a-zA-Z]/g, '').length} letters, ${name2LastSize.toFixed(2)}px` : ''}
+              ${extracted.name2Last ? `${extracted.name2Last.replace(/[^a-zA-Z]/g, '').length} letters, ${name2LastSize}px (fixed)` : ''}
             </div>
           </div>
         </div>
