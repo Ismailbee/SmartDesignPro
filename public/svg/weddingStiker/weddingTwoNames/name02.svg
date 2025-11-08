@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 579.05 208.28">
+  <style>
+    .fil0 { fill: #FEFEFE; }
+    .fil1 { fill: #FFF212; }
+    .fnt0 { font-weight: 700; font-size: 70px; font-family: 'Cinzel Decorative', serif; }
+  </style>
+  <g transform="translate(20, 0)">
+    <g>
+      <text id="name1-first" x="-20" y="104.31" class="fil0 fnt0">Muhammad</text>
+      <text id="name2-first" x="40.23" y="178.77" class="fil0 fnt0">Hauwawu</text>
+      <text id="name-separator" x="-40.3" y="186.4" class="fil1 fnt0">&amp;</text>
+    </g>
+   
+  </g>
+</svg>

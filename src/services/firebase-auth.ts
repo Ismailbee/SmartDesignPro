@@ -105,16 +105,55 @@ export async function loginWithEmail(data: LoginData): Promise<User> {
     const firebaseUser = userCredential.user
     console.log('✅ Firebase authentication successful')
 
-    // Get user data from Firestore
-    const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid))
-    let userData = userDoc.exists() ? userDoc.data() : {}
+    try {
+      // Get user data from Firestore with timeout
+      const userDocPromise = getDoc(doc(db, 'users', firebaseUser.uid))
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Firestore timeout')), 5000)
+      )
+      
+      const userDoc = await Promise.race([userDocPromise, timeoutPromise]) as any
+      let userData = userDoc.exists() ? userDoc.data() : {}
 
-    console.log('📄 User document exists:', userDoc.exists())
+      console.log('📄 User document exists:', userDoc.exists())
 
-    // If user document doesn't exist, create it
-    if (!userDoc.exists()) {
-      console.log('📝 Creating user document in Firestore...')
-      userData = {
+      // If user document doesn't exist, create it
+      if (!userDoc.exists()) {
+        console.log('📝 Creating user document in Firestore...')
+        userData = {
+          email: firebaseUser.email || '',
+          username: firebaseUser.email?.split('@')[0] || '',
+          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '',
+          firstName: firebaseUser.displayName?.split(' ')[0] || '',
+          lastName: firebaseUser.displayName?.split(' ').slice(1).join(' ') || '',
+          avatar: firebaseUser.photoURL || '',
+          role: 'user',
+          status: 'active',
+          emailVerified: firebaseUser.emailVerified,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          lastLoginAt: serverTimestamp()
+        }
+
+        await setDoc(doc(db, 'users', firebaseUser.uid), userData)
+        console.log('✅ User document created')
+      } else {
+        // Update last login
+        await setDoc(
+          doc(db, 'users', firebaseUser.uid),
+          { lastLoginAt: serverTimestamp() },
+          { merge: true }
+        )
+        console.log('✅ Last login updated')
+      }
+
+      const user = convertFirebaseUser(firebaseUser, userData)
+      console.log('✅ Login successful for:', user.email)
+      return user
+    } catch (firestoreError: any) {
+      console.warn('⚠️ Firestore error, proceeding with auth data only:', firestoreError.message)
+      // Still return user data from Firebase Auth
+      const userData = {
         email: firebaseUser.email || '',
         username: firebaseUser.email?.split('@')[0] || '',
         name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '',
@@ -124,26 +163,11 @@ export async function loginWithEmail(data: LoginData): Promise<User> {
         role: 'user',
         status: 'active',
         emailVerified: firebaseUser.emailVerified,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        lastLoginAt: serverTimestamp()
       }
-
-      await setDoc(doc(db, 'users', firebaseUser.uid), userData)
-      console.log('✅ User document created')
-    } else {
-      // Update last login
-      await setDoc(
-        doc(db, 'users', firebaseUser.uid),
-        { lastLoginAt: serverTimestamp() },
-        { merge: true }
-      )
-      console.log('✅ Last login updated')
+      const user = convertFirebaseUser(firebaseUser, userData)
+      console.log('✅ Login successful (offline mode) for:', user.email)
+      return user
     }
-
-    const user = convertFirebaseUser(firebaseUser, userData)
-    console.log('✅ Login successful for:', user.email)
-    return user
   } catch (error: any) {
     console.error('❌ Login error:', error)
     throw new Error(getFirebaseErrorMessage(error.code))
@@ -227,10 +251,21 @@ export async function resetPassword(email: string): Promise<void> {
 export function onAuthChange(callback: (user: User | null) => void): () => void {
   return onAuthStateChanged(auth, async (firebaseUser) => {
     if (firebaseUser) {
-      // Get user data from Firestore
-      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid))
-      const userData = userDoc.exists() ? userDoc.data() : {}
-      callback(convertFirebaseUser(firebaseUser, userData))
+      try {
+        // Get user data from Firestore with timeout
+        const userDocPromise = getDoc(doc(db, 'users', firebaseUser.uid))
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Firestore timeout')), 5000)
+        )
+        
+        const userDoc = await Promise.race([userDocPromise, timeoutPromise]) as any
+        const userData = userDoc.exists() ? userDoc.data() : {}
+        callback(convertFirebaseUser(firebaseUser, userData))
+      } catch (error: any) {
+        console.warn('⚠️ Could not fetch user data from Firestore, using auth data only:', error.message)
+        // Still callback with user data from Firebase Auth
+        callback(convertFirebaseUser(firebaseUser, {}))
+      }
     } else {
       callback(null)
     }
@@ -260,7 +295,9 @@ function getFirebaseErrorMessage(errorCode: string): string {
     'auth/too-many-requests': 'Too many failed attempts. Please try again later',
     'auth/network-request-failed': 'Network error. Please check your connection',
     'auth/popup-closed-by-user': 'Sign-in popup was closed',
-    'auth/cancelled-popup-request': 'Sign-in was cancelled'
+    'auth/cancelled-popup-request': 'Sign-in was cancelled',
+    'unavailable': 'Service temporarily unavailable. Working in offline mode.',
+    'failed-precondition': 'Cannot complete request. Working in offline mode.'
   }
 
   return errorMessages[errorCode] || 'An error occurred. Please try again'
