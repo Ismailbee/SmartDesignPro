@@ -280,6 +280,39 @@ export function getCurrentUser(): FirebaseUser | null {
 }
 
 /**
+ * Update the authenticated user's avatar (photoURL) and Firestore user doc
+ * Accepts a data URL (base64) or an externally hosted URL.
+ */
+export async function updateUserAvatar(photoDataUrl: string): Promise<User> {
+  const firebaseUser = getCurrentUser()
+  if (!firebaseUser) {
+    throw new Error('No authenticated user')
+  }
+
+  try {
+    // Update Firebase Auth profile (photoURL)
+    await updateProfile(firebaseUser, {
+      photoURL: photoDataUrl
+    })
+
+    // Update Firestore user document with avatar and updatedAt
+    await setDoc(
+      doc(db, 'users', firebaseUser.uid),
+      { avatar: photoDataUrl, updatedAt: serverTimestamp() },
+      { merge: true }
+    )
+
+    // Read back user document to include any extra fields
+    const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid))
+    const userData = userDoc.exists() ? userDoc.data() : {}
+    return convertFirebaseUser(firebaseUser, userData)
+  } catch (err: any) {
+    console.error('updateUserAvatar error:', err)
+    throw err
+  }
+}
+
+/**
  * Get Firebase error message
  */
 function getFirebaseErrorMessage(errorCode: string): string {

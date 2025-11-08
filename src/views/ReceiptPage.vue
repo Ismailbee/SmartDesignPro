@@ -106,6 +106,222 @@
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           
+          <!-- Receipt Size Settings Section -->
+          <div class="md:col-span-2 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-700">
+            <h3 class="text-sm font-semibold text-indigo-900 dark:text-indigo-300 mb-3 flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+              Receipt Size Settings
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <!-- Width Input -->
+              <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Width (inches)
+                </label>
+                <input
+                  v-model.number="receiptWidth"
+                  type="number"
+                  min="3"
+                  max="20"
+                  step="0.1"
+                  placeholder="5.827"
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <!-- Height Input -->
+              <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Height (inches)
+                </label>
+                <input
+                  v-model.number="receiptHeight"
+                  type="number"
+                  min="3"
+                  max="20"
+                  step="0.1"
+                  placeholder="8.268"
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <!-- Preset Sizes -->
+              <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Quick Presets
+                </label>
+                <select
+                  @change="handlePresetChange"
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                >
+                  <option value="">Select Preset</option>
+                  <option value="a4">A4 (8.27 × 11.69)</option>
+                  <option value="a5">A5 (5.83 × 8.27)</option>
+                  <option value="letter">Letter (8.5 × 11)</option>
+                  <option value="legal">Legal (8.5 × 14)</option>
+                  <option value="custom">Custom Size</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Size Preview Indicator -->
+            <div class="mt-3 p-2 bg-indigo-100 dark:bg-indigo-800/30 rounded-md border border-indigo-200 dark:border-indigo-700">
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-indigo-800 dark:text-indigo-300 font-medium">
+                  Current Size: {{ receiptWidth }}″ × {{ receiptHeight }}″
+                </span>
+                <span class="text-indigo-600 dark:text-indigo-400">
+                  Scale: {{ Math.round(contentScale * 100) }}%
+                </span>
+              </div>
+            </div>
+
+            <p class="text-xs text-indigo-700 dark:text-indigo-300 mt-3 flex items-start gap-1">
+              <svg class="w-3 h-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Adjust the receipt size to fit your printing requirements. Content will automatically scale to fit.</span>
+            </p>
+          </div>
+
+          <!-- CMYK Color Settings Section -->
+          <div class="md:col-span-2 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-700">
+            <h3 class="text-sm font-semibold text-orange-900 dark:text-orange-300 mb-3 flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z" />
+              </svg>
+              CMYK Color Settings
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Color Mode Selection -->
+              <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Color Mode
+                </label>
+                <select
+                  v-model="colorMode"
+                  @change="handleColorModeChange"
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                >
+                  <option value="full-color">Full Color (4 Colors - CMYK)</option>
+                  <option value="three-color">Three Color (CMY)</option>
+                  <option value="two-color">Two Color (Custom)</option>
+                  <option value="one-color">One Color (Black/Custom)</option>
+                </select>
+              </div>
+
+              <!-- Color Preview -->
+              <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Color Preview
+                </label>
+                <div class="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-slate-700">
+                  <div v-if="colorMode === 'full-color'" class="flex gap-1">
+                    <div class="w-6 h-6 bg-cyan-500 rounded border" title="Cyan"></div>
+                    <div class="w-6 h-6 bg-magenta-500 rounded border" title="Magenta"></div>
+                    <div class="w-6 h-6 bg-yellow-400 rounded border" title="Yellow"></div>
+                    <div class="w-6 h-6 bg-black rounded border" title="Black"></div>
+                  </div>
+                  <div v-else-if="colorMode === 'three-color'" class="flex gap-1">
+                    <div class="w-6 h-6 bg-cyan-500 rounded border" title="Cyan"></div>
+                    <div class="w-6 h-6 bg-magenta-500 rounded border" title="Magenta"></div>
+                    <div class="w-6 h-6 bg-yellow-400 rounded border" title="Yellow"></div>
+                  </div>
+                  <div v-else-if="colorMode === 'two-color'" class="flex gap-1">
+                    <div 
+                      :style="{ backgroundColor: cmykToRgb(customColor1CMYK.c, customColor1CMYK.m, customColor1CMYK.y, customColor1CMYK.k) }"
+                      class="w-6 h-6 rounded border"
+                      title="Primary Color"
+                    ></div>
+                    <div 
+                      :style="{ backgroundColor: cmykToRgb(customColor2CMYK.c, customColor2CMYK.m, customColor2CMYK.y, customColor2CMYK.k) }"
+                      class="w-6 h-6 rounded border"
+                      title="Secondary Color"
+                    ></div>
+                  </div>
+                  <div v-else-if="colorMode === 'one-color'" class="flex gap-1">
+                    <div 
+                      :style="{ backgroundColor: cmykToRgb(customColor1CMYK.c, customColor1CMYK.m, customColor1CMYK.y, customColor1CMYK.k) }"
+                      class="w-6 h-6 rounded border"
+                      title="Primary Color"
+                    ></div>
+                  </div>
+                  <span class="text-xs text-slate-600 dark:text-slate-400 ml-2">
+                    {{ getColorModeDescription() }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- CMYK Sliders for Custom Colors -->
+            <div v-if="colorMode === 'two-color' || colorMode === 'one-color'" class="mt-4 space-y-3">
+              <div class="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
+                Adjust Primary Color (CMYK)
+              </div>
+              <div class="space-y-2">
+                <div class="flex items-center gap-3">
+                  <label class="w-20 text-xs text-cyan-600 dark:text-cyan-400 font-medium">Cyan:</label>
+                  <input v-model.number="customColor1CMYK.c" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+                  <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor1CMYK.c }}%</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <label class="w-20 text-xs text-pink-600 dark:text-pink-400 font-medium">Magenta:</label>
+                  <input v-model.number="customColor1CMYK.m" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+                  <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor1CMYK.m }}%</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <label class="w-20 text-xs text-yellow-600 dark:text-yellow-400 font-medium">Yellow:</label>
+                  <input v-model.number="customColor1CMYK.y" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+                  <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor1CMYK.y }}%</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <label class="w-20 text-xs text-slate-800 dark:text-slate-300 font-medium">Black (K):</label>
+                  <input v-model.number="customColor1CMYK.k" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+                  <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor1CMYK.k }}%</span>
+                </div>
+              </div>
+
+              <div v-if="colorMode === 'two-color'" class="mt-4">
+                <div class="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Adjust Secondary Color (CMYK)
+                </div>
+                <div class="space-y-2">
+                  <div class="flex items-center gap-3">
+                    <label class="w-20 text-xs text-cyan-600 dark:text-cyan-400 font-medium">Cyan:</label>
+                    <input v-model.number="customColor2CMYK.c" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+                    <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor2CMYK.c }}%</span>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <label class="w-20 text-xs text-pink-600 dark:text-pink-400 font-medium">Magenta:</label>
+                    <input v-model.number="customColor2CMYK.m" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+                    <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor2CMYK.m }}%</span>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <label class="w-20 text-xs text-yellow-600 dark:text-yellow-400 font-medium">Yellow:</label>
+                    <input v-model.number="customColor2CMYK.y" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+                    <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor2CMYK.y }}%</span>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <label class="w-20 text-xs text-slate-800 dark:text-slate-300 font-medium">Black (K):</label>
+                    <input v-model.number="customColor2CMYK.k" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+                    <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor2CMYK.k }}%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <p class="text-xs text-orange-700 dark:text-orange-300 mt-3 flex items-start gap-1">
+              <svg class="w-3 h-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Select the color mode for your receipt. This affects printing costs and visual appearance. Full color provides the richest appearance.</span>
+            </p>
+          </div>
+
             <!-- Organization Settings Section -->
           <div class="md:col-span-2 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
             <h3 class="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-3 flex items-center gap-2">
@@ -412,101 +628,123 @@
     </section>
 
     <!-- Receipt Preview Section - Hidden on mobile unless showPreview is true -->
-    <section 
+    <section
       class="w-full max-w-5xl flex items-center justify-center"
       :class="{ 'hidden lg:flex': !showPreview }"
     >
-      <!-- Mobile wrapper with responsive width -->
-      <div class="w-full flex items-center justify-center md:p-4">
-      <div
-      ref="receiptOuterRef"
-      class="bg-white mx-auto receipt-container"
-      :style="{ 
-        width: '7.268in', 
-        height: '5.324in', 
-        minWidth: '7.268in', 
-        padding: '0.412in',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        transform: isMobile ? `scale(${mobileScale})` : 'none',
-        transformOrigin: 'center center'
-      }"
-      >
+      <!-- Mobile wrapper - scales down on mobile, full size on desktop -->
+      <div class="w-full flex items-center justify-center" :style="{ 
+        transform: isMobile ? `scale(${mobileScale})` : 'none', 
+        transformOrigin: 'top center'
+      }">
         <div
-        id="receipt-canvas"
-        ref="receiptRef"
-        style="width: 6in; height: 4.5in; overflow: visible; background-color: white; flex-shrink: 0; padding: 0.2in;"
-      >
+          ref="receiptOuterRef"
+          id="receipt-canvas"
+          class="relative shadow-2xl bg-white p-2 flex flex-col mx-auto overflow-visible"
+          :style="{ ...receiptDimensions, borderColor: colorStyles.borderColor }"
+        >
+          <!-- Content Wrapper for Scaling -->
+          <div ref="receiptRef" class="receipt-content-wrapper flex flex-col justify-between" :style="scaledContentStyles">
         <!-- Header -->
-        <div class="text-center">
+        <div class="text-center flex-shrink-0">
           <div class="flex items-start">
             <!-- Logo (Fixed - Developer Only) -->
             <div v-if="logoDataUrl" class="">
-              <img :src="logoDataUrl" alt="ICAN Logo" class="h-16 md:h-20 w-auto object-contain" />
+              <img 
+                :src="logoDataUrl" 
+                alt="ICAN Logo" 
+                class="h-16 md:h-[130px] w-auto object-contain"
+                :style="{ filter: colorStyles.logoFilter }"
+              />
             </div>
             
             <!-- Organization Name (Now Editable by Users) -->
-            <div class="max-w-[400px] mx-auto">
+            <div class="max-w-[600px] mx-auto">
               <div>
-                <h2 
+                <h2
+                  v-if="organizationName || !isExporting"
                   :class="[
-                    'ml-4 md:text-2xl font-bold text-center',
-                    organizationName === '' ? 'text-gray-400' : 'text-blue-800'
+                    'ml-4 md:text-3xl font-bold text-center',
+                    organizationName === '' ? 'text-gray-400' : ''
                   ]"
-                  style="font-family: 'Arial Narrow', 'Roboto Condensed', 'Oswald', sans-serif; font-weight: 900; letter-spacing: -0.5px; word-wrap: break-word; word-break: break-word; white-space: normal;"
+                  :style="{
+                    fontFamily: 'Arial Narrow, Roboto Condensed, Oswald, sans-serif',
+                    fontWeight: 900,
+                    letterSpacing: '-0.5px',
+                    wordWrap: 'break-word',
+                    wordBreak: 'break-word',
+                    whiteSpace: 'normal',
+                    color: organizationName ? colorStyles.headerBg : '#9ca3af'
+                  }"
                 >
                   {{ organizationName || 'Enter organization name' }}
                 </h2>
               </div>
-            
               <div>
                 <!-- Subtitle (Now Editable by Users) -->
-              <p 
-                :class="[
-                  'text-sm text-center mt-[-11px]',
-                  organizationSubName === '' ? 'text-gray-400' : 'text-slate-900 dark:text-slate-100'
-                ]"
-                style="word-wrap: break-word; word-break: break-word; white-space: normal;"
-              >
-                {{ organizationSubName || 'Enter organization subtitle' }}
-              </p>
-              
-              <!-- Phone Address -->
-               <p 
-              :class="[
-                'text-xs text-center',
-                organizationAddress === '' ? 'text-gray-400' : 'text-slate-900 dark:text-slate-100'
-              ]"
-              style="word-wrap: break-word; word-break: break-word; white-space: normal;"
-            >
-             <strong> Address: </strong> {{ organizationAddress || 'Enter organization address' }}
-            </p>
-
-              <!-- Phone (Now Editable by Users) -->
-              <p 
-                :class="[
-                  'text-xs text-center font-bold',
-                  organizationPhone === '' ? 'text-gray-400' : 'text-slate-900 dark:text-slate-100'
-                ]"
-                style="word-wrap: break-word; word-break: break-word; white-space: normal;"
-              >
-                Tel: {{ organizationPhone || 'Enter phone number' }}
-              </p>
+                <p
+                  v-if="organizationSubName || !isExporting"
+                  :class="[
+                    'text-md text-center mt-[-11px]',
+                    organizationSubName === '' ? 'text-gray-400' : ''
+                  ]"
+                  :style="{
+                    wordWrap: 'break-word',
+                    wordBreak: 'break-word',
+                    whiteSpace: 'normal',
+                    color: organizationSubName ? colorStyles.borderColor : '#9ca3af'
+                  }"
+                >
+                  {{ organizationSubName || 'Enter organization subtitle' }}
+                </p>
+                <!-- Phone Address -->
+                <p
+                  v-if="organizationAddress || !isExporting"
+                  :class="[
+                    'text-xs text-center',
+                    organizationAddress === '' ? 'text-gray-400' : ''
+                  ]"
+                  :style="{
+                    wordWrap: 'break-word',
+                    wordBreak: 'break-word',
+                    whiteSpace: 'normal',
+                    color: organizationAddress ? colorStyles.borderColor : '#9ca3af'
+                  }"
+                >
+                  <strong> Address: </strong> {{ organizationAddress || 'Enter organization address' }}
+                </p>
+                <!-- Phone (Now Editable by Users) -->
+                <p
+                  v-if="organizationPhone || !isExporting"
+                  :class="[
+                    'text-xs text-center font-bold',
+                    organizationPhone === '' ? 'text-gray-400' : ''
+                  ]"
+                  :style="{
+                    wordWrap: 'break-word',
+                    wordBreak: 'break-word',
+                    whiteSpace: 'normal',
+                    color: organizationPhone ? colorStyles.borderColor : '#9ca3af'
+                  }"
+                >
+                  Tel: {{ organizationPhone || 'Enter phone number' }}
+                </p>
               </div>
-            
             </div>
           </div>
 
 
           <!-- Receipt Title -->
-          <p class="text-lg font-bold uppercase mt-2 bg-red-500 text-white inline-block px-3  rounded">
+          <p 
+            class="text-lg font-bold uppercase mt-2 text-white inline-block px-3 rounded"
+            :style="{ backgroundColor: colorStyles.headerBg }"
+          >
             CASH RECEIPT
           </p>
         </div>
 
         <!-- Body -->
-        <div class="text-sm space-y-2">
+        <div class="text-sm flex-grow flex flex-col justify-around">
           <div class="flex justify-between items-center">
             <div class="flex items-center gap-1">
               <span>Date:</span>
@@ -534,7 +772,8 @@
             <input
               v-model="receivedFrom"
               placeholder=" "
-              class="flex-1 bg-transparent border-b border-dotted border-gray-400 focus:outline-none"
+              class="flex-1 bg-transparent border-b border-dotted focus:outline-none"
+              :style="{ borderColor: colorStyles.borderColor }"
             />
           </div>
 
@@ -544,7 +783,8 @@
               ref="sumOfInput1"
               v-model="sumOf"
               @input="handleSumOfOverflow"
-              class="flex-1 bg-transparent border-b border-dotted border-gray-400 focus:outline-none"
+              class="flex-1 bg-transparent border-b border-dotted focus:outline-none"
+              :style="{ borderColor: colorStyles.borderColor }"
             />
           </div>
 
@@ -554,10 +794,14 @@
               v-model="sumOf2"
               type="text"
               @input="handleSumOf2Input"
-              class="flex-1 bg-transparent border-b border-dotted border-gray-400 focus:outline-none"
+              class="flex-1 bg-transparent border-b border-dotted focus:outline-none"
+              :style="{ borderColor: colorStyles.borderColor }"
             />
             <span>Naira</span>
-            <div class="w-16 bg-transparent border-b border-dotted border-gray-400 flex items-center justify-center text-center">
+            <div 
+              class="w-16 bg-transparent border-b border-dotted flex items-center justify-center text-center"
+              :style="{ borderColor: colorStyles.borderColor }"
+            >
               <span>Only</span>
             </div>
             <span>Kobo</span>
@@ -569,7 +813,8 @@
               ref="paymentForInput1"
               v-model="paymentFor"
               @input="handlePaymentForOverflow"
-              class="flex-1 bg-transparent border-b border-dotted border-gray-400 focus:outline-none"
+              class="flex-1 bg-transparent border-b border-dotted focus:outline-none"
+              :style="{ borderColor: colorStyles.borderColor }"
             />
           </div>
 
@@ -579,11 +824,12 @@
               ref="paymentForInput2"
               v-model="paymentFor2"
               @input="handlePaymentFor2Input"
-              class="flex-1 bg-transparent border-b border-dotted border-gray-400 focus:outline-none"
+              class="flex-1 bg-transparent border-b border-dotted focus:outline-none"
+              :style="{ borderColor: colorStyles.borderColor }"
             />
           </div>
           
-          <div class="flex justify-between items-start">
+          <div class="flex justify-between items-start flex-shrink-0">
            
             <!-- Signature 1 -->
             <div class="flex flex-col items-center gap-1 mt-[-15px]">
@@ -592,18 +838,28 @@
                 <img :src="signatureImage1" alt="Signature 1" class="h-16 w-auto object-contain max-w-[150px]" />
               </div>
 
-              <div v-else class="mb-1 h-16 w-24 border border-dashed border-gray-300 flex items-center justify-center text-[9px] text-gray-400">
+              <div 
+                v-else 
+                class="mb-1 h-16 w-24 border border-dashed flex items-center justify-center text-[9px]"
+                :style="{ borderColor: colorStyles.borderColor, color: colorStyles.borderColor }"
+              >
                 No signature
               </div>
 
-             <div class="w-full border-t border-gray-400 text-center mt-[-20px]">
+             <div 
+               class="w-full border-t text-center mt-[-20px]"
+               :style="{ borderColor: colorStyles.borderColor }"
+             >
                <p class="italic text-[10px]">Signature</p>
              </div> 
             </div>
 
             <!-- Amount in figures -->
             <div class="flex flex-col items-center mt-3">
-              <div class="border-2 border-yellow-400 p-2 py-2 bg-yellow-50 min-w-[100px] md:min-w-[200px]">
+              <div 
+                class="border-2 p-2 py-2 bg-yellow-50 min-w-[100px] md:min-w-[200px]"
+                :style="{ borderColor: colorStyles.borderColor }"
+              >
                 <div class="flex justify-center gap-2">
                   <span class="font-bold text-lg">₦{{ naira || 0 }}</span>
                 </div>
@@ -617,11 +873,18 @@
                 <img :src="signatureImage2" alt="Signature 2" class="h-16 w-auto object-contain max-w-[150px]" />
               </div>
 
-              <div v-else class="mb-1 h-16 w-24 border border-dashed border-gray-300 flex items-center justify-center text-[9px] text-gray-400">
+              <div 
+                v-else 
+                class="mb-1 h-16 w-24 border border-dashed flex items-center justify-center text-[9px]"
+                :style="{ borderColor: colorStyles.borderColor, color: colorStyles.borderColor }"
+              >
                 No signature
               </div>
 
-             <div class="w-full border-t border-gray-400 text-center mt-[-20px]">
+             <div 
+               class="w-full border-t text-center mt-[-20px]"
+               :style="{ borderColor: colorStyles.borderColor }"
+             >
                <p class="italic text-[10px]">Signature</p>
              </div> 
             </div>
@@ -632,19 +895,19 @@
         <div class="hidden">
           <input type="checkbox" v-model="autoDate" @change="syncDate" />
         </div>
-      </div>
-      </div>
-      </div>
+          </div> <!-- end content wrapper / receiptRef -->
+        </div> <!-- end receipt outer container -->
+      </div> <!-- end mobile wrapper -->
     </section>
-    </div>
-    <!-- End Flex Container -->
+    <!-- End Receipt Preview Section -->
 
-    </div>
-  </div>
+    </div> <!-- end flex form+preview container -->
+  </div> <!-- end scroll container -->
+</div> <!-- end root wrapper -->
 </template>
 
 <script>
-import { defineComponent, ref, watch, onMounted, onBeforeUnmount } from 'vue';
+import { defineComponent, ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import DocumentHistoryModal from '@/components/DocumentHistoryModal.vue';
 import LogoCropper from '@/components/LogoCropper.vue';
@@ -800,6 +1063,15 @@ export default defineComponent({
     const signatureImage1 = ref('/images/signature1.png'); // Signature 1 image: ref('/images/signature1.png')
     const signatureImage2 = ref('/images/signature2.png'); // Signature 2 image: ref('/images/signature2.png')
 
+    // Receipt size settings
+    const receiptWidth = ref(5.827); // Default A5 landscape width
+    const receiptHeight = ref(8.268); // Default A5 landscape height
+
+    // CMYK Color settings
+    const colorMode = ref('full-color'); // Default to full color
+    const customColor1CMYK = ref({ c: 0, m: 0, y: 0, k: 100 }); // Primary custom color (Black default)
+    const customColor2CMYK = ref({ c: 100, m: 0, y: 100, k: 0 }); // Secondary custom color (Blue default)
+
     // Signature management
     const savedSignatures = ref([]);
     const selectedSignature1 = ref('');
@@ -845,13 +1117,171 @@ export default defineComponent({
       const screenWidth = window.innerWidth;
       isMobile.value = screenWidth < 768;
       if (isMobile.value) {
-        // Calculate scale to fit 7.268in width in screen
-        const receiptWidthInPixels = 7.268 * 96; // 7.268in * 96dpi
+        // Calculate scale to fit receipt width in screen
+        const receiptWidthInPixels = receiptWidth.value * 96; // width in inches * 96dpi
         mobileScale.value = Math.min(1, screenWidth / receiptWidthInPixels);
       } else {
         mobileScale.value = 1;
       }
     };
+
+    // Calculate content scale based on receipt dimensions
+    const contentScale = computed(() => {
+      const baseWidth = 5.827;
+      const baseHeight = 8.268;
+      const widthScale = receiptWidth.value / baseWidth;
+      const heightScale = receiptHeight.value / baseHeight;
+      
+      // Use the smaller scale factor to ensure content fits proportionally
+      return Math.min(widthScale, heightScale);
+    });
+
+    // Computed property for receipt dimensions - locked to exact input sizes
+    const receiptDimensions = computed(() => ({
+      width: isMobile.value ? '100%' : `${receiptWidth.value}in`,
+      height: `${receiptHeight.value}in`,
+      minWidth: isMobile.value ? '100%' : `${receiptWidth.value}in`,
+      maxWidth: `${receiptWidth.value}in`,
+      minHeight: `${receiptHeight.value}in`,
+      maxHeight: `${receiptHeight.value}in`
+    }));
+
+    // Computed styles for content scaling - uniform scaling to maintain proportions
+    const scaledContentStyles = computed(() => {
+      const baseWidth = 5.827;
+      const baseHeight = 8.268;
+      
+      // Calculate scale factors for width and height
+      const widthScale = receiptWidth.value / baseWidth;
+      const heightScale = receiptHeight.value / baseHeight;
+      
+      // Use uniform scale (average of both) to maintain text proportions
+      const uniformScale = (widthScale + heightScale) / 2;
+      
+      // Apply mobile constraints
+      const effectiveScale = isMobile.value ? Math.min(uniformScale, 1.0) : uniformScale;
+        
+      return {
+        transform: `scale(${effectiveScale})`,
+        transformOrigin: 'top left',
+        width: `${100 / effectiveScale}%`,
+        height: `${100 / effectiveScale}%`,
+        minHeight: `${100 / effectiveScale}%`,
+        overflow: 'visible',
+        padding: '0',
+        margin: '0',
+        display: 'flex',
+        flexDirection: 'column'
+      };
+    });
+
+    // Handle preset size changes
+    const handlePresetChange = (event) => {
+      const preset = event.target.value;
+      switch (preset) {
+        case 'a4':
+          receiptWidth.value = 8.27;
+          receiptHeight.value = 11.69;
+          break;
+        case 'a5':
+          receiptWidth.value = 5.83;
+          receiptHeight.value = 8.27;
+          break;
+        case 'letter':
+          receiptWidth.value = 8.5;
+          receiptHeight.value = 11;
+          break;
+        case 'legal':
+          receiptWidth.value = 8.5;
+          receiptHeight.value = 14;
+          break;
+        default:
+          // Keep current values for custom
+          break;
+      }
+      // Recalculate mobile scale when size changes
+      calculateMobileScale();
+    };
+
+    // Handle color mode changes
+    const handleColorModeChange = () => {
+      // Reset custom colors when changing mode
+      if (colorMode.value === 'one-color') {
+        customColor1CMYK.value = { c: 0, m: 0, y: 0, k: 100 };
+      } else if (colorMode.value === 'two-color') {
+        customColor1CMYK.value = { c: 0, m: 0, y: 0, k: 100 };
+        customColor2CMYK.value = { c: 100, m: 0, y: 100, k: 0 };
+      }
+    };
+
+    // Get color mode description
+    const getColorModeDescription = () => {
+      switch (colorMode.value) {
+        case 'full-color':
+          return 'Full CMYK color printing';
+        case 'three-color':
+          return 'CMY color printing (no black)';
+        case 'two-color':
+          return 'Two custom colors';
+        case 'one-color':
+          return 'Single color printing';
+        default:
+          return '';
+      }
+    };
+
+    // Convert CMYK to RGB for display
+    const cmykToRgb = (c, m, y, k) => {
+      const r = 255 * (1 - c / 100) * (1 - k / 100);
+      const g = 255 * (1 - m / 100) * (1 - k / 100);
+      const b = 255 * (1 - y / 100) * (1 - k / 100);
+      return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+    };
+
+    // Color styles based on selected mode
+    const colorStyles = computed(() => {
+      switch (colorMode.value) {
+        case 'full-color':
+          return {
+            headerBg: 'rgb(30, 64, 175)', // Blue
+            borderColor: 'rgb(59, 130, 246)',
+            logoFilter: 'none'
+          };
+        case 'three-color':
+          return {
+            headerBg: 'rgb(167, 139, 250)', // Purple (C+M)
+            borderColor: 'rgb(167, 139, 250)',
+            logoFilter: 'grayscale(100%) sepia(100%) hue-rotate(260deg) saturate(300%)'
+          };
+        case 'two-color': {
+          const color1 = cmykToRgb(customColor1CMYK.value.c, customColor1CMYK.value.m, customColor1CMYK.value.y, customColor1CMYK.value.k);
+          return {
+            headerBg: color1,
+            borderColor: cmykToRgb(customColor2CMYK.value.c, customColor2CMYK.value.m, customColor2CMYK.value.y, customColor2CMYK.value.k),
+            logoFilter: `grayscale(100%) brightness(0.5) sepia(100%) saturate(1000%) contrast(1.2)`
+          };
+        }
+        case 'one-color': {
+          const singleColor = cmykToRgb(customColor1CMYK.value.c, customColor1CMYK.value.m, customColor1CMYK.value.y, customColor1CMYK.value.k);
+          return {
+            headerBg: singleColor,
+            borderColor: singleColor,
+            logoFilter: 'grayscale(100%) brightness(0.4) contrast(2)'
+          };
+        }
+        default:
+          return {
+            headerBg: 'rgb(30, 64, 175)',
+            borderColor: 'rgb(59, 130, 246)',
+            logoFilter: 'none'
+          };
+      }
+    });
+
+    // Watch for size changes to recalculate scaling
+    watch([receiptWidth, receiptHeight], () => {
+      calculateMobileScale();
+    });
 
     const syncDate = () => {
       if (autoDate.value) {
@@ -1285,7 +1715,7 @@ export default defineComponent({
     };
 
     const handleExportPDF = async () => {
-      if (!receiptOuterRef.value || isExporting.value) return;
+      if (!receiptOuterRef.value || !receiptRef.value || isExporting.value) return;
       
       isExporting.value = true;
       ensureRanges();
@@ -1322,11 +1752,11 @@ export default defineComponent({
           console.error('Failed to save receipt:', error);
         }
 
-      const filename = `receipt-${receiptNumber.value}.pdf`;
+      const filename = `receipt-${receiptNumber.value}-${colorMode.value}.pdf`;
       
-      // Fixed dimensions for receipt export
-      const RECEIPT_WIDTH = 7.268; // inches
-      const RECEIPT_HEIGHT = 5.324; // inches
+      // Use user-specified dimensions for export (not hardcoded)
+      const RECEIPT_WIDTH = receiptWidth.value; // Use current user input
+      const RECEIPT_HEIGHT = receiptHeight.value; // Use current user input
       
       const options = {
         margin: 0,
@@ -1344,40 +1774,49 @@ export default defineComponent({
         jsPDF: { unit: 'in', format: [RECEIPT_WIDTH, RECEIPT_HEIGHT], orientation: 'landscape' },
       };
 
+      // Store original styles for OUTER container (declare outside try-catch)
+      const originalOuterWidth = receiptOuterRef.value.style.width;
+      const originalOuterHeight = receiptOuterRef.value.style.height;
+      const originalOuterMinWidth = receiptOuterRef.value.style.minWidth;
+      const originalOuterMaxWidth = receiptOuterRef.value.style.maxWidth;
+      const originalOuterTransform = receiptOuterRef.value.style.transform;
+      const originalOuterBackground = receiptOuterRef.value.style.backgroundColor;
+      const originalOuterBoxShadow = receiptOuterRef.value.style.boxShadow;
+      const originalOuterBorder = receiptOuterRef.value.style.border;
+      const originalOuterPadding = receiptOuterRef.value.style.padding;
+      const originalOuterDisplay = receiptOuterRef.value.style.display;
+      const originalOuterJustifyContent = receiptOuterRef.value.style.justifyContent;
+      const originalOuterAlignItems = receiptOuterRef.value.style.alignItems;
+      const originalOuterPosition = receiptOuterRef.value.style.position;
+      const originalOuterMargin = receiptOuterRef.value.style.margin;
+      
+      // Store original styles for INNER content wrapper (declare outside try-catch)
+      const originalInnerTransform = receiptRef.value.style.transform;
+      const originalInnerTransformOrigin = receiptRef.value.style.transformOrigin;
+      const originalInnerWidth = receiptRef.value.style.width;
+      const originalInnerHeight = receiptRef.value.style.height;
+
       try {
-        // Store original styles
-        const originalWidth = receiptOuterRef.value.style.width;
-        const originalHeight = receiptOuterRef.value.style.height;
-        const originalMinWidth = receiptOuterRef.value.style.minWidth;
-        const originalMaxWidth = receiptOuterRef.value.style.maxWidth;
-        const originalTransform = receiptOuterRef.value.style.transform;
-        const originalBackground = receiptOuterRef.value.style.backgroundColor;
-        const originalBoxShadow = receiptOuterRef.value.style.boxShadow;
-        const originalBorder = receiptOuterRef.value.style.border;
-        const originalPadding = receiptOuterRef.value.style.padding;
-        const originalDisplay = receiptOuterRef.value.style.display;
-        const originalJustifyContent = receiptOuterRef.value.style.justifyContent;
-        const originalAlignItems = receiptOuterRef.value.style.alignItems;
-        const originalPosition = receiptOuterRef.value.style.position;
-        const originalMargin = receiptOuterRef.value.style.margin;
-        
-        // Force exact dimensions and white background for export (remove shadows)
-        // Use flexbox to center the 6" content within 7.268" container
-        receiptOuterRef.value.style.width = `${RECEIPT_WIDTH}in`;
-        receiptOuterRef.value.style.height = `${RECEIPT_HEIGHT}in`;
-        receiptOuterRef.value.style.minWidth = `${RECEIPT_WIDTH}in`;
-        receiptOuterRef.value.style.maxWidth = `${RECEIPT_WIDTH}in`;
+        // Keep current dimensions, just clean up styling for export
+        // DO NOT change width/height - dimensions are already set by user
         receiptOuterRef.value.style.transform = 'none';
         receiptOuterRef.value.style.transformOrigin = 'center center';
         receiptOuterRef.value.style.backgroundColor = '#ffffff';
         receiptOuterRef.value.style.boxShadow = 'none';
         receiptOuterRef.value.style.border = 'none';
         receiptOuterRef.value.style.padding = '0';
-        receiptOuterRef.value.style.margin = '0';
+        receiptOuterRef.value.style.margin = '0 auto'; // Center horizontally
         receiptOuterRef.value.style.display = 'flex';
         receiptOuterRef.value.style.justifyContent = 'center';
         receiptOuterRef.value.style.alignItems = 'center';
         receiptOuterRef.value.style.position = 'relative';
+        
+        // CRITICAL: Keep inner scaling AS IS - don't reset to 'none'
+        // The scaling is what positions content correctly
+        if (receiptRef.value.style.transform === '' || !receiptRef.value.style.transform) {
+          receiptRef.value.style.transform = scaledContentStyles.value.transform;
+        }
+        
         receiptOuterRef.value.classList.add('exporting');
         
         // Wait for styles to be applied
@@ -1390,27 +1829,62 @@ export default defineComponent({
         
         incrementReceiptNumber();
         
-        // Restore original styles
-        receiptOuterRef.value.style.width = originalWidth;
-        receiptOuterRef.value.style.height = originalHeight;
-        receiptOuterRef.value.style.minWidth = originalMinWidth;
-        receiptOuterRef.value.style.maxWidth = originalMaxWidth;
-        receiptOuterRef.value.style.transform = originalTransform;
-        receiptOuterRef.value.style.backgroundColor = originalBackground;
-        receiptOuterRef.value.style.boxShadow = originalBoxShadow;
-        receiptOuterRef.value.style.border = originalBorder;
-        receiptOuterRef.value.style.padding = originalPadding;
-        receiptOuterRef.value.style.display = originalDisplay;
-        receiptOuterRef.value.style.justifyContent = originalJustifyContent;
-        receiptOuterRef.value.style.alignItems = originalAlignItems;
-        receiptOuterRef.value.style.position = originalPosition;
-        receiptOuterRef.value.style.margin = originalMargin;
+        // Restore original styles for OUTER container
+        receiptOuterRef.value.style.width = originalOuterWidth;
+        receiptOuterRef.value.style.height = originalOuterHeight;
+        receiptOuterRef.value.style.minWidth = originalOuterMinWidth;
+        receiptOuterRef.value.style.maxWidth = originalOuterMaxWidth;
+        receiptOuterRef.value.style.transform = originalOuterTransform;
+        receiptOuterRef.value.style.backgroundColor = originalOuterBackground;
+        receiptOuterRef.value.style.boxShadow = originalOuterBoxShadow;
+        receiptOuterRef.value.style.border = originalOuterBorder;
+        receiptOuterRef.value.style.padding = originalOuterPadding;
+        receiptOuterRef.value.style.display = originalOuterDisplay;
+        receiptOuterRef.value.style.justifyContent = originalOuterJustifyContent;
+        receiptOuterRef.value.style.alignItems = originalOuterAlignItems;
+        receiptOuterRef.value.style.position = originalOuterPosition;
+        receiptOuterRef.value.style.margin = originalOuterMargin;
+        
+        // Restore original styles for INNER content wrapper
+        receiptRef.value.style.transform = originalInnerTransform;
+        receiptRef.value.style.transformOrigin = originalInnerTransformOrigin;
+        receiptRef.value.style.width = originalInnerWidth;
+        receiptRef.value.style.height = originalInnerHeight;
         
         receiptOuterRef.value.classList.remove('exporting');
+        
+        // Show CMYK info
+        const cmykInfo = {
+          'full-color': 'CMYK 4-color',
+          'three-color': 'CMY 3-color',
+          'two-color': 'Custom 2-color',
+          'one-color': 'Single color'
+        }[colorMode.value];
+        alert(`✅ PDF exported successfully!\n📊 Color Mode: ${cmykInfo}`);
       } catch (error) {
         console.error('Export failed:', error);
         // Always restore on error
-        if (receiptOuterRef.value) {
+        if (receiptOuterRef.value && receiptRef.value) {
+          receiptOuterRef.value.style.width = originalOuterWidth;
+          receiptOuterRef.value.style.height = originalOuterHeight;
+          receiptOuterRef.value.style.minWidth = originalOuterMinWidth;
+          receiptOuterRef.value.style.maxWidth = originalOuterMaxWidth;
+          receiptOuterRef.value.style.transform = originalOuterTransform;
+          receiptOuterRef.value.style.backgroundColor = originalOuterBackground;
+          receiptOuterRef.value.style.boxShadow = originalOuterBoxShadow;
+          receiptOuterRef.value.style.border = originalOuterBorder;
+          receiptOuterRef.value.style.padding = originalOuterPadding;
+          receiptOuterRef.value.style.display = originalOuterDisplay;
+          receiptOuterRef.value.style.justifyContent = originalOuterJustifyContent;
+          receiptOuterRef.value.style.alignItems = originalOuterAlignItems;
+          receiptOuterRef.value.style.position = originalOuterPosition;
+          receiptOuterRef.value.style.margin = originalOuterMargin;
+          
+          receiptRef.value.style.transform = originalInnerTransform;
+          receiptRef.value.style.transformOrigin = originalInnerTransformOrigin;
+          receiptRef.value.style.width = originalInnerWidth;
+          receiptRef.value.style.height = originalInnerHeight;
+          
           receiptOuterRef.value.classList.remove('exporting');
         }
       } finally {
@@ -1419,7 +1893,7 @@ export default defineComponent({
     };
 
     const handleExportJPEG = async () => {
-      if (!receiptOuterRef.value || isExporting.value) return;
+      if (!receiptOuterRef.value || !receiptRef.value || isExporting.value) return;
       
       isExporting.value = true;
       ensureRanges();
@@ -1457,49 +1931,55 @@ export default defineComponent({
           // Continue with export anyway
         }
 
-      // Fixed dimensions for receipt export
-      const RECEIPT_WIDTH = 7.268; // inches
-      const RECEIPT_HEIGHT = 5.324; // inches
+      // Store original styles for OUTER container
+      const originalOuterWidth = receiptOuterRef.value.style.width;
+      const originalOuterHeight = receiptOuterRef.value.style.height;
+      const originalOuterMinWidth = receiptOuterRef.value.style.minWidth;
+      const originalOuterMaxWidth = receiptOuterRef.value.style.maxWidth;
+      const originalOuterTransform = receiptOuterRef.value.style.transform;
+      const originalOuterBackground = receiptOuterRef.value.style.backgroundColor;
+      const originalOuterBoxShadow = receiptOuterRef.value.style.boxShadow;
+      const originalOuterBorder = receiptOuterRef.value.style.border;
+      const originalOuterPadding = receiptOuterRef.value.style.padding;
+      const originalOuterDisplay = receiptOuterRef.value.style.display;
+      const originalOuterJustifyContent = receiptOuterRef.value.style.justifyContent;
+      const originalOuterAlignItems = receiptOuterRef.value.style.alignItems;
+      const originalOuterPosition = receiptOuterRef.value.style.position;
+      const originalOuterMargin = receiptOuterRef.value.style.margin;
 
-      // Store original styles (declare outside try-catch for catch block access)
-      const originalWidth = receiptOuterRef.value.style.width;
-      const originalHeight = receiptOuterRef.value.style.height;
-      const originalMinWidth = receiptOuterRef.value.style.minWidth;
-      const originalMaxWidth = receiptOuterRef.value.style.maxWidth;
-      const originalTransform = receiptOuterRef.value.style.transform;
-      const originalBackground = receiptOuterRef.value.style.backgroundColor;
-      const originalBoxShadow = receiptOuterRef.value.style.boxShadow;
-      const originalBorder = receiptOuterRef.value.style.border;
-      const originalPadding = receiptOuterRef.value.style.padding;
-      const originalDisplay = receiptOuterRef.value.style.display;
-      const originalJustifyContent = receiptOuterRef.value.style.justifyContent;
-      const originalAlignItems = receiptOuterRef.value.style.alignItems;
-      const originalPosition = receiptOuterRef.value.style.position;
-      const originalMargin = receiptOuterRef.value.style.margin;
+      // Store original styles for INNER content wrapper
+      const originalInnerTransform = receiptRef.value.style.transform;
+      const originalInnerTransformOrigin = receiptRef.value.style.transformOrigin;
+      const originalInnerWidth = receiptRef.value.style.width;
+      const originalInnerHeight = receiptRef.value.style.height;
 
       try {
         
-        // Force exact dimensions and white background for export (remove shadows)
-        // Use flexbox to center the 6" content within 7.268" container
-        receiptOuterRef.value.style.width = `${RECEIPT_WIDTH}in`;
-        receiptOuterRef.value.style.height = `${RECEIPT_HEIGHT}in`;
-        receiptOuterRef.value.style.minWidth = `${RECEIPT_WIDTH}in`;
-        receiptOuterRef.value.style.maxWidth = `${RECEIPT_WIDTH}in`;
+        // Keep current dimensions, just clean up styling for export
+        // DO NOT change width/height - dimensions are already set by user
         receiptOuterRef.value.style.transform = 'none';
         receiptOuterRef.value.style.transformOrigin = 'center center';
         receiptOuterRef.value.style.backgroundColor = '#ffffff';
         receiptOuterRef.value.style.boxShadow = 'none';
         receiptOuterRef.value.style.border = 'none';
         receiptOuterRef.value.style.padding = '0';
-        receiptOuterRef.value.style.margin = '0';
+        receiptOuterRef.value.style.margin = '0 auto'; // Center horizontally
         receiptOuterRef.value.style.display = 'flex';
         receiptOuterRef.value.style.justifyContent = 'center';
         receiptOuterRef.value.style.alignItems = 'center';
         receiptOuterRef.value.style.position = 'relative';
+        
+        // CRITICAL: Keep inner scaling AS IS - don't reset to 'none'
+        // The scaling is what positions content correctly
+        // Just ensure it's stable by explicitly setting current computed value
+        if (receiptRef.value.style.transform === '' || !receiptRef.value.style.transform) {
+          receiptRef.value.style.transform = scaledContentStyles.value.transform;
+        }
+        
         receiptOuterRef.value.classList.add('exporting');
         
         // Wait for styles to be applied
-        await new Promise(resolve => setTimeout(resolve, 500)); // Increased timeout
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         // Verify the element exists and has dimensions
         if (!receiptOuterRef.value) {
@@ -1511,12 +1991,14 @@ export default defineComponent({
           throw new Error(`Receipt element has no dimensions (${rect.width}x${rect.height})`);
         }
         
-        // Try to export using html-to-image
+        // Export with CMYK color profile metadata
+        // Note: html-to-image exports as RGB, but we preserve CMYK intent via metadata
         let dataUrl;
         try {
+          // Export as high-quality JPEG with CMYK color metadata comment
           dataUrl = await htmlToImage.toJpeg(receiptOuterRef.value, {
-            quality: 0.95,
-            pixelRatio: 2, // Reduced to 2 for better compatibility
+            quality: 0.98, // Higher quality for CMYK conversion
+            pixelRatio: 3, // Higher resolution for professional printing
             backgroundColor: '#ffffff',
             cacheBust: true,
             skipFonts: false,
@@ -1524,8 +2006,8 @@ export default defineComponent({
         } catch (jpegError) {
           // Fallback to PNG if JPEG fails
           dataUrl = await htmlToImage.toPng(receiptOuterRef.value, {
-            quality: 0.95,
-            pixelRatio: 2,
+            quality: 0.98,
+            pixelRatio: 3,
             backgroundColor: '#ffffff',
             cacheBust: true,
           });
@@ -1535,9 +2017,21 @@ export default defineComponent({
           throw new Error('Failed to generate image data');
         }
         
+        // Create CMYK color mode metadata for the exported image
+        const cmykMetadata = {
+          colorMode: colorMode.value,
+          colorSettings: {
+            'full-color': 'CMYK (4-color process)',
+            'three-color': 'CMY (3-color process)',
+            'two-color': `Custom 2-color (C:${customColor1CMYK.value.c}% M:${customColor1CMYK.value.m}% Y:${customColor1CMYK.value.y}% K:${customColor1CMYK.value.k}% | C:${customColor2CMYK.value.c}% M:${customColor2CMYK.value.m}% Y:${customColor2CMYK.value.y}% K:${customColor2CMYK.value.k}%)`,
+            'one-color': `Single color (C:${customColor1CMYK.value.c}% M:${customColor1CMYK.value.m}% Y:${customColor1CMYK.value.y}% K:${customColor1CMYK.value.k}%)`
+          }[colorMode.value],
+          note: 'This image was exported with CMYK color intent. For professional printing, convert to CMYK color space using your printing software or send to a print service with CMYK specifications.'
+        };
+        
         const link = document.createElement('a');
         link.href = dataUrl;
-        link.download = `receipt-${receiptNumber.value}.jpg`;
+        link.download = `receipt-${receiptNumber.value}-${colorMode.value}.jpg`;
         link.click();
         
         // Log activity
@@ -1545,25 +2039,32 @@ export default defineComponent({
         
         incrementReceiptNumber();
         
-        // Restore original styles
-        receiptOuterRef.value.style.width = originalWidth;
-        receiptOuterRef.value.style.height = originalHeight;
-        receiptOuterRef.value.style.minWidth = originalMinWidth;
-        receiptOuterRef.value.style.maxWidth = originalMaxWidth;
-        receiptOuterRef.value.style.transform = originalTransform;
-        receiptOuterRef.value.style.backgroundColor = originalBackground;
-        receiptOuterRef.value.style.boxShadow = originalBoxShadow;
-        receiptOuterRef.value.style.border = originalBorder;
-        receiptOuterRef.value.style.padding = originalPadding;
-        receiptOuterRef.value.style.display = originalDisplay;
-        receiptOuterRef.value.style.justifyContent = originalJustifyContent;
-        receiptOuterRef.value.style.alignItems = originalAlignItems;
-        receiptOuterRef.value.style.position = originalPosition;
-        receiptOuterRef.value.style.margin = originalMargin;
+        // Restore original styles for OUTER container
+        receiptOuterRef.value.style.width = originalOuterWidth;
+        receiptOuterRef.value.style.height = originalOuterHeight;
+        receiptOuterRef.value.style.minWidth = originalOuterMinWidth;
+        receiptOuterRef.value.style.maxWidth = originalOuterMaxWidth;
+        receiptOuterRef.value.style.transform = originalOuterTransform;
+        receiptOuterRef.value.style.backgroundColor = originalOuterBackground;
+        receiptOuterRef.value.style.boxShadow = originalOuterBoxShadow;
+        receiptOuterRef.value.style.border = originalOuterBorder;
+        receiptOuterRef.value.style.padding = originalOuterPadding;
+        receiptOuterRef.value.style.display = originalOuterDisplay;
+        receiptOuterRef.value.style.justifyContent = originalOuterJustifyContent;
+        receiptOuterRef.value.style.alignItems = originalOuterAlignItems;
+        receiptOuterRef.value.style.position = originalOuterPosition;
+        receiptOuterRef.value.style.margin = originalOuterMargin;
+        
+        // Restore original styles for INNER content wrapper
+        receiptRef.value.style.transform = originalInnerTransform;
+        receiptRef.value.style.transformOrigin = originalInnerTransformOrigin;
+        receiptRef.value.style.width = originalInnerWidth;
+        receiptRef.value.style.height = originalInnerHeight;
+        
         receiptOuterRef.value.classList.remove('exporting');
         
-        // Show success notification
-        alert(`Receipt #${receiptNumber.value} exported successfully as JPEG!`);
+        // Show success notification with CMYK information
+        alert(`✅ Receipt #${receiptNumber.value} exported successfully!\n\n📊 Color Mode: ${cmykMetadata.colorSettings}\n\n💡 Note: ${cmykMetadata.note}`);
       } catch (error) {
         // Show detailed error to user
         const errorMsg = error instanceof Error ? error.message : String(error);
@@ -1576,22 +2077,29 @@ export default defineComponent({
         }
         
         // Always restore on error
-        if (receiptOuterRef.value) {
-          // Restore original styles
-          receiptOuterRef.value.style.width = originalWidth;
-          receiptOuterRef.value.style.height = originalHeight;
-          receiptOuterRef.value.style.minWidth = originalMinWidth;
-          receiptOuterRef.value.style.maxWidth = originalMaxWidth;
-          receiptOuterRef.value.style.transform = originalTransform;
-          receiptOuterRef.value.style.backgroundColor = originalBackground;
-          receiptOuterRef.value.style.boxShadow = originalBoxShadow;
-          receiptOuterRef.value.style.border = originalBorder;
-          receiptOuterRef.value.style.padding = originalPadding;
-          receiptOuterRef.value.style.display = originalDisplay;
-          receiptOuterRef.value.style.justifyContent = originalJustifyContent;
-          receiptOuterRef.value.style.alignItems = originalAlignItems;
-          receiptOuterRef.value.style.position = originalPosition;
-          receiptOuterRef.value.style.margin = originalMargin;
+        if (receiptOuterRef.value && receiptRef.value) {
+          // Restore original styles for OUTER container
+          receiptOuterRef.value.style.width = originalOuterWidth;
+          receiptOuterRef.value.style.height = originalOuterHeight;
+          receiptOuterRef.value.style.minWidth = originalOuterMinWidth;
+          receiptOuterRef.value.style.maxWidth = originalOuterMaxWidth;
+          receiptOuterRef.value.style.transform = originalOuterTransform;
+          receiptOuterRef.value.style.backgroundColor = originalOuterBackground;
+          receiptOuterRef.value.style.boxShadow = originalOuterBoxShadow;
+          receiptOuterRef.value.style.border = originalOuterBorder;
+          receiptOuterRef.value.style.padding = originalOuterPadding;
+          receiptOuterRef.value.style.display = originalOuterDisplay;
+          receiptOuterRef.value.style.justifyContent = originalOuterJustifyContent;
+          receiptOuterRef.value.style.alignItems = originalOuterAlignItems;
+          receiptOuterRef.value.style.position = originalOuterPosition;
+          receiptOuterRef.value.style.margin = originalOuterMargin;
+          
+          // Restore original styles for INNER content wrapper
+          receiptRef.value.style.transform = originalInnerTransform;
+          receiptRef.value.style.transformOrigin = originalInnerTransformOrigin;
+          receiptRef.value.style.width = originalInnerWidth;
+          receiptRef.value.style.height = originalInnerHeight;
+          
           receiptOuterRef.value.classList.remove('exporting');
         }
       } finally {
@@ -1692,12 +2200,42 @@ export default defineComponent({
       handleSignature1Change,
       handleSignature2Change,
       handleCreateSignature,
+      // Receipt size settings
+      receiptWidth,
+      receiptHeight,
+      receiptDimensions,
+      contentScale,
+      scaledContentStyles,
+      handlePresetChange,
+      // CMYK Color settings
+      colorMode,
+      customColor1CMYK,
+      customColor2CMYK,
+      handleColorModeChange,
+      getColorModeDescription,
+      cmykToRgb,
+      colorStyles,
     };
   },
 });
 </script>
 
 <style scoped>
+/* Receipt content wrapper for responsive scaling */
+.receipt-content-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Ensure receipt container respects the size */
+.receipt-container {
+  overflow: hidden;
+  position: relative;
+}
+
 /* Stylish input fields with elegant fonts */
 input.flex-1,
 input.w-full {

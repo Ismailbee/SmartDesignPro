@@ -46,6 +46,41 @@
         <button v-if="!authStore.isAuthenticated" class="cta-button" @click="handleGetQuote">
           Get Started
         </button>
+
+        <!-- User Profile Dropdown (Desktop Only - Authenticated Users) -->
+        <div v-if="authStore.user" class="header-user-profile desktop-only">
+          <div v-if="!authStore.user.avatar" class="avatar-placeholder" @click="toggleUserDropdown">
+            {{ getUserInitials() }}
+          </div>
+          <img v-else :src="authStore.user.avatar" :alt="authStore.user.name || 'User'" class="avatar-image" @click="toggleUserDropdown" />
+          
+          <!-- Dropdown Menu -->
+          <transition name="dropdown">
+            <div v-if="showUserDropdown" class="user-dropdown-menu">
+              <div class="user-info">
+                <span class="user-name">{{ authStore.user.name || authStore.user.username || 'User' }}</span>
+                <span class="user-email">{{ authStore.user.email }}</span>
+              </div>
+              <div class="dropdown-divider"></div>
+              <button class="dropdown-item" @click="handleSettings">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span>Settings</span>
+              </button>
+              <button class="dropdown-item logout" @click="handleLogout">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4m6 12l4-4m0 0l-4-4m4 4H9" />
+                </svg>
+                <span>Logout</span>
+              </button>
+            </div>
+          </transition>
+
+          <!-- Avatar Uploader Modal -->
+          <AvatarUploader v-model="showAvatarUploader" @save="onAvatarSaved" />
+        </div>
       </div>
     </div>
 
@@ -56,11 +91,11 @@
       @navigate="handleMoreMenuNavigate"
     />
     
-      <!-- Auto Design Modal -->
-      <AutoDesignModal
-        :is-open="isAutoDesignOpen"
-        @close="closeAutoDesign"
-      />
+    <!-- Auto Design Modal -->
+    <AutoDesignModal
+      :is-open="isAutoDesignOpen"
+      @close="closeAutoDesign"
+    />
   </header>
 </template>
 
@@ -73,6 +108,7 @@ import HeaderTokenDisplay from '@/components/HeaderTokenDisplay.vue'
 import NotificationBell from '@/components/NotificationBell.vue'
 import AutoDesignModal from './AutoDesignModal.vue'
 import MoreMenuModal from './MoreMenuModal.vue'
+import AvatarUploader from '@/components/common/AvatarUploader.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -82,6 +118,11 @@ const isMoreMenuOpen = ref(false)
 
 // State for Auto Design Modal
 const isAutoDesignOpen = ref(false)
+
+// State for User Dropdown
+const showUserDropdown = ref(false)
+// State for Avatar Uploader modal
+const showAvatarUploader = ref(false)
 
 // Emit events for parent component
 const emit = defineEmits<{
@@ -108,6 +149,16 @@ const closeAutoDesign = () => {
   isAutoDesignOpen.value = false
 }
 
+// Handle click outside dropdown
+const handleClickOutside = (event: MouseEvent) => {
+  const target = event.target as HTMLElement
+  const dropdown = document.querySelector('.header-user-profile')
+  
+  if (dropdown && !dropdown.contains(target)) {
+    showUserDropdown.value = false
+  }
+}
+
 // Expose methods to parent component
 defineExpose({
   toggleMoreMenu,
@@ -115,12 +166,15 @@ defineExpose({
 })
 
 onMounted(() => {
-  // Removed click outside handler
+  // Handle click outside dropdown
+  document.addEventListener('click', handleClickOutside)
 })
 
 onUnmounted(() => {
   // Clean up body scroll
   document.body.style.overflow = ''
+  // Remove click outside listener
+  document.removeEventListener('click', handleClickOutside)
 })
 
 // (Removed Legal dropdown handlers)
@@ -340,6 +394,53 @@ const scrollToSection = async (sectionId: string) => {
 
 const handleGetQuote = () => {
   emit('getQuote')
+}
+
+// Get user initials from name/username/email
+const getUserInitials = (): string => {
+  const user = authStore.user
+  if (!user) return 'U'
+  
+  const name = user.name || user.username || user.email || 'User'
+  const parts = name.split(' ')
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+  }
+  return name.substring(0, 2).toUpperCase()
+}
+
+// Toggle user dropdown
+const toggleUserDropdown = () => {
+  showUserDropdown.value = !showUserDropdown.value
+}
+
+// Handle settings navigation
+const handleSettings = () => {
+  showUserDropdown.value = false
+  router.push('/settings')
+}
+
+// Handle logout
+const handleLogout = async () => {
+  showUserDropdown.value = false
+  if (confirm('Are you sure you want to logout?')) {
+    try {
+      await authStore.logoutUser()
+      router.push('/')
+    } catch (error) {
+      console.error('Logout failed:', error)
+    }
+  }
+}
+
+// Called when AvatarUploader emits save with a dataURL
+const onAvatarSaved = async (dataUrl: string) => {
+  try {
+    await authStore.updateAvatar(dataUrl)
+    showAvatarUploader.value = false
+  } catch (err) {
+    console.error('Failed to update avatar:', err)
+  }
 }
 </script>
 
@@ -630,111 +731,136 @@ const handleGetQuote = () => {
   min-width: fit-content;
 }
 
-/* User Profile Wrapper (Dropdown Container) */
-.user-profile-wrapper {
+/* Header User Profile (Desktop Only) */
+.header-user-profile {
   position: relative;
+  display: flex;
+  align-items: center;
 }
 
-.user-avatar {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  overflow: hidden;
+.user-avatar-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
   cursor: pointer;
-  border: 2px solid #06b6d4;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(6, 182, 212, 0.3);
-  position: relative;
+  transition: all 0.3s ease;
 }
 
-.user-avatar::before {
-  content: '';
-  position: absolute;
-  inset: -2px;
+.user-avatar-trigger:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(6, 182, 212, 0.4);
+  box-shadow: 0 2px 8px rgba(6, 182, 212, 0.15);
+}
+
+.user-avatar-trigger .avatar-placeholder,
+.user-avatar-trigger .avatar-image {
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  padding: 2px;
-  background: linear-gradient(135deg, #06b6d4, #22d3ee, #06b6d4);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask-composite: exclude;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.user-avatar:hover {
-  transform: scale(1.08);
-  border-color: #22d3ee;
-  box-shadow: 0 4px 16px rgba(6, 182, 212, 0.5);
-}
-
-.user-avatar:hover::before {
-  opacity: 1;
-}
-
-.user-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  border: 2px solid #06b6d4;
+  flex-shrink: 0;
 }
 
 .avatar-placeholder {
-  width: 100%;
-  height: 100%;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #06b6d4 0%, #0891b2 50%, #0e7490 100%);
+  background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
   color: white;
-  font-size: 16px;
   font-weight: 700;
-  letter-spacing: 0.5px;
+  font-size: 14px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid #06b6d4;
 }
 
-/* User Dropdown Menu */
+.avatar-placeholder:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+}
+
+.avatar-image {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid #06b6d4;
+}
+
+.avatar-image:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+}
+
+.dropdown-arrow {
+  width: 16px;
+  height: 16px;
+  color: rgba(255, 255, 255, 0.6);
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+}
+
+.dropdown-arrow.open {
+  transform: rotate(180deg);
+}
+
+/* Dropdown Menu */
 .user-dropdown-menu {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
   min-width: 240px;
-  background: rgba(15, 23, 42, 0.98);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(30, 30, 40, 0.98);
+  border: 1px solid rgba(6, 182, 212, 0.3);
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  padding: 8px;
-  z-index: 1001;
-  animation: slideDown 0.2s ease;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.user-info {
   padding: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  margin-bottom: 4px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  z-index: 1000;
 }
 
-.user-name {
-  font-size: 14px;
+.user-dropdown-menu .user-info {
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.user-dropdown-menu .user-name {
+  font-size: 15px;
   font-weight: 600;
   color: white;
-  margin-bottom: 4px;
+  margin: 0 0 4px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
 }
 
-.user-email {
-  font-size: 12px;
+.user-dropdown-menu .user-email {
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 8px 0;
 }
 
 .dropdown-item {
@@ -745,18 +871,12 @@ const handleGetQuote = () => {
   padding: 10px 12px;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 14px;
-  font-weight: 500;
-  text-align: left;
-  cursor: pointer;
   border-radius: 8px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  cursor: pointer;
   transition: all 0.2s ease;
-}
-
-.dropdown-item:hover {
-  background: rgba(6, 182, 212, 0.12);
-  color: #22d3ee;
+  text-align: left;
 }
 
 .dropdown-item svg {
@@ -765,471 +885,76 @@ const handleGetQuote = () => {
   flex-shrink: 0;
 }
 
-.dropdown-item.logout-item {
-  color: rgba(255, 100, 100, 0.85);
+.dropdown-item:hover {
+  background: rgba(6, 182, 212, 0.15);
+  color: #22d3ee;
 }
 
-.dropdown-item.logout-item:hover {
-  background: rgba(239, 68, 68, 0.12);
+.dropdown-item.logout:hover {
+  background: rgba(239, 68, 68, 0.15);
   color: #f87171;
 }
 
-.dropdown-divider {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.08);
-  margin: 4px 0;
+/* Dropdown Animation */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.3s ease;
 }
 
-/* CTA Button */
+.dropdown-enter-from {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+/* Desktop Only */
+.desktop-only {
+  display: flex;
+}
+
+@media (max-width: 768px) {
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+/* Get Quote CTA Button */
 .cta-button {
-  padding: 12px 32px;
-  background: linear-gradient(135deg, #06b6d4 0%, #0891b2 50%, #0e7490 100%);
+  padding: 10px 24px;
+  background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
   color: white;
   border: none;
-  border-radius: 50px;
+  border-radius: 8px;
+  font-weight: 600;
   font-size: 14px;
-  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  box-shadow: 0 4px 16px rgba(6, 182, 212, 0.3);
-  position: relative;
-  overflow: hidden;
-}
-
-.cta-button::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.2) 50%, transparent 100%);
-  transform: translateX(-100%);
-  transition: transform 0.6s ease;
-}
-
-.cta-button:hover::before {
-  transform: translateX(100%);
+  transition: all 0.3s ease;
 }
 
 .cta-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(6, 182, 212, 0.4);
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.4);
 }
 
-.cta-button:active {
-  transform: translateY(0);
-  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
-}
-
-/* Responsive */
-@media (max-width: 1200px) {
-  .header-content {
-    padding: 16px 32px;
-  }
-
-  .nav-menu {
-    gap: 4px;
-  }
-
-  .nav-link {
-    padding: 10px 14px;
-    font-size: 13px;
-  }
-
-  .header-actions {
-    gap: 10px;
-  }
-}
-
+/* Responsive Styles */
 @media (max-width: 1024px) {
-  .header-content {
-    padding: 14px 24px;
+  .nav-links {
+    display: none;
   }
-
-  .nav-menu {
-    gap: 3px;
-  }
-
-  .nav-link {
-    padding: 8px 10px;
-    font-size: 13px;
-  }
-
-  .logo {
-    font-size: 22px;
-  }
-
-  .header-actions {
-    gap: 8px;
-  }
-}
-
-/* Mobile Hamburger Button */
-.mobile-menu-button {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
-  color: white;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  padding: 0;
-  z-index: 10001;
-  position: relative;
-}
-
-.mobile-menu-button:hover {
-  background: rgba(6, 182, 212, 0.15);
-  border-color: rgba(6, 182, 212, 0.4);
-  transform: scale(1.05);
-}
-
-.mobile-menu-button svg {
-  width: 24px;
-  height: 24px;
-}
-
-/* Mobile Auto Design Button (Always Visible on Mobile) */
-.mobile-auto-design-button {
-  display: none;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
-  background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
-  border: none;
-  border-radius: 8px;
-  color: white;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.25);
-}
-
-.mobile-auto-design-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(6, 182, 212, 0.35);
-}
-
-.mobile-auto-design-button svg {
-  width: 18px;
-  height: 18px;
-}
-
-.mobile-auto-design-button span {
-  font-size: 12px;
-}
-
-/* Mobile Menu Overlay */
-.mobile-menu-overlay {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  z-index: 9999;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
-}
-
-.mobile-menu-overlay.active {
-  opacity: 1;
-  pointer-events: all;
-}
-
-/* Mobile Slide Menu */
-.mobile-menu {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 280px;
-  max-width: 80vw;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.95) 100%);
-  backdrop-filter: blur(20px);
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
-  z-index: 10000;
-  transform: translateX(-100%);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow-y: auto;
-}
-
-.mobile-menu.active {
-  transform: translateX(0);
-}
-
-/* Mobile Menu Header */
-.mobile-menu-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  position: sticky;
-  top: 0;
-  background: rgba(15, 23, 42, 0.98);
-  backdrop-filter: blur(20px);
-  z-index: 10;
-  min-height: 70px;
-}
-
-.mobile-menu-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: white;
-  letter-spacing: 0.5px;
-}
-
-.mobile-menu-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
-  color: white;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  padding: 0;
-}
-
-.mobile-menu-close:hover {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.4);
-  transform: rotate(90deg);
-}
-
-.mobile-menu-close svg {
-  width: 20px;
-  height: 20px;
-}
-
-/* Mobile Menu Content */
-.mobile-menu-content {
-  padding: 16px;
-  min-height: 200px;
-  background: rgba(15, 23, 42, 0.95);
-}
-
-/* Mobile Nav Links */
-.mobile-nav-link {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  color: rgba(255, 255, 255, 0.9);
-  text-decoration: none;
-  font-size: 15px;
-  font-weight: 500;
-  border-radius: 10px;
-  transition: all 0.3s ease;
-  margin-bottom: 6px;
-  position: relative;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.mobile-nav-link::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background: linear-gradient(180deg, #06b6d4, #22d3ee);
-  transform: scaleY(0);
-  transition: transform 0.3s ease;
-}
-
-.mobile-nav-link:hover::before,
-.mobile-nav-link.active::before {
-  transform: scaleY(1);
-}
-
-.mobile-nav-link:hover {
-  background: rgba(6, 182, 212, 0.12);
-  color: #22d3ee;
-  transform: translateX(4px);
-}
-
-.mobile-nav-link svg {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-}
-
-.mobile-nav-link span {
-  flex: 1;
-}
-
-/* Mobile Nav Button (for More menu) */
-.mobile-nav-button {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 15px;
-  width: 100%;
-  text-align: left;
-}
-
-.mobile-nav-button:hover {
-  background: rgba(6, 182, 212, 0.15);
-  border-color: rgba(6, 182, 212, 0.3);
-}
-
-/* Mobile Menu Divider */
-.mobile-menu-divider {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.1);
-  margin: 16px 0;
 }
 
 @media (max-width: 768px) {
-  .header-content {
-    padding: 12px 20px;
-    gap: 12px;
-  }
-
-  /* Hide desktop navigation */
-  .desktop-nav {
-    display: none !important;
-  }
-
-  /* Show mobile elements */
-  .mobile-menu-button {
-    display: flex;
-  }
-
-  .mobile-auto-design-button {
-    display: flex;
-  }
-
-  .mobile-menu-overlay,
-  .mobile-menu {
-    display: block;
-  }
-
   .header-actions {
     gap: 8px;
-  }
-
-  .user-profile-header {
-    padding: 4px 10px 4px 4px;
-    gap: 8px;
-  }
-
-  .user-avatar {
-    width: 36px;
-    height: 36px;
-  }
-
-  .avatar-placeholder {
-    font-size: 14px;
-  }
-
-  .action-buttons {
-    gap: 6px;
-  }
-
-  .settings-button,
-  .logout-button {
-    width: 34px;
-    height: 34px;
-  }
-
-  .settings-button svg,
-  .logout-button svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  .cta-button {
-    padding: 10px 20px;
-    font-size: 12px;
-  }
-
-  .logo {
-    font-size: 20px;
-  }
-}
-
-@media (max-width: 640px) {
-  .mobile-auto-design-button span {
-    display: none;
-  }
-
-  .mobile-auto-design-button {
-    padding: 10px;
-    min-width: 40px;
-  }
-
-  .mobile-auto-design-button svg {
-    width: 20px;
-    height: 20px;
-  }
-}
-
-@media (max-width: 480px) {
-  .header-content {
-    padding: 10px 16px;
-    gap: 8px;
-  }
-
-  .logo {
-    font-size: 18px;
-  }
-
-  .mobile-menu-button {
-    width: 36px;
-    height: 36px;
-  }
-
-  .mobile-menu-button svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  .header-actions {
-    gap: 6px;
-  }
-
-  .user-profile-header {
-    padding: 4px 8px 4px 4px;
-    gap: 6px;
-  }
-
-  .user-avatar {
-    width: 32px;
-    height: 32px;
-  }
-
-  .settings-button,
-  .logout-button {
-    width: 32px;
-    height: 32px;
   }
 
   .cta-button {
     padding: 8px 16px;
-    font-size: 11px;
-  }
-
-  .mobile-menu {
-    width: 260px;
+    font-size: 13px;
   }
 }
 </style>
-

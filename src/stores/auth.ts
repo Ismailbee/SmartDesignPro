@@ -262,6 +262,27 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
+   * Update user's avatar (profile picture)
+   * Accepts data URL or remote URL and updates both Firebase Auth and Firestore
+   */
+  async function updateAvatar(photoDataUrl: string): Promise<void> {
+    isLoading.value = true
+    error.value = null
+    try {
+      const updatedUser = await firebaseAuth.updateUserAvatar(photoDataUrl)
+      user.value = updatedUser
+      localStorage.setItem(USER_KEY, JSON.stringify(updatedUser))
+      showNotification({ title: 'Profile updated', message: 'Profile picture updated', type: 'success' })
+    } catch (err: any) {
+      console.error('updateAvatar error:', err)
+      error.value = err.message || 'Failed to update avatar'
+      throw err
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  /**
    * Request password reset
    */
   async function requestPasswordReset(data: PasswordResetRequest): Promise<string | undefined> {
@@ -359,6 +380,8 @@ export const useAuthStore = defineStore('auth', () => {
     clearError,
     showNotification,
     closeNotification
+    ,
+    updateAvatar
   }
 })
 

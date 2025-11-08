@@ -1,5 +1,13 @@
 <template>
   <div class="settings-page">
+    <!-- Logo Cropper Modal -->
+    <LogoCropper
+      :is-open="showImageCropper"
+      :image-url="tempImageUrl"
+      @close="handleCropperClose"
+      @crop="handleCroppedAvatar"
+    />
+
     <!-- Header -->
     <div class="settings-header">
       <button @click="goBack" class="back-button">
@@ -37,7 +45,7 @@
           <div class="setting-group">
             <label class="setting-label">Profile Picture</label>
             <div class="avatar-upload">
-              <div class="avatar-preview">
+              <div class="avatar-preview" @click="uploadAvatar" style="cursor: pointer;" title="Click to upload photo">
                 <img v-if="profileData.avatar" :src="profileData.avatar" alt="Avatar" />
                 <div v-else class="avatar-placeholder">
                   {{ getInitials(profileData.name || 'User') }}
@@ -48,6 +56,7 @@
                 <button v-if="profileData.avatar" @click="removeAvatar" class="btn-text">Remove</button>
               </div>
             </div>
+            <p class="setting-hint">Click on the circle to upload a new photo. Images will be cropped and adjusted automatically.</p>
           </div>
 
           <!-- Name -->
@@ -382,14 +391,24 @@
         </div>
       </div>
     </div>
+    
+    <!-- Logo Cropper Modal -->
+    <LogoCropper
+      :is-open="showImageCropper"
+      :image-url="tempImageUrl"
+      @close="handleCropperClose"
+      @crop="handleCroppedAvatar"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useThemeStore } from '@/stores/theme'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useThemeStore } from '@/stores/theme'
+import { useNotificationStore } from '@/stores/notification'
+import LogoCropper from '@/components/LogoCropper.vue'
 import type { UserSettings, ProfileUpdateData } from '@/types/auth'
 
 const router = useRouter()
@@ -398,6 +417,8 @@ const themeStore = useThemeStore()
 
 const activeSection = ref('account')
 const isSaving = ref(false)
+const showImageCropper = ref(false)
+const tempImageUrl = ref('')
 
 const sections = [
   { id: 'account', label: 'Account', icon: '👤' },
@@ -564,13 +585,66 @@ async function changePassword() {
   }
 }
 
-function uploadAvatar() {
-  // TODO: Implement avatar upload
-  console.log('Upload avatar')
+// Upload avatar
+const uploadAvatar = () => {
+  // Create a file input programmatically
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+  input.onchange = (e: Event) => {
+    const target = e.target as HTMLInputElement
+    const file = target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file (PNG, JPG, etc.)')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size should be less than 5MB')
+      return
+    }
+
+    // Read file and show cropper
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      tempImageUrl.value = e.target?.result as string
+      showImageCropper.value = true
+    }
+    reader.readAsDataURL(file)
+  }
+  input.click()
 }
 
-function removeAvatar() {
+// Remove current avatar
+async function removeAvatar() {
   profileData.avatar = ''
+  try {
+    await authStore.updateAvatar('')
+  } catch (err) {
+    console.error('removeAvatar error:', err)
+  }
+}
+
+// Handle cropped avatar
+const handleCroppedAvatar = async (croppedDataUrl: string) => {
+  try {
+    await authStore.updateAvatar(croppedDataUrl)
+    profileData.avatar = croppedDataUrl
+    showImageCropper.value = false
+    tempImageUrl.value = ''
+  } catch (error) {
+    console.error('Failed to update avatar:', error)
+  }
+}
+
+// Handle cropper close
+const handleCropperClose = () => {
+  showImageCropper.value = false
+  tempImageUrl.value = ''
 }
 
 function confirmDeleteAccount() {

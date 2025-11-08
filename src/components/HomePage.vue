@@ -3,6 +3,7 @@
     <!-- Mobile Hamburger Button (Fixed Position) -->
     <button 
       class="mobile-hamburger-button"
+      :class="{ 'sidebar-open': isSidebarOpen }"
       aria-label="Open menu"
       @click="toggleSidebar"
     >
@@ -14,7 +15,7 @@
     </button>
 
     <!-- Sidebar Component -->
-    <Sidebar 
+    <Sidebar
       :is-open="isSidebarOpen"
       :user="authStore.user"
       @close="closeSidebar"
@@ -251,6 +252,11 @@ const handleSubmitContact = (formData: any) => {
 
 .mobile-hamburger-button svg {
   display: block;
+}
+
+/* Reduce z-index when sidebar is open so sidebar covers hamburger */
+.mobile-hamburger-button.sidebar-open {
+  z-index: 9999;
 }
 
 /* Show hamburger on mobile */

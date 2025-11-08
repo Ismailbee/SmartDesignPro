@@ -169,7 +169,7 @@
                     max="20"
                     step="0.1"
                     placeholder="5.827"
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
                   />
                 </div>
 
@@ -227,9 +227,144 @@
                 <span>Adjust the invoice size to fit your printing requirements. Content will automatically scale to fit.</span>
               </p>
             </div>
+
+            <!-- CMYK Color Settings Section -->
+            <div class="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-700">
+              <h3 class="text-sm font-semibold text-orange-900 dark:text-orange-300 mb-3 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z" />
+                </svg>
+                CMYK Color Settings
+              </h3>
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Color Mode Selection -->
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Color Mode
+                  </label>
+                  <select
+                    v-model="colorMode"
+                    @change="handleColorModeChange"
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                  >
+                    <option value="full-color">Full Color (4 Colors - CMYK)</option>
+                    <option value="three-color">Three Color (CMY)</option>
+                    <option value="two-color">Two Color (Custom)</option>
+                    <option value="one-color">One Color (Black/Custom)</option>
+                  </select>
+                </div>
+
+                <!-- Color Preview -->
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Color Preview
+                  </label>
+                  <div class="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-slate-700">
+                    <div v-if="colorMode === 'full-color'" class="flex gap-1">
+                      <div class="w-6 h-6 bg-cyan-500 rounded border" title="Cyan"></div>
+                      <div class="w-6 h-6 bg-magenta-500 rounded border" title="Magenta"></div>
+                      <div class="w-6 h-6 bg-yellow-400 rounded border" title="Yellow"></div>
+                      <div class="w-6 h-6 bg-black rounded border" title="Black"></div>
+                    </div>
+                    <div v-else-if="colorMode === 'three-color'" class="flex gap-1">
+                      <div class="w-6 h-6 bg-cyan-500 rounded border" title="Cyan"></div>
+                      <div class="w-6 h-6 bg-magenta-500 rounded border" title="Magenta"></div>
+                      <div class="w-6 h-6 bg-yellow-400 rounded border" title="Yellow"></div>
+                    </div>
+                    <div v-else-if="colorMode === 'two-color'" class="flex gap-1">
+                      <div 
+                        class="w-8 h-6 rounded border" 
+                        :style="{ backgroundColor: cmykToHex(customColor1CMYK) }"
+                        title="Primary Color"
+                      ></div>
+                      <div 
+                        class="w-8 h-6 rounded border" 
+                        :style="{ backgroundColor: cmykToHex(customColor2CMYK) }"
+                        title="Secondary Color"
+                      ></div>
+                    </div>
+                    <div v-else-if="colorMode === 'one-color'" class="flex gap-1">
+                      <div 
+                        class="w-8 h-6 rounded border" 
+                        :style="{ backgroundColor: cmykToHex(customColor1CMYK) }"
+                        title="Primary Color"
+                      ></div>
+                    </div>
+                    <span class="text-xs text-slate-600 dark:text-slate-400 ml-2">
+                      {{ getColorModeDescription() }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- CMYK Sliders for Custom Colors -->
+              <div v-if="colorMode === 'two-color' || colorMode === 'one-color'" class="mt-4 space-y-3">
+                <div class="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Adjust Primary Color (CMYK)
+                </div>
+                <div class="space-y-2">
+                  <div class="flex items-center gap-3">
+                    <label class="w-20 text-xs text-cyan-600 dark:text-cyan-400 font-medium">Cyan:</label>
+                    <input v-model.number="customColor1CMYK.c" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+                    <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor1CMYK.c }}%</span>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <label class="w-20 text-xs text-pink-600 dark:text-pink-400 font-medium">Magenta:</label>
+                    <input v-model.number="customColor1CMYK.m" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+                    <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor1CMYK.m }}%</span>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <label class="w-20 text-xs text-yellow-600 dark:text-yellow-400 font-medium">Yellow:</label>
+                    <input v-model.number="customColor1CMYK.y" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+                    <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor1CMYK.y }}%</span>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <label class="w-20 text-xs text-slate-800 dark:text-slate-300 font-medium">Black (K):</label>
+                    <input v-model.number="customColor1CMYK.k" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+                    <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor1CMYK.k }}%</span>
+                  </div>
+                </div>
+
+                <div v-if="colorMode === 'two-color'" class="mt-4">
+                  <div class="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Adjust Secondary Color (CMYK)
+                  </div>
+                  <div class="space-y-2">
+                    <div class="flex items-center gap-3">
+                      <label class="w-20 text-xs text-cyan-600 dark:text-cyan-400 font-medium">Cyan:</label>
+                      <input v-model.number="customColor2CMYK.c" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+                      <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor2CMYK.c }}%</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <label class="w-20 text-xs text-pink-600 dark:text-pink-400 font-medium">Magenta:</label>
+                      <input v-model.number="customColor2CMYK.m" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+                      <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor2CMYK.m }}%</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <label class="w-20 text-xs text-yellow-600 dark:text-yellow-400 font-medium">Yellow:</label>
+                      <input v-model.number="customColor2CMYK.y" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+                      <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor2CMYK.y }}%</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <label class="w-20 text-xs text-slate-800 dark:text-slate-300 font-medium">Black (K):</label>
+                      <input v-model.number="customColor2CMYK.k" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+                      <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor2CMYK.k }}%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <p class="text-xs text-orange-700 dark:text-orange-300 mt-3 flex items-start gap-1">
+                <svg class="w-3 h-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Select the color mode for your invoice. This affects printing costs and visual appearance. Full color provides the richest appearance.</span>
+              </p>
+            </div>
             
-             <!-- Organization Settings Section -->
-            <div class="md:col-span-2 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+            <!-- Organization Settings Section -->
+            <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
               <h3 class="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-3 flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -333,8 +468,6 @@
     </div>
   </div>
 </div>
-
-
 
               <p class="text-xs text-blue-700 dark:text-blue-300 mt-3 flex items-start gap-1">
                 <svg class="w-3 h-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -697,11 +830,16 @@
         :class="{ 'hidden md:flex': !showPreview }"
       >
         <!-- Mobile wrapper - scales down on mobile, full size on desktop -->
-        <div class="w-full flex items-center justify-center p-4">
+        <div class="w-full flex items-center justify-center" :style="{ 
+          transform: isMobile ? `scale(${mobileScale})` : 'none', 
+          transformOrigin: 'top center',
+          height: `${invoiceHeight}in`,
+          maxHeight: `${invoiceHeight}in`
+        }">
           <div
             ref="invoiceRef"
             id="meblink-invoice"
-            class="relative bg-white shadow-2xl border border-slate-200 dark:border-slate-700 p-6 flex flex-col mx-auto overflow-hidden"
+            class="relative bg-white shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col mx-auto overflow-hidden p-6"
             :style="invoiceDimensions"
           >
             <!-- Content Wrapper for Scaling -->
@@ -711,29 +849,55 @@
             <div class="flex items-center ">
               <!-- Logo (Fixed - Developer Only) -->
               <div v-if="logoDataUrl" class="flex justify-center mr-3">
-                <img :src="logoDataUrl" alt="ICAN Logo" class="h-[120px] object-contain" @error="logoDataUrl = null" />
+                <img 
+                  :src="logoDataUrl" 
+                  alt="Logo" 
+                  class="h-[120px] object-contain" 
+                  :style="{ filter: colorStyles.logoFilter }"
+                  @error="logoDataUrl = null" 
+                />
               </div>
               
             
                <!-- Organization Name (Now Editable by Users) -->
               <div class="w-auto max-w-[300px]">
                 <h2 
+                  v-if="organizationName"
                   :class="[
-                    'text-[14px] font-bold text-left',
-                    organizationName === '' ? 'text-gray-400' : 'text-blue-800'
+                    'text-[14px] font-bold text-left'
                   ]"
+                  :style="{ 
+                    color: colorStyles.organizationTextColor,
+                    fontFamily: 'Arial Narrow, Roboto Condensed, Oswald, sans-serif',
+                    fontWeight: 900,
+                    letterSpacing: '-0.5px',
+                    wordWrap: 'break-word',
+                    wordBreak: 'break-word',
+                    whiteSpace: 'normal'
+                  }"
+                >
+                  {{ organizationName }}
+                </h2>
+                <h2 
+                  v-else
+                  class="text-[14px] font-bold text-left text-gray-400"
                   style="font-family: 'Arial Narrow', 'Roboto Condensed', 'Oswald', sans-serif; font-weight: 900; letter-spacing: -0.5px; word-wrap: break-word; word-break: break-word; white-space: normal;"
                 >
-                  {{ organizationName || 'Enter organization name' }}
+                  Enter organization name
                 </h2>
                 <p 
-                  :class="[
-                    'text-[12px] text-left mt-[-8px]',
-                    organizationSubName === '' || organizationSubName === 'Enter organization subtitle' ? 'text-gray-400' : 'text-slate-900 dark:text-slate-100'
-                  ]"
+                  v-if="organizationSubName"
+                  class="text-[12px] text-left mt-[-8px] text-slate-900 dark:text-slate-100"
                   style="word-wrap: break-word; word-break: break-word; white-space: normal;"
                 >
-                  {{ organizationSubName || 'Enter organization subtitle' }}
+                  {{ organizationSubName }}
+                </p>
+                <p 
+                  v-else
+                  class="text-[12px] text-left mt-[-8px] text-gray-400"
+                  style="word-wrap: break-word; word-break: break-word; white-space: normal;"
+                >
+                  Enter organization subtitle
                 </p>
             </div>
             
@@ -741,24 +905,34 @@
           <div class="pl-3 ml-2 border-solid border-l-[2px] max-w-[200px]">
               <!-- Address (Now Editable by Users) -->
             <p 
-              :class="[
-                'text-[10px] text-left',
-                organizationAddress === '' ? 'text-gray-400' : 'text-slate-900 dark:text-slate-100'
-              ]"
+              v-if="organizationAddress"
+              class="text-[10px] text-left text-slate-900 dark:text-slate-100"
               style="word-wrap: break-word; word-break: break-word; white-space: normal;"
             >
-             <strong> Address: </strong>  {{ organizationAddress || 'Enter organization address' }}
+             <strong> Address: </strong> {{ organizationAddress }}
+            </p>
+            <p 
+              v-else
+              class="text-[10px] text-left text-gray-400"
+              style="word-wrap: break-word; word-break: break-word; white-space: normal;"
+            >
+             <strong> Address: </strong> Enter organization address
             </p>
             
             <!-- Phone (Now Editable by Users) -->
             <p 
-              :class="[
-                'text-[10px] text-left mt-1 font-bold',
-                organizationPhone === '' ? 'text-gray-400' : 'text-slate-900 dark:text-slate-100'
-              ]"
+              v-if="organizationPhone"
+              class="text-[10px] text-left mt-1 font-bold text-slate-900 dark:text-slate-100"
               style="word-wrap: break-word; word-break: break-word; white-space: normal;"
             >
-              Tel: {{ organizationPhone || 'Enter phone number' }}
+              Tel: {{ organizationPhone }}
+            </p>
+            <p 
+              v-else
+              class="text-[10px] text-left mt-1 font-bold text-gray-400"
+              style="word-wrap: break-word; word-break: break-word; white-space: normal;"
+            >
+              Tel: Enter phone number
             </p>
           </div>
   
@@ -766,7 +940,13 @@
   
             <!-- Receipt Title -->
             <div class="flex justify-end items-center mt-[10px] mb-2">
-              <p class="text-sm font-semibold mr-[60px] bg-red-500 text-white inline-block px-3 py-1 rounded">
+              <p 
+                class="text-sm font-semibold mr-[60px] inline-block px-3 py-1 rounded"
+                :style="{
+                  background: colorStyles.accentColor,
+                  color: colorStyles.headerText
+                }"
+              >
                 CASH/CREDIT INVOICE
               </p>
               
@@ -787,7 +967,12 @@
   
           <!-- Customer details -->
           <div class="mt-2 grid grid-cols-3 gap-3">
-            <div class="border-[1.5px] col-span-2 rounded-xl p-1.5">
+            <div 
+              class="col-span-2 rounded-xl p-1.5"
+              :style="{
+                border: `1.5px solid ${colorStyles.borderColor}`
+              }"
+            >
               <div class="flex items-center gap-1">
               <span class="text-[10px] text-slate-400 font-medium">Name:</span>
               <div class="print-only flex-1 text-[11px]">{{ customerName || '-' }}</div>
@@ -809,7 +994,12 @@
             </div>
             </div>
   
-            <div class="border-[1.5px] rounded-xl p-1.5">
+            <div 
+              class="rounded-xl p-1.5"
+              :style="{
+                border: `1.5px solid ${colorStyles.borderColor}`
+              }"
+            >
               <div class="flex items-center gap-1">
              <span class="text-[10px] text-slate-400 font-medium">Date:</span>
              <div class="print-only text-[11px]">{{ date || '-' }}</div>
@@ -839,7 +1029,13 @@
           <!-- Table -->
           <div class="mt-3 overflow-visible rounded relative">
             <table class="w-full text-xs table-fixed border-collapse overflow-visible">
-              <thead class="bg-blue-800 text-white uppercase text-[10px]">
+              <thead 
+                class="uppercase text-[10px]"
+                :style="{
+                  background: colorStyles.tableHeaderBg,
+                  color: colorStyles.tableHeaderText
+                }"
+              >
                 <tr>
                   <th class="w-[7%] px-1.5 py-1 border text-center">QTY</th>
                   <th class="w-[56%] px-1.5 py-1 border text-left">DESCRIPTION OF GOODS</th>
@@ -1154,6 +1350,44 @@ export default defineComponent({
     const invoiceWidth = ref(5.827); // Default A5 landscape width
     const invoiceHeight = ref(8.268); // Default A5 landscape height
 
+    // CMYK Color settings
+    const colorMode = ref('full-color'); // Default to full color
+    // CMYK values: Cyan, Magenta, Yellow, Key (Black) - each 0-100
+    const customColor1CMYK = ref({ c: 0, m: 0, y: 0, k: 100 }); // Black by default
+    const customColor2CMYK = ref({ c: 100, m: 50, y: 0, k: 0 }); // Blue by default
+
+    // Convert CMYK (0-100) to RGB (0-255) for display
+    const cmykToRgb = (c, m, y, k) => {
+      c = c / 100;
+      m = m / 100;
+      y = y / 100;
+      k = k / 100;
+      
+      const r = 255 * (1 - c) * (1 - k);
+      const g = 255 * (1 - m) * (1 - k);
+      const b = 255 * (1 - y) * (1 - k);
+      
+      return {
+        r: Math.round(r),
+        g: Math.round(g),
+        b: Math.round(b)
+      };
+    };
+
+    // Convert RGB to hex for CSS
+    const rgbToHex = (r, g, b) => {
+      return '#' + [r, g, b].map(x => {
+        const hex = x.toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+      }).join('');
+    };
+
+    // Get hex color from CMYK
+    const cmykToHex = (cmyk) => {
+      const rgb = cmykToRgb(cmyk.c, cmyk.m, cmyk.y, cmyk.k);
+      return rgbToHex(rgb.r, rgb.g, rgb.b);
+    };
+
     // Calculate scale for mobile devices
     const calculateMobileScale = () => {
       if (typeof window !== 'undefined') {
@@ -1200,12 +1434,102 @@ export default defineComponent({
       calculateMobileScale();
     };
 
+    // Handle color mode changes
+    const handleColorModeChange = () => {
+      // Reset CMYK colors when changing mode
+      if (colorMode.value === 'one-color') {
+        customColor1CMYK.value = { c: 0, m: 0, y: 0, k: 100 }; // Black
+      } else if (colorMode.value === 'two-color') {
+        customColor1CMYK.value = { c: 0, m: 0, y: 0, k: 100 }; // Black
+        customColor2CMYK.value = { c: 100, m: 50, y: 0, k: 0 }; // Blue
+      }
+    };
+
+    // Get color mode description
+    const getColorModeDescription = () => {
+      switch (colorMode.value) {
+        case 'full-color':
+          return 'Full CMYK color printing';
+        case 'three-color':
+          return 'CMY color printing (no black)';
+        case 'two-color':
+          return 'Two custom colors';
+        case 'one-color':
+          return 'Single color printing';
+        default:
+          return '';
+      }
+    };
+
     // Computed property for invoice dimensions
     const invoiceDimensions = computed(() => ({
       width: isMobile.value ? '100%' : `${invoiceWidth.value}in`,
       height: `${invoiceHeight.value}in`,
-      minWidth: isMobile.value ? '100%' : `${invoiceWidth.value}in`
+      minHeight: `${invoiceHeight.value}in`,
+      minWidth: isMobile.value ? '100%' : `${invoiceWidth.value}in`,
+      maxWidth: isMobile.value ? '100%' : `${invoiceWidth.value}in`
     }));
+
+    // Computed property for color styles based on selected color mode
+    const colorStyles = computed(() => {
+      const styles = {};
+      
+      // Convert CMYK to hex for CSS
+      const color1Hex = cmykToHex(customColor1CMYK.value);
+      const color2Hex = cmykToHex(customColor2CMYK.value);
+      
+      switch (colorMode.value) {
+        case 'full-color':
+          // Full CMYK - no color restrictions
+          styles.headerBg = 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)';
+          styles.headerText = '#ffffff';
+          styles.tableHeaderBg = '#1e40af';
+          styles.tableHeaderText = '#ffffff';
+          styles.accentColor = '#3b82f6';
+          styles.borderColor = '#e2e8f0';
+          styles.organizationTextColor = '#1e40af';
+          styles.logoFilter = 'none';
+          break;
+          
+        case 'three-color':
+          // CMY (no black) - use cyan, magenta, yellow
+          styles.headerBg = 'linear-gradient(135deg, #00bcd4 0%, #ff4081 100%)';
+          styles.headerText = '#ffffff';
+          styles.tableHeaderBg = '#00bcd4';
+          styles.tableHeaderText = '#ffffff';
+          styles.accentColor = '#ff4081';
+          styles.borderColor = '#e2e8f0';
+          styles.organizationTextColor = '#00bcd4';
+          styles.logoFilter = 'sepia(100%) hue-rotate(160deg) saturate(300%)';
+          break;
+          
+        case 'two-color':
+          // Two custom CMYK colors
+          styles.headerBg = `linear-gradient(135deg, ${color1Hex} 0%, ${color2Hex} 100%)`;
+          styles.headerText = '#ffffff';
+          styles.tableHeaderBg = color1Hex;
+          styles.tableHeaderText = '#ffffff';
+          styles.accentColor = color2Hex;
+          styles.borderColor = color1Hex;
+          styles.organizationTextColor = color1Hex;
+          styles.logoFilter = `grayscale(100%) sepia(100%) saturate(300%) brightness(0.8)`;
+          break;
+          
+        case 'one-color':
+          // Single CMYK color (typically black or custom)
+          styles.headerBg = color1Hex;
+          styles.headerText = '#ffffff';
+          styles.tableHeaderBg = color1Hex;
+          styles.tableHeaderText = '#ffffff';
+          styles.accentColor = color1Hex;
+          styles.borderColor = color1Hex;
+          styles.organizationTextColor = color1Hex;
+          styles.logoFilter = `grayscale(100%)`;
+          break;
+      }
+      
+      return styles;
+    });
 
     // Watch for size changes to recalculate scaling
     watch([invoiceWidth, invoiceHeight], () => {
@@ -1218,21 +1542,34 @@ export default defineComponent({
       const baseWidth = 5.827;
       const baseHeight = 8.268;
       
-      // Calculate scale factors
+      // Calculate scale factors to fit content within the new dimensions
       const widthScale = invoiceWidth.value / baseWidth;
       const heightScale = invoiceHeight.value / baseHeight;
       
-      // Use the smaller scale factor to ensure content fits
-      return Math.min(widthScale, heightScale, 1.2); // Cap at 1.2x for readability
+      // Use the smaller scale factor to ensure content fits proportionally
+      // Remove the 1.2 cap to allow proper scaling for larger sizes
+      return Math.min(widthScale, heightScale);
     });
 
-    // Computed styles for content scaling
-    const scaledContentStyles = computed(() => ({
-      transform: `scale(${contentScale.value})`,
-      transformOrigin: 'top left',
-      width: `${100 / contentScale.value}%`,
-      height: `${100 / contentScale.value}%`
-    }));
+    // Computed styles for content scaling - using font-size scaling instead of transform
+    const scaledContentStyles = computed(() => {
+      // Calculate effective scale considering mobile scaling
+      const effectiveScale = isMobile.value ? 
+        Math.min(contentScale.value, 1.0) : // On mobile, don't exceed 1x scale
+        contentScale.value; // On desktop, use full content scale
+        
+      return {
+        fontSize: `${effectiveScale * 100}%`, // Scale font size instead of transforming
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between', // Distribute content evenly in height
+        overflow: 'visible',
+        padding: '0',
+        margin: '0'
+      };
+    });
 
     // Editable organization details (Users can now change these)
     const organizationAddress = ref('');
@@ -1553,24 +1890,52 @@ export default defineComponent({
         const INVOICE_WIDTH = invoiceWidth.value; // inches
         const INVOICE_HEIGHT = invoiceHeight.value; // inches
         
-        // Store original styles
-        const originalWidth = invoiceRef.value.style.width;
-        const originalHeight = invoiceRef.value.style.height;
-        const originalTransform = invoiceRef.value.style.transform;
-        const originalBackground = invoiceRef.value.style.backgroundColor;
+        // Create a clone of the invoice for export to avoid visual changes
+        const originalElement = invoiceRef.value;
+        const clone = originalElement.cloneNode(true);
         
-        // Force exact dimensions and white background for export
-        invoiceRef.value.style.width = `${INVOICE_WIDTH}in`;
-        invoiceRef.value.style.height = `${INVOICE_HEIGHT}in`;
-        invoiceRef.value.style.transform = 'none';
-        invoiceRef.value.style.backgroundColor = '#ffffff';
-        invoiceRef.value.classList.add('exporting');
+        // Style the clone for export without affecting the original
+        clone.style.width = `${INVOICE_WIDTH}in`;
+        clone.style.height = `${INVOICE_HEIGHT}in`;
+        clone.style.transform = 'none';
+        clone.style.backgroundColor = '#ffffff';
+        clone.style.position = 'fixed';
+        clone.style.top = '-9999px';
+        clone.style.left = '-9999px';
+        clone.style.zIndex = '-1';
+        clone.classList.add('exporting');
         
-        // Wait a moment for styles to apply
+        // Remove any scaling from the clone's content wrapper
+        const contentWrapper = clone.querySelector('.invoice-content-wrapper');
+        if (contentWrapper) {
+          contentWrapper.style.width = '100%';
+          contentWrapper.style.height = '100%';
+          contentWrapper.style.fontSize = '100%'; // Reset to base font size for export
+          contentWrapper.style.display = 'flex';
+          contentWrapper.style.flexDirection = 'column';
+          contentWrapper.style.justifyContent = 'space-between';
+          contentWrapper.style.overflow = 'visible';
+        }
+        
+        // Hide empty placeholder elements by checking their text content
+        const textElements = clone.querySelectorAll('h2, p');
+        textElements.forEach(el => {
+          const text = el.textContent?.trim() || '';
+          if (text.includes('Enter organization name') || 
+              text.includes('Enter organization subtitle') || 
+              text.includes('Enter organization address') ||
+              text.includes('Enter phone number')) {
+            el.style.display = 'none';
+          }
+        });
+        
+        // Append clone to body
+        document.body.appendChild(clone);
+        
         await new Promise(resolve => setTimeout(resolve, 150));
         
-        // Export the invoice
-        const element = invoiceRef.value;
+        // Export using the clone
+        const element = clone;
         const filename = `ICAN-Invoice-${receiptNumber.value || Date.now()}.pdf`;
         const options = {
           margin: 0,
@@ -1596,20 +1961,19 @@ export default defineComponent({
         
         alert('✅ Invoice exported as PDF successfully!');
         
-        // Restore original styles
-        invoiceRef.value.style.width = originalWidth;
-        invoiceRef.value.style.height = originalHeight;
-        invoiceRef.value.style.transform = originalTransform;
-        invoiceRef.value.style.backgroundColor = originalBackground;
-        invoiceRef.value.classList.remove('exporting');
+        // Clean up clone
+        document.body.removeChild(clone);
       } catch (error) {
         console.error('Error exporting PDF:', error);
         alert(`❌ Failed to export PDF: ${error.message}`);
       } finally {
-        // Remove exporting class to restore mobile styles
-        if (invoiceRef.value) {
-          invoiceRef.value.classList.remove('exporting');
-        }
+        // Clean up any remaining clones
+        const clones = document.querySelectorAll('#meblink-invoice.exporting');
+        clones.forEach(clone => {
+          if (clone !== invoiceRef.value && clone.parentNode) {
+            clone.parentNode.removeChild(clone);
+          }
+        });
         isExporting.value = false;
         exportType.value = '';
       }
@@ -1626,24 +1990,53 @@ export default defineComponent({
         const INVOICE_WIDTH = invoiceWidth.value; // inches
         const INVOICE_HEIGHT = invoiceHeight.value; // inches
         
-        // Store original styles
-        const originalWidth = invoiceRef.value.style.width;
-        const originalHeight = invoiceRef.value.style.height;
-        const originalTransform = invoiceRef.value.style.transform;
-        const originalBackground = invoiceRef.value.style.backgroundColor;
+        // Create a clone of the invoice for export to avoid visual changes
+        const originalElement = invoiceRef.value;
+        const clone = originalElement.cloneNode(true);
         
-        // Force exact dimensions and white background for export
-        invoiceRef.value.style.width = `${INVOICE_WIDTH}in`;
-        invoiceRef.value.style.height = `${INVOICE_HEIGHT}in`;
-        invoiceRef.value.style.transform = 'none';
-        invoiceRef.value.style.backgroundColor = '#ffffff';
-        invoiceRef.value.classList.add('exporting');
+        // Style the clone for export without affecting the original
+        clone.style.width = `${INVOICE_WIDTH}in`;
+        clone.style.height = `${INVOICE_HEIGHT}in`;
+        clone.style.transform = 'none';
+        clone.style.backgroundColor = '#ffffff';
+        clone.style.position = 'fixed';
+        clone.style.top = '-9999px';
+        clone.style.left = '-9999px';
+        clone.style.zIndex = '-1';
+        clone.classList.add('exporting');
+        
+        // Remove any scaling from the clone's content wrapper
+        const contentWrapper = clone.querySelector('.invoice-content-wrapper');
+        if (contentWrapper) {
+          contentWrapper.style.width = '100%';
+          contentWrapper.style.height = '100%';
+          contentWrapper.style.fontSize = '100%'; // Reset to base font size for export
+          contentWrapper.style.display = 'flex';
+          contentWrapper.style.flexDirection = 'column';
+          contentWrapper.style.justifyContent = 'space-between';
+          contentWrapper.style.overflow = 'visible';
+        }
+        
+        // Hide empty placeholder elements by checking their text content
+        const textElements = clone.querySelectorAll('h2, p');
+        textElements.forEach(el => {
+          const text = el.textContent?.trim() || '';
+          if (text.includes('Enter organization name') || 
+              text.includes('Enter organization subtitle') || 
+              text.includes('Enter organization address') ||
+              text.includes('Enter phone number')) {
+            el.style.display = 'none';
+          }
+        });
+        
+        // Append clone to body
+        document.body.appendChild(clone);
         
         // Wait a moment for styles to apply
         await new Promise(resolve => setTimeout(resolve, 150));
         
-        // Export the invoice
-        const dataUrl = await htmlToImage.toJpeg(invoiceRef.value, { 
+        // Export using the clone
+        const dataUrl = await htmlToImage.toJpeg(clone, { 
           quality: 0.98, 
           pixelRatio: 5, // Increased from 3 to 5 for higher resolution
           cacheBust: true,
@@ -1661,20 +2054,19 @@ export default defineComponent({
         
         alert('✅ Invoice exported as JPEG successfully!');
         
-        // Restore original styles
-        invoiceRef.value.style.width = originalWidth;
-        invoiceRef.value.style.height = originalHeight;
-        invoiceRef.value.style.transform = originalTransform;
-        invoiceRef.value.style.backgroundColor = originalBackground;
-        invoiceRef.value.classList.remove('exporting');
+        // Clean up clone
+        document.body.removeChild(clone);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         alert(`❌ Failed to export JPEG: ${errorMessage}`);
       } finally {
-        // Remove exporting class to restore mobile styles
-        if (invoiceRef.value) {
-          invoiceRef.value.classList.remove('exporting');
-        }
+        // Clean up any remaining clones
+        const clones = document.querySelectorAll('#meblink-invoice.exporting');
+        clones.forEach(clone => {
+          if (clone !== invoiceRef.value && clone.parentNode) {
+            clone.parentNode.removeChild(clone);
+          }
+        });
         isExporting.value = false;
         exportType.value = '';
       }
@@ -2061,6 +2453,16 @@ export default defineComponent({
       handleSignature1Change,
       handleSignature2Change,
       handleCreateSignature,
+      // CMYK Color settings
+      colorMode,
+      customColor1CMYK,
+      customColor2CMYK,
+      cmykToRgb,
+      rgbToHex,
+      cmykToHex,
+      handleColorModeChange,
+      getColorModeDescription,
+      colorStyles,
     };
   },
 });
@@ -2071,11 +2473,55 @@ export default defineComponent({
 .invoice-content-wrapper {
   transition: transform 0.3s ease;
   transform-origin: top left;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+  box-sizing: border-box;
+  flex-direction: column;
 }
 
 /* Ensure content fits properly */
 #meblink-invoice {
   transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Invoice Content Wrapper Styles */
+.invoice-content-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  transform-origin: top left;
+  position: relative;
+}
+
+/* Mobile responsive content scaling */
+@media (max-width: 768px) {
+  .invoice-content-wrapper {
+    /* Ensure content scales properly within the mobile wrapper */
+    min-width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  
+  /* Ensure invoice container fits properly on mobile */
+  #meblink-invoice {
+    max-width: 100%;
+    min-height: auto;
+    overflow: hidden;
+  }
+  
+  /* Mobile wrapper should contain scaled content */
+  section .w-full.flex.items-center.justify-center.p-4 {
+    overflow-x: auto;
+    overflow-y: visible;
+    justify-content: flex-start;
+  }
 }
 
 /* Prevent content overflow during scaling */
@@ -2238,6 +2684,26 @@ table th {
 
 tbody tr {
   animation: slideIn 0.3s ease-out;
+}
+
+/* Export-specific styles - Maintain natural layout during export */
+#meblink-invoice.exporting {
+  overflow: visible !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+#meblink-invoice.exporting .invoice-content-wrapper {
+  transform: none !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+}
+
+/* Ensure content fits naturally within export dimensions */
+#meblink-invoice.exporting * {
+  box-sizing: border-box;
 }
 
 /* Mobile invoice preview styles - Only apply when NOT exporting */
@@ -2434,6 +2900,42 @@ tbody tr {
   background-color: #1e40af !important; /* Blue-800 background */
   color: white !important;
 }
+
+/* Export-specific styles - maintain natural layout and user-defined dimensions */
+#meblink-invoice.exporting {
+  transform: none !important;
+  max-width: none !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+#meblink-invoice.exporting .invoice-content-wrapper {
+  transform: none !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  transform-origin: top left !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Ensure content expands to fill available space during export */
+#meblink-invoice.exporting {
+  font-size: calc(var(--invoice-scale, 1) * 1rem) !important;
+}
+
+/* Scale content proportionally based on invoice dimensions */
+#meblink-invoice.exporting .text-xs { font-size: calc(var(--invoice-scale, 1) * 0.75rem) !important; }
+#meblink-invoice.exporting .text-sm { font-size: calc(var(--invoice-scale, 1) * 0.875rem) !important; }
+#meblink-invoice.exporting .text-base { font-size: calc(var(--invoice-scale, 1) * 1rem) !important; }
+#meblink-invoice.exporting .text-lg { font-size: calc(var(--invoice-scale, 1) * 1.125rem) !important; }
+#meblink-invoice.exporting .text-xl { font-size: calc(var(--invoice-scale, 1) * 1.25rem) !important; }
+#meblink-invoice.exporting .text-2xl { font-size: calc(var(--invoice-scale, 1) * 1.5rem) !important; }
+#meblink-invoice.exporting .text-3xl { font-size: calc(var(--invoice-scale, 1) * 1.875rem) !important; }
 
 /* Remove focus rings and outlines from inputs/textareas during normal view */
 #meblink-invoice:not(.exporting) input:focus,
