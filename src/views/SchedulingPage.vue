@@ -1,18 +1,19 @@
 <template>
   <div class="scheduling-page">
-    <!-- Breadcrumb -->
-    <div class="breadcrumb-wrapper">
-      <div class="breadcrumb">
-        <router-link to="/home" class="breadcrumb-link">Home</router-link>
-        <span class="breadcrumb-separator">›</span>
-        <span class="breadcrumb-current">Schedule Selector</span>
-      </div>
-    </div>
-
+    
     <!-- Main Content -->
     <div class="scheduling-content">
       <!-- Unified Button Group -->
       <div class="action-bar">
+        
+        <!-- Breadcrumb -->
+  <div class="breadcrumb-wrapper">
+    <div class="breadcrumb">
+      <router-link to="/home" class="breadcrumb-link">Home</router-link>
+      <span class="breadcrumb-separator">›</span>
+      <span class="breadcrumb-current">Schedule Selector</span>
+    </div>
+  </div>
         <div class="button-group">
           <button type="button" :class="btnClasses('today')" @click="selection = 'today'">
             Today
@@ -417,8 +418,9 @@ function isSelected(day: number | null) {
 /* Breadcrumb */
 .breadcrumb-wrapper {
   background: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  padding: 1.5rem 3rem;
+  border-bottom: solid 1px #e2e8f0;
+  padding: 0.5rem 3rem;
+  width: 100%;
 }
 
 .breadcrumb {
@@ -449,7 +451,7 @@ function isSelected(day: number | null) {
 
 /* Main Content */
 .scheduling-content {
-  padding: 2rem 3rem;
+  padding: 0.75rem 3rem 2rem 3rem;
   max-width: 1600px;
   margin: 0 auto;
 }
@@ -457,15 +459,13 @@ function isSelected(day: number | null) {
 /* Action Bar */
 .action-bar {
   background: white;
-  padding: 1.5rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .button-group {
