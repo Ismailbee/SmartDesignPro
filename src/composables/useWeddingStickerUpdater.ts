@@ -561,13 +561,23 @@ export function useWeddingStickerUpdater() {
    * Returns the extracted text as-is (preserves original capitalization and spacing)
    */
   const extractCourtesy = (description: string): string | null => {
+    // Helper function to capitalize first letter of each word
+    const capitalizeWords = (text: string): string => {
+      return text.split(' ').map(word => {
+        if (word.length === 0) return word
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+      }).join(' ')
+    }
+
     // Pattern 1: "courtesy:" followed by ANY text (case-insensitive)
     // Captures everything after "courtesy:" until end of line or period/comma
     const courtesyPattern = /courtesy:\s*([^\n]+?)(?:\s*$|\.|\n)/i
     const courtesyMatch = description.match(courtesyPattern)
 
     if (courtesyMatch && courtesyMatch[1]) {
-      return courtesyMatch[1].trim()
+      const courtesyText = courtesyMatch[1].trim()
+      // Capitalize first letter of each word
+      return capitalizeWords(courtesyText)
     }
 
     // Pattern 2: "coutesy:" (common misspelling) followed by ANY text
@@ -575,7 +585,9 @@ export function useWeddingStickerUpdater() {
     const misspelledMatch = description.match(misspelledPattern)
 
     if (misspelledMatch && misspelledMatch[1]) {
-      return misspelledMatch[1].trim()
+      const courtesyText = misspelledMatch[1].trim()
+      // Capitalize first letter of each word
+      return capitalizeWords(courtesyText)
     }
 
     // Pattern 3: "cut-cee:" followed by ANY text (case-insensitive)
@@ -583,7 +595,9 @@ export function useWeddingStickerUpdater() {
     const cutCeeMatch = description.match(cutCeePattern)
 
     if (cutCeeMatch && cutCeeMatch[1]) {
-      return cutCeeMatch[1].trim()
+      const courtesyText = cutCeeMatch[1].trim()
+      // Capitalize first letter of each word
+      return capitalizeWords(courtesyText)
     }
 
     return null
@@ -672,57 +686,160 @@ export function useWeddingStickerUpdater() {
       replacement: { name1: formattedName1, name2: formattedName2 }
     })
 
-    // Adjust x position based on character length
+    // Adjust x and y positions based on character length
     const name1Length = formattedName1.length
     const name2Length = formattedName2.length
     
-    // First name always uses default position
-    const name1XPosition = '-30'
-
-    // Separator always uses default position
-    const separatorXPosition = '-50.3'
+    // Check if first name is 4-6 letters AND second name is 7 letters or more
+    // OR if first name is 3 letters AND second name is 4+ letters
+    // This triggers position shift: & moves to name1's y-position, name2 x moves to & x-position
+    const shouldShiftPositions = (name1Length >= 4 && name1Length <= 6 && name2Length >= 7) || (name1Length === 3 && name2Length >= 4)
     
-    // Second name always uses default position
-    const name2XPosition = '30.23'
+    // Check if either name is 10+ letters - move all elements left
+    const hasVeryLongName = name1Length >= 10 || name2Length >= 10
+    const leftShift = hasVeryLongName ? 30 : 0  // Move left by 30 units if very long name
+    
+    // Check if first name is 7 letters AND second name is 9+ letters - move first name right
+    const shouldShiftName1Right = name1Length === 7 && name2Length >= 9
+    const name1RightShift = shouldShiftName1Right ? 10 : 0  // Move right by 10 units
+    
+    // Check if first name is 4 letters AND second name is 7+ letters - move first name right after & shifts
+    const shouldShiftName1RightAfterSeparator = name1Length === 4 && name2Length >= 7
+    const name1ExtraRightShift = shouldShiftName1RightAfterSeparator ? 15 : 0  // Move right by 15 units
+    
+    // Check if first name is 7+ letters AND second name is 4-5 letters - move & and name2 right
+    // OR if first name is 10+ letters AND second name is 5-7 letters - use same positions as 10+ & 4
+    const shouldShiftSeparatorAndName2Right = (name1Length >= 7 && name2Length >= 4 && name2Length <= 5) || (name1Length >= 10 && name2Length >= 5 && name2Length <= 7)
+    const separatorAndName2RightShift = shouldShiftSeparatorAndName2Right ? 90 : 0  // Move right by 90 units
+    
+    // Check if first name is 6 letters starting with "M" AND second name is 8+ letters - move & right
+    const startsWithM = formattedName1.charAt(0).toUpperCase() === 'M'
+    const shouldShiftSeparatorForM = name1Length === 6 && startsWithM && name2Length >= 8
+    const separatorExtraRightShift = shouldShiftSeparatorForM ? 30 : 0  // Move right by 30 units
+    
+    // Check if first name is 6-8 letters AND second name is 10+ letters - move first name & separator right
+    const shouldShiftName1AndSeparatorRight = name1Length >= 6 && name1Length <= 8 && name2Length >= 10
+    const name1AndSeparatorExtraShift = shouldShiftName1AndSeparatorRight ? 35 : 0  // Move right by 35 units
+    
+    // Check if first name is 6 letters AND second name is 7+ letters - move first name right
+    // Exception: if first name is 6 AND second name is exactly 7 or 8, handle separately
+    const shouldShiftName1RightFor6And7Plus = name1Length === 6 && name2Length >= 9
+    const name1RightShiftFor6And7Plus = shouldShiftName1RightFor6And7Plus ? 20 : 0  // Move right by 20 units
+    
+    // Check if first name is 6 letters AND second name is exactly 7 letters - move first name left, & right
+    const shouldShiftFor6And7 = name1Length === 6 && name2Length === 7
+    const name1LeftShiftFor6And7 = shouldShiftFor6And7 ? -15 : 0  // Move first name left by 15 units
+    const separatorRightShiftFor6And7 = shouldShiftFor6And7 ? 20 : 0  // Move & right by 20 units
+    
+    // Check if first name is 6 letters AND second name is exactly 8 letters - move & right more
+    const shouldShiftSeparatorFor6And8 = name1Length === 6 && name2Length === 8
+    const separatorExtraShiftFor6And8 = shouldShiftSeparatorFor6And8 ? 15 : 0  // Move & right by 15 units
+    
+    // First name position - adjust left if very long name, or right if 7 + 9+ condition, or right if 4 + 7+ condition, or right if 6-8 + 10+ condition, or right if 6 + 9+ condition, or left if 6 + 7 condition
+    const name1XPosition = String(-30 - leftShift + name1RightShift + name1ExtraRightShift + name1AndSeparatorExtraShift + name1RightShiftFor6And7Plus + name1LeftShiftFor6And7)
+    const name1YPosition = '90'  // Moved down by 10 units (from 80 to 90)
 
-    // Font size reduction: If either name has 8+ letters, reduce font size by 3 points
+    // Determine separator x position based on conditions:
+    // - If first name is 4 letters AND second name is 7+ letters: x="155"
+    // - If first name is 3 letters AND second name is 4+ letters: x="155" (same as 4 + 7)
+    // - If first name is 3 letters AND second name is 8+ letters: x="155"
+    // - If first name is 5-6 letters AND second name is 7 letters: x="260" (same as 6 + 8+)
+    // - Otherwise if shift triggered: x="260"
+    // - Default (no shift): x="-50.3"
+    let separatorXPosition = '-50.3'  // Default position
+    if (shouldShiftPositions) {
+      if ((name1Length === 4 && name2Length >= 7) || (name1Length === 3 && name2Length >= 4)) {
+        separatorXPosition = String(155 - leftShift + separatorAndName2RightShift + separatorExtraRightShift + name1AndSeparatorExtraShift + separatorExtraShiftFor6And8 + separatorRightShiftFor6And7)  // 4-letter first name with 7+ second name, or 3-letter first name with 4+
+      } else if ((name1Length >= 5 && name1Length <= 6 && name2Length === 7)) {
+        separatorXPosition = String(260 - leftShift + separatorAndName2RightShift + separatorExtraRightShift + name1AndSeparatorExtraShift + separatorExtraShiftFor6And8 + separatorRightShiftFor6And7)  // 5-6 letter first name with 7-letter second name (same as 6 + 8+)
+      } else {
+        separatorXPosition = String(260 - leftShift + separatorAndName2RightShift + separatorExtraRightShift + name1AndSeparatorExtraShift + separatorExtraShiftFor6And8 + separatorRightShiftFor6And7)  // Other shift conditions
+      }
+    } else {
+      separatorXPosition = String(-50.3 - leftShift + separatorAndName2RightShift + separatorExtraRightShift + name1AndSeparatorExtraShift)  // Apply left shift to default position too
+    }
+    
+    const separatorYPosition = shouldShiftPositions ? '90' : '160.4'  // Moved down by 10 units (from 80 to 90, from 150.4 to 160.4)
+    
+    // Additional shift for second name if first name is 4-6 letters AND second name is 8+ letters
+    const shouldShiftName2Left = name1Length >= 4 && name1Length <= 6 && name2Length >= 8
+    const name2ExtraShift = shouldShiftName2Left ? 10 : 0  // Extra 10 units left for second name
+    
+    const name2XPosition = shouldShiftPositions ? String(-50.3 - leftShift - name2ExtraShift + separatorAndName2RightShift) : String(30.23 - leftShift - name2ExtraShift + separatorAndName2RightShift)
+    const name2YPosition = '158'  // Moved down by 10 units (from 148 to 158)
+
+    // Font size adjustment logic:
+    // - If first name is 4 letters AND second name is 4-5 letters: increase font size by 15 points (85px)
+    // - If both names are exactly 4 letters: increase font size by 15 points (85px)
+    // - If either name has 8+ letters: reduce font size by 3 points (67px)
+    // - Otherwise: keep base font size (70px)
+    const bothNames4Letters = name1Length === 4 && name2Length === 4
+    const name1Is4AndName2Is4to5 = name1Length === 4 && name2Length >= 4 && name2Length <= 5
     const hasLongName = name1Length >= 8 || name2Length >= 8
     const baseFontSize = 70
+    const increasedFontSize = baseFontSize + 15  // 85px
     const reducedFontSize = baseFontSize - 3  // 67px
-    const fontSize = hasLongName ? reducedFontSize : baseFontSize
+    
+    let fontSize = baseFontSize
+    if (name1Is4AndName2Is4to5) {
+      fontSize = increasedFontSize
+    } else if (hasLongName) {
+      fontSize = reducedFontSize
+    }
 
     console.log(`📏 First name length: ${name1Length} characters, Second name length: ${name2Length} characters`)
-    console.log(`📍 Setting x position for name1-first: ${name1XPosition}`)
-    console.log(`📍 Setting x position for separator: ${separatorXPosition}`)
-    console.log(`📍 Setting x position for name2-first: ${name2XPosition}`)
-    console.log(`📐 Font size adjustment: ${hasLongName ? `Reducing to ${fontSize}px (8+ letters detected)` : `Keeping ${fontSize}px (both names < 8 letters)`}`)
+    console.log(`↔️ Very long name (10+): ${hasVeryLongName ? 'YES - All elements shifted left by 30 units' : 'NO'}`)
+    console.log(`↔️ Name1 right shift (7 + 9+): ${shouldShiftName1Right ? 'YES - First name shifted right by 10 units' : 'NO'}`)
+    console.log(`↔️ Name1 extra right shift (4 + 7+): ${shouldShiftName1RightAfterSeparator ? 'YES - First name shifted right by 15 units after & shift' : 'NO'}`)
+    console.log(`↔️ Name1 & Separator right shift (6-8 + 10+): ${shouldShiftName1AndSeparatorRight ? 'YES - First name and & shifted right by 35 units' : 'NO'}`)
+    console.log(`↔️ Name1 right shift (6 + 9+): ${shouldShiftName1RightFor6And7Plus ? 'YES - First name shifted right by 20 units' : 'NO'}`)
+    console.log(`↔️ Special shift (6 + 7 only): ${shouldShiftFor6And7 ? 'YES - First name shifted left by 15 units, & shifted right by 20 units' : 'NO'}`)
+    console.log(`↔️ Separator right shift (6 + 8 only): ${shouldShiftSeparatorFor6And8 ? 'YES - & shifted right by 15 units, first name returns to default' : 'NO'}`)
+    console.log(`↔️ Name2 extra shift (4-6 + 8+): ${shouldShiftName2Left ? 'YES - Second name shifted left by extra 10 units' : 'NO'}`)
+    console.log(`↔️ Separator & Name2 right shift (7+ & 4-5 OR 10+ & 5-7): ${shouldShiftSeparatorAndName2Right ? 'YES - & and second name shifted right by 90 units' : 'NO'}`)
+    console.log(`↔️ Separator right shift (6 letters starting with M & 8+): ${shouldShiftSeparatorForM ? 'YES - & shifted right by 30 units' : 'NO'}`)
+    console.log(`📍 Position shift: ${shouldShiftPositions ? `YES - & moves to x=${separatorXPosition} y=80, name2 x moves to & x-position` : 'NO - using default positions'}`)
+    console.log(`📍 Setting position for name1-first: x=${name1XPosition}, y=${name1YPosition}`)
+    console.log(`📍 Setting position for separator: x=${separatorXPosition}, y=${separatorYPosition}`)
+    console.log(`📍 Setting position for name2-first: x=${name2XPosition}, y=${name2YPosition}`)
+    console.log(`📐 Font size adjustment: ${name1Is4AndName2Is4to5 ? `Increased to ${fontSize}px (first name is 4 letters and second name is 4-5 letters)` : hasLongName ? `Reduced to ${fontSize}px (8+ letters detected)` : `Keeping ${fontSize}px (base size)`}`)
 
     // Replace the hardcoded names in the SVG
-    // Line 9: <text id="name1-first" x="12.4" y="104.31" class="fil0 fnt0">Muhammad</text>
-    // Line 10: <text id="name2-first" x="50.23" y="178.77" class="fil0 fnt0">Hauwawu</text>
-    // Line 11: <text id="name-separator" x="-40.3" y="186.4" class="fil1 fnt0">&amp;</text>
+    // Line 9: <text id="name1-first" x="-20" y="80" class="fil0 fnt0">Muhammad</text>
+    // Line 10: <text id="name2-first" x="40.23" y="148" class="fil0 fnt0">Hauwawu</text>
+    // Line 11: <text id="name-separator" x="-40.3" y="160.4" class="fil1 fnt0">&amp;</text>
     let modifiedSVG = svgContent
       .replace(/>Muhammad</g, `>${formattedName1}<`)
       .replace(/>Hauwawu</g, `>${formattedName2}<`)
-      // Adjust x position for name1-first based on length (match any x value)
+      // Adjust x position for name1-first
       .replace(
         /(<text id="name1-first" x=")[^"]*(")/g,
         `$1${name1XPosition}$2`
       )
-      // Adjust x position for name2-first based on both names length
+      // Adjust x position for name2-first
       .replace(
         /(<text id="name2-first" x=")[^"]*(")/g,
         `$1${name2XPosition}$2`
       )
-      // Adjust x position for separator based on both names length
+      // Adjust y position for name2-first
+      .replace(
+        /(<text id="name2-first" x="[^"]*" y=")[^"]*(")/g,
+        `$1${name2YPosition}$2`
+      )
+      // Adjust x position for separator
       .replace(
         /(<text id="name-separator" x=")[^"]*(")/g,
         `$1${separatorXPosition}$2`
       )
+      // Adjust y position for separator (this is the key change)
+      .replace(
+        /(<text id="name-separator" x="[^"]*" y=")[^"]*(")/g,
+        `$1${separatorYPosition}$2`
+      )
 
-    // Apply font size reduction if either name has 8+ letters
+    // Apply font size adjustment if needed (both for increase and reduction)
     // Modify the .fnt0 style definition to use the calculated font size
-    if (hasLongName) {
+    if (name1Is4AndName2Is4to5 || hasLongName) {
       // More flexible regex to match various whitespace patterns
       const beforeReplace = modifiedSVG.match(/font-size:\s*\d+px/g)
       console.log(`🔍 Before font-size replacement:`, beforeReplace)
@@ -733,14 +850,16 @@ export function useWeddingStickerUpdater() {
       )
       
       
-      // Also add letter-spacing for tighter text when font is reduced
-      modifiedSVG = modifiedSVG.replace(
-        /font-family: 'Cinzel Decorative', serif; }/g,
-        `font-family: 'Cinzel Decorative', serif; letter-spacing: -1px; }`
-      )
+      // Also add letter-spacing for tighter text when font is reduced (only for long names)
+      if (hasLongName) {
+        modifiedSVG = modifiedSVG.replace(
+          /font-family: 'Cinzel Decorative', serif; }/g,
+          `font-family: 'Cinzel Decorative', serif; letter-spacing: -1px; }`
+        )
+      }
 
       const afterReplace = modifiedSVG.match(/font-size:\s*\d+px/g)
-      console.log(` Font size reduced to ${fontSize}px with letter-spacing: -1px for all name elements (name1, "&", name2)`)
+      console.log(`✏️ Font size adjusted to ${fontSize}px for all name elements (name1, "&", name2)${hasLongName ? ' with letter-spacing: -1px' : ''}`)
     }
 
     console.log('✅ Names replaced successfully')
@@ -1017,14 +1136,21 @@ export function useWeddingStickerUpdater() {
     }
 
     // 4. Extract date with enhanced pattern matching
+    console.log('🔍 Attempting to extract date from description:', description)
     const extractedDate = extractDate(description)
+    console.log('🔍 Extracted date result:', extractedDate)
+    console.log('🔍 Date element found:', elements.dateText)
     if (extractedDate) {
       // extractDate already includes "on" prefix
       data.date = extractedDate
       if (elements.dateText) {
         elements.dateText.textContent = data.date
         console.log(`📅 Date updated: "${data.date}"`)
+      } else {
+        console.error('❌ Date element not found in SVG!')
       }
+    } else {
+      console.log('⚠️ No date extracted from description')
     }
 
     // 5. Extract courtesy/family name with enhanced pattern matching
@@ -1033,7 +1159,20 @@ export function useWeddingStickerUpdater() {
       data.courtesy = `CUT-CEE: ${extractedCourtesy}`
       if (elements.courtesyText) {
         elements.courtesyText.textContent = data.courtesy
-        console.log(`🏠 Courtesy updated: "${data.courtesy}"`)
+        
+        // Check if courtesy text is long and adjust font accordingly
+        const courtesyLength = data.courtesy.length
+        if (courtesyLength > 25) {
+          // For long text like "CUT-CEE: The Family Abdulrahman"
+          elements.courtesyText.setAttribute('font-size', '75')
+          elements.courtesyText.setAttribute('font-family', 'Arial, sans-serif')
+        } else {
+          // Default font for shorter text
+          elements.courtesyText.setAttribute('font-size', '100')
+          elements.courtesyText.setAttribute('font-family', 'sans-serif')
+        }
+        
+        console.log(`🏠 Courtesy updated: "${data.courtesy}" (length: ${courtesyLength})`)
       }
     }
 
@@ -1098,6 +1237,7 @@ export function useWeddingStickerUpdater() {
     isWeddingRelated
   }
 }
+
 
 
 

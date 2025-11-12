@@ -19,6 +19,7 @@ export interface SVGImage {
   maintainAspectRatio: boolean
   originalWidth: number
   originalHeight: number
+  flipped: boolean
 }
 
 export interface ImageUploadOptions {
@@ -191,7 +192,8 @@ export function useSVGImageManager(options: ImageUploadOptions = {}) {
         zIndex: images.value.length,
         maintainAspectRatio: true,
         originalWidth,
-        originalHeight
+        originalHeight,
+        flipped: false
       }
 
       // Add to images array

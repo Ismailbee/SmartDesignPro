@@ -37,12 +37,17 @@ export default defineConfig({
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type'
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Cache-Control': 'no-store, no-cache, must-revalidate'
     },
     // Watch options to handle OneDrive
     watch: {
       usePolling: true,
       interval: 100
+    },
+    // Force HMR to always refresh
+    hmr: {
+      overlay: true
     }
   },
   // Configure WASM handling
