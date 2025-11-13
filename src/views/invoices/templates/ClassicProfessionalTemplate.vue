@@ -8,7 +8,7 @@
       @crop="handleCroppedImage"
     />
 
-    <div class="h-screen overflow-y-auto flex flex-col gap-2 items-center bg-slate-100 dark:bg-slate-900 pt-6 pb-24 px-3">
+    <div class="min-h-[85vh] max-h-[90vh] overflow-y-auto flex flex-col gap-2 items-center bg-slate-100 dark:bg-slate-900 pt-4 pb-16 px-3">
       <!-- Member Info Banner -->
       <div class="w-full max-w-4xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-2.5 rounded-lg shadow-md flex items-center justify-between">
         <div class="flex items-center gap-2.5">
@@ -125,26 +125,32 @@
                       class="hidden"
                     />
 
-                    <!-- Clickable White Box -->
+                    <!-- Unified Upload/Preview Box -->
                     <div
                       @click="$refs.logoInput.click()"
-                      class="h-20 flex items-center justify-center bg-white dark:bg-slate-800 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer hover:border-blue-500 hover:shadow"
+                      class="h-16 flex items-center justify-center bg-white dark:bg-slate-800 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer hover:border-blue-500 hover:shadow-md transition-all duration-200 relative overflow-hidden"
                     >
-                      <span class="text-[10px] text-slate-500 dark:text-slate-300">
-                        Click to upload logo
-                      </span>
-                    </div>
+                      <!-- Upload State -->
+                      <div v-if="!logoDataUrl" class="flex flex-col items-center justify-center gap-1">
+                        <svg class="w-4 h-4 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                        <span class="text-[9px] text-slate-500 dark:text-slate-400 font-medium">Upload Logo</span>
+                      </div>
+                      
+                      <!-- Preview State -->
+                      <div v-else class="w-full h-full p-1.5 flex items-center justify-center">
+                        <img
+                          :src="logoDataUrl"
+                          alt="Organization Logo"
+                          class="h-12 max-w-full object-contain"
+                        />
+                      </div>
 
-                    <!-- Preview -->
-                    <div
-                      v-if="logoDataUrl"
-                      class="mt-1.5 p-1.5 bg-white dark:bg-slate-800 rounded border border-gray-200 dark:border-gray-600"
-                    >
-                      <img
-                        :src="logoDataUrl"
-                        alt="Organization Logo Preview"
-                        class="h-14 w-full object-contain"
-                      />
+                      <!-- Change overlay on hover when image exists -->
+                      <div v-if="logoDataUrl" class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-200">
+                        <span class="text-[9px] text-white font-medium">Click to change</span>
+                      </div>
                     </div>
                   </div>
                 </div>
