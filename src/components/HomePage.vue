@@ -1,4 +1,21 @@
 ﻿<template>
+  <!-- Sidebar Component (Portal-like Fixed Position) -->
+  <Teleport to="body">
+    <div class="sidebar-container" :class="{ 'sidebar-active': isSidebarOpen }">
+      <Sidebar
+        :is-open="isSidebarOpen"
+        :user="authStore.user"
+        @close="closeSidebar"
+        @navigate="handleSidebarNavigation"
+        @auto-design="handleSidebarAutoDesign"
+        @toggle-auto-design="handleSidebarToggleAutoDesign"
+        @more="handleSidebarMore"
+        @settings="handleSidebarSettings"
+        @logout="handleSidebarLogout"
+      />
+    </div>
+  </Teleport>
+
   <div class="home-page">
     <!-- Mobile Hamburger Button (Fixed Position) -->
     <button 
@@ -13,19 +30,6 @@
         <line x1="3" y1="18" x2="21" y2="18"></line>
       </svg>
     </button>
-
-    <!-- Sidebar Component -->
-    <Sidebar
-      :is-open="isSidebarOpen"
-      :user="authStore.user"
-      @close="closeSidebar"
-      @navigate="handleSidebarNavigation"
-      @auto-design="handleSidebarAutoDesign"
-      @toggle-auto-design="handleSidebarToggleAutoDesign"
-      @more="handleSidebarMore"
-      @settings="handleSidebarSettings"
-      @logout="handleSidebarLogout"
-    />
 
     <!-- Professional Header -->
     <HomeHeader ref="homeHeaderRef" @get-quote="handleGetQuote" />
@@ -218,7 +222,35 @@ const handleSubmitContact = (formData: any) => {
 .home-page {
   width: 100%;
   min-height: 100vh;
-  /* Removed position: relative to allow fixed mobile menu to display above */
+  position: relative; /* Required for fixed positioning context */
+  transform: none; /* Prevent transform from creating new stacking context */
+  contain: none; /* Prevent containment from affecting positioning */
+}
+
+/* Sidebar Container - Fixed Position */
+.sidebar-container {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 10000 !important;
+  pointer-events: none; /* Allow clicks to pass through when sidebar is closed */
+  transform: none !important; /* Prevent any transforms from affecting position */
+  will-change: auto !important; /* Reset any will-change properties */
+}
+
+/* Enable pointer events when sidebar is open */
+.sidebar-container.sidebar-active {
+  pointer-events: all;
+}
+
+/* Ensure sidebar content is also properly positioned */
+.sidebar-container :deep(.sidebar) {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  height: 100vh !important;
 }
 
 /* Mobile Hamburger Button */

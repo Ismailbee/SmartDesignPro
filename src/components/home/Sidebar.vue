@@ -173,33 +173,34 @@
 
     <!-- User Profile Section (Mobile Only) - At Bottom -->
     <div v-if="user" class="sidebar-user-profile">
-      <div class="user-avatar-large">
-        <div v-if="!user.avatar" class="avatar-placeholder-large">
-          {{ getUserInitials() }}
+      <!-- User Info Row -->
+      <div class="user-info-row">
+        <div class="user-avatar-compact">
+          <div v-if="!user.avatar" class="avatar-placeholder-compact">
+            {{ getUserInitials() }}
+          </div>
+          <img v-else :src="user.avatar" :alt="user.name || 'User'" class="avatar-image" />
         </div>
-        <img v-else :src="user.avatar" :alt="user.name || 'User'" class="avatar-image" />
-      </div>
-      <div class="user-info">
-        <h3 class="user-name">{{ user.name || user.username || 'User' }}</h3>
-        <p class="user-email">{{ user.email }}</p>
+        <div class="user-details">
+          <h3 class="user-name-compact">{{ user.name || user.username || 'User' }}</h3>
+          <p class="user-email-compact">{{ user.email }}</p>
+        </div>
       </div>
       
-      <!-- User Actions -->
-      <div class="user-actions">
-        <button class="user-action-button" @click="handleSettings">
+      <!-- Compact User Actions -->
+      <div class="user-actions-compact">
+        <button class="user-action-button-icon-only settings" title="Settings" @click="handleSettings">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
             <circle cx="12" cy="12" r="3"></circle>
-            <path d="M12 1v6m0 6v6m8.66-13.66l-4.24 4.24m-4.24 4.24l-4.24 4.24m13.66-4.24l-4.24-4.24m-4.24-4.24L3.34 3.34"></path>
           </svg>
-          <span>Settings</span>
         </button>
-        <button class="user-action-button logout" @click="handleLogout">
+        <button class="user-action-button-icon-only logout" title="Logout" @click="handleLogout">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
             <polyline points="16 17 21 12 16 7"></polyline>
             <line x1="21" y1="12" x2="9" y2="12"></line>
           </svg>
-          <span>Logout</span>
         </button>
       </div>
     </div>
@@ -279,12 +280,68 @@ const getUserInitials = () => {
   return name.substring(0, 2).toUpperCase()
 }
 
+// Prevent scroll function for touch and wheel events (but allow sidebar scrolling)
+const preventScroll = (e: Event) => {
+  // Allow scrolling inside the sidebar and all its children
+  const target = e.target as Element
+  if (target && (
+    target.closest('.mobile-sidebar') || 
+    target.closest('.sidebar-content') ||
+    target.closest('.nav-section') ||
+    target.classList.contains('mobile-sidebar') ||
+    target.classList.contains('sidebar-content') ||
+    target.classList.contains('nav-section')
+  )) {
+    return // Allow scrolling inside sidebar
+  }
+  
+  // Prevent scrolling on the main page
+  e.preventDefault()
+  e.stopPropagation()
+  return false
+}
+
 // Lock body scroll when sidebar is open
 watch(() => props.isOpen, (isOpen) => {
+  const body = document.body
+  
   if (isOpen) {
-    document.body.style.overflow = 'hidden'
+    // Store current scroll position
+    const scrollY = window.scrollY
+    
+    // Add scroll lock class for CSS control
+    body.classList.add('sidebar-scroll-lock')
+    
+    // Simple CSS-based scroll prevention (no position: fixed)
+    body.style.setProperty('overflow', 'hidden', 'important')
+    body.style.setProperty('overflow-y', 'hidden', 'important')
+    
+    // Store scroll position for restoration
+    body.dataset.scrollY = scrollY.toString()
+    
+    // Prevent touch scrolling on mobile
+    document.addEventListener('touchmove', preventScroll, { passive: false })
+    document.addEventListener('wheel', preventScroll, { passive: false })
   } else {
-    document.body.style.overflow = ''
+    // Restore scroll position
+    const scrollY = parseInt(body.dataset.scrollY || '0')
+    
+    // Remove scroll lock class
+    body.classList.remove('sidebar-scroll-lock')
+    
+    // Remove simple scroll lock styles
+    body.style.removeProperty('overflow')
+    body.style.removeProperty('overflow-y')
+    
+    // Remove event listeners
+    document.removeEventListener('touchmove', preventScroll)
+    document.removeEventListener('wheel', preventScroll)
+    
+    // Restore scroll position
+    window.scrollTo(0, scrollY)
+    
+    // Clean up data attribute
+    delete body.dataset.scrollY
   }
 })
 </script>
@@ -330,6 +387,14 @@ watch(() => props.isOpen, (isOpen) => {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  /* Hide scrollbar */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* Hide scrollbar for WebKit browsers */
+.mobile-sidebar::-webkit-scrollbar {
+  display: none;
 }
 
 .mobile-sidebar.active {
@@ -341,7 +406,7 @@ watch(() => props.isOpen, (isOpen) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px 20px;
+  padding: 12px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(15, 23, 42, 0.98);
 }
@@ -349,18 +414,18 @@ watch(() => props.isOpen, (isOpen) => {
 .brand-section {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
 }
 
 .brand-logo {
-  width: 44px;
-  height: 44px;
+  width: 32px;
+  height: 32px;
   background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  border-radius: 12px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
 }
 
 .brand-logo svg {
@@ -373,20 +438,20 @@ watch(() => props.isOpen, (isOpen) => {
 }
 
 .brand-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: #ffffff;
   margin: 0;
-  letter-spacing: 0.3px;
-  line-height: 1.2;
+  letter-spacing: 0.2px;
+  line-height: 1.1;
 }
 
 .brand-subtitle {
-  font-size: 12px;
+  font-size: 11px;
   color: rgba(255, 255, 255, 0.6);
-  margin: 2px 0 0 0;
+  margin: 1px 0 0 0;
   font-weight: 500;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.1px;
 }
 
 .close-button {
@@ -411,27 +476,34 @@ watch(() => props.isOpen, (isOpen) => {
   transform: scale(0.95) rotate(90deg);
 }
 
-/* User Profile Section */
+/* User Profile Section - Compact Design */
 .sidebar-user-profile {
-  padding: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 10px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.98);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* User Info Row */
+.user-info-row {
   display: flex;
   align-items: center;
-  gap: 16px;
-  background: rgba(15, 23, 42, 0.95);
+  gap: 8px;
 }
 
-.user-avatar-large {
-  width: 60px;
-  height: 60px;
+.user-avatar-compact {
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   overflow: hidden;
-  border: 3px solid rgba(99, 102, 241, 0.5);
+  border: 2px solid rgba(99, 102, 241, 0.4);
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
 }
 
-.avatar-placeholder-large {
+.avatar-placeholder-compact {
   width: 100%;
   height: 100%;
   display: flex;
@@ -439,9 +511,9 @@ watch(() => props.isOpen, (isOpen) => {
   justify-content: center;
   background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   color: white;
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
 }
 
 .avatar-image {
@@ -450,50 +522,60 @@ watch(() => props.isOpen, (isOpen) => {
   object-fit: cover;
 }
 
-.user-info {
+.user-details {
   flex: 1;
   min-width: 0;
 }
 
-.user-name {
-  font-size: 18px;
-  font-weight: 700;
+.user-name-compact {
+  font-size: 13px;
+  font-weight: 600;
   color: #ffffff;
-  margin: 0 0 4px 0;
+  margin: 0 0 1px 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.1;
 }
 
-.user-email {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
+.user-email-compact {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.2;
 }
 
 /* Sidebar Content */
 .sidebar-content {
   flex: 1;
-  padding: 20px;
+  padding: 12px 16px;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 16px;
   background: rgba(15, 23, 42, 0.96);
   overflow-y: auto;
+  /* Hide scrollbar */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* Hide scrollbar for WebKit browsers */
+.sidebar-content::-webkit-scrollbar {
+  display: none;
 }
 
 /* Navigation Sections */
 .nav-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .nav-section-title {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.5);
   margin: 0;
@@ -506,13 +588,13 @@ watch(() => props.isOpen, (isOpen) => {
 .featured-action-button {
   display: flex;
   align-items: center;
-  padding: 16px;
+  padding: 10px;
   background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   border: none;
-  border-radius: 16px;
+  border-radius: 12px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
   position: relative;
   overflow: hidden;
 }
@@ -544,10 +626,10 @@ watch(() => props.isOpen, (isOpen) => {
 
 /* Action Components */
 .action-icon.featured {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   background: rgba(255, 255, 255, 0.15);
-  border-radius: 12px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -567,7 +649,7 @@ watch(() => props.isOpen, (isOpen) => {
 }
 
 .action-title {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   color: white;
   margin: 0;
@@ -575,9 +657,9 @@ watch(() => props.isOpen, (isOpen) => {
 }
 
 .action-subtitle {
-  font-size: 13px;
+  font-size: 11px;
   color: rgba(255, 255, 255, 0.8);
-  margin: 2px 0 0 0;
+  margin: 1px 0 0 0;
   font-weight: 500;
 }
 
@@ -595,10 +677,10 @@ watch(() => props.isOpen, (isOpen) => {
 .nav-item {
   display: flex;
   align-items: center;
-  padding: 12px 16px;
+  padding: 8px 12px;
   color: rgba(255, 255, 255, 0.85);
   text-decoration: none;
-  border-radius: 12px;
+  border-radius: 8px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   background: rgba(255, 255, 255, 0.03);
   cursor: pointer;
@@ -617,7 +699,7 @@ watch(() => props.isOpen, (isOpen) => {
 }
 
 .nav-icon {
-  width: 36px;
+  width: 28px;
   height: 36px;
   display: flex;
   align-items: center;
@@ -641,7 +723,7 @@ watch(() => props.isOpen, (isOpen) => {
 }
 
 .nav-label {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 500;
 }
 
@@ -718,46 +800,103 @@ watch(() => props.isOpen, (isOpen) => {
   text-align: center;
 }
 
-/* User Actions */
-.user-actions {
+/* Compact User Actions */
+.user-actions-compact {
   display: flex;
-  flex-direction: column;
   gap: 8px;
-  margin-top: 8px;
 }
 
-.user-action-button {
+.user-action-button-compact {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 12px 20px;
+  gap: 6px;
+  padding: 8px 12px;
   background: rgba(255, 255, 255, 0.05);
   color: white;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  font-size: 15px;
+  border-radius: 8px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  flex: 1;
 }
 
-.user-action-button:hover {
+.user-action-button-compact:hover {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.2);
   transform: translateY(-1px);
 }
 
-.user-action-button.logout {
+.user-action-button-compact.logout {
   background: rgba(239, 68, 68, 0.1);
   border-color: rgba(239, 68, 68, 0.3);
   color: #fca5a5;
 }
 
-.user-action-button.logout:hover {
+.user-action-button-compact.logout:hover {
   background: rgba(239, 68, 68, 0.2);
   border-color: rgba(239, 68, 68, 0.5);
   color: #fef2f2;
+}
+
+/* Icon-only logout button */
+.user-action-button-icon-only {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 32px;
+  height: 32px;
+}
+
+.user-action-button-icon-only:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.user-action-button-icon-only.logout {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.user-action-button-icon-only.logout:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fef2f2;
+}
+
+.user-action-button-icon-only.settings {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.3);
+  color: #cbd5e1;
+}
+
+.user-action-button-icon-only.settings:hover {
+  background: rgba(148, 163, 184, 0.2);
+  border-color: rgba(148, 163, 184, 0.5);
+  color: #f8fafc;
+}
+
+/* Hide action labels on small screens for even more compactness */
+@media (max-width: 480px) {
+  .user-action-button-compact .action-label {
+    display: none;
+  }
+  
+  .user-action-button-compact {
+    padding: 8px;
+    min-width: 40px;
+  }
 }
 
 /* Animations */
@@ -878,30 +1017,31 @@ watch(() => props.isOpen, (isOpen) => {
   }
 
   .sidebar-user-profile {
-    padding: 16px;
-    gap: 12px;
+    padding: 12px;
+    gap: 10px;
   }
 
-  .user-avatar-large {
-    width: 50px;
-    height: 50px;
+  .user-avatar-compact {
+    width: 40px;
+    height: 40px;
   }
 
-  .avatar-placeholder-large {
-    font-size: 18px;
-  }
-
-  .user-name {
-    font-size: 16px;
-  }
-
-  .user-email {
-    font-size: 12px;
-  }
-
-  .user-action-button {
-    padding: 10px 16px;
+  .avatar-placeholder-compact {
     font-size: 14px;
+  }
+
+  .user-name-compact {
+    font-size: 14px;
+  }
+
+  .user-email-compact {
+    font-size: 11px;
+  }
+
+  .user-action-button-compact {
+    padding: 6px 8px;
+    font-size: 12px;
+    gap: 4px;
   }
 }
 

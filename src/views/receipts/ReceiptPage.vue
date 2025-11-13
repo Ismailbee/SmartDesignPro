@@ -19,310 +19,140 @@
       @delete="handleDeleteReceipt"
     />
 
-    <div class="h-screen overflow-y-auto flex flex-col gap-8 items-center justify-start bg-slate-100 dark:bg-slate-900 pt-[80px] pb-[150px] px-4">
+    <div class="h-screen overflow-y-auto flex flex-col gap-2 items-center bg-slate-100 dark:bg-slate-900 pt-8 pb-24 px-4">
       <!-- Member Info Banner -->
-      <div v-if="authenticatedMember" class="w-full max-w-4xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-4 py-3 rounded-lg shadow-md flex items-center justify-between">
+      <div class="w-full max-w-4xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-3 rounded-lg shadow-md flex items-center justify-between">
       <div class="flex items-center gap-3">
         <div class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-          <span class="text-lg">👤</span>
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
         </div>
         <div>
-          <p class="text-sm font-medium">Logged in as: <span class="font-bold">{{ authenticatedMember?.name }}</span></p>
-          <p class="text-xs opacity-90">Role: {{ authenticatedMember?.role || 'Member' }}</p>
+          <p class="text-sm font-semibold">Logged in as: {{ authenticatedMember?.name || 'Unknown' }}</p>
+          <p class="text-xs opacity-90">{{ authenticatedMember?.role || 'Member' }}</p>
         </div>
       </div>
-      <button @click="handleLogout" class="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-md transition-colors text-sm font-medium">
-        <span>Logout</span>
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-        </svg>
-      </button>
     </div>
 
-    <section class="w-full max-w-4xl flex flex-wrap items-center justify-between gap-3">
-      <div class="space-y-2">
-        <h1 class="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-          Receipt Designer
-          <span v-if="currentReceiptId" class="text-sm px-3 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full font-medium">
-            Editing #{{ receiptNumber }}
-          </span>
-        </h1>
-        <p class="text-sm text-slate-600 dark:text-slate-300">
-          Configure your receipt details then export as PDF or JPEG.
-        </p>
-      </div>
-      <div class="flex flex-wrap items-center gap-3">
-        <!-- Auto Receipt Number Toggle -->
-        <label class="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600">
-          <input type="checkbox" v-model="autoReceiptNumber" class="rounded border-gray-300" />
-          <span>Auto Receipt #</span>
-        </label>
-
-        <!-- Separator -->
-        <div class="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
-
-        <!-- Primary Actions -->
-        <div class="flex items-center gap-2">
-          <!-- Confirm Correction Button (only in correction mode) -->
-          <BaseButton 
-            v-if="isCorrectionMode" 
-            variant="success" 
-            @click="handleConfirmCorrection"
-            class="bg-amber-600 hover:bg-amber-700 text-white font-bold animate-pulse"
-          >
-            ✅ Confirm Correction
-          </BaseButton>
-
-          <BaseButton variant="primary" @click="handleExportPDF">
-            📄 Export PDF
-          </BaseButton>
-          <BaseButton variant="secondary" @click="handleExportJPEG">
-            🖼️ Export JPEG
-          </BaseButton>
+    <!-- Control Panel Section -->
+    <section class="w-full max-w-4xl bg-white dark:bg-slate-800 p-2 rounded-xl shadow-lg">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <!-- Title -->
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-emerald-100 dark:bg-emerald-900 rounded-xl flex items-center justify-center">
+            <svg class="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              Receipt
+              <span v-if="currentReceiptId" class="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full font-medium">
+                Editing #{{ receiptNumber }}
+              </span>
+            </h1>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Create and manage your receipts</p>
+          </div>
         </div>
 
-        <!-- Separator -->
-        <div class="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
+       
+      </div>
 
-        <!-- Navigation -->
-        <BaseButton variant="ghost" @click="handleBack">
-          ← Back to Dashboard
-        </BaseButton>
+      <!-- Settings Row -->
+      <div class="mt-3 flex justify-between items-center flex-wrap gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+        <div class="flex gap-3 flex-wrap">
+          <!-- Auto Receipt Toggle -->
+          <label class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors">
+            <input type="checkbox" v-model="autoReceiptNumber" class="rounded border-gray-300 cursor-pointer accent-emerald-600" />
+            <span>Auto Receipt #</span>
+          </label>
+
+          <!-- Auto Date Toggle -->
+          <label class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors">
+            <input type="checkbox" v-model="autoDate" class="rounded border-gray-300 cursor-pointer accent-emerald-600" />
+            <span>Auto Date</span>
+          </label>
+        </div>
+
+        <!-- Summary Display -->
+        <div class="bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-700">
+          <div class="flex items-center gap-3 text-xs">
+            <div>
+              <span class="text-slate-600 dark:text-slate-400">Amount:</span>
+              <span class="font-bold text-slate-900 dark:text-white ml-1.5">₦{{ naira || 0 }}</span>
+            </div>
+            <div class="pl-3 border-l border-emerald-300 dark:border-emerald-700">
+              <span class="text-slate-600 dark:text-slate-400">Receipt:</span>
+              <span class="font-bold text-sm text-emerald-700 dark:text-emerald-400 ml-1.5">#{{ receiptNumber }}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
-    <!-- Flex Container for Form and Preview -->
-    <div class="w-full max-w-7xl flex flex-col lg:flex-row gap-6 items-start">
+        <!-- Flex Container for Form and Preview -->
+    <div class="w-full max-w-7xl flex flex-col gap-6 items-center">
+
+      <!-- Toggle Switch -->
+      <div class="flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-700 p-1.5 rounded-lg">
+        <button
+          @click="formMode = 'generate'"
+          :class="[
+            'px-6 py-3 text-sm font-semibold rounded-md transition-all',
+            formMode === 'generate' 
+              ? 'bg-emerald-600 text-white shadow-md' 
+              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+          ]"
+        >
+          Generate Receipt
+        </button>
+        <button
+          @click="formMode = 'customer'"
+          :class="[
+            'px-6 py-3 text-sm font-semibold rounded-md transition-all',
+            formMode === 'customer' 
+              ? 'bg-emerald-600 text-white shadow-md' 
+              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+          ]"
+        >
+          Generate for Customer
+        </button>
+      </div>
+
       <!-- Quick Fill Form Section -->
-      <section class="w-full lg:w-1/2">
-        <div 
-        class="bg-white dark:bg-slate-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700">
-          <h2 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-            📝 Quick Fill Form
-          </h2>
-        <p class="text-sm text-slate-600 dark:text-slate-300 mb-4">
-          Fill out this form to automatically populate the receipt below
-        </p>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <section class="w-full max-w-4xl">
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <svg class="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+                📝 Quick Fill Form
+              </h2>
+            </div>
+            
+            <!-- Refresh Button -->
+            <button
+              @click="handleRefreshForm"
+              class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors shadow-sm"
+              title="Clear form and start fresh"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>Refresh</span>
+            </button>
+          </div>
           
-          <!-- Receipt Size Settings Section -->
-          <div class="md:col-span-2 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-700">
-            <h3 class="text-sm font-semibold text-indigo-900 dark:text-indigo-300 mb-3 flex items-center gap-2">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-              </svg>
-              Receipt Size Settings
-            </h3>
-            
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <!-- Width Input -->
-              <div>
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Width (inches)
-                </label>
-                <input
-                  v-model.number="receiptWidth"
-                  type="number"
-                  min="3"
-                  max="20"
-                  step="0.1"
-                  placeholder="5.827"
-                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <!-- Height Input -->
-              <div>
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Height (inches)
-                </label>
-                <input
-                  v-model.number="receiptHeight"
-                  type="number"
-                  min="3"
-                  max="20"
-                  step="0.1"
-                  placeholder="8.268"
-                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <!-- Preset Sizes -->
-              <div>
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Quick Presets
-                </label>
-                <select
-                  @change="handlePresetChange"
-                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                >
-                  <option value="">Select Preset</option>
-                  <option value="a4">A4 (8.27 × 11.69)</option>
-                  <option value="a5">A5 (5.83 × 8.27)</option>
-                  <option value="letter">Letter (8.5 × 11)</option>
-                  <option value="legal">Legal (8.5 × 14)</option>
-                  <option value="custom">Custom Size</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- Size Preview Indicator -->
-            <div class="mt-3 p-2 bg-indigo-100 dark:bg-indigo-800/30 rounded-md border border-indigo-200 dark:border-indigo-700">
-              <div class="flex items-center justify-between text-sm">
-                <span class="text-indigo-800 dark:text-indigo-300 font-medium">
-                  Current Size: {{ receiptWidth }}″ × {{ receiptHeight }}″
-                </span>
-                <span class="text-indigo-600 dark:text-indigo-400">
-                  Scale: {{ Math.round(contentScale * 100) }}%
-                </span>
-              </div>
-            </div>
-
-            <p class="text-xs text-indigo-700 dark:text-indigo-300 mt-3 flex items-start gap-1">
-              <svg class="w-3 h-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>Adjust the receipt size to fit your printing requirements. Content will automatically scale to fit.</span>
-            </p>
-          </div>
-
-          <!-- CMYK Color Settings Section -->
-          <div class="md:col-span-2 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-700">
-            <h3 class="text-sm font-semibold text-orange-900 dark:text-orange-300 mb-3 flex items-center gap-2">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z" />
-              </svg>
-              CMYK Color Settings
-            </h3>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <!-- Color Mode Selection -->
-              <div>
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Color Mode
-                </label>
-                <select
-                  v-model="colorMode"
-                  @change="handleColorModeChange"
-                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                >
-                  <option value="full-color">Full Color (4 Colors - CMYK)</option>
-                  <option value="three-color">Three Color (CMY)</option>
-                  <option value="two-color">Two Color (Custom)</option>
-                  <option value="one-color">One Color (Black/Custom)</option>
-                </select>
-              </div>
-
-              <!-- Color Preview -->
-              <div>
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Color Preview
-                </label>
-                <div class="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-slate-700">
-                  <div v-if="colorMode === 'full-color'" class="flex gap-1">
-                    <div class="w-6 h-6 bg-cyan-500 rounded border" title="Cyan"></div>
-                    <div class="w-6 h-6 bg-magenta-500 rounded border" title="Magenta"></div>
-                    <div class="w-6 h-6 bg-yellow-400 rounded border" title="Yellow"></div>
-                    <div class="w-6 h-6 bg-black rounded border" title="Black"></div>
-                  </div>
-                  <div v-else-if="colorMode === 'three-color'" class="flex gap-1">
-                    <div class="w-6 h-6 bg-cyan-500 rounded border" title="Cyan"></div>
-                    <div class="w-6 h-6 bg-magenta-500 rounded border" title="Magenta"></div>
-                    <div class="w-6 h-6 bg-yellow-400 rounded border" title="Yellow"></div>
-                  </div>
-                  <div v-else-if="colorMode === 'two-color'" class="flex gap-1">
-                    <div 
-                      :style="{ backgroundColor: cmykToRgb(customColor1CMYK.c, customColor1CMYK.m, customColor1CMYK.y, customColor1CMYK.k) }"
-                      class="w-6 h-6 rounded border"
-                      title="Primary Color"
-                    ></div>
-                    <div 
-                      :style="{ backgroundColor: cmykToRgb(customColor2CMYK.c, customColor2CMYK.m, customColor2CMYK.y, customColor2CMYK.k) }"
-                      class="w-6 h-6 rounded border"
-                      title="Secondary Color"
-                    ></div>
-                  </div>
-                  <div v-else-if="colorMode === 'one-color'" class="flex gap-1">
-                    <div 
-                      :style="{ backgroundColor: cmykToRgb(customColor1CMYK.c, customColor1CMYK.m, customColor1CMYK.y, customColor1CMYK.k) }"
-                      class="w-6 h-6 rounded border"
-                      title="Primary Color"
-                    ></div>
-                  </div>
-                  <span class="text-xs text-slate-600 dark:text-slate-400 ml-2">
-                    {{ getColorModeDescription() }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <!-- CMYK Sliders for Custom Colors -->
-            <div v-if="colorMode === 'two-color' || colorMode === 'one-color'" class="mt-4 space-y-3">
-              <div class="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Adjust Primary Color (CMYK)
-              </div>
-              <div class="space-y-2">
-                <div class="flex items-center gap-3">
-                  <label class="w-20 text-xs text-cyan-600 dark:text-cyan-400 font-medium">Cyan:</label>
-                  <input v-model.number="customColor1CMYK.c" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-                  <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor1CMYK.c }}%</span>
-                </div>
-                <div class="flex items-center gap-3">
-                  <label class="w-20 text-xs text-pink-600 dark:text-pink-400 font-medium">Magenta:</label>
-                  <input v-model.number="customColor1CMYK.m" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-                  <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor1CMYK.m }}%</span>
-                </div>
-                <div class="flex items-center gap-3">
-                  <label class="w-20 text-xs text-yellow-600 dark:text-yellow-400 font-medium">Yellow:</label>
-                  <input v-model.number="customColor1CMYK.y" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-                  <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor1CMYK.y }}%</span>
-                </div>
-                <div class="flex items-center gap-3">
-                  <label class="w-20 text-xs text-slate-800 dark:text-slate-300 font-medium">Black (K):</label>
-                  <input v-model.number="customColor1CMYK.k" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-                  <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor1CMYK.k }}%</span>
-                </div>
-              </div>
-
-              <div v-if="colorMode === 'two-color'" class="mt-4">
-                <div class="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Adjust Secondary Color (CMYK)
-                </div>
-                <div class="space-y-2">
-                  <div class="flex items-center gap-3">
-                    <label class="w-20 text-xs text-cyan-600 dark:text-cyan-400 font-medium">Cyan:</label>
-                    <input v-model.number="customColor2CMYK.c" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-                    <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor2CMYK.c }}%</span>
-                  </div>
-                  <div class="flex items-center gap-3">
-                    <label class="w-20 text-xs text-pink-600 dark:text-pink-400 font-medium">Magenta:</label>
-                    <input v-model.number="customColor2CMYK.m" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-                    <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor2CMYK.m }}%</span>
-                  </div>
-                  <div class="flex items-center gap-3">
-                    <label class="w-20 text-xs text-yellow-600 dark:text-yellow-400 font-medium">Yellow:</label>
-                    <input v-model.number="customColor2CMYK.y" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-                    <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor2CMYK.y }}%</span>
-                  </div>
-                  <div class="flex items-center gap-3">
-                    <label class="w-20 text-xs text-slate-800 dark:text-slate-300 font-medium">Black (K):</label>
-                    <input v-model.number="customColor2CMYK.k" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-                    <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor2CMYK.k }}%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <p class="text-xs text-orange-700 dark:text-orange-300 mt-3 flex items-start gap-1">
-              <svg class="w-3 h-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>Select the color mode for your receipt. This affects printing costs and visual appearance. Full color provides the richest appearance.</span>
-            </p>
-          </div>
-
-            <!-- Organization Settings Section -->
+          <p class="text-sm text-slate-600 dark:text-slate-300 mb-4">
+            Fill out this form to automatically populate the receipt below
+          </p>
+          
+          <div class="space-y-6">
+          
+          <!-- Organization Settings Section -->
           <div class="md:col-span-2 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
             <h3 class="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-3 flex items-center gap-2">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -438,7 +268,7 @@
 
 
           <!-- Received From -->
-          <div>
+          <div v-if="formMode === 'customer'">
             <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
               Received From
             </label>
@@ -451,7 +281,7 @@
           </div>
 
           <!-- Amount (Naira) -->
-          <div>
+          <div v-if="formMode === 'customer'">
             <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
               Amount (Naira)
             </label>
@@ -465,7 +295,7 @@
           </div>
         
           <!-- The Sum of (Amount in Words) -->
-          <div class="md:col-span-2">
+          <div v-if="formMode === 'customer'" class="md:col-span-2">
             <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
               Amount in Words (Line 1)
             </label>
@@ -479,7 +309,7 @@
           </div>
 
           <!-- The Sum of Line 2 -->
-          <div class="md:col-span-2">
+          <div v-if="formMode === 'customer'" class="md:col-span-2">
             <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
               Amount in Words (Line 2)
             </label>
@@ -493,7 +323,7 @@
           </div>
 
           <!-- Being Payment For -->
-          <div class="md:col-span-2">
+          <div v-if="formMode === 'customer'" class="md:col-span-2">
             <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
               Payment Description (Line 1)
             </label>
@@ -507,7 +337,7 @@
           </div>
 
           <!-- Being Payment For Line 2 -->
-          <div class="md:col-span-2">
+          <div v-if="formMode === 'customer'" class="md:col-span-2">
             <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
               Payment Description (Line 2)
             </label>
@@ -519,82 +349,8 @@
               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-white"
             />
           </div>
-
-          <!-- Signature Selection -->
-          <div class="mt-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-700 md:col-span-2">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-sm font-semibold text-purple-900 dark:text-purple-300 flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-                Digital Signatures
-              </h3>
-              <button
-                @click="handleCreateSignature"
-                class="text-xs px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-medium transition-colors flex items-center gap-1"
-              >
-                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-                Create New
-              </button>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <!-- Signature 1 Selector -->
-              <div>
-                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Signature 1 (Left)
-                </label>
-                <select
-                  v-model="selectedSignature1"
-                  @change="handleSignature1Change"
-                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm"
-                >
-                  <option value="">No signature</option>
-                  <option v-for="sig in savedSignatures" :key="sig.id" :value="sig.id">
-                    {{ sig.name }}{{ sig.isPrimary ? ' (Primary)' : '' }}
-                  </option>
-                </select>
-                
-                <!-- Preview Signature 1 -->
-                <div v-if="signatureImage1" class="mt-2 p-2 bg-white dark:bg-slate-800 rounded border border-gray-200 dark:border-gray-600">
-                  <img :src="signatureImage1" alt="Signature 1 Preview" class="h-12 w-full object-contain" />
-                </div>
-              </div>
-
-              <!-- Signature 2 Selector -->
-              <div>
-                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Signature 2 (Right)
-                </label>
-                <select
-                  v-model="selectedSignature2"
-                  @change="handleSignature2Change"
-                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm"
-                >
-                  <option value="">No signature</option>
-                  <option v-for="sig in savedSignatures" :key="sig.id" :value="sig.id">
-                    {{ sig.name }}{{ sig.isPrimary ? ' (Primary)' : '' }}
-                  </option>
-                </select>
-                
-                <!-- Preview Signature 2 -->
-                <div v-if="signatureImage2" class="mt-2 p-2 bg-white dark:bg-slate-800 rounded border border-gray-200 dark:border-gray-600">
-                  <img :src="signatureImage2" alt="Signature 2 Preview" class="h-12 w-full object-contain" />
-                </div>
-              </div>
-            </div>
-
-            <p class="text-xs text-purple-700 dark:text-purple-300 mt-3 flex items-start gap-1">
-              <svg class="w-3 h-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>Select signatures from your saved signatures or create new ones. Signatures will appear at the bottom of the receipt.</span>
-            </p>
-          </div>
         </div>
-        <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+        <div v-if="formMode === 'customer'" class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
           <div class="flex items-center justify-between">
             <span class="text-sm font-medium text-blue-900 dark:text-blue-300">
               Total Amount:
@@ -608,302 +364,25 @@
           </div>
         </div>
 
-        <!-- Mobile Preview Button -->
-        <div class="mt-4 md:hidden">
+        <!-- Preview Button -->
+        <div class="mt-4">
           <button
-            @click="showPreview = !showPreview"
-            class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 shadow-lg"
+            @click="handlePreviewClick"
+            class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 shadow-lg"
           >
-            <svg v-if="!showPreview" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
             </svg>
-            <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-            <span>{{ showPreview ? 'Hide Preview' : 'Preview Receipt' }}</span>
+            <span>Preview Receipt</span>
           </button>
         </div>
       </div>
     </section>
 
-    <!-- Receipt Preview Section - Hidden on mobile unless showPreview is true -->
-    <section
-      class="w-full max-w-5xl flex items-center justify-center"
-      :class="{ 'hidden lg:flex': !showPreview }"
-    >
-      <!-- Mobile wrapper - scales down on mobile, full size on desktop -->
-      <div class="w-full flex items-center justify-center" :style="{ 
-        transform: isMobile ? `scale(${mobileScale})` : 'none', 
-        transformOrigin: 'top center'
-      }">
-        <div
-          ref="receiptOuterRef"
-          id="receipt-canvas"
-          class="relative shadow-2xl bg-white p-2 flex flex-col mx-auto overflow-visible"
-          :style="{ ...receiptDimensions, borderColor: colorStyles.borderColor }"
-        >
-          <!-- Content Wrapper for Scaling -->
-          <div ref="receiptRef" class="receipt-content-wrapper flex flex-col justify-between" :style="scaledContentStyles">
-        <!-- Header -->
-        <div class="text-center flex-shrink-0">
-          <div class="flex items-start">
-            <!-- Logo (Fixed - Developer Only) -->
-            <div v-if="logoDataUrl" class="">
-              <img 
-                :src="logoDataUrl" 
-                alt="ICAN Logo" 
-                class="h-16 md:h-[130px] w-auto object-contain"
-                :style="{ filter: colorStyles.logoFilter }"
-              />
-            </div>
-            
-            <!-- Organization Name (Now Editable by Users) -->
-            <div class="max-w-[600px] mx-auto">
-              <div>
-                <h2
-                  v-if="organizationName || !isExporting"
-                  :class="[
-                    'ml-4 md:text-3xl font-bold text-center',
-                    organizationName === '' ? 'text-gray-400' : ''
-                  ]"
-                  :style="{
-                    fontFamily: 'Arial Narrow, Roboto Condensed, Oswald, sans-serif',
-                    fontWeight: 900,
-                    letterSpacing: '-0.5px',
-                    wordWrap: 'break-word',
-                    wordBreak: 'break-word',
-                    whiteSpace: 'normal',
-                    color: organizationName ? colorStyles.headerBg : '#9ca3af'
-                  }"
-                >
-                  {{ organizationName || 'Enter organization name' }}
-                </h2>
-              </div>
-              <div>
-                <!-- Subtitle (Now Editable by Users) -->
-                <p
-                  v-if="organizationSubName || !isExporting"
-                  :class="[
-                    'text-md text-center mt-[-11px]',
-                    organizationSubName === '' ? 'text-gray-400' : ''
-                  ]"
-                  :style="{
-                    wordWrap: 'break-word',
-                    wordBreak: 'break-word',
-                    whiteSpace: 'normal',
-                    color: organizationSubName ? colorStyles.borderColor : '#9ca3af'
-                  }"
-                >
-                  {{ organizationSubName || 'Enter organization subtitle' }}
-                </p>
-                <!-- Phone Address -->
-                <p
-                  v-if="organizationAddress || !isExporting"
-                  :class="[
-                    'text-xs text-center',
-                    organizationAddress === '' ? 'text-gray-400' : ''
-                  ]"
-                  :style="{
-                    wordWrap: 'break-word',
-                    wordBreak: 'break-word',
-                    whiteSpace: 'normal',
-                    color: organizationAddress ? colorStyles.borderColor : '#9ca3af'
-                  }"
-                >
-                  <strong> Address: </strong> {{ organizationAddress || 'Enter organization address' }}
-                </p>
-                <!-- Phone (Now Editable by Users) -->
-                <p
-                  v-if="organizationPhone || !isExporting"
-                  :class="[
-                    'text-xs text-center font-bold',
-                    organizationPhone === '' ? 'text-gray-400' : ''
-                  ]"
-                  :style="{
-                    wordWrap: 'break-word',
-                    wordBreak: 'break-word',
-                    whiteSpace: 'normal',
-                    color: organizationPhone ? colorStyles.borderColor : '#9ca3af'
-                  }"
-                >
-                  Tel: {{ organizationPhone || 'Enter phone number' }}
-                </p>
-              </div>
-            </div>
-          </div>
-
-
-          <!-- Receipt Title -->
-          <p 
-            class="text-lg font-bold uppercase mt-2 text-white inline-block px-3 rounded"
-            :style="{ backgroundColor: colorStyles.headerBg }"
-          >
-            CASH RECEIPT
-          </p>
-        </div>
-
-        <!-- Body -->
-        <div class="text-sm flex-grow flex flex-col justify-around">
-          <div class="flex justify-between items-center">
-            <div class="flex items-center gap-1">
-              <span>Date:</span>
-              <input
-                v-model="date"
-                type="date"
-                :disabled="autoDate"
-                class="bg-transparent border-none focus:outline-none text-sm"
-              />
-            </div>
-            <div class="flex items-center gap-1">
-              <span>No.:</span>
-              <input
-                v-model.number="receiptNumber"
-                :disabled="autoReceiptNumber"
-                type="number"
-                min="1"
-                class="w-16 bg-transparent border-none focus:outline-none text-center"
-              />
-            </div>
-          </div>
-
-          <div class="flex items-center gap-1">
-            <span>Received From:</span>
-            <input
-              v-model="receivedFrom"
-              placeholder=" "
-              class="flex-1 bg-transparent border-b border-dotted focus:outline-none"
-              :style="{ borderColor: colorStyles.borderColor }"
-            />
-          </div>
-
-          <div class="flex items-center gap-1">
-            <span>The Sum of:</span>
-            <input
-              ref="sumOfInput1"
-              v-model="sumOf"
-              @input="handleSumOfOverflow"
-              class="flex-1 bg-transparent border-b border-dotted focus:outline-none"
-              :style="{ borderColor: colorStyles.borderColor }"
-            />
-          </div>
-
-          <div class="flex items-center gap-2">
-            <input
-              ref="sumOfInput2"
-              v-model="sumOf2"
-              type="text"
-              @input="handleSumOf2Input"
-              class="flex-1 bg-transparent border-b border-dotted focus:outline-none"
-              :style="{ borderColor: colorStyles.borderColor }"
-            />
-            <span>Naira</span>
-            <div 
-              class="w-16 bg-transparent border-b border-dotted flex items-center justify-center text-center"
-              :style="{ borderColor: colorStyles.borderColor }"
-            >
-              <span>Only</span>
-            </div>
-            <span>Kobo</span>
-          </div>
-
-          <div class="flex items-center gap-1">
-            <span>Being Payment for:</span>
-            <input
-              ref="paymentForInput1"
-              v-model="paymentFor"
-              @input="handlePaymentForOverflow"
-              class="flex-1 bg-transparent border-b border-dotted focus:outline-none"
-              :style="{ borderColor: colorStyles.borderColor }"
-            />
-          </div>
-
-          <!-- Additional line for payment description -->
-          <div class="flex items-center gap-2">
-            <input
-              ref="paymentForInput2"
-              v-model="paymentFor2"
-              @input="handlePaymentFor2Input"
-              class="flex-1 bg-transparent border-b border-dotted focus:outline-none"
-              :style="{ borderColor: colorStyles.borderColor }"
-            />
-          </div>
-          
-          <div class="flex justify-between items-start flex-shrink-0">
-           
-            <!-- Signature 1 -->
-            <div class="flex flex-col items-center gap-1 mt-[-15px]">
-              <!-- Signature 1 Image -->
-                <div v-if="signatureImage1">
-                <img :src="signatureImage1" alt="Signature 1" class="h-16 w-auto object-contain max-w-[150px]" />
-              </div>
-
-              <div 
-                v-else 
-                class="mb-1 h-16 w-24 border border-dashed flex items-center justify-center text-[9px]"
-                :style="{ borderColor: colorStyles.borderColor, color: colorStyles.borderColor }"
-              >
-                No signature
-              </div>
-
-             <div 
-               class="w-full border-t text-center mt-[-20px]"
-               :style="{ borderColor: colorStyles.borderColor }"
-             >
-               <p class="italic text-[10px]">Signature</p>
-             </div> 
-            </div>
-
-            <!-- Amount in figures -->
-            <div class="flex flex-col items-center mt-3">
-              <div 
-                class="border-2 p-2 py-2 bg-yellow-50 min-w-[100px] md:min-w-[200px]"
-                :style="{ borderColor: colorStyles.borderColor }"
-              >
-                <div class="flex justify-center gap-2">
-                  <span class="font-bold text-lg">₦{{ naira || 0 }}</span>
-                </div>
-              </div>
-            </div>
-
-          <!-- Signature 2 -->
-            <div class="flex flex-col items-center gap-1 mt-[-15px]">
-              <!-- Signature 2 Image -->
-                <div v-if="signatureImage2">
-                <img :src="signatureImage2" alt="Signature 2" class="h-16 w-auto object-contain max-w-[150px]" />
-              </div>
-
-              <div 
-                v-else 
-                class="mb-1 h-16 w-24 border border-dashed flex items-center justify-center text-[9px]"
-                :style="{ borderColor: colorStyles.borderColor, color: colorStyles.borderColor }"
-              >
-                No signature
-              </div>
-
-             <div 
-               class="w-full border-t text-center mt-[-20px]"
-               :style="{ borderColor: colorStyles.borderColor }"
-             >
-               <p class="italic text-[10px]">Signature</p>
-             </div> 
-            </div>
-          </div>
-        </div>
-
-        <!-- Hidden checkboxes for auto date -->
-        <div class="hidden">
-          <input type="checkbox" v-model="autoDate" @change="syncDate" />
-        </div>
-          </div> <!-- end content wrapper / receiptRef -->
-        </div> <!-- end receipt outer container -->
-      </div> <!-- end mobile wrapper -->
-    </section>
-    <!-- End Receipt Preview Section -->
-
-    </div> <!-- end flex form+preview container -->
-  </div> <!-- end scroll container -->
-</div> <!-- end root wrapper -->
+    </div> <!-- end w-full max-w-7xl flex container -->
+  </div> <!-- end h-screen scroll container -->
+  </div> <!-- end root wrapper -->
 </template>
 
 <script>
@@ -914,7 +393,6 @@ import LogoCropper from '@/components/LogoCropper.vue';
 import { storeToRefs } from 'pinia';
 import html2pdf from 'html2pdf.js';
 import * as htmlToImage from 'html-to-image';
-import BaseButton from '@/components/BaseButton.vue';
 import { useReceiptStore } from '@/stores/receiptStore';
 import { useFinanceStore } from '@/stores/finance';
 // const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -930,7 +408,6 @@ import {
 export default defineComponent({
   name: 'ReceiptPage',
   components: {
-    BaseButton,
     DocumentHistoryModal,
     LogoCropper
   },
@@ -962,6 +439,56 @@ export default defineComponent({
       const storedMember = localStorage.getItem('authenticatedMember');
       if (storedMember) {
         authenticatedMember.value = JSON.parse(storedMember);
+      }
+
+      // Check for form mode from dashboard selection
+      const savedMode = localStorage.getItem('receiptFormMode');
+      if (savedMode) {
+        formMode.value = savedMode === 'customer' ? 'customer' : 'receipt';
+        localStorage.removeItem('receiptFormMode'); // Clear after reading
+      }
+
+      // Load saved form data when returning from preview page
+      const savedFormData = localStorage.getItem('receiptFormData');
+      if (savedFormData) {
+        try {
+          const formData = JSON.parse(savedFormData);
+          
+          // Restore all form fields
+          organizationName.value = formData.organizationName || '';
+          organizationSubName.value = formData.organizationSubName || '';
+          organizationAddress.value = formData.organizationAddress || '';
+          organizationPhone.value = formData.organizationPhone || '';
+          logoDataUrl.value = formData.logoDataUrl || null;
+          receiptNumber.value = formData.receiptNumber || '';
+          autoReceiptNumber.value = formData.autoReceiptNumber ?? true;
+          date.value = formData.date || '';
+          autoDate.value = formData.autoDate ?? true;
+          receivedFrom.value = formData.receivedFrom || '';
+          naira.value = formData.naira || 0;
+          kobo.value = formData.kobo || 0;
+          sumOf.value = formData.sumOf || '';
+          sumOf2.value = formData.sumOf2 || '';
+          paymentFor.value = formData.paymentFor || '';
+          paymentFor2.value = formData.paymentFor2 || '';
+          receiptWidth.value = formData.receiptWidth || 5.827;
+          receiptHeight.value = formData.receiptHeight || 8.268;
+          colorMode.value = formData.colorMode || 'full-color';
+          
+          if (formData.customColor1CMYK) {
+            customColor1CMYK.value = formData.customColor1CMYK;
+          }
+          if (formData.customColor2CMYK) {
+            customColor2CMYK.value = formData.customColor2CMYK;
+          }
+          
+          selectedSignature1.value = formData.selectedSignature1 || '';
+          selectedSignature2.value = formData.selectedSignature2 || '';
+          
+          // Signature images will be loaded after loadSignatures() completes
+        } catch (error) {
+          console.error('Error loading saved form data:', error);
+        }
       }
 
       // Check for pending correction from Stats page
@@ -1108,6 +635,7 @@ export default defineComponent({
     const paymentForInput2 = ref(null);
     const showPreview = ref(false); // Mobile preview toggle
     const isExporting = ref(false); // Prevent double export
+    const formMode = ref('generate'); // Toggle between 'generate' and 'customer'
 
     // Mobile detection
     const isMobile = ref(false);
@@ -1145,35 +673,6 @@ export default defineComponent({
       minHeight: `${receiptHeight.value}in`,
       maxHeight: `${receiptHeight.value}in`
     }));
-
-    // Computed styles for content scaling - uniform scaling to maintain proportions
-    const scaledContentStyles = computed(() => {
-      const baseWidth = 5.827;
-      const baseHeight = 8.268;
-      
-      // Calculate scale factors for width and height
-      const widthScale = receiptWidth.value / baseWidth;
-      const heightScale = receiptHeight.value / baseHeight;
-      
-      // Use uniform scale (average of both) to maintain text proportions
-      const uniformScale = (widthScale + heightScale) / 2;
-      
-      // Apply mobile constraints
-      const effectiveScale = isMobile.value ? Math.min(uniformScale, 1.0) : uniformScale;
-        
-      return {
-        transform: `scale(${effectiveScale})`,
-        transformOrigin: 'top left',
-        width: `${100 / effectiveScale}%`,
-        height: `${100 / effectiveScale}%`,
-        minHeight: `${100 / effectiveScale}%`,
-        overflow: 'visible',
-        padding: '0',
-        margin: '0',
-        display: 'flex',
-        flexDirection: 'column'
-      };
-    });
 
     // Handle preset size changes
     const handlePresetChange = (event) => {
@@ -1329,7 +828,71 @@ export default defineComponent({
     );
 
     const handleBack = () => {
-      router.push({ name: 'Dashboard' });
+      router.push('/receipt-dashboard');
+    };
+
+    // Handle preview click - Navigate to ReceiptPreviewPage
+    const handlePreviewClick = () => {
+      // Save receipt data to localStorage for preview page
+      const receiptPreviewData = {
+        organizationName: organizationName.value,
+        organizationSubName: organizationSubName.value,
+        organizationAddress: organizationAddress.value,
+        organizationPhone: organizationPhone.value,
+        logoDataUrl: logoDataUrl.value,
+        receiptNumber: receiptNumber.value,
+        date: date.value,
+        receivedFrom: receivedFrom.value,
+        naira: naira.value,
+        kobo: kobo.value,
+        sumOf: sumOf.value,
+        sumOf2: sumOf2.value,
+        paymentFor: paymentFor.value,
+        paymentFor2: paymentFor2.value,
+        receiptWidth: receiptWidth.value,
+        receiptHeight: receiptHeight.value,
+        colorMode: colorMode.value,
+        customColor1CMYK: customColor1CMYK.value,
+        customColor2CMYK: customColor2CMYK.value,
+        selectedSignature1: selectedSignature1.value,
+        selectedSignature2: selectedSignature2.value,
+        signatureImage1: signatureImage1.value,
+        signatureImage2: signatureImage2.value
+      };
+
+      localStorage.setItem('receiptPreviewData', JSON.stringify(receiptPreviewData));
+
+      // Also save complete form data for when user navigates back
+      const receiptFormData = {
+        organizationName: organizationName.value,
+        organizationSubName: organizationSubName.value,
+        organizationAddress: organizationAddress.value,
+        organizationPhone: organizationPhone.value,
+        logoDataUrl: logoDataUrl.value,
+        receiptNumber: receiptNumber.value,
+        autoReceiptNumber: autoReceiptNumber.value,
+        date: date.value,
+        autoDate: autoDate.value,
+        receivedFrom: receivedFrom.value,
+        naira: naira.value,
+        kobo: kobo.value,
+        sumOf: sumOf.value,
+        sumOf2: sumOf2.value,
+        paymentFor: paymentFor.value,
+        paymentFor2: paymentFor2.value,
+        receiptWidth: receiptWidth.value,
+        receiptHeight: receiptHeight.value,
+        colorMode: colorMode.value,
+        customColor1CMYK: customColor1CMYK.value,
+        customColor2CMYK: customColor2CMYK.value,
+        selectedSignature1: selectedSignature1.value,
+        selectedSignature2: selectedSignature2.value
+      };
+
+      localStorage.setItem('receiptFormData', JSON.stringify(receiptFormData));
+
+      // Navigate to preview page
+      router.push({ name: 'receipt-preview' });
     };
 
     // Handle logout
@@ -1572,13 +1135,31 @@ export default defineComponent({
         if (result.success) {
           savedSignatures.value = result.data;
           
-          // Auto-select primary signatures
-          const primary = result.data.find(sig => sig.isPrimary);
-          if (primary) {
-            selectedSignature1.value = primary.id;
-            selectedSignature2.value = primary.id;
-            signatureImage1.value = primary.dataURL;
-            signatureImage2.value = primary.dataURL;
+          // Check if we have saved signature selections from form data
+          if (selectedSignature1.value || selectedSignature2.value) {
+            // Load signature images based on saved selections
+            if (selectedSignature1.value) {
+              const sig1 = result.data.find(sig => sig.id === selectedSignature1.value);
+              if (sig1) {
+                signatureImage1.value = sig1.dataURL;
+              }
+            }
+            
+            if (selectedSignature2.value) {
+              const sig2 = result.data.find(sig => sig.id === selectedSignature2.value);
+              if (sig2) {
+                signatureImage2.value = sig2.dataURL;
+              }
+            }
+          } else {
+            // Auto-select primary signatures only if no saved selection exists
+            const primary = result.data.find(sig => sig.isPrimary);
+            if (primary) {
+              selectedSignature1.value = primary.id;
+              selectedSignature2.value = primary.id;
+              signatureImage1.value = primary.dataURL;
+              signatureImage2.value = primary.dataURL;
+            }
           }
         }
       } catch (error) {
@@ -1717,6 +1298,14 @@ export default defineComponent({
     const handleExportPDF = async () => {
       if (!receiptOuterRef.value || !receiptRef.value || isExporting.value) return;
       
+      // CRITICAL FIX: Ensure preview is visible on mobile before export
+      const wasHidden = !showPreview.value && isMobile.value;
+      if (wasHidden) {
+        showPreview.value = true;
+        // Wait for preview to render
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
       isExporting.value = true;
       ensureRanges();
       
@@ -1754,9 +1343,9 @@ export default defineComponent({
 
       const filename = `receipt-${receiptNumber.value}-${colorMode.value}.pdf`;
       
-      // Use user-specified dimensions for export (not hardcoded)
-      const RECEIPT_WIDTH = receiptWidth.value; // Use current user input
-      const RECEIPT_HEIGHT = receiptHeight.value; // Use current user input
+      // Use user-specified dimensions for export
+      const RECEIPT_WIDTH = receiptWidth.value;
+      const RECEIPT_HEIGHT = receiptHeight.value;
       
       const options = {
         margin: 0,
@@ -1765,57 +1354,23 @@ export default defineComponent({
         html2canvas: { 
           scale: 3, 
           useCORS: true,
-          backgroundColor: '#ffffff',
-          width: RECEIPT_WIDTH * 96, // Convert to pixels (96 DPI)
-          height: RECEIPT_HEIGHT * 96,
-          windowWidth: RECEIPT_WIDTH * 96,
-          windowHeight: RECEIPT_HEIGHT * 96
+          backgroundColor: '#ffffff'
         },
         jsPDF: { unit: 'in', format: [RECEIPT_WIDTH, RECEIPT_HEIGHT], orientation: 'landscape' },
       };
 
-      // Store original styles for OUTER container (declare outside try-catch)
-      const originalOuterWidth = receiptOuterRef.value.style.width;
-      const originalOuterHeight = receiptOuterRef.value.style.height;
-      const originalOuterMinWidth = receiptOuterRef.value.style.minWidth;
-      const originalOuterMaxWidth = receiptOuterRef.value.style.maxWidth;
+      // Store only the styles we'll modify during export
       const originalOuterTransform = receiptOuterRef.value.style.transform;
-      const originalOuterBackground = receiptOuterRef.value.style.backgroundColor;
       const originalOuterBoxShadow = receiptOuterRef.value.style.boxShadow;
-      const originalOuterBorder = receiptOuterRef.value.style.border;
-      const originalOuterPadding = receiptOuterRef.value.style.padding;
-      const originalOuterDisplay = receiptOuterRef.value.style.display;
-      const originalOuterJustifyContent = receiptOuterRef.value.style.justifyContent;
-      const originalOuterAlignItems = receiptOuterRef.value.style.alignItems;
-      const originalOuterPosition = receiptOuterRef.value.style.position;
-      const originalOuterMargin = receiptOuterRef.value.style.margin;
-      
-      // Store original styles for INNER content wrapper (declare outside try-catch)
-      const originalInnerTransform = receiptRef.value.style.transform;
-      const originalInnerTransformOrigin = receiptRef.value.style.transformOrigin;
-      const originalInnerWidth = receiptRef.value.style.width;
-      const originalInnerHeight = receiptRef.value.style.height;
 
       try {
-        // Keep current dimensions, just clean up styling for export
-        // DO NOT change width/height - dimensions are already set by user
-        receiptOuterRef.value.style.transform = 'none';
-        receiptOuterRef.value.style.transformOrigin = 'center center';
-        receiptOuterRef.value.style.backgroundColor = '#ffffff';
-        receiptOuterRef.value.style.boxShadow = 'none';
-        receiptOuterRef.value.style.border = 'none';
-        receiptOuterRef.value.style.padding = '0';
-        receiptOuterRef.value.style.margin = '0 auto'; // Center horizontally
-        receiptOuterRef.value.style.display = 'flex';
-        receiptOuterRef.value.style.justifyContent = 'center';
-        receiptOuterRef.value.style.alignItems = 'center';
-        receiptOuterRef.value.style.position = 'relative';
+        // MINIMAL STYLE CHANGES: Only remove visual effects, keep layout intact
+        // This ensures export looks EXACTLY like the preview
+        receiptOuterRef.value.style.boxShadow = 'none'; // Remove shadow for clean export
+        receiptOuterRef.value.style.transform = 'none'; // Remove any scaling on outer container
         
-        // CRITICAL: Keep inner scaling AS IS - don't reset to 'none'
-        // The scaling is what positions content correctly
-        if (receiptRef.value.style.transform === '' || !receiptRef.value.style.transform) {
-          receiptRef.value.style.transform = scaledContentStyles.value.transform;
-        }
+        // DON'T touch inner content styles - let it render exactly as shown in preview!
+        // The scale transform and all layout should remain unchanged
         
         receiptOuterRef.value.classList.add('exporting');
         
@@ -1829,27 +1384,9 @@ export default defineComponent({
         
         incrementReceiptNumber();
         
-        // Restore original styles for OUTER container
-        receiptOuterRef.value.style.width = originalOuterWidth;
-        receiptOuterRef.value.style.height = originalOuterHeight;
-        receiptOuterRef.value.style.minWidth = originalOuterMinWidth;
-        receiptOuterRef.value.style.maxWidth = originalOuterMaxWidth;
-        receiptOuterRef.value.style.transform = originalOuterTransform;
-        receiptOuterRef.value.style.backgroundColor = originalOuterBackground;
+        // Restore only what we changed (boxShadow and transform)
         receiptOuterRef.value.style.boxShadow = originalOuterBoxShadow;
-        receiptOuterRef.value.style.border = originalOuterBorder;
-        receiptOuterRef.value.style.padding = originalOuterPadding;
-        receiptOuterRef.value.style.display = originalOuterDisplay;
-        receiptOuterRef.value.style.justifyContent = originalOuterJustifyContent;
-        receiptOuterRef.value.style.alignItems = originalOuterAlignItems;
-        receiptOuterRef.value.style.position = originalOuterPosition;
-        receiptOuterRef.value.style.margin = originalOuterMargin;
-        
-        // Restore original styles for INNER content wrapper
-        receiptRef.value.style.transform = originalInnerTransform;
-        receiptRef.value.style.transformOrigin = originalInnerTransformOrigin;
-        receiptRef.value.style.width = originalInnerWidth;
-        receiptRef.value.style.height = originalInnerHeight;
+        receiptOuterRef.value.style.transform = originalOuterTransform;
         
         receiptOuterRef.value.classList.remove('exporting');
         
@@ -1864,36 +1401,32 @@ export default defineComponent({
       } catch (error) {
         console.error('Export failed:', error);
         // Always restore on error
-        if (receiptOuterRef.value && receiptRef.value) {
-          receiptOuterRef.value.style.width = originalOuterWidth;
-          receiptOuterRef.value.style.height = originalOuterHeight;
-          receiptOuterRef.value.style.minWidth = originalOuterMinWidth;
-          receiptOuterRef.value.style.maxWidth = originalOuterMaxWidth;
-          receiptOuterRef.value.style.transform = originalOuterTransform;
-          receiptOuterRef.value.style.backgroundColor = originalOuterBackground;
+        if (receiptOuterRef.value) {
+          // Restore only what we changed
           receiptOuterRef.value.style.boxShadow = originalOuterBoxShadow;
-          receiptOuterRef.value.style.border = originalOuterBorder;
-          receiptOuterRef.value.style.padding = originalOuterPadding;
-          receiptOuterRef.value.style.display = originalOuterDisplay;
-          receiptOuterRef.value.style.justifyContent = originalOuterJustifyContent;
-          receiptOuterRef.value.style.alignItems = originalOuterAlignItems;
-          receiptOuterRef.value.style.position = originalOuterPosition;
-          receiptOuterRef.value.style.margin = originalOuterMargin;
-          
-          receiptRef.value.style.transform = originalInnerTransform;
-          receiptRef.value.style.transformOrigin = originalInnerTransformOrigin;
-          receiptRef.value.style.width = originalInnerWidth;
-          receiptRef.value.style.height = originalInnerHeight;
-          
+          receiptOuterRef.value.style.transform = originalOuterTransform;
           receiptOuterRef.value.classList.remove('exporting');
         }
       } finally {
         isExporting.value = false;
+        
+        // If we auto-showed preview on mobile, hide it again
+        if (wasHidden && isMobile.value) {
+          showPreview.value = false;
+        }
       }
     };
 
     const handleExportJPEG = async () => {
       if (!receiptOuterRef.value || !receiptRef.value || isExporting.value) return;
+      
+      // CRITICAL FIX: Ensure preview is visible on mobile before export
+      const wasHidden = !showPreview.value && isMobile.value;
+      if (wasHidden) {
+        showPreview.value = true;
+        // Wait for preview to render
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
       
       isExporting.value = true;
       ensureRanges();
@@ -1931,55 +1464,24 @@ export default defineComponent({
           // Continue with export anyway
         }
 
-      // Store original styles for OUTER container
-      const originalOuterWidth = receiptOuterRef.value.style.width;
-      const originalOuterHeight = receiptOuterRef.value.style.height;
-      const originalOuterMinWidth = receiptOuterRef.value.style.minWidth;
-      const originalOuterMaxWidth = receiptOuterRef.value.style.maxWidth;
+      // Store only the styles we'll modify during export
       const originalOuterTransform = receiptOuterRef.value.style.transform;
-      const originalOuterBackground = receiptOuterRef.value.style.backgroundColor;
       const originalOuterBoxShadow = receiptOuterRef.value.style.boxShadow;
-      const originalOuterBorder = receiptOuterRef.value.style.border;
-      const originalOuterPadding = receiptOuterRef.value.style.padding;
-      const originalOuterDisplay = receiptOuterRef.value.style.display;
-      const originalOuterJustifyContent = receiptOuterRef.value.style.justifyContent;
-      const originalOuterAlignItems = receiptOuterRef.value.style.alignItems;
-      const originalOuterPosition = receiptOuterRef.value.style.position;
-      const originalOuterMargin = receiptOuterRef.value.style.margin;
-
-      // Store original styles for INNER content wrapper
-      const originalInnerTransform = receiptRef.value.style.transform;
-      const originalInnerTransformOrigin = receiptRef.value.style.transformOrigin;
-      const originalInnerWidth = receiptRef.value.style.width;
-      const originalInnerHeight = receiptRef.value.style.height;
 
       try {
         
-        // Keep current dimensions, just clean up styling for export
-        // DO NOT change width/height - dimensions are already set by user
-        receiptOuterRef.value.style.transform = 'none';
-        receiptOuterRef.value.style.transformOrigin = 'center center';
-        receiptOuterRef.value.style.backgroundColor = '#ffffff';
-        receiptOuterRef.value.style.boxShadow = 'none';
-        receiptOuterRef.value.style.border = 'none';
-        receiptOuterRef.value.style.padding = '0';
-        receiptOuterRef.value.style.margin = '0 auto'; // Center horizontally
-        receiptOuterRef.value.style.display = 'flex';
-        receiptOuterRef.value.style.justifyContent = 'center';
-        receiptOuterRef.value.style.alignItems = 'center';
-        receiptOuterRef.value.style.position = 'relative';
+        // MINIMAL STYLE CHANGES: Only remove visual effects, keep layout intact
+        // This ensures export looks EXACTLY like the preview
+        receiptOuterRef.value.style.boxShadow = 'none'; // Remove shadow for clean export
+        receiptOuterRef.value.style.transform = 'none'; // Remove any scaling on outer container
         
-        // CRITICAL: Keep inner scaling AS IS - don't reset to 'none'
-        // The scaling is what positions content correctly
-        // Just ensure it's stable by explicitly setting current computed value
-        if (receiptRef.value.style.transform === '' || !receiptRef.value.style.transform) {
-          receiptRef.value.style.transform = scaledContentStyles.value.transform;
-        }
+        // DON'T touch inner content styles - let it render exactly as shown in preview!
+        // The scale transform and all layout should remain unchanged
         
         receiptOuterRef.value.classList.add('exporting');
         
-        // Wait for styles to be applied
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Wait for shadow removal to take effect
+        await new Promise(resolve => setTimeout(resolve, 300));
         
         // Verify the element exists and has dimensions
         if (!receiptOuterRef.value) {
@@ -1995,13 +1497,12 @@ export default defineComponent({
         // Note: html-to-image exports as RGB, but we preserve CMYK intent via metadata
         let dataUrl;
         try {
-          // Export as high-quality JPEG with CMYK color metadata comment
+          // Export exactly as shown in preview - no dimension overrides
           dataUrl = await htmlToImage.toJpeg(receiptOuterRef.value, {
-            quality: 0.98, // Higher quality for CMYK conversion
-            pixelRatio: 3, // Higher resolution for professional printing
+            quality: 0.98,
+            pixelRatio: 3,
             backgroundColor: '#ffffff',
-            cacheBust: true,
-            skipFonts: false,
+            cacheBust: true
           });
         } catch (jpegError) {
           // Fallback to PNG if JPEG fails
@@ -2039,27 +1540,9 @@ export default defineComponent({
         
         incrementReceiptNumber();
         
-        // Restore original styles for OUTER container
-        receiptOuterRef.value.style.width = originalOuterWidth;
-        receiptOuterRef.value.style.height = originalOuterHeight;
-        receiptOuterRef.value.style.minWidth = originalOuterMinWidth;
-        receiptOuterRef.value.style.maxWidth = originalOuterMaxWidth;
-        receiptOuterRef.value.style.transform = originalOuterTransform;
-        receiptOuterRef.value.style.backgroundColor = originalOuterBackground;
+        // Restore only what we changed (boxShadow and transform)
         receiptOuterRef.value.style.boxShadow = originalOuterBoxShadow;
-        receiptOuterRef.value.style.border = originalOuterBorder;
-        receiptOuterRef.value.style.padding = originalOuterPadding;
-        receiptOuterRef.value.style.display = originalOuterDisplay;
-        receiptOuterRef.value.style.justifyContent = originalOuterJustifyContent;
-        receiptOuterRef.value.style.alignItems = originalOuterAlignItems;
-        receiptOuterRef.value.style.position = originalOuterPosition;
-        receiptOuterRef.value.style.margin = originalOuterMargin;
-        
-        // Restore original styles for INNER content wrapper
-        receiptRef.value.style.transform = originalInnerTransform;
-        receiptRef.value.style.transformOrigin = originalInnerTransformOrigin;
-        receiptRef.value.style.width = originalInnerWidth;
-        receiptRef.value.style.height = originalInnerHeight;
+        receiptOuterRef.value.style.transform = originalOuterTransform;
         
         receiptOuterRef.value.classList.remove('exporting');
         
@@ -2077,33 +1560,19 @@ export default defineComponent({
         }
         
         // Always restore on error
-        if (receiptOuterRef.value && receiptRef.value) {
-          // Restore original styles for OUTER container
-          receiptOuterRef.value.style.width = originalOuterWidth;
-          receiptOuterRef.value.style.height = originalOuterHeight;
-          receiptOuterRef.value.style.minWidth = originalOuterMinWidth;
-          receiptOuterRef.value.style.maxWidth = originalOuterMaxWidth;
-          receiptOuterRef.value.style.transform = originalOuterTransform;
-          receiptOuterRef.value.style.backgroundColor = originalOuterBackground;
+        if (receiptOuterRef.value) {
+          // Restore only what we changed
           receiptOuterRef.value.style.boxShadow = originalOuterBoxShadow;
-          receiptOuterRef.value.style.border = originalOuterBorder;
-          receiptOuterRef.value.style.padding = originalOuterPadding;
-          receiptOuterRef.value.style.display = originalOuterDisplay;
-          receiptOuterRef.value.style.justifyContent = originalOuterJustifyContent;
-          receiptOuterRef.value.style.alignItems = originalOuterAlignItems;
-          receiptOuterRef.value.style.position = originalOuterPosition;
-          receiptOuterRef.value.style.margin = originalOuterMargin;
-          
-          // Restore original styles for INNER content wrapper
-          receiptRef.value.style.transform = originalInnerTransform;
-          receiptRef.value.style.transformOrigin = originalInnerTransformOrigin;
-          receiptRef.value.style.width = originalInnerWidth;
-          receiptRef.value.style.height = originalInnerHeight;
-          
+          receiptOuterRef.value.style.transform = originalOuterTransform;
           receiptOuterRef.value.classList.remove('exporting');
         }
       } finally {
         isExporting.value = false;
+        
+        // If we auto-showed preview on mobile, hide it again
+        if (wasHidden && isMobile.value) {
+          showPreview.value = false;
+        }
       }
     };
 
@@ -2140,6 +1609,8 @@ export default defineComponent({
       showPreview,
       isMobile,
       mobileScale,
+      isExporting,
+      formMode,
       logoDataUrl,
       handleLogoUpload,
       showImageCropper,
@@ -2169,6 +1640,7 @@ export default defineComponent({
       amountInWords,
       authenticatedMember,
       handleBack,
+      handlePreviewClick,
       handleLogout,
       handleSumOfOverflow,
       handleSumOf2Input,
@@ -2205,7 +1677,6 @@ export default defineComponent({
       receiptHeight,
       receiptDimensions,
       contentScale,
-      scaledContentStyles,
       handlePresetChange,
       // CMYK Color settings
       colorMode,

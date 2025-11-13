@@ -495,6 +495,30 @@ const onAvatarSaved = async (dataUrl: string) => {
   min-width: fit-content;
 }
 
+/* Mobile styles for logo */
+@media (max-width: 768px) {
+  .logo {
+    margin-left: 70px; /* Increased to avoid hamburger button overlap */
+    font-size: 20px;
+    gap: 3px;
+  }
+}
+
+/* Medium screens (tablets) */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .logo {
+    margin-left: 20px; /* Some spacing on tablets */
+  }
+}
+
+/* Extra small screens - adjust for smaller hamburger button */
+@media (max-width: 480px) {
+  .logo {
+    margin-left: 65px; /* Slightly less margin for smaller hamburger button */
+    font-size: 18px;
+  }
+}
+
 .logo:hover {
   transform: scale(1.02);
 }
@@ -536,6 +560,13 @@ const onAvatarSaved = async (dataUrl: string) => {
   flex: 1;
   justify-content: center;
   max-width: 100%;
+}
+
+/* Hide desktop navigation on mobile */
+@media (max-width: 768px) {
+  .nav-menu.desktop-nav {
+    display: none;
+  }
 }
 
 .nav-link {
@@ -948,6 +979,10 @@ const onAvatarSaved = async (dataUrl: string) => {
 }
 
 @media (max-width: 768px) {
+  .header-content {
+    padding: 16px 20px; /* Reduced horizontal padding on mobile */
+  }
+
   .header-actions {
     gap: 8px;
   }
@@ -955,6 +990,13 @@ const onAvatarSaved = async (dataUrl: string) => {
   .cta-button {
     padding: 8px 16px;
     font-size: 13px;
+  }
+}
+
+/* Additional mobile adjustments for very small screens */
+@media (max-width: 480px) {
+  .header-content {
+    padding: 12px 16px; /* Even more compact on tiny screens */
   }
 }
 </style>

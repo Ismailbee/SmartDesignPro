@@ -744,34 +744,34 @@ function handleCreateMore() {
 </script>
 
 <style scoped>
-/* Custom scrollbar for dark mode */
+/* Hide custom scrollbar while maintaining scroll functionality */
 ::-webkit-scrollbar {
-  width: 8px;
+  display: none;
+  width: 0px;
 }
 
 ::-webkit-scrollbar-track {
-  background-color: #f1f5f9;
+  display: none;
 }
 
 .dark ::-webkit-scrollbar-track {
-  background-color: #1e293b;
+  display: none;
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1;
-  border-radius: 9999px;
+  display: none;
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background-color: #475569;
+  display: none;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8;
+  display: none;
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background-color: #64748b;
+  display: none;
 }
 
 /* Modal Transitions */

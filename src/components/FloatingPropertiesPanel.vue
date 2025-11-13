@@ -328,16 +328,17 @@ defineExpose({
   @apply p-4 space-y-4 max-h-96 overflow-y-auto;
 }
 
-/* Custom scrollbar */
+/* Hide Custom scrollbar */
 .panel-body::-webkit-scrollbar {
-  @apply w-2;
+  display: none;
+  width: 0px;
 }
 
 .panel-body::-webkit-scrollbar-track {
-  @apply bg-gray-100 rounded;
+  display: none;
 }
 
 .panel-body::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 rounded hover:bg-gray-400;
+  display: none;
 }
 </style>

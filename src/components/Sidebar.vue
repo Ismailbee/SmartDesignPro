@@ -936,34 +936,26 @@ watch(panelOpen, () => {
 }
 
 .scrollbar-thin::-webkit-scrollbar {
-  height: 6px;
+  display: none;
+  height: 0px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 3px;
+  display: none;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
-  transition: background-color 0.2s ease;
+  display: none;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  display: none;
 }
 
-/* Hide scrollbar on mobile for cleaner look */
-@media (max-width: 768px) {
-  .scrollbar-thin {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar {
-    display: none;
-  }
+/* Ensure hidden scrollbar for all screen sizes */
+.scrollbar-thin {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 /* Smooth scrolling behavior */

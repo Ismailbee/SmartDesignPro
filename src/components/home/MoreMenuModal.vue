@@ -747,22 +747,22 @@ onUnmounted(() => {
   transform: scale(0.95) translateY(10px);
 }
 
-/* Scrollbar Styling */
+/* Hide Scrollbar while maintaining scroll functionality */
 .modal-container::-webkit-scrollbar {
-  width: 10px;
+  display: none;
+  width: 0px;
 }
 
 .modal-container::-webkit-scrollbar-track {
-  background: #f8fafc;
+  display: none;
 }
 
 .modal-container::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 5px;
+  display: none;
 }
 
 .modal-container::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  display: none;
 }
 
 /* Responsive Design */

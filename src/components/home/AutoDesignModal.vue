@@ -389,11 +389,11 @@ onUnmounted(() => {
   transform: scale(0.95) translateY(10px);
 }
 
-/* Scrollbar */
-.modal-container::-webkit-scrollbar { width: 8px; }
-.modal-container::-webkit-scrollbar-track { background: #f1f5f9; }
-.modal-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-.modal-container::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+/* Hide Scrollbar */
+.modal-container::-webkit-scrollbar { display: none; width: 0px; }
+.modal-container::-webkit-scrollbar-track { display: none; }
+.modal-container::-webkit-scrollbar-thumb { display: none; }
+.modal-container::-webkit-scrollbar-thumb:hover { display: none; }
 
 /* Responsive */
 @media (max-width: 768px) {

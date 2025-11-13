@@ -165,21 +165,20 @@ onUnmounted(() => {
 }
 
 .dropdown-content::-webkit-scrollbar {
-  width: 6px;
+  display: none;
+  width: 0px;
 }
 
 .dropdown-content::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 3px;
+  display: none;
 }
 
 .dropdown-content::-webkit-scrollbar-thumb {
-  background: #06b6d4;
-  border-radius: 3px;
+  display: none;
 }
 
 .dropdown-content::-webkit-scrollbar-thumb:hover {
-  background: #0891b2;
+  display: none;
 }
 
 .dropdown-item {

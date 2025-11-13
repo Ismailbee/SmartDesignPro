@@ -901,23 +901,22 @@ function close() {
   transform: translate(-50%, -50%) scale(0.9);
 }
 
-/* Scrollbar */
+/* Hide Scrollbar */
 .panel-content::-webkit-scrollbar {
-  width: 8px;
+  display: none;
+  width: 0px;
 }
 
 .panel-content::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
+  display: none;
 }
 
 .panel-content::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
+  display: none;
 }
 
 .panel-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
+  display: none;
 }
 </style>
 
