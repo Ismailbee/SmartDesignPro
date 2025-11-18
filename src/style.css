@@ -27,6 +27,18 @@ body {
   overflow-y: auto !important;
 }
 
+/* Simple scroll lock for sidebar - prevent background scrolling only */
+body.sidebar-scroll-lock {
+  overflow: hidden !important;
+  overflow-y: hidden !important;
+}
+
+/* Ensure sidebar can still scroll when body is locked */
+body.sidebar-scroll-lock .mobile-sidebar,
+body.sidebar-scroll-lock .sidebar-content {
+  overflow-y: auto !important;
+}
+
 /* Konva canvas container */
 .konva-container {
   background: #f8f9fa;
@@ -39,20 +51,41 @@ body {
   background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
 }
 
-/* Custom scrollbar */
+/* Hide all scrollbars globally while maintaining scroll functionality */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+}
+
+/* Hide scrollbars for WebKit browsers (Chrome, Safari, Edge) */
+*::-webkit-scrollbar {
+  display: none;
+  width: 0px;
+  background: transparent;
+}
+
+/* Ensure scrolling still works for all elements */
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-corner {
+  display: none;
+  background: transparent;
+}
+
+/* Custom scrollbar (now hidden by default) */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+  display: none;
+  width: 0px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  display: none;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
+  display: none;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  display: none;
 }

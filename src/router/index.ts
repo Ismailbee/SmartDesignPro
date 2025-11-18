@@ -12,10 +12,26 @@ const HomePage = () => import('@/components/HomePage.vue')
 const DesignEditor = () => import('@/components/DesignEditor.vue')
 const UserSettings = () => import('@/views/UserSettings.vue')
 const AutoDesignPage = () => import('@/views/AutoDesignPage.vue')
-const InvoiceReceiptPage = () => import('@/views/InvoiceReceiptPage.vue')
+const InvoiceReceiptPage = () => import('@/views/invoices/InvoiceReceiptPage.vue')
 const SignaturePage = () => import('@/views/SignaturePage.vue')
-const InvoicePage = () => import('@/views/InvoicePage.vue')
-const ReceiptPage = () => import('@/views/ReceiptPage.vue')
+const InvoiceDashboard = () => import('@/views/invoices/InvoiceDashboard.vue')
+const InvoiceTemplatesPage = () => import('@/views/invoices/InvoiceTemplatesPage.vue')
+const CustomerInvoiceTemplatesPage = () => import('@/views/invoices/CustomerInvoiceTemplatesPage.vue')
+const InvoicePage = () => import('@/views/invoices/InvoicePage.vue')
+const GenerateInvoicePage = () => import('@/views/invoices/GenerateInvoicePage.vue')
+const CustomerInvoicePage = () => import('@/views/invoices/CustomerInvoicePage.vue')
+const InvoicePreviewPage = () => import('@/views/invoices/InvoicePreviewPage.vue')
+const ReceiptDashboard = () => import('@/views/receipts/ReceiptDashboard.vue')
+const ReceiptTemplatesPage = () => import('@/views/receipts/ReceiptTemplatesPage.vue')
+const GenerateReceiptPage = () => import('@/views/receipts/GenerateReceiptPage.vue')
+const CustomerReceiptPage = () => import('@/views/receipts/CustomerReceiptPage.vue')
+const CustomerReceiptTemplatesPage = () => import('@/views/receipts/CustomerReceiptTemplatesPage.vue')
+const ReceiptPage = () => import('@/views/receipts/ReceiptPage.vue')
+const ReceiptPreviewPage = () => import('@/views/receipts/ReceiptPreviewPage.vue')
+
+// Invoice Template Pages
+const ClassicProfessionalTemplate = () => import('@/views/invoices/templates/ClassicProfessionalTemplate.vue')
+const PreviewClassicProfessionalTemplate = () => import('@/views/invoices/templates/PreviewClassicProfessionalTemplate.vue')
 const LetterHeadPage = () => import('@/views/LetterHeadPage.vue')
 const LetterHeadDashboard = () => import('@/views/LetterHeadDashboard.vue')
 const TokensAndPlans = () => import('@/views/TokensAndPlans.vue')
@@ -135,6 +151,36 @@ const routes: RouteRecordRaw[] = [
   },
 
   {
+    path: '/invoice-dashboard',
+    name: 'invoice-dashboard',
+    component: InvoiceDashboard,
+    meta: {
+      title: 'Invoice Dashboard - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/invoice-templates',
+    name: 'invoice-templates',
+    component: InvoiceTemplatesPage,
+    meta: {
+      title: 'Invoice Templates - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/customer-invoice-templates',
+    name: 'customer-invoice-templates',
+    component: CustomerInvoiceTemplatesPage,
+    meta: {
+      title: 'Customer Invoice Templates - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
     path: '/invoice',
     name: 'invoice',
     component: InvoicePage,
@@ -145,11 +191,121 @@ const routes: RouteRecordRaw[] = [
   },
 
   {
+    path: '/generate-invoice',
+    name: 'generate-invoice',
+    component: GenerateInvoicePage,
+    meta: {
+      title: 'Generate Invoice - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/invoice-template/classic-professional',
+    name: 'invoice-template-classic-professional',
+    component: ClassicProfessionalTemplate,
+    meta: {
+      title: 'Classic Professional Template - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/invoice-template/classic-professional/preview',
+    name: 'preview-classic-professional',
+    component: PreviewClassicProfessionalTemplate,
+    meta: {
+      title: 'Preview: Classic Professional - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/customer-invoice',
+    name: 'customer-invoice',
+    component: CustomerInvoicePage,
+    meta: {
+      title: 'Generate for Customer - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/invoice-preview',
+    name: 'InvoicePreview',
+    component: InvoicePreviewPage,
+    meta: {
+      title: 'Invoice Preview - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/receipt-dashboard',
+    name: 'receipt-dashboard',
+    component: ReceiptDashboard,
+    meta: {
+      title: 'Receipt Dashboard - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/receipt-templates',
+    name: 'receipt-templates',
+    component: ReceiptTemplatesPage,
+    meta: {
+      title: 'Receipt Templates - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/customer-receipt-templates',
+    name: 'customer-receipt-templates',
+    component: CustomerReceiptTemplatesPage,
+    meta: {
+      title: 'Customer Receipt Templates - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
     path: '/receipt',
     name: 'receipt',
     component: ReceiptPage,
     meta: {
       title: 'Create Receipt - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/generate-receipt',
+    name: 'generate-receipt',
+    component: GenerateReceiptPage,
+    meta: {
+      title: 'Generate Receipt - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/customer-receipt',
+    name: 'customer-receipt',
+    component: CustomerReceiptPage,
+    meta: {
+      title: 'Customer Receipt - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
+    path: '/receipt-preview',
+    name: 'receipt-preview',
+    component: ReceiptPreviewPage,
+    meta: {
+      title: 'Receipt Preview - SmartDesignPro',
       requiresAuth: true
     }
   },

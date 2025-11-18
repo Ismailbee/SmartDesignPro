@@ -19,7 +19,7 @@
       @delete="handleDeleteInvoice"
     />
 
-    <div class="h-screen overflow-y-auto flex flex-col gap-6 items-center bg-slate-100 dark:bg-slate-900 pt-8 pb-24 px-4">
+    <div class="h-screen overflow-y-auto flex flex-col gap-2 items-center bg-slate-100 dark:bg-slate-900 pt-8 pb-24 px-4">
       <!-- Member Info Banner -->
       <div class="w-full max-w-4xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-3 rounded-lg shadow-md flex items-center justify-between">
       <div class="flex items-center gap-3">
@@ -33,96 +33,62 @@
           <p class="text-xs opacity-90">{{ authenticatedMember?.role || 'Member' }}</p>
         </div>
       </div>
-      <button
-        @click="handleLogout"
-        class="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-      >
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-        </svg>
-        Logout
-      </button>
     </div>
 
     <!-- Control Panel Section -->
-    <section class="w-full max-w-4xl bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
-      <div class="flex items-center justify-between flex-wrap gap-4">
+    <section class="w-full max-w-4xl bg-white dark:bg-slate-800 p-2 rounded-xl shadow-lg">
+      <div class="flex items-center justify-between flex-wrap gap-3">
         <!-- Title -->
-        <div class="flex items-center gap-4">
-          <div class="w-12 h-12 bg-emerald-100 dark:bg-emerald-900 rounded-xl flex items-center justify-center">
-            <svg class="w-6 h-6 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-emerald-100 dark:bg-emerald-900 rounded-xl flex items-center justify-center">
+            <svg class="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
             </svg>
           </div>
           <div>
-            <h1 class="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
+            <h1 class="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
               Invoice
-              <span v-if="currentInvoiceId" class="text-sm px-3 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full font-medium">
+              <span v-if="currentInvoiceId" class="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full font-medium">
                 Editing #{{ receiptNumber }}
               </span>
             </h1>
-            <p class="text-sm text-slate-500 dark:text-slate-400">Create and manage your invoices</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Create and manage your invoices</p>
           </div>
         </div>
 
-        <!-- Action Buttons -->
-        <div class="flex gap-3 flex-wrap items-center">
-          <!-- Confirm Correction Button (only in correction mode) -->
-          <BaseButton 
-            v-if="isCorrectionMode" 
-            variant="success" 
-            @click="handleConfirmCorrection"
-            class="bg-amber-600 hover:bg-amber-700 text-white font-bold animate-pulse"
-          >
-            ✅ Confirm Correction
-          </BaseButton>
-
-          <BaseButton variant="primary" @click="handleExportPDF" :disabled="isExporting">
-            📄 Export PDF
-          </BaseButton>
-          
-          <BaseButton variant="secondary" @click="handleExportJPEG" :disabled="isExporting">
-            🖼️ Export JPEG
-          </BaseButton>
-
-          <div class="h-8 w-px bg-gray-300 dark:bg-gray-600"></div>
-
-          <BaseButton variant="ghost" @click="handleBack">
-            ← Back to Dashboard
-          </BaseButton>
-        </div>
+       
       </div>
 
       <!-- Settings Row -->
-      <div class="mt-4 flex justify-between items-center flex-wrap gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <div class="flex gap-4 flex-wrap">
+      <div class="mt-3 flex justify-between items-center flex-wrap gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+        <div class="flex gap-3 flex-wrap">
           <!-- Auto Receipt Toggle -->
-          <label class="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors">
+          <label class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors">
             <input type="checkbox" v-model="autoReceiptNumber" class="rounded border-gray-300 cursor-pointer accent-emerald-600" />
             <span>Auto Receipt #</span>
           </label>
 
           <!-- Auto Date Toggle -->
-          <label class="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors">
+          <label class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors">
             <input type="checkbox" v-model="autoDate" class="rounded border-gray-300 cursor-pointer accent-emerald-600" />
             <span>Auto Date</span>
           </label>
         </div>
 
         <!-- Summary Display -->
-        <div class="bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2 rounded-lg border border-emerald-200 dark:border-emerald-700">
-          <div class="flex items-center gap-4 text-sm">
+        <div class="bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-700">
+          <div class="flex items-center gap-3 text-xs">
             <div>
               <span class="text-slate-600 dark:text-slate-400">Subtotal:</span>
-              <span class="font-bold text-slate-900 dark:text-white ml-2">{{ toCurrency(subtotal) }}</span>
+              <span class="font-bold text-slate-900 dark:text-white ml-1.5">{{ toCurrency(subtotal) }}</span>
             </div>
             <div v-if="taxEnabled">
               <span class="text-slate-600 dark:text-slate-400">Tax:</span>
-              <span class="font-bold text-emerald-600 ml-2">{{ toCurrency(taxAmount) }}</span>
+              <span class="font-bold text-emerald-600 ml-1.5">{{ toCurrency(taxAmount) }}</span>
             </div>
-            <div class="pl-4 border-l border-emerald-300 dark:border-emerald-700">
+            <div class="pl-3 border-l border-emerald-300 dark:border-emerald-700">
               <span class="text-slate-600 dark:text-slate-400">Total:</span>
-              <span class="font-bold text-lg text-emerald-700 dark:text-emerald-400 ml-2">{{ toCurrency(grandTotal) }}</span>
+              <span class="font-bold text-sm text-emerald-700 dark:text-emerald-400 ml-1.5">{{ toCurrency(grandTotal) }}</span>
             </div>
           </div>
         </div>
@@ -130,238 +96,39 @@
     </section>
 
         <!-- Flex Container for Form and Preview -->
-    <div class="w-full max-w-7xl flex flex-col lg:flex-row gap-6 items-start">
+    <div class="w-full max-w-7xl flex flex-col gap-6 items-center">
 
       <!-- Quick Fill Form Section -->
       <section class="w-full max-w-4xl">
         <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <h2 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-            <svg class="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-            📝 Quick Fill Form
-          </h2>
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <svg class="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+                📝 {{ formMode === 'generate' ? 'Generate Invoice Quick Fill Form' : 'Generate for Customer Quick Fill Form' }}
+              </h2>
+            </div>
+            
+            <!-- Refresh Button -->
+            <button
+              @click="handleRefreshForm"
+              class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors shadow-sm"
+              title="Clear form and start fresh"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>Refresh</span>
+            </button>
+          </div>
+          
           <p class="text-sm text-slate-600 dark:text-slate-300 mb-4">
-            Fill out this form to automatically populate the invoice below
+            {{ formMode === 'generate' ? 'Set up your organization details' : 'Fill out this form to automatically populate the invoice below' }}
           </p>
           
           <div class="space-y-6">
-            
-            <!-- Invoice Size Settings Section -->
-            <div class="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-700">
-              <h3 class="text-sm font-semibold text-indigo-900 dark:text-indigo-300 mb-3 flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                </svg>
-                Invoice Size Settings
-              </h3>
-              
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <!-- Width Input -->
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Width (inches)
-                  </label>
-                  <input
-                    v-model.number="invoiceWidth"
-                    type="number"
-                    min="3"
-                    max="20"
-                    step="0.1"
-                    placeholder="5.827"
-                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                <!-- Height Input -->
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Height (inches)
-                  </label>
-                  <input
-                    v-model.number="invoiceHeight"
-                    type="number"
-                    min="3"
-                    max="20"
-                    step="0.1"
-                    placeholder="8.268"
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                <!-- Preset Sizes -->
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Quick Presets
-                  </label>
-                  <select
-                    @change="handlePresetChange"
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                  >
-                    <option value="">Select Preset</option>
-                    <option value="a4">A4 (8.27 × 11.69)</option>
-                    <option value="a5">A5 (5.83 × 8.27)</option>
-                    <option value="letter">Letter (8.5 × 11)</option>
-                    <option value="legal">Legal (8.5 × 14)</option>
-                    <option value="custom">Custom Size</option>
-                  </select>
-                </div>
-              </div>
-
-              <!-- Size Preview Indicator -->
-              <div class="mt-3 p-2 bg-indigo-100 dark:bg-indigo-800/30 rounded-md border border-indigo-200 dark:border-indigo-700">
-                <div class="flex items-center justify-between text-sm">
-                  <span class="text-indigo-800 dark:text-indigo-300 font-medium">
-                    Current Size: {{ invoiceWidth }}″ × {{ invoiceHeight }}″
-                  </span>
-                  <span class="text-indigo-600 dark:text-indigo-400">
-                    Scale: {{ Math.round(contentScale * 100) }}%
-                  </span>
-                </div>
-              </div>
-
-              <p class="text-xs text-indigo-700 dark:text-indigo-300 mt-3 flex items-start gap-1">
-                <svg class="w-3 h-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Adjust the invoice size to fit your printing requirements. Content will automatically scale to fit.</span>
-              </p>
-            </div>
-
-            <!-- CMYK Color Settings Section -->
-            <div class="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-700">
-              <h3 class="text-sm font-semibold text-orange-900 dark:text-orange-300 mb-3 flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z" />
-                </svg>
-                CMYK Color Settings
-              </h3>
-              
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- Color Mode Selection -->
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Color Mode
-                  </label>
-                  <select
-                    v-model="colorMode"
-                    @change="handleColorModeChange"
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                  >
-                    <option value="full-color">Full Color (4 Colors - CMYK)</option>
-                    <option value="three-color">Three Color (CMY)</option>
-                    <option value="two-color">Two Color (Custom)</option>
-                    <option value="one-color">One Color (Black/Custom)</option>
-                  </select>
-                </div>
-
-                <!-- Color Preview -->
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Color Preview
-                  </label>
-                  <div class="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-slate-700">
-                    <div v-if="colorMode === 'full-color'" class="flex gap-1">
-                      <div class="w-6 h-6 bg-cyan-500 rounded border" title="Cyan"></div>
-                      <div class="w-6 h-6 bg-magenta-500 rounded border" title="Magenta"></div>
-                      <div class="w-6 h-6 bg-yellow-400 rounded border" title="Yellow"></div>
-                      <div class="w-6 h-6 bg-black rounded border" title="Black"></div>
-                    </div>
-                    <div v-else-if="colorMode === 'three-color'" class="flex gap-1">
-                      <div class="w-6 h-6 bg-cyan-500 rounded border" title="Cyan"></div>
-                      <div class="w-6 h-6 bg-magenta-500 rounded border" title="Magenta"></div>
-                      <div class="w-6 h-6 bg-yellow-400 rounded border" title="Yellow"></div>
-                    </div>
-                    <div v-else-if="colorMode === 'two-color'" class="flex gap-1">
-                      <div 
-                        class="w-8 h-6 rounded border" 
-                        :style="{ backgroundColor: cmykToHex(customColor1CMYK) }"
-                        title="Primary Color"
-                      ></div>
-                      <div 
-                        class="w-8 h-6 rounded border" 
-                        :style="{ backgroundColor: cmykToHex(customColor2CMYK) }"
-                        title="Secondary Color"
-                      ></div>
-                    </div>
-                    <div v-else-if="colorMode === 'one-color'" class="flex gap-1">
-                      <div 
-                        class="w-8 h-6 rounded border" 
-                        :style="{ backgroundColor: cmykToHex(customColor1CMYK) }"
-                        title="Primary Color"
-                      ></div>
-                    </div>
-                    <span class="text-xs text-slate-600 dark:text-slate-400 ml-2">
-                      {{ getColorModeDescription() }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- CMYK Sliders for Custom Colors -->
-              <div v-if="colorMode === 'two-color' || colorMode === 'one-color'" class="mt-4 space-y-3">
-                <div class="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Adjust Primary Color (CMYK)
-                </div>
-                <div class="space-y-2">
-                  <div class="flex items-center gap-3">
-                    <label class="w-20 text-xs text-cyan-600 dark:text-cyan-400 font-medium">Cyan:</label>
-                    <input v-model.number="customColor1CMYK.c" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-                    <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor1CMYK.c }}%</span>
-                  </div>
-                  <div class="flex items-center gap-3">
-                    <label class="w-20 text-xs text-pink-600 dark:text-pink-400 font-medium">Magenta:</label>
-                    <input v-model.number="customColor1CMYK.m" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-                    <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor1CMYK.m }}%</span>
-                  </div>
-                  <div class="flex items-center gap-3">
-                    <label class="w-20 text-xs text-yellow-600 dark:text-yellow-400 font-medium">Yellow:</label>
-                    <input v-model.number="customColor1CMYK.y" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-                    <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor1CMYK.y }}%</span>
-                  </div>
-                  <div class="flex items-center gap-3">
-                    <label class="w-20 text-xs text-slate-800 dark:text-slate-300 font-medium">Black (K):</label>
-                    <input v-model.number="customColor1CMYK.k" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-                    <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor1CMYK.k }}%</span>
-                  </div>
-                </div>
-
-                <div v-if="colorMode === 'two-color'" class="mt-4">
-                  <div class="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Adjust Secondary Color (CMYK)
-                  </div>
-                  <div class="space-y-2">
-                    <div class="flex items-center gap-3">
-                      <label class="w-20 text-xs text-cyan-600 dark:text-cyan-400 font-medium">Cyan:</label>
-                      <input v-model.number="customColor2CMYK.c" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-                      <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor2CMYK.c }}%</span>
-                    </div>
-                    <div class="flex items-center gap-3">
-                      <label class="w-20 text-xs text-pink-600 dark:text-pink-400 font-medium">Magenta:</label>
-                      <input v-model.number="customColor2CMYK.m" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-                      <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor2CMYK.m }}%</span>
-                    </div>
-                    <div class="flex items-center gap-3">
-                      <label class="w-20 text-xs text-yellow-600 dark:text-yellow-400 font-medium">Yellow:</label>
-                      <input v-model.number="customColor2CMYK.y" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-                      <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor2CMYK.y }}%</span>
-                    </div>
-                    <div class="flex items-center gap-3">
-                      <label class="w-20 text-xs text-slate-800 dark:text-slate-300 font-medium">Black (K):</label>
-                      <input v-model.number="customColor2CMYK.k" type="range" min="0" max="100" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-                      <span class="w-12 text-xs text-right text-slate-600 dark:text-slate-400">{{ customColor2CMYK.k }}%</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <p class="text-xs text-orange-700 dark:text-orange-300 mt-3 flex items-start gap-1">
-                <svg class="w-3 h-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Select the color mode for your invoice. This affects printing costs and visual appearance. Full color provides the richest appearance.</span>
-              </p>
-            </div>
             
             <!-- Organization Settings Section -->
             <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
@@ -478,7 +245,7 @@
             </div>
 
             <!-- Customer Information Section -->
-            <div class="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-700">
+            <div v-if="formMode === 'customer'" class="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-700">
               <h3 class="text-sm font-semibold text-emerald-900 dark:text-emerald-300 mb-3 flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -529,13 +296,13 @@
             </div>
 
             <!-- Invoice Items Section -->
-            <div>
+            <div v-if="formMode === 'customer'">
               <div class="flex items-center justify-between mb-3">
                 <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">
                   Invoice Items
                 </label>
                 <span class="text-xs text-slate-500 dark:text-slate-400">
-                  Maximum {{ MAX_ITEMS }} items
+                  Maximum {{ MAX_ITEMS }} items ({{ invoiceHeight }}" height)
                 </span>
               </div>
 
@@ -660,7 +427,7 @@
             </div>
   
             <!-- Tax Settings Section -->
-            <div class="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-gray-300 dark:border-gray-600">
+            <div v-if="formMode === 'customer'" class="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-gray-300 dark:border-gray-600">
               <div class="flex items-center gap-6">
               <label class="flex items-center gap-2 cursor-pointer">
                 <input 
@@ -691,7 +458,7 @@
             </div>
   
             <!-- Amount in Words Section -->
-            <div>
+            <div v-if="formMode === 'customer'">
               <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 Amount in Words (Auto-generated)
               </label>
@@ -717,500 +484,21 @@
                 Automatically filled based on total amount
               </p>
             </div>
-
-            <!-- Signature Selection Section -->
-            <div class="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-700">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-semibold text-purple-900 dark:text-purple-300 flex items-center gap-2">
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                  Digital Signatures
-                </h3>
-                <button
-                  @click="handleCreateSignature"
-                  class="text-xs px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-medium transition-colors flex items-center gap-1"
-                >
-                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                  </svg>
-                  Create New
-                </button>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- Signature 1 Selector -->
-                <div>
-                  <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Signature 1 (Left)
-                  </label>
-                  <select
-                    v-model="selectedSignature1"
-                    @change="handleSignature1Change"
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm"
-                  >
-                    <option value="">No signature</option>
-                    <option v-for="sig in savedSignatures" :key="sig.id" :value="sig.id">
-                      {{ sig.name }}{{ sig.isPrimary ? ' (Primary)' : '' }}
-                    </option>
-                  </select>
-                  
-                  <!-- Preview Signature 1 -->
-                  <div v-if="signatureImage1" class="mt-2 p-2 bg-white dark:bg-slate-800 rounded border border-gray-200 dark:border-gray-600">
-                    <img :src="signatureImage1" alt="Signature 1 Preview" class="h-12 w-full object-contain" />
-                  </div>
-                </div>
-
-                <!-- Signature 2 Selector -->
-                <div>
-                  <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Signature 2 (Right)
-                  </label>
-                  <select
-                    v-model="selectedSignature2"
-                    @change="handleSignature2Change"
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm"
-                  >
-                    <option value="">No signature</option>
-                    <option v-for="sig in savedSignatures" :key="sig.id" :value="sig.id">
-                      {{ sig.name }}{{ sig.isPrimary ? ' (Primary)' : '' }}
-                    </option>
-                  </select>
-                  
-                  <!-- Preview Signature 2 -->
-                  <div v-if="signatureImage2" class="mt-2 p-2 bg-white dark:bg-slate-800 rounded border border-gray-200 dark:border-gray-600">
-                    <img :src="signatureImage2" alt="Signature 2 Preview" class="h-12 w-full object-contain" />
-                  </div>
-                </div>
-              </div>
-
-              <p class="text-xs text-purple-700 dark:text-purple-300 mt-3 flex items-start gap-1">
-                <svg class="w-3 h-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Select signatures from your saved signatures or create new ones. Signatures will appear at the bottom of the invoice.</span>
-              </p>
-            </div>
           </div>
   
-          <!-- Summary -->
-          <div class="mt-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-700">
-            <div class="flex items-center justify-between">
-              <span class="text-sm font-medium text-emerald-900 dark:text-emerald-300">
-                Total Amount:
-              </span>
-              <span class="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
-                {{ toCurrency(grandTotal) }}
-              </span>
-            </div>
-          </div>
-  
-          <!-- Mobile Preview Button -->
-          <div class="mt-4 md:hidden">
+          <!-- Preview Button -->
+          <div class="mt-4">
             <button
-              @click="showPreview = !showPreview"
+              @click="handlePreviewClick"
               class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 shadow-lg"
             >
-              <svg v-if="!showPreview" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
               </svg>
-              <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              <span>{{ showPreview ? 'Hide Preview' : 'Preview Invoice' }}</span>
+              <span>Preview Invoice</span>
             </button>
           </div>
-        </div>
-      </section>
-  
-      <!-- Invoice Preview Section - Hidden on mobile unless showPreview is true -->
-      <section 
-        class="w-full max-w-5xl flex items-center justify-center md:ml-4"
-        :class="{ 'hidden md:flex': !showPreview }"
-      >
-        <!-- Mobile wrapper - scales down on mobile, full size on desktop -->
-        <div class="w-full flex items-center justify-center" :style="{ 
-          transform: isMobile ? `scale(${mobileScale})` : 'none', 
-          transformOrigin: 'top center',
-          height: `${invoiceHeight}in`,
-          maxHeight: `${invoiceHeight}in`
-        }">
-          <div
-            ref="invoiceRef"
-            id="meblink-invoice"
-            class="relative bg-white shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col mx-auto overflow-hidden p-6"
-            :style="invoiceDimensions"
-          >
-            <!-- Content Wrapper for Scaling -->
-            <div class="invoice-content-wrapper" :style="scaledContentStyles">
-           <!-- Header -->
-          <div class="text-center border-b ">
-            <div class="flex items-center ">
-              <!-- Logo (Fixed - Developer Only) -->
-              <div v-if="logoDataUrl" class="flex justify-center mr-3">
-                <img 
-                  :src="logoDataUrl" 
-                  alt="Logo" 
-                  class="h-[120px] object-contain" 
-                  :style="{ filter: colorStyles.logoFilter }"
-                  @error="logoDataUrl = null" 
-                />
-              </div>
-              
-            
-               <!-- Organization Name (Now Editable by Users) -->
-              <div class="w-auto max-w-[300px]">
-                <h2 
-                  v-if="organizationName"
-                  :class="[
-                    'text-[14px] font-bold text-left'
-                  ]"
-                  :style="{ 
-                    color: colorStyles.organizationTextColor,
-                    fontFamily: 'Arial Narrow, Roboto Condensed, Oswald, sans-serif',
-                    fontWeight: 900,
-                    letterSpacing: '-0.5px',
-                    wordWrap: 'break-word',
-                    wordBreak: 'break-word',
-                    whiteSpace: 'normal'
-                  }"
-                >
-                  {{ organizationName }}
-                </h2>
-                <h2 
-                  v-else
-                  class="text-[14px] font-bold text-left text-gray-400"
-                  style="font-family: 'Arial Narrow', 'Roboto Condensed', 'Oswald', sans-serif; font-weight: 900; letter-spacing: -0.5px; word-wrap: break-word; word-break: break-word; white-space: normal;"
-                >
-                  Enter organization name
-                </h2>
-                <p 
-                  v-if="organizationSubName"
-                  class="text-[12px] text-left mt-[-8px] text-slate-900 dark:text-slate-100"
-                  style="word-wrap: break-word; word-break: break-word; white-space: normal;"
-                >
-                  {{ organizationSubName }}
-                </p>
-                <p 
-                  v-else
-                  class="text-[12px] text-left mt-[-8px] text-gray-400"
-                  style="word-wrap: break-word; word-break: break-word; white-space: normal;"
-                >
-                  Enter organization subtitle
-                </p>
-            </div>
-            
-  
-          <div class="pl-3 ml-2 border-solid border-l-[2px] max-w-[200px]">
-              <!-- Address (Now Editable by Users) -->
-            <p 
-              v-if="organizationAddress"
-              class="text-[10px] text-left text-slate-900 dark:text-slate-100"
-              style="word-wrap: break-word; word-break: break-word; white-space: normal;"
-            >
-             <strong> Address: </strong> {{ organizationAddress }}
-            </p>
-            <p 
-              v-else
-              class="text-[10px] text-left text-gray-400"
-              style="word-wrap: break-word; word-break: break-word; white-space: normal;"
-            >
-             <strong> Address: </strong> Enter organization address
-            </p>
-            
-            <!-- Phone (Now Editable by Users) -->
-            <p 
-              v-if="organizationPhone"
-              class="text-[10px] text-left mt-1 font-bold text-slate-900 dark:text-slate-100"
-              style="word-wrap: break-word; word-break: break-word; white-space: normal;"
-            >
-              Tel: {{ organizationPhone }}
-            </p>
-            <p 
-              v-else
-              class="text-[10px] text-left mt-1 font-bold text-gray-400"
-              style="word-wrap: break-word; word-break: break-word; white-space: normal;"
-            >
-              Tel: Enter phone number
-            </p>
-          </div>
-  
-            </div>
-  
-            <!-- Receipt Title -->
-            <div class="flex justify-end items-center mt-[10px] mb-2">
-              <p 
-                class="text-sm font-semibold mr-[60px] inline-block px-3 py-1 rounded"
-                :style="{
-                  background: colorStyles.accentColor,
-                  color: colorStyles.headerText
-                }"
-              >
-                CASH/CREDIT INVOICE
-              </p>
-              
-              <div></div>
-              <div class="flex items-center gap-1">
-                   <span>No.:</span>
-                <div class="print-only w-16 text-center">{{ receiptNumber || '-' }}</div>
-                <input
-                  v-model.number="receiptNumber"
-                  :disabled="autoReceiptNumber"
-                  type="number"
-                  min="1"
-                  class="no-print w-16 bg-transparent border-none focus:outline-none text-center"
-                />
-                </div>
-            </div>
-            </div>
-  
-          <!-- Customer details -->
-          <div class="mt-2 grid grid-cols-3 gap-3">
-            <div 
-              class="col-span-2 rounded-xl p-1.5"
-              :style="{
-                border: `1.5px solid ${colorStyles.borderColor}`
-              }"
-            >
-              <div class="flex items-center gap-1">
-              <span class="text-[10px] text-slate-400 font-medium">Name:</span>
-              <div class="print-only flex-1 text-[11px]">{{ customerName || '-' }}</div>
-              <input
-                v-model="customerName"
-                placeholder=" "
-                class="no-print flex-1 bg-transparent border-b border-dotted border-gray-400 focus:outline-none text-[11px]"
-              />
-            </div>
-  
-            <div class="flex items-center gap-1">
-              <span class="text-[10px] text-slate-400 font-medium">Address:</span>
-              <div class="print-only flex-1 text-[11px]">{{ customerAddress || '-' }}</div>
-              <input
-                v-model="customerAddress"
-                placeholder=" "
-                class="no-print flex-1 bg-transparent border-b border-dotted border-gray-400 focus:outline-none text-[11px]"
-              />
-            </div>
-            </div>
-  
-            <div 
-              class="rounded-xl p-1.5"
-              :style="{
-                border: `1.5px solid ${colorStyles.borderColor}`
-              }"
-            >
-              <div class="flex items-center gap-1">
-             <span class="text-[10px] text-slate-400 font-medium">Date:</span>
-             <div class="print-only text-[11px]">{{ date || '-' }}</div>
-                  <input
-                    v-model="date"
-                    type="date"
-                    :disabled="autoDate"
-                    class="no-print bg-transparent border-none focus:outline-none text-[11px]"
-                  />
-            </div>
-  
-            <div class="flex items-center gap-1">
-              <span class="text-[10px] text-slate-400 font-medium whitespace-nowrap">L.P.O No.:</span>
-              <div class="print-only w-full text-[11px]">{{ lpo || '-' }}</div>
-              <input
-                v-model="lpo"
-                placeholder=" "
-                class="no-print w-full bg-transparent border-b border-dotted border-gray-400 focus:outline-none text-[11px]"
-              />
-            </div>
-            </div>
-  
-  
-           
-          </div>
-  
-          <!-- Table -->
-          <div class="mt-3 overflow-visible rounded relative">
-            <table class="w-full text-xs table-fixed border-collapse overflow-visible">
-              <thead 
-                class="uppercase text-[10px]"
-                :style="{
-                  background: colorStyles.tableHeaderBg,
-                  color: colorStyles.tableHeaderText
-                }"
-              >
-                <tr>
-                  <th class="w-[7%] px-1.5 py-1 border text-center">QTY</th>
-                  <th class="w-[56%] px-1.5 py-1 border text-left">DESCRIPTION OF GOODS</th>
-                  <th class="w-[9%] px-1.5 py-1 border text-center">RATE</th>
-                  <th class="w-[8%] px-1.5 py-1 border text-center">TAX%</th>
-                  <th class="w-[16%] px-1.5 py-1 border text-center">AMOUNT</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(item, index) in items" :key="item.id" class="border-t hover:bg-slate-50 transition-colors group">
-                  <td class="px-1.5 py-0.5 text-center align-top">
-                    <div class="print-only text-[11px]">
-                      {{ item.quantity && item.quantity !== 0 ? item.quantity : '-' }}
-                    </div>
-                    <textarea 
-                      v-model.number="item.quantity" 
-                      rows="1"
-                      placeholder=""
-                      class="no-print w-full text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded px-1 py-0.5 text-[11px] resize-none leading-tight" 
-                      style="overflow: hidden; min-height: 20px;"
-                      @input="autoResize"
-                    ></textarea>
-                  </td>
-                  <td class="px-1.5 py-0.5 align-top">
-                    <div class="w-full">
-                      <div class="print-only text-[11px]">
-                        {{ item.description || '-' }}
-                      </div>
-                      <textarea 
-                        v-model="item.description" 
-                        placeholder="Description" 
-                        rows="1"
-                        class="no-print w-full bg-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded px-1 py-0.5 text-[11px] resize-none leading-tight" 
-                        style="overflow: hidden; min-height: 20px;"
-                        @keydown.enter.prevent="addItemAfter(index)"
-                        @input="autoResize"
-                      ></textarea>
-                    </div>
-                  </td>
-                  <td class="px-1.5 py-0.5 text-right align-top">
-                    <div class="print-only text-[11px]">
-                      {{ item.price && item.price !== 0 ? item.price.toFixed(2) : '-' }}
-                    </div>
-                    <textarea 
-                      v-model.number="item.price" 
-                      rows="1"
-                      placeholder=""
-                      class="no-print w-full text-right bg-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded px-1 py-0.5 text-[11px] resize-none leading-tight" 
-                      style="overflow: hidden; min-height: 20px;"
-                      @input="autoResize"
-                    ></textarea>
-                  </td>
-                  <td class="px-1.5 py-0.5 text-center align-top">
-                    <div class="print-only text-[11px]">
-                      {{ item.tax && item.tax !== 0 ? item.tax : '-' }}
-                    </div>
-                    <textarea 
-                      v-model.number="item.tax" 
-                      rows="1"
-                      placeholder="0"
-                      class="no-print w-full text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded px-1 py-0.5 text-[11px] resize-none leading-tight" 
-                      style="overflow: hidden; min-height: 20px;"
-                      @input="autoResize"
-                    ></textarea>
-                  </td>
-                  <td class="px-1.5 py-0.5 text-right font-semibold align-top relative overflow-visible text-[11px]">
-                    {{ item.description && item.description.trim() ? toCurrency(getItemAmount(item)) : '-' }}
-                    <!-- Delete button absolutely positioned on right edge -->
-                    <button 
-                      v-if="items.length > 1"
-                      @click="removeItem(item.id)" 
-                      class="absolute right-[-13px] top-0 -translate-y-1/2 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all duration-200 w-5 h-5 flex items-center justify-center text-lg font-bold hover:scale-110 z-50"
-                      title="Remove item"
-                    >
-                      ×
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            
-            <!-- Add button absolutely positioned at bottom left -->
-            <button 
-              @click="addItem"
-              :disabled="items.length >= MAX_ITEMS"
-              class="absolute left-[-13px] bottom-0 translate-y-1/2 text-emerald-400 hover:text-emerald-600 disabled:text-gray-300 disabled:cursor-not-allowed opacity-0 hover:opacity-100 transition-all duration-200 w-6 h-6 flex items-center justify-center text-2xl font-bold hover:scale-110 z-50 bg-white rounded-full shadow-md border border-emerald-300 disabled:border-gray-300"
-              :title="items.length >= MAX_ITEMS ? `Maximum ${MAX_ITEMS} items allowed` : 'Add new item'"
-            >
-              +
-            </button>
-          </div>
-  
-          <!-- Total -->
-          <div class="flex justify-end font-bold text-slate-900 text-base">
-                <span class="mr-5">TOTAL</span>
-                <span>{{ toCurrency(grandTotal) }}</span>
-          </div>
-  
-          <!-- Footer -->
-          <div class="mt-auto text-[12px]">
-  
-            <div>
-              <div class="flex items-center gap-1">
-              <span class="flex whitespace-nowrap">Amount in words:</span>
-              <div class="print-only flex-1 text-[10px]">{{ sumOf || '-' }}</div>
-              <input
-                ref="sumOfInput1"
-                v-model="sumOf"
-                @input="handleSumOfOverflow"
-                class="no-print flex-1 bg-transparent border-b border-dotted border-gray-400 focus:outline-none text-[10px]"
-              />
-            </div>
-  
-            <div class="flex items-center h-7 gap-2">
-              <div class="print-only flex-1 text-[10px]">{{ sumOf2 || '-' }}</div>
-              <input
-                ref="sumOfInput2"
-                v-model="sumOf2"
-                type="text"
-                @input="handleSumOf2Input"
-                class="no-print flex-1 bg-transparent border-b border-dotted border-gray-400 focus:outline-none text-[10px]"
-              />
-              <span>Naira</span>
-              <div class="w-14 bg-transparent border-b border-dotted border-gray-400 flex items-center justify-center text-center">
-                <span>Only</span>
-              </div>
-              <span>Kobo</span>
-            </div>
-  
-            </div>
-  
-             <div class="flex justify-between items-start mt-1">
-             
-              <!-- Signature 1 -->
-              <div class="flex flex-col items-center gap-1 mt-[-20px]">
-                <!-- Signature 1 Image -->
-                <div v-if="signatureImage1" class="h-20 flex items-center">
-                  <img :src="signatureImage1" alt="Signature 1" class="h-full w-auto object-contain max-w-[180px]" />
-                </div>
-  
-                <div v-else class="h-20 w-28 border border-dashed border-gray-300 flex items-center justify-center text-[9px] text-gray-400">
-                  No signature
-                </div>
-  
-               <div class="w-full border-t border-gray-400 text-center mt-[-28px]">
-                 <p class="italic text-[10px]">Signature</p>
-               </div> 
-              </div>
-  
-              <!-- Thanks for your patronage -->
-               <div class="mt-2 text-emerald-600 text-center font-medium text-[10px]">Thanks for your patronage</div>
-  
-            <!-- Signature 2 -->
-              <div class="flex flex-col items-center gap-1 mt-[-20px]">
-                <!-- Signature 2 Image -->
-                <div v-if="signatureImage2" class="h-20 flex items-center">
-                  <img :src="signatureImage2" alt="Signature 2" class="h-full w-auto object-contain max-w-[180px]" />
-                </div>
-  
-                <div v-else class="h-20 w-28 border border-dashed border-gray-300 flex items-center justify-center text-[9px] text-gray-400">
-                  No signature
-                </div>
-  
-               <div class="w-full border-t border-gray-400 text-center mt-[-28px]">
-                 <p class="italic text-[10px]">Signature</p>
-               </div> 
-              </div>
-            </div>
-            
-  
-          </div>
-          <!-- End of Content Wrapper -->
-        </div>
-        </div>
-        <!-- End of invoice wrapper -->
         </div>
       </section>
 
@@ -1272,6 +560,41 @@ export default defineComponent({
         authenticatedMember.value = JSON.parse(memberData);
       }
 
+      // Check for form mode from dashboard selection
+      const savedMode = localStorage.getItem('invoiceFormMode');
+      if (savedMode) {
+        formMode.value = savedMode === 'customer' ? 'customer' : 'generate';
+        localStorage.removeItem('invoiceFormMode'); // Clear after reading
+      }
+
+      // Load saved form data from localStorage (persists when navigating back from preview)
+      const savedFormData = localStorage.getItem('invoiceFormData');
+      if (savedFormData) {
+        try {
+          const formData = JSON.parse(savedFormData);
+          // Restore all form fields
+          if (formData.organizationName !== undefined) organizationName.value = formData.organizationName;
+          if (formData.organizationSubName !== undefined) organizationSubName.value = formData.organizationSubName;
+          if (formData.organizationAddress !== undefined) organizationAddress.value = formData.organizationAddress;
+          if (formData.organizationPhone !== undefined) organizationPhone.value = formData.organizationPhone;
+          if (formData.logoDataUrl !== undefined) logoDataUrl.value = formData.logoDataUrl;
+          if (formData.receiptNumber !== undefined) receiptNumber.value = formData.receiptNumber;
+          if (formData.date !== undefined) date.value = formData.date;
+          if (formData.customerName !== undefined) customerName.value = formData.customerName;
+          if (formData.customerAddress !== undefined) customerAddress.value = formData.customerAddress;
+          if (formData.lpo !== undefined) lpo.value = formData.lpo;
+          if (formData.items !== undefined && formData.items.length > 0) items.value = formData.items;
+          if (formData.taxEnabled !== undefined) taxEnabled.value = formData.taxEnabled;
+          if (formData.taxRate !== undefined) taxRate.value = formData.taxRate;
+          if (formData.invoiceWidth !== undefined) invoiceWidth.value = formData.invoiceWidth;
+          if (formData.invoiceHeight !== undefined) invoiceHeight.value = formData.invoiceHeight;
+          if (formData.colorMode !== undefined) colorMode.value = formData.colorMode;
+          if (formData.formMode !== undefined) formMode.value = formData.formMode;
+        } catch (error) {
+          console.error('Error loading saved form data:', error);
+        }
+      }
+
       // Check for pending correction from Stats page
       const pendingCorrection = localStorage.getItem('pendingCorrection');
       if (pendingCorrection) {
@@ -1325,6 +648,9 @@ export default defineComponent({
     const a5Width = '8.27in';
     const a5Height = '5.83in';
 
+    // Form mode toggle - Default to 'generate' (organization-only) mode
+    const formMode = ref('generate'); // 'generate' or 'customer'
+    
     // reactive fields
     const organizationName = ref('');
     const organizationSubName = ref('');
@@ -1551,26 +877,6 @@ export default defineComponent({
       return Math.min(widthScale, heightScale);
     });
 
-    // Computed styles for content scaling - using font-size scaling instead of transform
-    const scaledContentStyles = computed(() => {
-      // Calculate effective scale considering mobile scaling
-      const effectiveScale = isMobile.value ? 
-        Math.min(contentScale.value, 1.0) : // On mobile, don't exceed 1x scale
-        contentScale.value; // On desktop, use full content scale
-        
-      return {
-        fontSize: `${effectiveScale * 100}%`, // Scale font size instead of transforming
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between', // Distribute content evenly in height
-        overflow: 'visible',
-        padding: '0',
-        margin: '0'
-      };
-    });
-
     // Editable organization details (Users can now change these)
     const organizationAddress = ref('');
     const organizationPhone = ref('');
@@ -1648,19 +954,32 @@ export default defineComponent({
       { id: 3, description: '', quantity: '', price: 0.0, tax: 0.0 },
     ]);
 
-    const MAX_ITEMS = 12; // Maximum number of rows allowed
+    // Dynamic MAX_ITEMS based on invoice height
+    const MAX_ITEMS = computed(() => {
+      const height = invoiceHeight.value;
+      if (height >= 8) {
+        // For 8 inches or more, max 12 items
+        return 12;
+      } else {
+        // For less than 8 inches, reduce proportionally
+        // Calculate items: (height / 8) * 12
+        const calculatedMax = Math.floor((height / 8) * 12);
+        // Ensure at least 3 items minimum
+        return Math.max(3, calculatedMax);
+      }
+    });
 
     const addItem = () => {
-      if (items.value.length >= MAX_ITEMS) {
-        alert(`Maximum ${MAX_ITEMS} items allowed`);
+      if (items.value.length >= MAX_ITEMS.value) {
+        alert(`Maximum ${MAX_ITEMS.value} items allowed for ${invoiceHeight.value}" height invoice`);
         return;
       }
       items.value.push({ id: Date.now(), description: '', quantity: '', price: 0, tax: 0 });
     };
 
     const addItemAfter = (index) => {
-      if (items.value.length >= MAX_ITEMS) {
-        alert(`Maximum ${MAX_ITEMS} items allowed`);
+      if (items.value.length >= MAX_ITEMS.value) {
+        alert(`Maximum ${MAX_ITEMS.value} items allowed for ${invoiceHeight.value}" height invoice`);
         return;
       }
       const newItem = { id: Date.now(), description: '', quantity: '', price: 0, tax: 0 };
@@ -1809,6 +1128,39 @@ export default defineComponent({
       }, 50);
     }, { deep: true });
 
+    // Auto-save form data to localStorage whenever any field changes
+    watch(
+      [
+        organizationName, organizationSubName, organizationAddress, organizationPhone,
+        logoDataUrl, receiptNumber, date, customerName, customerAddress, lpo,
+        items, taxEnabled, taxRate, invoiceWidth, invoiceHeight, colorMode, formMode
+      ],
+      () => {
+        const formData = {
+          organizationName: organizationName.value,
+          organizationSubName: organizationSubName.value,
+          organizationAddress: organizationAddress.value,
+          organizationPhone: organizationPhone.value,
+          logoDataUrl: logoDataUrl.value,
+          receiptNumber: receiptNumber.value,
+          date: date.value,
+          customerName: customerName.value,
+          customerAddress: customerAddress.value,
+          lpo: lpo.value,
+          items: items.value,
+          taxEnabled: taxEnabled.value,
+          taxRate: taxRate.value,
+          invoiceWidth: invoiceWidth.value,
+          invoiceHeight: invoiceHeight.value,
+          colorMode: colorMode.value,
+          formMode: formMode.value
+        };
+        
+        localStorage.setItem('invoiceFormData', JSON.stringify(formData));
+      },
+      { deep: true }
+    );
+
     // Auto-generate receipt number when needed
     watch(autoReceiptNumber, async (enabled) => {
       if (enabled) {
@@ -1882,6 +1234,8 @@ export default defineComponent({
     const handleExportPDF = async () => {
       if (!invoiceRef.value || isExporting.value) return;
       
+      const hiddenElements = []; // Declare outside try block for cleanup
+      
       try {
         isExporting.value = true;
         exportType.value = 'pdf';
@@ -1890,52 +1244,37 @@ export default defineComponent({
         const INVOICE_WIDTH = invoiceWidth.value; // inches
         const INVOICE_HEIGHT = invoiceHeight.value; // inches
         
-        // Create a clone of the invoice for export to avoid visual changes
+        // Hide empty placeholder elements temporarily on original element
         const originalElement = invoiceRef.value;
-        const clone = originalElement.cloneNode(true);
+        const textElements = originalElement.querySelectorAll('h2, p');
         
-        // Style the clone for export without affecting the original
-        clone.style.width = `${INVOICE_WIDTH}in`;
-        clone.style.height = `${INVOICE_HEIGHT}in`;
-        clone.style.transform = 'none';
-        clone.style.backgroundColor = '#ffffff';
-        clone.style.position = 'fixed';
-        clone.style.top = '-9999px';
-        clone.style.left = '-9999px';
-        clone.style.zIndex = '-1';
-        clone.classList.add('exporting');
-        
-        // Remove any scaling from the clone's content wrapper
-        const contentWrapper = clone.querySelector('.invoice-content-wrapper');
-        if (contentWrapper) {
-          contentWrapper.style.width = '100%';
-          contentWrapper.style.height = '100%';
-          contentWrapper.style.fontSize = '100%'; // Reset to base font size for export
-          contentWrapper.style.display = 'flex';
-          contentWrapper.style.flexDirection = 'column';
-          contentWrapper.style.justifyContent = 'space-between';
-          contentWrapper.style.overflow = 'visible';
-        }
-        
-        // Hide empty placeholder elements by checking their text content
-        const textElements = clone.querySelectorAll('h2, p');
         textElements.forEach(el => {
           const text = el.textContent?.trim() || '';
           if (text.includes('Enter organization name') || 
               text.includes('Enter organization subtitle') || 
               text.includes('Enter organization address') ||
               text.includes('Enter phone number')) {
+            hiddenElements.push({ el, originalDisplay: el.style.display });
             el.style.display = 'none';
           }
         });
         
-        // Append clone to body
-        document.body.appendChild(clone);
+        // Wait for any images to load
+        const images = originalElement.querySelectorAll('img');
+        await Promise.all(
+          Array.from(images).map(img => {
+            if (img.complete) return Promise.resolve();
+            return new Promise((resolve) => {
+              img.onload = resolve;
+              img.onerror = resolve; // Continue even if image fails
+              setTimeout(resolve, 3000); // Timeout after 3 seconds
+            });
+          })
+        );
         
-        await new Promise(resolve => setTimeout(resolve, 150));
+        // Wait for DOM to update
+        await new Promise(resolve => setTimeout(resolve, 100));
         
-        // Export using the clone
-        const element = clone;
         const filename = `ICAN-Invoice-${receiptNumber.value || Date.now()}.pdf`;
         const options = {
           margin: 0,
@@ -1945,35 +1284,35 @@ export default defineComponent({
             scale: 3, 
             useCORS: true, 
             logging: false,
-            backgroundColor: '#ffffff',
-            width: INVOICE_WIDTH * 96, // Convert to pixels (96 DPI)
-            height: INVOICE_HEIGHT * 96,
-            windowWidth: INVOICE_WIDTH * 96,
-            windowHeight: INVOICE_HEIGHT * 96
+            backgroundColor: '#ffffff'
           },
           jsPDF: { unit: 'in', format: [INVOICE_WIDTH, INVOICE_HEIGHT], orientation: 'portrait' },
         };
         
-        await html2pdf().set(options).from(element).save();
+        // Export using the original element exactly as it appears
+        await html2pdf().set(options).from(originalElement).save();
+        
+        // Restore hidden elements
+        hiddenElements.forEach(({ el, originalDisplay }) => {
+          el.style.display = originalDisplay;
+        });
         
         // Log activity
         logActivity(`Created Invoice #${receiptNumber.value || 'N/A'}`);
         
         alert('✅ Invoice exported as PDF successfully!');
         
-        // Clean up clone
-        document.body.removeChild(clone);
       } catch (error) {
         console.error('Error exporting PDF:', error);
         alert(`❌ Failed to export PDF: ${error.message}`);
-      } finally {
-        // Clean up any remaining clones
-        const clones = document.querySelectorAll('#meblink-invoice.exporting');
-        clones.forEach(clone => {
-          if (clone !== invoiceRef.value && clone.parentNode) {
-            clone.parentNode.removeChild(clone);
+        
+        // Restore any hidden elements on error
+        hiddenElements?.forEach(({ el, originalDisplay }) => {
+          if (el && el.style) {
+            el.style.display = originalDisplay || '';
           }
         });
+      } finally {
         isExporting.value = false;
         exportType.value = '';
       }
@@ -1982,68 +1321,56 @@ export default defineComponent({
     const handleExportJPEG = async () => {
       if (!invoiceRef.value || isExporting.value) return;
       
+      const hiddenElements = []; // Declare outside try block for finally cleanup
+      
       try {
         isExporting.value = true;
         exportType.value = 'jpeg';
         
-        // Use current invoice dimensions for export
-        const INVOICE_WIDTH = invoiceWidth.value; // inches
-        const INVOICE_HEIGHT = invoiceHeight.value; // inches
-        
-        // Create a clone of the invoice for export to avoid visual changes
+        // Hide empty placeholder elements temporarily
         const originalElement = invoiceRef.value;
-        const clone = originalElement.cloneNode(true);
+        const textElements = originalElement.querySelectorAll('h2, p');
         
-        // Style the clone for export without affecting the original
-        clone.style.width = `${INVOICE_WIDTH}in`;
-        clone.style.height = `${INVOICE_HEIGHT}in`;
-        clone.style.transform = 'none';
-        clone.style.backgroundColor = '#ffffff';
-        clone.style.position = 'fixed';
-        clone.style.top = '-9999px';
-        clone.style.left = '-9999px';
-        clone.style.zIndex = '-1';
-        clone.classList.add('exporting');
-        
-        // Remove any scaling from the clone's content wrapper
-        const contentWrapper = clone.querySelector('.invoice-content-wrapper');
-        if (contentWrapper) {
-          contentWrapper.style.width = '100%';
-          contentWrapper.style.height = '100%';
-          contentWrapper.style.fontSize = '100%'; // Reset to base font size for export
-          contentWrapper.style.display = 'flex';
-          contentWrapper.style.flexDirection = 'column';
-          contentWrapper.style.justifyContent = 'space-between';
-          contentWrapper.style.overflow = 'visible';
-        }
-        
-        // Hide empty placeholder elements by checking their text content
-        const textElements = clone.querySelectorAll('h2, p');
         textElements.forEach(el => {
           const text = el.textContent?.trim() || '';
           if (text.includes('Enter organization name') || 
               text.includes('Enter organization subtitle') || 
               text.includes('Enter organization address') ||
               text.includes('Enter phone number')) {
+            hiddenElements.push({ el, originalDisplay: el.style.display });
             el.style.display = 'none';
           }
         });
         
-        // Append clone to body
-        document.body.appendChild(clone);
+        // Wait for any images to load
+        const images = originalElement.querySelectorAll('img');
+        await Promise.all(
+          Array.from(images).map(img => {
+            if (img.complete) return Promise.resolve();
+            return new Promise((resolve) => {
+              img.onload = resolve;
+              img.onerror = resolve; // Continue even if image fails
+              setTimeout(resolve, 3000); // Timeout after 3 seconds
+            });
+          })
+        );
         
-        // Wait a moment for styles to apply
-        await new Promise(resolve => setTimeout(resolve, 150));
+        // Wait a moment for DOM to update
+        await new Promise(resolve => setTimeout(resolve, 100));
         
-        // Export using the clone
-        const dataUrl = await htmlToImage.toJpeg(clone, { 
+        // Export using the original element exactly as it appears - no dimension overrides
+        const dataUrl = await htmlToImage.toJpeg(originalElement, { 
           quality: 0.98, 
-          pixelRatio: 5, // Increased from 3 to 5 for higher resolution
+          pixelRatio: 3,
           cacheBust: true,
-          backgroundColor: '#ffffff',
-          width: INVOICE_WIDTH * 96, // Convert to pixels (96 DPI)
-          height: INVOICE_HEIGHT * 96,
+          backgroundColor: '#ffffff'
         });
+        
+        // Restore hidden elements
+        hiddenElements.forEach(({ el, originalDisplay }) => {
+          el.style.display = originalDisplay;
+        });
+        
         const link = document.createElement('a');
         link.href = dataUrl;
         link.download = `ICAN-Invoice-${receiptNumber.value || Date.now()}.jpg`;
@@ -2054,19 +1381,18 @@ export default defineComponent({
         
         alert('✅ Invoice exported as JPEG successfully!');
         
-        // Clean up clone
-        document.body.removeChild(clone);
       } catch (error) {
+        console.error('Error exporting JPEG:', error);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         alert(`❌ Failed to export JPEG: ${errorMessage}`);
-      } finally {
-        // Clean up any remaining clones
-        const clones = document.querySelectorAll('#meblink-invoice.exporting');
-        clones.forEach(clone => {
-          if (clone !== invoiceRef.value && clone.parentNode) {
-            clone.parentNode.removeChild(clone);
+        
+        // Restore any hidden elements on error
+        hiddenElements?.forEach(({ el, originalDisplay }) => {
+          if (el && el.style) {
+            el.style.display = originalDisplay || '';
           }
         });
+      } finally {
         isExporting.value = false;
         exportType.value = '';
       }
@@ -2095,8 +1421,61 @@ export default defineComponent({
       localStorage.setItem('memberActivities', JSON.stringify(activities));
     };
 
+    const handlePreviewClick = () => {
+      // Save current invoice data to localStorage for preview
+      const previewData = {
+        organizationName: organizationName.value,
+        organizationSubName: organizationSubName.value,
+        organizationAddress: organizationAddress.value,
+        organizationPhone: organizationPhone.value,
+        logoDataUrl: logoDataUrl.value,
+        invoiceNumber: receiptNumber.value,
+        invoiceDate: date.value,
+        customerName: customerName.value,
+        customerAddress: customerAddress.value,
+        lpo: lpo.value,
+        customerSign: customerSign.value,
+        items: items.value.filter(item => item.description || item.quantity || item.price),
+        taxEnabled: taxEnabled.value,
+        taxRate: taxRate.value,
+        invoiceWidth: invoiceWidth.value,
+        invoiceHeight: invoiceHeight.value,
+        colorMode: colorMode.value,
+        sumOf: sumOf.value,
+        sumOf2: sumOf2.value
+      };
+      
+      localStorage.setItem('invoicePreviewData', JSON.stringify(previewData));
+      
+      // Also save complete form data for when user navigates back
+      const formData = {
+        organizationName: organizationName.value,
+        organizationSubName: organizationSubName.value,
+        organizationAddress: organizationAddress.value,
+        organizationPhone: organizationPhone.value,
+        logoDataUrl: logoDataUrl.value,
+        receiptNumber: receiptNumber.value,
+        date: date.value,
+        customerName: customerName.value,
+        customerAddress: customerAddress.value,
+        lpo: lpo.value,
+        items: items.value, // Save all items, not just filtered
+        taxEnabled: taxEnabled.value,
+        taxRate: taxRate.value,
+        invoiceWidth: invoiceWidth.value,
+        invoiceHeight: invoiceHeight.value,
+        colorMode: colorMode.value,
+        formMode: formMode.value
+      };
+      
+      localStorage.setItem('invoiceFormData', JSON.stringify(formData));
+      
+      // Navigate to preview page
+      router.push({ name: 'InvoicePreview' });
+    };
+
     const handleBack = () => {
-      history.back();
+      router.push('/invoice-dashboard');
     };
 
     const handleLogout = () => {
@@ -2313,6 +1692,54 @@ export default defineComponent({
       logActivity('Started creating new invoice');
     };
 
+    // Refresh form (clear all data and start fresh)
+    const handleRefreshForm = () => {
+      if (!confirm('Are you sure you want to clear the form? All unsaved data will be lost.')) {
+        return;
+      }
+      
+      // Clear all form fields
+      currentInvoiceId.value = null;
+      customerName.value = '';
+      customerAddress.value = '';
+      lpo.value = '';
+      receivedFrom.value = '';
+      customerSign.value = '';
+      managerSign.value = '';
+      
+      // Reset items to default
+      items.value = [
+        { id: 1, description: '', quantity: '', price: 0.0, tax: 0.0 },
+        { id: 2, description: '', quantity: '', price: 0.0, tax: 0.0 },
+        { id: 3, description: '', quantity: '', price: 0.0, tax: 0.0 },
+      ];
+      
+      // Clear localStorage
+      localStorage.removeItem('invoiceFormData');
+      localStorage.removeItem('invoicePreviewData');
+      
+      // Reset signatures to primary
+      const primary = savedSignatures.value.find(sig => sig.isPrimary);
+      if (primary) {
+        selectedSignature1.value = primary.id;
+        selectedSignature2.value = primary.id;
+        signatureImage1.value = primary.dataURL;
+        signatureImage2.value = primary.dataURL;
+      } else {
+        selectedSignature1.value = '';
+        selectedSignature2.value = '';
+        signatureImage1.value = null;
+        signatureImage2.value = null;
+      }
+      
+      // Reset sumOf fields
+      sumOfInput1.value = '';
+      sumOfInput2.value = '';
+      
+      logActivity('Refreshed form - cleared all data');
+      try { router.go(0); } catch (e) { window.location.reload(); }
+    };
+
     // Load signatures from Firebase
     const loadSignatures = async () => {
       if (!authenticatedMember.value?.branch) return;
@@ -2372,6 +1799,7 @@ export default defineComponent({
       isExporting,
       exportType,
       authenticatedMember,
+      formMode,
       showPreview,
       isMobile,
       mobileScale,
@@ -2383,7 +1811,6 @@ export default defineComponent({
       handlePresetChange,
       invoiceDimensions,
       contentScale,
-      scaledContentStyles,
       organizationName,
       organizationSubName,
       organizationAddress,
@@ -2428,6 +1855,7 @@ export default defineComponent({
       amountInWords,
       handleExportPDF,
       handleExportJPEG,
+      handlePreviewClick,
       handleBack,
       handleLogout,
       // Correction mode
@@ -2444,6 +1872,7 @@ export default defineComponent({
       handleLoadInvoice,
       handleDeleteInvoice,
       handleNewInvoice,
+      handleRefreshForm,
       // Signature management
       savedSignatures,
       selectedSignature1,
@@ -2552,34 +1981,31 @@ input::placeholder {
   opacity: 0.5;
 }
 
-/* Custom Scrollbar Styling */
+/* Hide Custom Scrollbar while maintaining scroll functionality */
 :deep(*) {
-  scrollbar-width: thin;
-  scrollbar-color: #10b981 #e2e8f0;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
 }
 
 :deep(*::-webkit-scrollbar) {
-  width: 12px;
-  height: 12px;
+  display: none;
+  width: 0px;
 }
 
 :deep(*::-webkit-scrollbar-track) {
-  background: #f1f5f9;
-  border-radius: 6px;
+  display: none;
 }
 
 :deep(*::-webkit-scrollbar-thumb) {
-  background: linear-gradient(180deg, #10b981, #059669);
-  border-radius: 6px;
-  border: 2px solid #f1f5f9;
+  display: none;
 }
 
 :deep(*::-webkit-scrollbar-thumb:hover) {
-  background: linear-gradient(180deg, #059669, #047857);
+  display: none;
 }
 
 :deep(*::-webkit-scrollbar-corner) {
-  background: #f1f5f9;
+  display: none;
 }
 
 /* Enhanced styling for invoice page */
