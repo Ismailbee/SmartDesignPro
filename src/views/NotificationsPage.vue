@@ -74,15 +74,29 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotificationStore, type NotificationItem } from '@/stores/notification.store'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const store = useNotificationStore()
+const authStore = useAuthStore()
 
 const notifications = computed(() => store.sorted)
 const unreadCount = computed(() => store.unreadCount)
+
+// Subscribe to real-time notifications when page loads
+onMounted(async () => {
+  if (authStore.user?.id) {
+    await store.subscribeToUserNotifications(authStore.user.id)
+  }
+})
+
+// Clean up subscription when page is destroyed
+onUnmounted(() => {
+  store.unsubscribeFromNotifications()
+})
 
 const goBack = () => router.back()
 

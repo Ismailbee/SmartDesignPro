@@ -1,0 +1,26 @@
+<svg width="400" height="520" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="520" fill="#ffffff"/>
+  <rect x="1" y="1" width="398" height="518" fill="none" stroke="#e5e7eb" stroke-width="2"/>
+  
+  <!-- Logo (left) -->
+  <circle cx="50" cy="55" r="22" fill="#0F172A" opacity="0.2"/>
+  <text x="50" y="60" font-family="Arial" font-size="10" fill="#0F172A" text-anchor="middle" font-weight="bold">LOGO</text>
+  
+  <!-- Organization name (center-left) -->
+  <text x="90" y="53" font-family="Arial" font-size="14" fill="#0F172A" font-weight="bold">Organization Name</text>
+  <text x="90" y="67" font-family="Arial" font-size="8" fill="#6b7280">Clean minimal tagline</text>
+  
+  <!-- Contact info (right) -->
+  <text x="350" y="48" font-family="Arial" font-size="7" fill="#6b7280" text-anchor="end">123 Business Avenue</text>
+  <text x="350" y="60" font-family="Arial" font-size="8" fill="#0F172A" text-anchor="end" font-weight="bold">+1 234 567 8900</text>
+  
+  <!-- Border line -->
+  <line x1="50" y1="90" x2="350" y2="90" stroke="#0F172A" stroke-width="1.5"/>
+  
+  <!-- Content lines -->
+  <line x1="50" y1="140" x2="350" y2="140" stroke="#e5e7eb" stroke-width="1.5"/>
+  <line x1="50" y1="160" x2="350" y2="160" stroke="#e5e7eb" stroke-width="1.5"/>
+  <line x1="50" y1="180" x2="320" y2="180" stroke="#e5e7eb" stroke-width="1.5"/>
+  <line x1="50" y1="220" x2="350" y2="220" stroke="#e5e7eb" stroke-width="1.5"/>
+  <line x1="50" y1="240" x2="350" y2="240" stroke="#e5e7eb" stroke-width="1.5"/>
+</svg>

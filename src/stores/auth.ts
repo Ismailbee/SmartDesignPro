@@ -62,9 +62,27 @@ export const useAuthStore = defineStore('auth', () => {
         user.value = firebaseUser
         localStorage.setItem(USER_KEY, JSON.stringify(firebaseUser))
         console.log('✅ User authenticated:', firebaseUser.email)
+        
+        // Set authenticated member for Invoice/Receipt/Signature pages
+        // Extract name from email or display name
+        const userName = firebaseUser.displayName || 
+                        firebaseUser.email?.split('@')[0] || 
+                        'User';
+        
+        // TODO: In future, fetch branch and role from user profile database
+        const memberData = {
+          name: userName.charAt(0).toUpperCase() + userName.slice(1), // Capitalize first letter
+          branch: 'Main Branch', // Default branch - should be fetched from database
+          role: 'Member' // Default role - should be fetched from database
+        };
+        
+        localStorage.setItem('authenticatedMember', JSON.stringify(memberData));
+        console.log('✅ Authenticated member set:', memberData);
+        
       } else {
         user.value = null
         localStorage.removeItem(USER_KEY)
+        localStorage.removeItem('authenticatedMember') // Clear authenticated member
         console.log('🔓 User logged out')
       }
     })
@@ -81,6 +99,7 @@ export const useAuthStore = defineStore('auth', () => {
     console.log('🧹 Clearing auth data...')
     user.value = null
     localStorage.removeItem(USER_KEY)
+    localStorage.removeItem('authenticatedMember')
     console.log('✅ Auth data cleared')
   }
 
@@ -91,6 +110,7 @@ export const useAuthStore = defineStore('auth', () => {
     console.log('🚪 Force logout - clearing all data...')
     user.value = null
     localStorage.removeItem(USER_KEY)
+    localStorage.removeItem('authenticatedMember')
     sessionStorage.clear()
     console.log('✅ All auth data cleared')
   }
@@ -242,6 +262,27 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
+   * Update user's avatar (profile picture)
+   * Accepts data URL or remote URL and updates both Firebase Auth and Firestore
+   */
+  async function updateAvatar(photoDataUrl: string): Promise<void> {
+    isLoading.value = true
+    error.value = null
+    try {
+      const updatedUser = await firebaseAuth.updateUserAvatar(photoDataUrl)
+      user.value = updatedUser
+      localStorage.setItem(USER_KEY, JSON.stringify(updatedUser))
+      showNotification({ title: 'Profile updated', message: 'Profile picture updated', type: 'success' })
+    } catch (err: any) {
+      console.error('updateAvatar error:', err)
+      error.value = err.message || 'Failed to update avatar'
+      throw err
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  /**
    * Request password reset
    */
   async function requestPasswordReset(data: PasswordResetRequest): Promise<string | undefined> {
@@ -339,6 +380,8 @@ export const useAuthStore = defineStore('auth', () => {
     clearError,
     showNotification,
     closeNotification
+    ,
+    updateAvatar
   }
 })
 

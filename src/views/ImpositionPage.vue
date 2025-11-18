@@ -1,275 +1,247 @@
 <template>
   <!-- eslint-disable vue/no-deprecated-slot-attribute -->
   <ion-page class="imposition-page">
-    <ion-header translucent>
+    <ion-header>
       <ion-toolbar>
         <ion-title>Smart Imposition Studio</ion-title>
         <ion-buttons slot="end">
-          <ion-button fill="clear" :disabled="!canReset" @click="resetForm">
+          <ion-button fill="clear" color="primary" :disabled="!canReset" @click="resetForm">
             <ion-icon slot="start" :icon="refreshOutline"></ion-icon>
             Reset
           </ion-button>
         </ion-buttons>
       </ion-toolbar>
+      
     </ion-header>
+    <!-- Navigation Header with Imposition Options -->
+    <div class="imposition-nav-toolbar">
+      <div class="imposition-nav">
+        <!-- Imposition Type -->
+        <div class="nav-item dropdown">
+          <button class="nav-button" @click.stop="toggleDropdown('type')">
+            <ion-icon :icon="gridOutline"></ion-icon>
+            <span>{{ selectedTypeLabel }}</span>
+            <ion-icon :icon="chevronDownOutline" class="chevron"></ion-icon>
+          </button>
+          <div v-if="activeDropdown === 'type'" class="dropdown-menu" @click.stop>
+            <button
+              v-for="option in impositionTypes"
+              :key="option.value"
+              class="dropdown-item"
+              :class="{ active: selectedType === option.value }"
+              @click="selectType(option.value)"
+            >
+              <strong>{{ option.label }}</strong>
+              <small>{{ option.description }}</small>
+            </button>
+          </div>
+        </div>
 
+        <!-- Paper Size -->
+        <div class="nav-item dropdown">
+          <button class="nav-button" @click.stop="toggleDropdown('paper')">
+            <ion-icon :icon="documentTextOutline"></ion-icon>
+            <span>{{ pageSizeLabel }}</span>
+            <ion-icon :icon="chevronDownOutline" class="chevron"></ion-icon>
+          </button>
+          <div v-if="activeDropdown === 'paper'" class="dropdown-menu" @click.stop>
+            <button
+              v-for="size in pageSizes"
+              :key="size.value"
+              class="dropdown-item"
+              :class="{ active: pageSizeValue === size.value }"
+              @click="selectPaperSize(size.value)"
+            >
+              {{ size.label }}
+            </button>
+            <div class="dropdown-divider"></div>
+            <ion-accordion-group class="advanced-accordion">
+              <ion-accordion value="advanced">
+                <ion-item slot="header" lines="none" class="advanced-header">
+                  <ion-label>Advanced</ion-label>
+                </ion-item>
+                <div slot="content" class="advanced-content">
+                  <ion-item lines="full">
+                    <ion-label>Use custom size</ion-label>
+                    <ion-toggle v-model="customSizeEnabled" color="primary"></ion-toggle>
+                  </ion-item>
+                  <div class="custom-size-inputs" :class="{ disabled: !customSizeEnabled }">
+                    <p class="custom-size-hint">
+                      Enter the finished sheet dimensions in points.
+                    </p>
+                    <div class="custom-size-fields">
+                      <div class="dimension-field">
+                        <ion-input
+                          id="custom-width"
+                          v-model="customWidth"
+                          label="Width (pt)"
+                          label-placement="stacked"
+                          class="dimension-input"
+                          type="number"
+                          min="1"
+                          inputmode="decimal"
+                          placeholder="e.g. 595"
+                          :disabled="!customSizeEnabled"
+                        ></ion-input>
+                      </div>
+                      <div class="dimension-field">
+                        <ion-input
+                          id="custom-height"
+                          v-model="customHeight"
+                          label="Height (pt)"
+                          label-placement="stacked"
+                          class="dimension-input"
+                          type="number"
+                          min="1"
+                          inputmode="decimal"
+                          placeholder="e.g. 842"
+                          :disabled="!customSizeEnabled"
+                        ></ion-input>
+                      </div>
+                    </div>
+                    <ion-note color="medium" class="custom-size-note">1 pt = 1/72 inch</ion-note>
+                  </div>
+                </div>
+              </ion-accordion>
+            </ion-accordion-group>
+          </div>
+        </div>
+
+        <!-- Orientation -->
+        <div class="nav-item dropdown">
+          <button class="nav-button" @click.stop="toggleDropdown('orientation')">
+            <ion-icon :icon="phonePortraitOutline"></ion-icon>
+            <span>{{ orientation === 'portrait' ? 'Portrait' : 'Landscape' }}</span>
+            <ion-icon :icon="chevronDownOutline" class="chevron"></ion-icon>
+          </button>
+          <div v-if="activeDropdown === 'orientation'" class="dropdown-menu" @click.stop>
+            <button
+              class="dropdown-item"
+              :class="{ active: orientation === 'portrait' }"
+              @click="selectOrientation('portrait')"
+            >
+              Portrait
+            </button>
+            <button
+              class="dropdown-item"
+              :class="{ active: orientation === 'landscape' }"
+              @click="selectOrientation('landscape')"
+            >
+              Landscape
+            </button>
+            <div class="dropdown-divider"></div>
+            <label class="dropdown-item toggle-item">
+              <span>Auto-detect</span>
+              <ion-toggle
+                :checked="autoDetectOrientation"
+                color="primary"
+                @ion-change="(e) => autoDetectOrientation = e.detail.checked"
+              ></ion-toggle>
+            </label>
+          </div>
+        </div>
+
+        <!-- Duplex -->
+        <div class="nav-item dropdown">
+          <button class="nav-button" @click.stop="toggleDropdown('duplex')">
+            <ion-icon :icon="copyOutline"></ion-icon>
+            <span>{{ duplexLabel }}</span>
+            <ion-icon :icon="chevronDownOutline" class="chevron"></ion-icon>
+          </button>
+          <div v-if="activeDropdown === 'duplex'" class="dropdown-menu" @click.stop>
+            <button
+              class="dropdown-item"
+              :class="{ active: duplex === 'long-edge' }"
+              @click="selectDuplex('long-edge')"
+            >
+              Long-edge binding
+            </button>
+            <button
+              class="dropdown-item"
+              :class="{ active: duplex === 'short-edge' }"
+              @click="selectDuplex('short-edge')"
+            >
+              Short-edge binding
+            </button>
+            <button
+              class="dropdown-item"
+              :class="{ active: duplex === 'simplex' }"
+              @click="selectDuplex('simplex')"
+            >
+              Single sided
+            </button>
+          </div>
+        </div>
+
+        <!-- Options -->
+        <div class="nav-item dropdown">
+          <button class="nav-button" @click.stop="toggleDropdown('options')">
+            <ion-icon :icon="optionsOutline"></ion-icon>
+            <span>Options</span>
+            <ion-icon :icon="chevronDownOutline" class="chevron"></ion-icon>
+          </button>
+          <div v-if="activeDropdown === 'options'" class="dropdown-menu" @click.stop>
+            <label class="dropdown-item toggle-item">
+              <span>Blank page padding</span>
+              <ion-toggle
+                v-model="addBlankPages"
+                color="primary"
+              ></ion-toggle>
+            </label>
+            <label class="dropdown-item toggle-item">
+              <span>Crop marks</span>
+              <ion-toggle
+                v-model="addCropMarks"
+                color="primary"
+              ></ion-toggle>
+            </label>
+          </div>
+        </div>
+
+        <!-- Generate Button -->
+        <ion-button
+          class="generate-btn"
+          color="primary"
+          :disabled="!canSubmit"
+          @click="submitImposition"
+        >
+          <ion-spinner v-if="isSubmitting" slot="start"></ion-spinner>
+          <ion-icon v-else slot="start" :icon="documentOutline"></ion-icon>
+          Generate PDF
+        </ion-button>
+      </div>
+    </div>
+    
     <ion-content fullscreen>
-      <section class="hero">
-        <h1>Create press-ready layouts in seconds</h1>
-        <p>Upload a PDF or high-resolution image, pick an imposition style, and we’ll return a perfectly imposed PDF ready for print.</p>
-      </section>
-
       <ion-grid fixed>
         <ion-row class="content-grid">
           <ion-col size="12" size-md="6" class="stack">
             <ion-card class="upload-card">
               <ion-card-header>
-                <ion-card-subtitle>Source file</ion-card-subtitle>
-                <ion-card-title>Upload artwork</ion-card-title>
+                <ion-card-subtitle>Input</ion-card-subtitle>
+                <ion-card-title>Upload files</ion-card-title>
               </ion-card-header>
               <ion-card-content>
                 <div
                   class="drop-zone"
-                  :class="{ dragging: isDragging, ready: files.length > 0 }"
+                  :class="{ dragging: isDragging }"
                   @dragover.prevent="onDragOver"
-                  @dragleave.prevent="onDragLeave"
+                  @dragleave="onDragLeave"
                   @drop.prevent="onDrop"
-                  @click="openFilePicker"
                 >
-                  <ion-icon :icon="files.length > 0 ? documentOutline : cloudUploadOutline"></ion-icon>
-                  <template v-if="files.length > 0">
-                    <h3>{{ files.length }} file{{ files.length > 1 ? 's' : '' }} selected</h3>
-                    <div class="file-preview-wrapper">
-                      <div class="file-preview-scroll">
-                        <div
-                          v-for="(f, index) in files"
-                          :key="`${f.name}-${index}`"
-                          :class="[
-                            'file-preview-card',
-                            {
-                              'is-dragging': dragIndex === index,
-                              'is-drop-target': dragOverIndex === index,
-                            }
-                          ]"
-                          draggable="true"
-                          @dragstart="(event) => onTileDragStart(event, index)"
-                          @dragenter.prevent="() => onTileDragEnter(index)"
-                          @dragover.prevent="(event) => onTileDragOver(event, index)"
-                          @dragleave="() => onTileDragLeave(index)"
-                          @drop.prevent="() => onTileDrop(index)"
-                          @dragend="onTileDragEnd"
-                        >
-                          <button
-                            type="button"
-                            class="remove-preview"
-                            :aria-label="`Remove ${f.name}`"
-                            @click.stop="removeFile(index)"
-                          >
-                            <ion-icon :icon="closeCircleOutline"></ion-icon>
-                          </button>
-                          <div class="preview-frame">
-                            <span class="file-index">{{ index + 1 }}</span>
-                            <img
-                              v-if="filePreviews[index]?.type === 'image'"
-                              :src="filePreviews[index].url"
-                              :alt="`${f.name} preview`"
-                              class="preview-image"
-                            />
-                            <div v-else class="preview-placeholder">
-                              <ion-icon :icon="documentOutline"></ion-icon>
-                              <span class="preview-ext">{{ getFileExtension(f.name) }}</span>
-                            </div>
-                          </div>
-                          <span class="file-name" :title="f.name">{{ f.name }}</span>
-                          <small class="file-size">{{ formatFileSize(f.size) }}</small>
-                        </div>
-
-                        <div
-                          :class="[
-                            'file-preview-card',
-                            'add-card',
-                            { 'is-drop-target': dragOverIndex === files.length }
-                          ]"
-                          @click.stop="openFilePicker"
-                          @dragenter.prevent="() => onTileDragEnter(files.length)"
-                          @dragover.prevent="(event) => onTileDragOver(event, files.length)"
-                          @dragleave="() => onTileDragLeave(files.length)"
-                          @drop.prevent="onAddTileDrop"
-                          @dragend="onTileDragEnd"
-                        >
-                          <div class="preview-frame">
-                            <ion-icon :icon="addOutline"></ion-icon>
-                          </div>
-                          <span class="file-name">Add file</span>
-                        </div>
-                      </div>
-                    </div>
-                  </template>
-                  <template v-else>
-                    <h3>Drag & drop or browse</h3>
-                    <p>Accepted formats: PDF, PNG, JPG (max 50&nbsp;MB each)</p>
-                    <p><strong>Select multiple files to merge them together</strong></p>
-                    <ion-button expand="block" size="default" class="browse-btn">
-                      <ion-icon slot="start" :icon="cloudUploadOutline"></ion-icon>
-                      Browse files
-                    </ion-button>
-                  </template>
+                  <ion-icon :icon="cloudUploadOutline"></ion-icon>
+                  <p>Drag & drop files here</p>
+                  <ion-button fill="outline" color="primary" @click="openFilePicker">Choose files</ion-button>
+                  <input
+                    ref="fileInput"
+                    type="file"
+                    multiple
+                    accept=".pdf,image/*"
+                    hidden
+                    @change="onFileChange"
+                  />
                 </div>
-                <input
-                  ref="fileInput"
-                  type="file"
-                  class="sr-only"
-                  accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp"
-                  multiple
-                  @change="onFileChange"
-                />
-                <ion-note v-if="fileError" color="danger" class="message note">{{ fileError }}</ion-note>
-                <ion-note v-if="successMessage" color="success" class="message note">{{ successMessage }}</ion-note>
-              </ion-card-content>
-            </ion-card>
-
-            <ion-card class="settings-card">
-              <ion-card-header>
-                <ion-card-subtitle>Layout options</ion-card-subtitle>
-                <ion-card-title>Configure imposition</ion-card-title>
-              </ion-card-header>
-              <ion-card-content>
-                <div class="options-group">
-                  <label>Imposition type</label>
-                  <div class="segment-scroll">
-                    <ion-segment v-model="selectedType" mode="md" scrollable class="imposition-segment">
-                      <ion-segment-button
-                        v-for="option in impositionTypes"
-                        :key="option.value"
-                        :value="option.value"
-                      >
-                        <ion-label>
-                          <strong>{{ option.label }}</strong>
-                          <small>{{ option.description }}</small>
-                        </ion-label>
-                      </ion-segment-button>
-                    </ion-segment>
-                  </div>
-                </div>
-
-                <div class="options-grid">
-                  <ion-item lines="full">
-                    <ion-label>Paper size</ion-label>
-                    <ion-select v-model="pageSizeValue" :disabled="customSizeEnabled" interface="popover">
-                      <ion-select-option v-for="size in pageSizes" :key="size.value" :value="size.value">
-                        {{ size.label }}
-                      </ion-select-option>
-                    </ion-select>
-                  </ion-item>
-
-                  <ion-item lines="full">
-                    <ion-label>Orientation</ion-label>
-                    <ion-select 
-                      :value="orientation"
-                      :disabled="autoDetectOrientation"
-                      placeholder="Select orientation"
-                      interface="popover" 
-                      @ion-change="(e) => { orientation = e.detail.value; }"
-                    >
-                      <ion-select-option value="portrait">Portrait</ion-select-option>
-                      <ion-select-option value="landscape">Landscape</ion-select-option>
-                    </ion-select>
-                  </ion-item>
-
-                  <ion-item lines="full">
-                    <ion-label>Auto-detect orientation</ion-label>
-                    <ion-toggle 
-                      :checked="autoDetectOrientation"
-                      color="primary" 
-                      @ion-change="(e) => autoDetectOrientation = e.detail.checked"
-                    ></ion-toggle>
-                  </ion-item>
-                  
-                  <ion-note v-if="orientation" color="success" class="orientation-note">
-                    ✓ Current: <strong>{{ orientation === 'portrait' ? 'Portrait' : 'Landscape' }}</strong>
-                  </ion-note>
-
-                  <ion-item lines="full">
-                    <ion-label>Duplex</ion-label>
-                    <ion-select v-model="duplex" interface="popover">
-                      <ion-select-option value="long-edge">Long-edge binding</ion-select-option>
-                      <ion-select-option value="short-edge">Short-edge binding</ion-select-option>
-                      <ion-select-option value="simplex">Single sided</ion-select-option>
-                    </ion-select>
-                  </ion-item>
-
-                  <ion-item lines="none">
-                    <ion-label>Blank page padding</ion-label>
-                    <ion-toggle v-model="addBlankPages" color="primary"></ion-toggle>
-                  </ion-item>
-
-                  <ion-item lines="none">
-                    <ion-label>Crop marks</ion-label>
-                    <ion-toggle v-model="addCropMarks" color="primary"></ion-toggle>
-                  </ion-item>
-                </div>
-
-                <ion-accordion-group class="advanced">
-                  <ion-accordion value="advanced">
-                    <ion-item slot="header" color="light">
-                      <ion-label>Advanced page size</ion-label>
-                    </ion-item>
-                    <div slot="content" class="advanced-content">
-                      <ion-item lines="full">
-                        <ion-label>Use custom size</ion-label>
-                        <ion-toggle v-model="customSizeEnabled" color="primary"></ion-toggle>
-                      </ion-item>
-                      <div class="custom-size" :class="{ disabled: !customSizeEnabled }">
-                        <p class="custom-size-hint">
-                          Enter the finished sheet dimensions in points. We’ll handle the rest.
-                        </p>
-                        <div class="custom-size-fields">
-                          <div class="dimension-field">
-                            <label for="custom-width">Width (pt)</label>
-                            <ion-input
-                              id="custom-width"
-                              v-model="customWidth"
-                              class="dimension-input"
-                              type="number"
-                              min="1"
-                              inputmode="decimal"
-                              placeholder="e.g. 595"
-                              :disabled="!customSizeEnabled"
-                            ></ion-input>
-                          </div>
-                          <div class="dimension-field">
-                            <label for="custom-height">Height (pt)</label>
-                            <ion-input
-                              id="custom-height"
-                              v-model="customHeight"
-                              class="dimension-input"
-                              type="number"
-                              min="1"
-                              inputmode="decimal"
-                              placeholder="e.g. 842"
-                              :disabled="!customSizeEnabled"
-                            ></ion-input>
-                          </div>
-                        </div>
-                        <ion-note color="medium" class="custom-size-note">Values are in PostScript points (1&nbsp;pt = 1/72 inch).</ion-note>
-                      </div>
-                    </div>
-                  </ion-accordion>
-                </ion-accordion-group>
-
-                <ion-button
-                  expand="block"
-                  size="large"
-                  class="submit-btn"
-                  :disabled="!canSubmit"
-                  @click="submitImposition"
-                >
-                  <ion-spinner v-if="isSubmitting" slot="start"></ion-spinner>
-                  <ion-icon v-else slot="start" :icon="documentOutline"></ion-icon>
-                  Generate imposed PDF
-                </ion-button>
-
-                <ion-note v-if="validationWarning" color="warning" class="message">{{ validationWarning }}</ion-note>
+                <ion-note v-if="fileError" color="danger">{{ fileError }}</ion-note>
               </ion-card-content>
             </ion-card>
           </ion-col>
@@ -291,19 +263,11 @@
                   <p>{{ errorMessage }}</p>
                 </div>
 
-                <div v-else-if="previewUrl" class="status success">
-                  <ion-icon :icon="checkmarkCircleOutline" color="success"></ion-icon>
-                  <div>
-                    <h3>Ready for review</h3>
-                    <p>Generated in {{ formattedProcessingTime }}.</p>
-                  </div>
+                <div v-else-if="previewUrl" class="preview-container">
+                  <iframe :src="previewUrl" title="PDF Preview" class="preview-iframe"></iframe>
                 </div>
 
-                <div v-if="previewUrl" class="preview-frame">
-                  <iframe :src="previewUrl" title="Imposed preview" referrerpolicy="no-referrer" loading="lazy"></iframe>
-                </div>
-
-                <div v-else-if="!isSubmitting" class="empty-state">
+                <div v-else class="empty-state">
                   <ion-icon :icon="documentOutline"></ion-icon>
                   <h3>No output yet</h3>
                   <p>Upload a file and generate an imposition to see the preview here.</p>
@@ -314,7 +278,7 @@
                     <ion-icon slot="start" :icon="downloadOutline"></ion-icon>
                     Download imposed PDF
                   </ion-button>
-                  <ion-button expand="block" fill="clear" :disabled="!previewUrl" @click="openPreview">
+                  <ion-button expand="block" fill="clear" color="primary" :disabled="!previewUrl" @click="openPreview">
                     Open in new tab
                   </ion-button>
                 </div>
@@ -328,7 +292,7 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, ref, computed, watch } from 'vue';
+import { onBeforeUnmount, ref, computed, watch, onMounted } from 'vue';
 import {
   IonPage,
   IonHeader,
@@ -346,18 +310,14 @@ import {
   IonButton,
   IonButtons,
   IonIcon,
-  IonLabel,
   IonNote,
-  IonSegment,
-  IonSegmentButton,
-  IonItem,
-  IonSelect,
-  IonSelectOption,
   IonToggle,
-  IonInput,
+  IonSpinner,
   IonAccordionGroup,
   IonAccordion,
-  IonSpinner,
+  IonItem,
+  IonLabel,
+  IonInput,
 } from '@ionic/vue';
 import { backendApi } from '@/services/backendApi.js';
 import {
@@ -365,10 +325,13 @@ import {
   documentOutline,
   downloadOutline,
   refreshOutline,
-  checkmarkCircleOutline,
   warningOutline,
-  closeCircleOutline,
-  addOutline,
+  gridOutline,
+  documentTextOutline,
+  phonePortraitOutline,
+  copyOutline,
+  optionsOutline,
+  chevronDownOutline,
 } from 'ionicons/icons';
 
 const impositionTypes = [
@@ -407,8 +370,6 @@ const fileInput = ref(null);
 const file = ref(null); // Keep for backward compatibility
 const files = ref([]); // New: array of files
 const filePreviews = ref([]);
-const dragIndex = ref(null);
-const dragOverIndex = ref(null);
 const isDragging = ref(false);
 const fileError = ref('');
 const successMessage = ref('');
@@ -429,46 +390,36 @@ const customSizeEnabled = ref(false);
 const customWidth = ref('');
 const customHeight = ref('');
 
+// Dropdown navigation state
+const activeDropdown = ref(null);
+
 const validationWarning = ref('');
 
 const canSubmit = computed(() => files.value.length > 0 && !isSubmitting.value && !validationWarning.value);
 const canReset = computed(() => files.value.length > 0 || previewUrl.value || downloadUrl.value || successMessage.value || errorMessage.value);
-const _fileTypeLabel = computed(() => {
-  if (files.value.length === 0) return '';
-  if (files.value.length === 1) {
-    const file = files.value[0];
-    if (file.type.includes('pdf')) return 'PDF';
-    if (file.type.startsWith('image/')) return 'Image';
-    return file.type || 'Document';
-  }
-  return `${files.value.length} files`;
+
+// Computed labels for navigation
+const selectedTypeLabel = computed(() => {
+  const selected = impositionTypes.find(t => t.value === selectedType.value);
+  return selected ? selected.label : 'Select Type';
 });
 
-const _formattedFileSize = computed(() => {
-  if (files.value.length === 0) return '';
-  if (files.value.length === 1) {
-    return formatFileSize(files.value[0].size);
+const pageSizeLabel = computed(() => {
+  if (customSizeEnabled.value) {
+    return 'Custom Size';
   }
-  const totalSize = files.value.reduce((sum, file) => sum + file.size, 0);
-  return `Total: ${formatFileSize(totalSize)}`;
+  const selected = pageSizes.find(s => s.value === pageSizeValue.value);
+  return selected ? selected.label.split('(')[0].trim() : 'Select Size';
 });
 
-function formatFileSize(size) {
-  if (size >= 1024 * 1024) {
-    return `${(size / (1024 * 1024)).toFixed(2)} MB`;
-  }
-  if (size >= 1024) {
-    return `${(size / 1024).toFixed(1)} KB`;
-  }
-  return `${size} bytes`;
-}
-
-function getFileExtension(name) {
-  if (!name) return '';
-  const parts = name.split('.');
-  if (parts.length <= 1) return '';
-  return parts.pop()?.toUpperCase() ?? '';
-}
+const duplexLabel = computed(() => {
+  const labels = {
+    'long-edge': 'Long-edge',
+    'short-edge': 'Short-edge',
+    'simplex': 'Single-sided'
+  };
+  return labels[duplex.value] || 'Duplex';
+});
 
 function createPreview(selectedFile) {
   if (selectedFile.type.startsWith('image/')) {
@@ -502,25 +453,6 @@ function clearPreviews() {
   filePreviews.value = [];
 }
 
-function reorderList(list, fromIndex, toIndex) {
-  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) {
-    return list;
-  }
-
-  const updated = [...list];
-  const [moved] = updated.splice(fromIndex, 1);
-  updated.splice(toIndex, 0, moved);
-  return updated;
-}
-
-const formattedProcessingTime = computed(() => {
-  if (!processingTime.value) return '';
-  if (processingTime.value < 1000) {
-    return `${processingTime.value} ms`;
-  }
-  return `${(processingTime.value / 1000).toFixed(1)} seconds`;
-});
-
 watch(customSizeEnabled, (enabled) => {
   if (enabled) {
     validationWarning.value = validateCustomSize();
@@ -546,6 +478,37 @@ watch(autoDetectOrientation, (enabled) => {
 watch(orientation, (_newVal, _oldVal) => {
   // Orientation changed - no action needed
 });
+
+// Dropdown navigation methods
+function toggleDropdown(dropdown) {
+  if (activeDropdown.value === dropdown) {
+    activeDropdown.value = null;
+  } else {
+    activeDropdown.value = dropdown;
+  }
+}
+
+function selectType(value) {
+  selectedType.value = value;
+  activeDropdown.value = null;
+}
+
+function selectPaperSize(value) {
+  pageSizeValue.value = value;
+  customSizeEnabled.value = false;
+  activeDropdown.value = null;
+}
+
+function selectOrientation(value) {
+  orientation.value = value;
+  autoDetectOrientation.value = false;
+  activeDropdown.value = null;
+}
+
+function selectDuplex(value) {
+  duplex.value = value;
+  activeDropdown.value = null;
+}
 
 function openFilePicker() {
   fileInput.value?.click();
@@ -619,82 +582,6 @@ function addFiles(newFiles) {
       detectOrientation(files.value[0]);
     }
   }
-}
-
-function removeFile(index) {
-  const [preview] = filePreviews.value.splice(index, 1);
-  revokePreview(preview);
-
-  files.value.splice(index, 1);
-  file.value = files.value.length > 0 ? files.value[0] : null;
-  
-  if (files.value.length === 0) {
-    successMessage.value = '';
-    fileError.value = '';
-  } else {
-    successMessage.value = `${files.value.length} file(s) remaining`;
-  }
-
-  if (dragIndex.value !== null) {
-    dragIndex.value = Math.max(Math.min(dragIndex.value, files.value.length - 1), 0);
-  }
-}
-
-function onTileDragStart(event, index) {
-  dragIndex.value = index;
-  dragOverIndex.value = index;
-  event.dataTransfer?.setData('text/plain', String(index));
-  event.dataTransfer?.setDragImage(event.target, 20, 20);
-}
-
-function onTileDragEnter(index) {
-  if (dragIndex.value === null) return;
-  dragOverIndex.value = index;
-}
-
-function onTileDragOver(event, index) {
-  if (dragIndex.value === null) return;
-  dragOverIndex.value = index;
-  event.dataTransfer.dropEffect = 'move';
-}
-
-function onTileDragLeave(index) {
-  if (dragOverIndex.value === index) {
-    dragOverIndex.value = null;
-  }
-}
-
-function finishReorder(targetIndex) {
-  if (dragIndex.value === null || targetIndex === null) return;
-
-  const clampedTarget = Math.min(Math.max(targetIndex, 0), files.value.length - 1);
-
-  if (clampedTarget === dragIndex.value) {
-    dragIndex.value = null;
-    dragOverIndex.value = null;
-    return;
-  }
-
-  files.value = reorderList(files.value, dragIndex.value, clampedTarget);
-  filePreviews.value = reorderList(filePreviews.value, dragIndex.value, clampedTarget);
-
-  file.value = files.value.length > 0 ? files.value[0] : null;
-
-  dragIndex.value = null;
-  dragOverIndex.value = null;
-}
-
-function onTileDrop(index) {
-  finishReorder(index);
-}
-
-function onAddTileDrop() {
-  finishReorder(files.value.length - 1);
-}
-
-function onTileDragEnd() {
-  dragIndex.value = null;
-  dragOverIndex.value = null;
 }
 
 async function detectOrientation(selectedFile) {
@@ -851,7 +738,17 @@ function openPreview() {
   }
 }
 
+// Close dropdown when clicking outside
+const handleClickOutside = () => {
+  activeDropdown.value = null;
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
+});
+
 onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside);
   clearPreviews();
   if (previewUrl.value) {
     URL.revokeObjectURL(previewUrl.value);
@@ -886,7 +783,198 @@ onBeforeUnmount(() => {
   --background: linear-gradient(135deg, #f8fafc 0%, #e7f0f7 100%);
 }
 
-.imposition-page ion-header ion-toolbar {
+.imposition-page ion-header {
+  overflow: visible !important;
+  z-index: 10;
+}
+
+.imposition-page ion-toolbar {
+  overflow: visible !important;
+}
+
+/* Navigation Toolbar Styles */
+.imposition-nav-toolbar {
+  background: white;
+  border-bottom: 1px solid var(--neutral-200);
+  padding: 12px 0;
+  overflow: visible !important;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.imposition-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  padding-bottom: 8px;
+  overflow: visible !important;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 100;
+}
+
+.nav-item {
+  position: relative;
+  flex-shrink: 0;
+  z-index: 999;
+}
+
+.nav-item.dropdown {
+  overflow: visible;
+}
+
+.nav-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--neutral-50);
+  border: 1px solid var(--neutral-200);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--neutral-700);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.nav-button:hover {
+  background: var(--neutral-100);
+  border-color: var(--neutral-300);
+}
+
+.nav-button ion-icon {
+  font-size: 18px;
+}
+
+.nav-button .chevron {
+  font-size: 16px;
+  transition: transform 0.2s ease;
+}
+
+.nav-item.dropdown .nav-button:hover .chevron {
+  transform: rotate(180deg);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 200px;
+  max-width: 300px;
+  background: white;
+  border: 1px solid var(--neutral-200);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  z-index: 99999;
+  padding: 4px;
+  animation: dropdownFadeIn 0.15s ease;
+  max-height: 400px;
+  overflow-y: auto;
+  display: block;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdown-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 14px;
+  color: var(--neutral-700);
+}
+
+.dropdown-item:hover {
+  background: var(--neutral-50);
+}
+
+.dropdown-item.active {
+  background: var(--primary-light);
+  color: white;
+}
+
+.dropdown-item strong {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.dropdown-item small {
+  font-size: 12px;
+  color: var(--neutral-500);
+}
+
+.dropdown-item.active small {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.dropdown-item ion-icon {
+  font-size: 18px;
+  margin-right: 8px;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--neutral-200);
+  margin: 4px 0;
+}
+
+.dropdown-item.toggle-item {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dropdown-item.toggle-item span {
+  flex: 1;
+}
+
+.generate-btn {
+  margin-left: auto;
+  --background: var(--primary-blue);
+  --background-hover: var(--primary-dark);
+  --border-radius: 8px;
+  --padding-start: 20px;
+  --padding-end: 20px;
+  font-weight: 600;
+  height: 40px;
+}
+
+.generate-btn ion-icon {
+  font-size: 20px;
+  margin-right: 6px;
+}
+
+
+.imposition-page ion-header {
+  overflow: visible !important;
+}
+
+.imposition-page ion-header::part(native) {
+  overflow: visible !important;
+}
+
+.imposition-page ion-header ion-toolbar:first-child {
   --background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
   --color: #ffffff;
   --border-width: 0;

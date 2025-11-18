@@ -1,0 +1,30 @@
+<svg width="400" height="520" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B5CF6;stop-opacity:0.15" />
+      <stop offset="100%" style="stop-color:#8B5CF6;stop-opacity:0.05" />
+    </linearGradient>
+  </defs>
+  
+  <rect width="400" height="520" fill="#ffffff"/>
+  <rect x="1" y="1" width="398" height="518" fill="none" stroke="#e5e7eb" stroke-width="2"/>
+  
+  <!-- Gradient background -->
+  <rect x="0" y="0" width="400" height="200" fill="url(#grad1)"/>
+  
+  <!-- Logo -->
+  <circle cx="200" cy="60" r="28" fill="#8B5CF6" opacity="0.3"/>
+  <text x="200" y="68" font-family="Arial" font-size="12" fill="#8B5CF6" text-anchor="middle" font-weight="bold">LOGO</text>
+  
+  <!-- Organization name -->
+  <text x="200" y="110" font-family="Arial" font-size="18" fill="#8B5CF6" text-anchor="middle" font-weight="bold">Organization Name</text>
+  <text x="200" y="128" font-family="Arial" font-size="9" fill="#6b7280" text-anchor="middle">Creative tagline</text>
+  
+  <!-- Curved divider -->
+  <path d="M 0 170 Q 100 190, 200 170 T 400 170 L 400 190 L 0 190 Z" fill="#8B5CF6" opacity="0.2"/>
+  
+  <!-- Content lines -->
+  <line x1="50" y1="230" x2="350" y2="230" stroke="#e5e7eb" stroke-width="1.5"/>
+  <line x1="50" y1="250" x2="350" y2="250" stroke="#e5e7eb" stroke-width="1.5"/>
+  <line x1="50" y1="270" x2="320" y2="270" stroke="#e5e7eb" stroke-width="1.5"/>
+</svg>
