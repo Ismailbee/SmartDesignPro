@@ -63,6 +63,61 @@
               <input type="checkbox" v-model="taxEnabled" class="rounded border-gray-300 cursor-pointer accent-emerald-600" />
               <span>Enable Tax</span>
             </label>
+
+            <!-- Show Page Numbers Toggle -->
+            <label class="flex items-center gap-1.5 text-[10px] font-medium text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700 px-2.5 py-1 rounded-lg border border-gray-300 dark:border-gray-600 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors">
+              <input type="checkbox" v-model="showPageNumbers" class="rounded border-gray-300 cursor-pointer accent-emerald-600" />
+              <span>Show Page #</span>
+              <span v-if="showPageNumbers" class="text-[8px] bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1 py-0.5 rounded">{{ displayPageNumber }}</span>
+            </label>
+          </div>
+          
+          <!-- Multiple Copies Controls -->
+          <div class="flex items-center gap-2.5">
+            <!-- Copies Input -->
+            <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded p-0.5">
+              <span class="text-[10px] font-medium text-slate-700 dark:text-slate-300 px-1">Copies:</span>
+              <input
+                v-model.number="totalCopies"
+                type="number"
+                min="1"
+                max="100"
+                step="1"
+                class="w-12 h-6 text-[10px] text-center bg-white dark:bg-slate-600 border border-slate-300 dark:border-slate-500 rounded text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                title="Number of copies to generate"
+                @input="validateCopiesInput"
+                @blur="validateCopiesInput"
+              />
+            </div>
+            
+            <!-- Page Navigation -->
+            <div class="flex items-center gap-1">
+              <div class="text-[9px] text-slate-500 dark:text-slate-400 px-1">
+                Page {{ currentPage }} of {{ totalCopies }}
+              </div>
+              <div class="flex items-center gap-0.5">
+                <button
+                  :disabled="currentPage <= 1"
+                  class="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Previous Page"
+                  @click="goToPreviousPage"
+                >
+                  <svg class="w-2.5 h-2.5 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button
+                  :disabled="currentPage >= totalCopies"
+                  class="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Next Page"
+                  @click="goToNextPage"
+                >
+                  <svg class="w-2.5 h-2.5 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -121,14 +176,14 @@
                       ref="logoInput"
                       type="file"
                       accept="image/*"
-                      @change="handleLogoUpload"
                       class="hidden"
+                      @change="handleLogoUpload"
                     />
 
                     <!-- Unified Upload/Preview Box -->
                     <div
-                      @click="$refs.logoInput.click()"
                       class="h-16 flex items-center justify-center bg-white dark:bg-slate-800 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer hover:border-blue-500 hover:shadow-md transition-all duration-200 relative overflow-hidden"
+                      @click="$refs.logoInput.click()"
                     >
                       <!-- Upload State -->
                       <div v-if="!logoDataUrl" class="flex flex-col items-center justify-center gap-1">
@@ -352,8 +407,8 @@
           <!-- Preview Button -->
           <div class="mt-3">
             <button
-              @click="handlePreviewClick"
               class="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 shadow-lg"
+              @click="handlePreviewClick"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -370,7 +425,7 @@
 </template>
 
 <script>
-import { defineComponent, ref, onMounted } from 'vue';
+import { defineComponent, ref, computed, watch, onMounted } from 'vue';
 import LogoCropper from '@/components/LogoCropper.vue';
 import { useRouter } from 'vue-router';
 
@@ -397,6 +452,11 @@ export default defineComponent({
     const autoReceiptNumber = ref(true);
     const autoDate = ref(true);
     const taxEnabled = ref(true); // Tax column enable/disable toggle
+    const showPageNumbers = ref(false); // Show page/copy numbers toggle
+    
+    // Multiple pages/copies functionality
+    const totalCopies = ref(1);
+    const currentPage = ref(1);
     
     // Image cropper state
     const showImageCropper = ref(false);
@@ -421,6 +481,45 @@ export default defineComponent({
       { id: 3, format: 'XXXXXXXXX', description: 'Simple 9-digit Format' },
       { id: 4, format: 'XXX-XXX-XXX', description: 'Hyphenated Format' }
     ]);
+    
+    // Page navigation methods
+    const goToPreviousPage = () => {
+      if (currentPage.value > 1) {
+        currentPage.value = currentPage.value - 1;
+        saveFormData(); // Save after navigation
+      }
+    };
+    
+    const goToNextPage = () => {
+      if (currentPage.value < totalCopies.value) {
+        currentPage.value = currentPage.value + 1;
+        saveFormData(); // Save after navigation
+      }
+    };
+    
+    const goToPage = (pageNumber) => {
+      const page = Math.max(1, Math.min(totalCopies.value, pageNumber));
+      currentPage.value = page;
+    };
+    
+    // Input validation methods
+    const validateCopiesInput = () => {
+      const value = parseInt(totalCopies.value);
+      if (isNaN(value) || value < 1) {
+        totalCopies.value = 1;
+      } else if (value > 100) {
+        totalCopies.value = 100;
+      } else {
+        totalCopies.value = value;
+      }
+      saveFormData(); // Save after validation
+    };
+    
+    // Computed for displaying page numbers
+    const displayPageNumber = computed(() => {
+      if (!showPageNumbers.value) return '';
+      return `${String(currentPage.value).padStart(3, '0')}`;
+    });
 
     onMounted(() => {
       const memberData = localStorage.getItem('authenticatedMember');
@@ -444,10 +543,46 @@ export default defineComponent({
           if (formData.branch2Phone !== undefined) branch2Phone.value = formData.branch2Phone;
           if (formData.logoDataUrl !== undefined) logoDataUrl.value = formData.logoDataUrl;
           if (formData.taxEnabled !== undefined) taxEnabled.value = formData.taxEnabled;
+          if (formData.showPageNumbers !== undefined) showPageNumbers.value = formData.showPageNumbers;
+          if (formData.totalCopies !== undefined) totalCopies.value = formData.totalCopies;
+          if (formData.currentPage !== undefined) currentPage.value = formData.currentPage;
         } catch (error) {
           console.error('Error loading saved form data:', error);
         }
       }
+    });
+    
+    // Watch for changes in total copies to adjust current page
+    watch(totalCopies, (newTotal) => {
+      // Ensure totalCopies is within valid range
+      if (newTotal < 1) {
+        totalCopies.value = 1;
+        return;
+      }
+      if (newTotal > 100) {
+        totalCopies.value = 100;
+        return;
+      }
+      
+      // Adjust current page if it exceeds new total
+      if (currentPage.value > newTotal) {
+        currentPage.value = Math.max(1, newTotal);
+      }
+    });
+    
+    // Watch for changes in current page to ensure it's valid
+    watch(currentPage, (newPage) => {
+      if (newPage < 1) {
+        currentPage.value = 1;
+      } else if (newPage > totalCopies.value) {
+        currentPage.value = totalCopies.value;
+      }
+      saveFormData(); // Save when current page changes
+    });
+    
+    // Watch for changes in showPageNumbers to auto-save
+    watch(showPageNumbers, () => {
+      saveFormData();
     });
 
     // Logo upload handler
@@ -503,7 +638,10 @@ export default defineComponent({
         branchAddress2: branchAddress2.value,
         branch2Phone: branch2Phone.value,
         logoDataUrl: logoDataUrl.value,
-        taxEnabled: taxEnabled.value
+        taxEnabled: taxEnabled.value,
+        showPageNumbers: showPageNumbers.value,
+        totalCopies: totalCopies.value,
+        currentPage: currentPage.value
       };
       
       localStorage.setItem('generateInvoiceFormData', JSON.stringify(formData));
@@ -526,6 +664,9 @@ export default defineComponent({
         branch2Phone: branch2Phone.value,
         logoDataUrl: logoDataUrl.value,
         taxEnabled: taxEnabled.value,
+        totalCopies: totalCopies.value,
+        currentPage: currentPage.value,
+        showPageNumbers: showPageNumbers.value,
         formMode: 'generate'
       };
       
@@ -548,6 +689,9 @@ export default defineComponent({
         branch2Phone.value = '';
         logoDataUrl.value = '';
         taxEnabled.value = true;
+        totalCopies.value = 1;
+        currentPage.value = 1;
+        showPageNumbers.value = false;
         
         localStorage.removeItem('generateInvoiceFormData');
         
@@ -590,6 +734,15 @@ export default defineComponent({
       autoReceiptNumber,
       autoDate,
       taxEnabled,
+      showPageNumbers,
+      // Multiple pages/copies
+      totalCopies,
+      currentPage,
+      displayPageNumber,
+      goToPreviousPage,
+      goToNextPage,
+      goToPage,
+      validateCopiesInput,
       showImageCropper,
       tempImageUrl,
       logoInput,
