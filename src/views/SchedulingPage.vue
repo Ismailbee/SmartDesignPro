@@ -462,7 +462,6 @@
         </div>
       </div>
 
-<<<<<<< HEAD
       <!-- Task Form Modal -->
       <transition name="modal-fade">
         <div v-if="showTaskModal" class="modal-overlay" @click="closeTaskModal">
@@ -809,50 +808,12 @@
                   </svg>
                 </div>
                 <h3 class="card-title">Task Scheduled Successfully!</h3>
-=======
-        <!-- Templates and Holidays Section -->
-        <div class="templates-section">
-          <!-- Grid Content -->
-          <div class="content-grid">
-            <!-- Left Side: Template Section -->
-            <div class="template-section">
-              <!-- Template Header -->
-              <div class="header-box template">
-                <p>Template</p>
-              </div>
-              <!-- Template Grid -->
-              <div class="template-grid">
-                <div v-for="n in 10" :key="n" class="template-item">
-                  Template {{ n }}
-                </div>
-              </div>
-            </div>
-
-            <!-- Right Side: Holiday Section -->
-            <div class="holiday-section">
-              <!-- Holiday Header -->
-              <div class="header-box holiday">
-                <p>Holiday</p>
-              </div>
-              <!-- Holiday Calendar -->
-              <div class="holiday-display">
-                <div class="placeholder-content">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                    <line x1="16" y1="2" x2="16" y2="6"/>
-                    <line x1="8" y1="2" x2="8" y2="6"/>
-                    <line x1="3" y1="10" x2="21" y2="10"/>
-                  </svg>
-                  <span>Holiday Calendar</span>
-                </div>
->>>>>>> 7e25a5541126bf11a418a7ff0e75a3e05232476e
               </div>
             </div>
           </div>
         </div>
       </transition>
     </div>
-<<<<<<< HEAD
 
 
 
@@ -864,8 +825,6 @@
     @crop="handleCropComplete"
     @close="closeCropper"
   />
-=======
->>>>>>> 7e25a5541126bf11a418a7ff0e75a3e05232476e
 </template>
 
 <script setup lang="ts">
@@ -1368,8 +1327,6 @@ const selectAllButtonText = computed(() => {
 // Image cropping functions
 function startCropping() {
   if (pendingImages.value.length > 0) {
-    // Hide Task Modal while cropping
-    if (showTaskModal.value) showTaskModal.value = false
     currentImageToCrop.value = pendingImages.value[currentCropIndex.value]
     showCropper.value = true
   }
@@ -1387,8 +1344,6 @@ function handleCropComplete(croppedImageData: string) {
     // Keep cropper open for next image
   } else {
     closeCropper()
-    // Restore Task Modal if it was open before cropping
-    showTaskModal.value = true
   }
 }
 

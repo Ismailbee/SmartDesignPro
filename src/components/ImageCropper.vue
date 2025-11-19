@@ -38,14 +38,14 @@
           <label class="control-label">Zoom</label>
           <input
             type="range"
-            :min="0.1"
-            :max="3"
-            :step="0.1"
-            :value="currentZoom"
+            :min="0"
+            :max="200"
+            :step="1"
+            :value="zoomPercentage"
             @input="handleZoomChange"
             class="zoom-slider"
           />
-          <span class="zoom-value">{{ Math.round(currentZoom * 100) }}%</span>
+          <span class="zoom-value">{{ zoomPercentage }}%</span>
         </div>
 
         <!-- Aspect Ratio Controls -->
@@ -139,6 +139,9 @@ const imageSrc = ref('')
 const cropper = ref(null)
 const currentZoom = ref(props.initialZoom)
 const currentAspectRatio = ref(props.aspectRatio)
+const zoomPercentage = ref(0)
+const baseFitScale = ref(1)
+const currentRotation = ref(0) // Track current rotation in degrees
 
 // Aspect ratio presets
 const aspectRatios = [
@@ -200,18 +203,14 @@ const initializeCropper = () => {
       cropBoxResizable: true,
       toggleDragModeOnDblclick: false,
       responsive: true,
+      zoomOnWheel: false,
       ready() {
-        // Set initial zoom
-        if (props.initialZoom !== 1) {
-          cropper.value.zoomTo(props.initialZoom)
-        }
+        // Fit image to container
+        fitImageToContainer()
         updatePreview()
       },
       crop() {
         updatePreview()
-      },
-      zoom(event) {
-        currentZoom.value = event.detail.ratio
       }
     })
   } catch (error) {
@@ -233,11 +232,76 @@ const updatePreview = () => {
   }
 }
 
+const fitImageToContainer = () => {
+  if (!cropper.value) return
+  
+  // Save current rotation before reset
+  const savedRotation = currentRotation.value
+  
+  // Reset to default first (this will reset rotation to 0)
+  cropper.value.reset()
+  
+  // Reapply the saved rotation if any
+  if (savedRotation !== 0) {
+    cropper.value.rotateTo(savedRotation)
+  }
+  
+  // Now get dimensions AFTER rotation is applied
+  const containerData = cropper.value.getContainerData()
+  const imageData = cropper.value.getImageData()
+  
+  // Calculate the ratio to fit the image within the container
+  // When rotated 90 or 270 degrees, dimensions are swapped
+  const isRotated90or270 = savedRotation === 90 || savedRotation === 270
+  const effectiveWidth = isRotated90or270 ? imageData.naturalHeight : imageData.naturalWidth
+  const effectiveHeight = isRotated90or270 ? imageData.naturalWidth : imageData.naturalHeight
+  
+  const containerRatio = containerData.width / containerData.height
+  const imageRatio = effectiveWidth / effectiveHeight
+  
+  if (imageRatio > containerRatio) {
+    // Image is wider - fit to width
+    baseFitScale.value = (containerData.width * 0.95) / effectiveWidth
+  } else {
+    // Image is taller - fit to height
+    baseFitScale.value = (containerData.height * 0.95) / effectiveHeight
+  }
+  
+  // Apply the calculated scale
+  cropper.value.zoomTo(baseFitScale.value)
+  
+  // Center the image by moving it to the center of the container
+  setTimeout(() => {
+    const containerData = cropper.value.getContainerData();
+    const imageData = cropper.value.getImageData();
+    
+    // Calculate center position
+    const centerX = (containerData.width - imageData.width) / 2;
+    const centerY = (containerData.height - imageData.height) / 2;
+    
+    // Move image to center
+    cropper.value.moveTo(centerX, centerY);
+  }, 50)
+  
+  // Reset zoom to 0%
+  zoomPercentage.value = 0
+  currentZoom.value = baseFitScale.value
+}
+
 const handleZoomChange = (event) => {
-  const zoomLevel = parseFloat(event.target.value)
-  currentZoom.value = zoomLevel
+  const newZoomPercentage = parseInt(event.target.value)
+  zoomPercentage.value = newZoomPercentage
+  
   if (cropper.value) {
-    cropper.value.zoomTo(zoomLevel)
+    if (newZoomPercentage === 0) {
+      fitImageToContainer()
+    } else {
+      // Calculate zoom: 0% = fit, 1-200% = zoom in
+      const zoomMultiplier = 1 + (newZoomPercentage / 100) * 2
+      const ratio = baseFitScale.value * zoomMultiplier
+      currentZoom.value = ratio
+      cropper.value.zoomTo(ratio)
+    }
   }
 }
 
@@ -248,15 +312,33 @@ const setAspectRatio = (ratio) => {
   }
 }
 
+// Enhanced rotation function that always fits the image after rotation
+const rotateAndFit = (degrees) => {
+  if (cropper.value) {
+    // Update rotation tracking
+    currentRotation.value = (currentRotation.value + degrees) % 360;
+    if (currentRotation.value < 0) currentRotation.value += 360;
+    
+    // Perform rotation
+    cropper.value.rotate(degrees);
+    
+    // Always fit the image after rotation to show it fully and reset zoom to 0%
+    setTimeout(() => {
+      fitImageToContainer();
+      zoomPercentage.value = 0;
+    }, 50);
+  }
+};
+
 const rotateLeft = () => {
   if (cropper.value) {
-    cropper.value.rotate(-90)
+    rotateAndFit(-90);
   }
 }
 
 const rotateRight = () => {
   if (cropper.value) {
-    cropper.value.rotate(90)
+    rotateAndFit(90);
   }
 }
 
@@ -270,7 +352,10 @@ const flipHorizontal = () => {
 const resetImage = () => {
   if (cropper.value) {
     cropper.value.reset()
-    currentZoom.value = 1
+    setTimeout(() => {
+      fitImageToContainer()
+      zoomPercentage.value = 0
+    }, 50)
   }
 }
 
@@ -544,7 +629,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 8px 12px;
+  padding: 12px 14px;
   font-size: 12px;
   border: 1px solid #e5e7eb;
   background: white;
