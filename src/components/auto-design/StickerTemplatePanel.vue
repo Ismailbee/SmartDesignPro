@@ -913,10 +913,10 @@ async function loadWeddingStickerTemplate() {
             ],
             targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
             position: {
-              x: 200,
-              y: 200,
-              width: 1350,
-              height: 550
+              x: 200.45,
+              y: 280,
+              width: 1300,
+              height: 370
             }
           })
         } else if (hasAlhamdulillah && hasCeremony) {

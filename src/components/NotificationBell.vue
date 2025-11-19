@@ -10,12 +10,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotificationStore } from '@/stores/notification.store'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const store = useNotificationStore()
+const authStore = useAuthStore()
 
 const unreadCount = computed(() => store.unreadCount)
 const displayCount = computed(() => unreadCount.value > 99 ? '99+' : String(unreadCount.value))
@@ -24,10 +26,19 @@ const goToNotifications = () => {
   router.push('/notifications')
 }
 
-onMounted(() => {
-  if (import.meta.env.DEV) {
+onMounted(async () => {
+  // Subscribe to real-time notifications if user is authenticated
+  if (authStore.user?.id) {
+    await store.subscribeToUserNotifications(authStore.user.id)
+  } else if (import.meta.env.DEV) {
+    // Fallback to demo notifications in development
     store.seedDemo()
   }
+})
+
+onUnmounted(() => {
+  // Clean up subscription when component is destroyed
+  store.unsubscribeFromNotifications()
 })
 </script>
 

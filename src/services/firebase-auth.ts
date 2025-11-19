@@ -280,6 +280,78 @@ export function getCurrentUser(): FirebaseUser | null {
 }
 
 /**
+ * Update the authenticated user's avatar
+ * Compresses and stores avatar in Firestore (for development/quick setup)
+ * For production, consider using Firebase Storage with proper CORS config
+ */
+export async function updateUserAvatar(photoDataUrl: string): Promise<User> {
+  const firebaseUser = getCurrentUser()
+  if (!firebaseUser) {
+    throw new Error('No authenticated user')
+  }
+
+  try {
+    let finalAvatarUrl = photoDataUrl
+
+    // If it's a large data URL, compress it
+    if (photoDataUrl.startsWith('data:') && photoDataUrl.length > 100000) {
+      console.log('� Compressing large avatar (', photoDataUrl.length, 'bytes)...')
+      
+      // Create an image element to get dimensions
+      const img = new Image()
+      await new Promise((resolve, reject) => {
+        img.onload = resolve
+        img.onerror = reject
+        img.src = photoDataUrl
+      })
+
+      // Create canvas for compression
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      
+      // Resize to max 400x400 while maintaining aspect ratio
+      const maxSize = 400
+      let width = img.width
+      let height = img.height
+      
+      if (width > height && width > maxSize) {
+        height = (height * maxSize) / width
+        width = maxSize
+      } else if (height > maxSize) {
+        width = (width * maxSize) / height
+        height = maxSize
+      }
+      
+      canvas.width = width
+      canvas.height = height
+      ctx?.drawImage(img, 0, 0, width, height)
+      
+      // Compress to JPEG with 0.8 quality
+      finalAvatarUrl = canvas.toDataURL('image/jpeg', 0.8)
+      console.log('✅ Compressed to', finalAvatarUrl.length, 'bytes')
+    }
+
+    // Update Firestore user document with avatar
+    console.log('🔄 Updating Firestore document...')
+    await setDoc(
+      doc(db, 'users', firebaseUser.uid),
+      { avatar: finalAvatarUrl, updatedAt: serverTimestamp() },
+      { merge: true }
+    )
+
+    console.log('✅ Avatar update complete')
+
+    // Read back user document to include any extra fields
+    const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid))
+    const userData = userDoc.exists() ? userDoc.data() : {}
+    return convertFirebaseUser(firebaseUser, userData)
+  } catch (err: any) {
+    console.error('updateUserAvatar error:', err)
+    throw err
+  }
+}
+
+/**
  * Get Firebase error message
  */
 function getFirebaseErrorMessage(errorCode: string): string {
