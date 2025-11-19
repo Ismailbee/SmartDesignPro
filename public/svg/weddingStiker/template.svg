@@ -19,7 +19,11 @@
 
     <!-- Clip path for image - Rounded rectangle -->
     <clipPath id="image-clip-rounded">
+<<<<<<< HEAD
       <rect x="-100" y="2" width="2450" height="2450" rx="200" ry="200"/>
+=======
+      <rect x="1250" y="100" width="1230" height="1430" rx="80" ry="80"/>
+>>>>>>> daa93bc97d2a1e5650d630536900d2314d0d77e2
     </clipPath>
 
     <!-- Alternative: Circle clip path (uncomment to use) -->
@@ -29,7 +33,11 @@
   </defs>
 
   <!-- Placeholder image with clip path applied -->
+<<<<<<< HEAD
   <image id="placeholder-image" x="1200" y="2" width="2450" height="2450" 
+=======
+  <image id="placeholder-image" x="1250" y="100" width="1230" height="1430" 
+>>>>>>> daa93bc97d2a1e5650d630536900d2314d0d77e2
          opacity="1" 
          href="" 
          clip-path="url(#image-clip-rounded)"

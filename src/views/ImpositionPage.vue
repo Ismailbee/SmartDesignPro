@@ -1198,22 +1198,20 @@ onBeforeUnmount(() => {
 }
 
 .file-preview-scroll::-webkit-scrollbar {
-  height: 10px;
+  display: none;
+  height: 0px;
 }
 
 .file-preview-scroll::-webkit-scrollbar-track {
-  background: var(--neutral-100);
-  border-radius: 999px;
+  display: none;
 }
 
 .file-preview-scroll::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-dark) 100%);
-  border-radius: 999px;
-  border: 2px solid var(--neutral-100);
+  display: none;
 }
 
 .file-preview-scroll::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-blue) 100%);
+  display: none;
 }
 
 .file-preview-card {
@@ -1418,18 +1416,16 @@ onBeforeUnmount(() => {
 }
 
 .segment-scroll::-webkit-scrollbar {
-  height: 8px;
+  display: none;
+  height: 0px;
 }
 
 .segment-scroll::-webkit-scrollbar-track {
-  background: var(--neutral-100);
-  border-radius: 999px;
+  display: none;
 }
 
 .segment-scroll::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-dark) 100%);
-  border-radius: 999px;
-  border: 2px solid var(--neutral-100);
+  display: none;
 }
 
 ion-segment {
