@@ -1,186 +1,486 @@
 <template>
-  <div class="relative min-h-screen bg-slate-100 dark:bg-slate-900 flex flex-col">
+  <div class="relative min-h-screen bg-slate-100 dark:bg-slate-900 flex flex-col touch-pan-x touch-pan-y touch-pinch-zoom">
     <!-- Header Bar -->
-    <div class="bg-white dark:bg-slate-800 shadow-sm px-2 py-1.5 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <div>
-          <h1 class="text-sm font-bold text-slate-900 dark:text-white">Invoice Preview</h1>
-          <p class="text-[10px] text-slate-500 dark:text-slate-400">Invoice #{{ invoiceData.invoiceNumber }}</p>
-        </div>
-      </div>
+    <div class="bg-white dark:bg-slate-800 shadow-sm px-1 md:px-2 py-0.5 md:py-1.5">
       
-      <div class="flex items-center gap-2">
-        <!-- Zoom Controls -->
-        <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded p-0.5">
-          <button
-            :disabled="zoomLevel <= 0.5"
-            class="p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Zoom Out"
-            @click="zoomOut"
-          >
-            <svg class="w-3 h-3 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
-            </svg>
-          </button>
-          
-          <span class="text-[10px] font-medium text-slate-700 dark:text-slate-300 min-w-[2rem] text-center">
-            {{ Math.round(zoomLevel * 100) }}%
-          </span>
-          
-          <button
-            :disabled="zoomLevel >= 2"
-            class="p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Zoom In"
-            @click="zoomIn"
-          >
-            <svg class="w-3 h-3 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
-            </svg>
-          </button>
-          
-          <button
-            class="p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors"
-            title="Reset Zoom"
-            @click="resetZoom"
-          >
-            <svg class="w-3 h-3 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
-        </div>
-        
-        <!-- Page/Copies Control -->
-        <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded p-0.5">
-          <span class="text-[10px] font-medium text-slate-700 dark:text-slate-300 px-1">Copies:</span>
-          <input
-            v-model.number="totalCopies"
-            type="number"
-            min="1"
-            max="100"
-            step="1"
-            class="w-12 h-6 text-[10px] text-center bg-white dark:bg-slate-600 border border-slate-300 dark:border-slate-500 rounded text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-            title="Number of copies to generate"
-            @input="validateCopiesInput"
-            @blur="validateCopiesInput"
-          />
-          <div class="text-[9px] text-slate-500 dark:text-slate-400 px-1">
-            Page {{ currentPage }} of {{ totalCopies }}
-          </div>
-          <div class="flex items-center gap-0.5 ml-1">
+      <!-- Mobile Layout (stacked, compact) -->
+      <div class="md:hidden flex flex-col gap-0.5">
+        <!-- Row 1: Back arrow, Title with all controls inline -->
+        <div class="flex items-center justify-between gap-1">
+          <div class="flex items-center gap-2 min-w-0 flex-1">
+            <!-- Back Button -->
             <button
-              :disabled="currentPage <= 1"
-              class="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Previous Page"
-              @click="goToPreviousPage"
+              class="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded transition-colors flex items-center justify-center flex-shrink-0"
+              title="Go Back"
+              @click="$router.go(-1)"
             >
-              <svg class="w-2.5 h-2.5 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+              <svg class="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
             </button>
-            <button
-              :disabled="currentPage >= totalCopies"
-              class="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Next Page"
-              @click="goToNextPage"
-            >
-              <svg class="w-2.5 h-2.5 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+            <div>
+              <h1 class="text-xs font-bold text-slate-900 dark:text-white truncate">Invoice Preview</h1>
+              <p class="text-[8px] text-slate-500 dark:text-slate-400">
+                Invoice #{{ currentInvoiceNumber }}
+                <span v-if="totalCopies > 1" class="text-blue-600 dark:text-blue-400"> (Copy {{ currentPage }}/{{ totalCopies }})</span>
+                <span v-if="totalCopies > 1" class="ml-1 px-1 py-0.5 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300 rounded text-[6px] font-medium">
+                  📝 Independent Data
+                </span>
+              </p>
+            </div>
+          </div>
+          
+          <!-- All controls inline -->
+          <div class="flex items-center gap-1 flex-shrink-0">
+            <!-- Zoom Controls -->
+            <div class="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-700 rounded p-0.5">
+              <button
+                :disabled="zoomLevel <= minZoom"
+                class="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Zoom Out"
+                @click="zoomOut"
+              >
+                <svg class="w-2.5 h-2.5 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+                </svg>
+              </button>
+              
+              <span class="text-[8px] font-medium text-slate-700 dark:text-slate-300 min-w-[1.2rem] text-center">
+                {{ Math.round(zoomLevel * 100) }}%
+              </span>
+              
+              <button
+                :disabled="zoomLevel >= maxZoom"
+                class="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Zoom In"
+                @click="zoomIn"
+              >
+                <svg class="w-2.5 h-2.5 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+                </svg>
+              </button>
+              
+              <button
+                class="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors"
+                title="Fit to Screen"
+                @click="autoFitZoom"
+              >
+                <svg class="w-2.5 h-2.5 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
+              </button>
+            </div>
+            
+            <!-- Copies Control -->
+            <div class="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-700 rounded p-0.5">
+              <input
+                v-model.number="totalCopies"
+                type="number"
+                min="1"
+                max="100"
+                step="1"
+                class="w-6 h-4 text-[8px] text-center bg-white dark:bg-slate-600 border border-slate-300 dark:border-slate-500 rounded text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                title="Number of copies to generate"
+                @input="validateCopiesInput"
+                @blur="validateCopiesInput"
+              />
+              <div class="text-[7px] text-slate-500 dark:text-slate-400">
+                {{ currentPage }}/{{ totalCopies }}
+              </div>
+              <div class="flex items-center gap-0.5">
+                <button
+                  :disabled="currentPage <= 1"
+                  class="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Previous Page"
+                  @click="goToPreviousPage"
+                >
+                  <svg class="w-2 h-2 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button
+                  :disabled="currentPage >= totalCopies"
+                  class="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Next Page"
+                  @click="goToNextPage"
+                >
+                  <svg class="w-2 h-2 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <!-- Undo/Redo Controls -->
+            <div class="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-700 rounded p-0.5">
+              <button
+                :disabled="!canUndo"
+                class="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Undo (Ctrl+Z)"
+                @click="undo"
+              >
+                <svg class="w-2.5 h-2.5 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                </svg>
+              </button>
+              
+              <button
+                :disabled="!canRedo"
+                class="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Redo (Ctrl+Y)"
+                @click="redo"
+              >
+                <svg class="w-2.5 h-2.5 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
         
-        <!-- Undo/Redo Controls -->
-        <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded p-0.5">
-          <button
-            :disabled="!canUndo"
-            class="p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Undo (Ctrl+Z)"
-            @click="undo"
-          >
-            <svg class="w-3 h-3 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-            </svg>
-          </button>
+        <!-- Row 2: Navigation and Export buttons taking full width -->
+        <div class="flex items-center gap-1">
+          <!-- Navigation Buttons -->
+          <div class="flex gap-1">
+            <button
+              class="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10px] font-medium transition-colors"
+              title="View saved invoices"
+              @click="viewSavedInvoices"
+            >
+              📋 Saved
+            </button>
+            
+            <button
+              class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-medium transition-colors"
+              title="Create new invoice"
+              @click="createNewInvoice"
+            >
+              ➕ New
+            </button>
+          </div>
           
-          <button
-            :disabled="!canRedo"
-            class="p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Redo (Ctrl+Y)"
-            @click="redo"
-          >
-            <svg class="w-3 h-3 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10H11a8 8 0 00-8 8v2m18-10l-6-6m6 6l-6 6" />
-            </svg>
-          </button>
+          <!-- Export Buttons taking remaining space -->
+          <div class="flex gap-1 flex-1">
+              <!-- Export Options Dropdown -->
+              <div v-if="totalCopies > 1" ref="exportDropdownRef" class="relative">
+                <button
+                  class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-medium transition-colors"
+                  @click="toggleExportOptions"
+                >
+                  📄 Export ▼
+                </button>
+                <div v-if="showExportOptions" class="absolute right-0 mt-1 w-44 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-600 rounded shadow-lg z-10">
+                  <button
+                    class="block w-full text-left px-3 py-2 text-[10px] hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-50 text-gray-700 dark:text-gray-300 rounded-t"
+                    :disabled="isExporting"
+                    @click="showFilenameDialog('pdf-current'); closeExportOptions()"
+                  >
+                    📄 Current Page (PDF)
+                  </button>
+                  <button
+                    class="block w-full text-left px-3 py-2 text-[10px] hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-50 text-gray-700 dark:text-gray-300"
+                    :disabled="isExporting"
+                    @click="showFilenameDialog('pdf-all'); closeExportOptions()"
+                  >
+                    📄 All Pages (PDF)
+                  </button>
+                  <button
+                    class="block w-full text-left px-3 py-2 text-[10px] hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-50 text-gray-700 dark:text-gray-300"
+                    :disabled="isExporting"
+                    @click="showFilenameDialog('jpeg-current'); closeExportOptions()"
+                  >
+                    🖼️ Current Page (JPEG)
+                  </button>
+                  <button
+                    class="block w-full text-left px-3 py-2 text-[10px] hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-50 text-gray-700 dark:text-gray-300 rounded-b"
+                    :disabled="isExporting"
+                    @click="showFilenameDialog('jpeg-all'); closeExportOptions()"
+                  >
+                    🖼️ All Pages (JPEG)
+                  </button>
+                </div>
+              </div>
+              
+              <!-- Single Page Export Buttons -->
+              <template v-else>
+                <button
+                  class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-medium transition-colors disabled:opacity-50"
+                  :disabled="isExporting"
+                  @click="showFilenameDialog('pdf-current')"
+                >
+                  📄 Export PDF
+                </button>
+                <button
+                  class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-medium transition-colors disabled:opacity-50"
+                  :disabled="isExporting"
+                  @click="showFilenameDialog('jpeg-current')"
+                >
+                  🖼️ Export JPEG
+                </button>
+              </template>
+              
+              <button
+                class="px-2.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded text-[11px] font-medium transition-colors disabled:opacity-50"
+                :disabled="isExporting"
+                @click="handleSaveInvoice"
+              >
+                💾 Save Invoice
+              </button>
+            </div>
+          </div>
         </div>
         
-        <!-- Export Buttons -->
-        <div class="flex gap-1.5">
-          <!-- Export Options Dropdown -->
-          <div v-if="totalCopies > 1" ref="exportDropdownRef" class="relative">
+        <!-- Desktop Layout (horizontal, spacious) -->
+        <div class="hidden md:flex items-center justify-between gap-3">
+          <!-- Left side: Back button and Title -->
+          <div class="flex items-center gap-3 min-w-0 flex-1">
+            <!-- Back Button -->
             <button
-              @click="toggleExportOptions"
-              class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-medium transition-colors"
+              class="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded transition-colors flex items-center justify-center"
+              title="Go Back"
+              @click="$router.go(-1)"
             >
-              📄 Export ▼
+              <svg class="w-4 h-4 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
             </button>
-            <div v-if="showExportOptions" class="absolute right-0 mt-1 w-44 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-600 rounded shadow-lg z-10">
+            <div>
+              <h1 class="text-sm font-bold text-slate-900 dark:text-white truncate">Invoice Preview</h1>
+              <p class="text-[10px] text-slate-500 dark:text-slate-400">
+                Invoice #{{ currentInvoiceNumber }}
+                <span v-if="totalCopies > 1" class="text-blue-600 dark:text-blue-400"> (Copy {{ currentPage }}/{{ totalCopies }})</span>
+                <span v-if="totalCopies > 1" class="ml-1 px-1.5 py-0.5 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300 rounded text-[8px] font-medium">
+                  📝 Independent Data
+                </span>
+              </p>
+            </div>
+          </div>
+          
+          <!-- Center: Controls -->
+          <div class="flex items-center gap-2">
+            <!-- Zoom Controls -->
+            <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded p-1">
               <button
-                class="block w-full text-left px-3 py-2 text-[10px] hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-50 text-gray-700 dark:text-gray-300 rounded-t"
-                :disabled="isExporting"
-                @click="handleExportPDF('current'); closeExportOptions()"
+                :disabled="zoomLevel <= minZoom"
+                class="p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Zoom Out"
+                @click="zoomOut"
               >
-                📄 Current Page (PDF)
+                <svg class="w-3 h-3 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+                </svg>
               </button>
+              
+              <span class="text-[10px] font-medium text-slate-700 dark:text-slate-300 min-w-[2rem] text-center">
+                {{ Math.round(zoomLevel * 100) }}%
+              </span>
+              
               <button
-                class="block w-full text-left px-3 py-2 text-[10px] hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-50 text-gray-700 dark:text-gray-300"
-                :disabled="isExporting"
-                @click="handleExportPDF('all'); closeExportOptions()"
+                :disabled="zoomLevel >= maxZoom"
+                class="p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Zoom In"
+                @click="zoomIn"
               >
-                📄 All Pages (PDF)
+                <svg class="w-3 h-3 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+                </svg>
               </button>
+              
               <button
-                class="block w-full text-left px-3 py-2 text-[10px] hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-50 text-gray-700 dark:text-gray-300"
-                :disabled="isExporting"
-                @click="handleExportJPEG('current'); closeExportOptions()"
+                class="p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors"
+                title="Fit to Screen"
+                @click="autoFitZoom"
               >
-                🖼️ Current Page (JPEG)
+                <svg class="w-3 h-3 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
               </button>
+            </div>
+            
+            <!-- Copies Control -->
+            <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded p-1">
+              <span class="text-[10px] font-medium text-slate-700 dark:text-slate-300 px-1">Copies:</span>
+              <input
+                v-model.number="totalCopies"
+                type="number"
+                min="1"
+                max="100"
+                step="1"
+                class="w-12 h-6 text-[10px] text-center bg-white dark:bg-slate-600 border border-slate-300 dark:border-slate-500 rounded text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                title="Number of copies to generate"
+                @input="validateCopiesInput"
+                @blur="validateCopiesInput"
+              />
+              <div class="text-[9px] text-slate-500 dark:text-slate-400 px-1">
+                {{ currentPage }}/{{ totalCopies }}
+              </div>
+              <div class="flex items-center gap-0.5 ml-1">
+                <button
+                  :disabled="currentPage <= 1"
+                  class="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Previous Page"
+                  @click="goToPreviousPage"
+                >
+                  <svg class="w-2.5 h-2.5 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button
+                  :disabled="currentPage >= totalCopies"
+                  class="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Next Page"
+                  @click="goToNextPage"
+                >
+                  <svg class="w-2.5 h-2.5 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <!-- Undo/Redo Controls -->
+            <div class="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-700 rounded p-1">
               <button
-                class="block w-full text-left px-3 py-2 text-[10px] hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-50 text-gray-700 dark:text-gray-300 rounded-b"
-                :disabled="isExporting"
-                @click="handleExportJPEG('all'); closeExportOptions()"
+                :disabled="!canUndo"
+                class="p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Undo (Ctrl+Z)"
+                @click="undo"
               >
-                🖼️ All Pages (JPEG)
+                <svg class="w-3 h-3 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                </svg>
+              </button>
+              
+              <button
+                :disabled="!canRedo"
+                class="p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Redo (Ctrl+Y)"
+                @click="redo"
+              >
+                <svg class="w-3 h-3 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" />
+                </svg>
               </button>
             </div>
           </div>
           
-          <!-- Single Page Export Buttons -->
-          <template v-else>
+          <!-- Right side: Export buttons -->
+          <div class="flex gap-1.5">
+            <!-- Export Options Dropdown -->
+            <div v-if="totalCopies > 1" ref="exportDropdownRef" class="relative">
+              <button
+                class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-medium transition-colors"
+                @click="toggleExportOptions"
+              >
+                📄 Export ▼
+              </button>
+              <div v-if="showExportOptions" class="absolute right-0 mt-1 w-44 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-600 rounded shadow-lg z-10">
+                <button
+                  class="block w-full text-left px-3 py-2 text-[10px] hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-50 text-gray-700 dark:text-gray-300 rounded-t"
+                  :disabled="isExporting"
+                  @click="showFilenameDialog('pdf-current'); closeExportOptions()"
+                >
+                  📄 Current Page (PDF)
+                </button>
+                <button
+                  class="block w-full text-left px-3 py-2 text-[10px] hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-50 text-gray-700 dark:text-gray-300"
+                  :disabled="isExporting"
+                  @click="showFilenameDialog('pdf-all'); closeExportOptions()"
+                >
+                  📄 All Pages (PDF)
+                </button>
+                <button
+                  class="block w-full text-left px-3 py-2 text-[10px] hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-50 text-gray-700 dark:text-gray-300"
+                  :disabled="isExporting"
+                  @click="showFilenameDialog('jpeg-current'); closeExportOptions()"
+                >
+                  🖼️ Current Page (JPEG)
+                </button>
+                <button
+                  class="block w-full text-left px-3 py-2 text-[10px] hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-50 text-gray-700 dark:text-gray-300 rounded-b"
+                  :disabled="isExporting"
+                  @click="showFilenameDialog('jpeg-all'); closeExportOptions()"
+                >
+                  🖼️ All Pages (JPEG)
+                </button>
+              </div>
+            </div>
+            
+            <!-- Single Page Export Buttons -->
+            <template v-else>
+              <button
+                class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-medium transition-colors disabled:opacity-50"
+                :disabled="isExporting"
+                @click="showFilenameDialog('pdf-current')"
+              >
+                📄 Export PDF
+              </button>
+              <button
+                class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-medium transition-colors disabled:opacity-50"
+                :disabled="isExporting"
+                @click="showFilenameDialog('jpeg-current')"
+              >
+                🖼️ Export JPEG
+              </button>
+            </template>
+            
             <button
-              class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-medium transition-colors disabled:opacity-50"
+              class="px-2.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded text-[11px] font-medium transition-colors disabled:opacity-50"
               :disabled="isExporting"
-              @click="handleExportPDF('current')"
+              @click="handleSaveInvoice"
             >
-              📄 Export PDF
+              💾 Save Invoice
             </button>
-            <button
-              class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-medium transition-colors disabled:opacity-50"
-              :disabled="isExporting"
-              @click="handleExportJPEG('current')"
-            >
-              🖼️ Export JPEG
-            </button>
-          </template>
-          
-          <button
-            class="px-2.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded text-[11px] font-medium transition-colors disabled:opacity-50"
-            :disabled="isExporting"
-            @click="handleSaveInvoice"
+          </div>
+        </div>
+      </div>
+
+    <!-- Filename Customization Modal -->
+    <div v-if="showFilenameModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+        <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Customize Export Name</h3>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            File Name:
+          </label>
+          <input 
+            v-model="customFilename"
+            type="text"
+            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+            placeholder="Enter filename"
+            @keydown.enter="confirmExport"
+          />
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Extension will be added automatically (.pdf or .jpg)
+          </p>
+        </div>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            Export Type:
+          </label>
+          <div class="text-sm text-slate-600 dark:text-slate-400">
+            {{ pendingExportType === 'pdf-current' ? '📄 PDF - Current Page' : 
+               pendingExportType === 'pdf-all' ? '📄 PDF - All Pages' :
+               pendingExportType === 'jpeg-current' ? '🖼️ JPEG - Current Page' :
+               pendingExportType === 'jpeg-all' ? '🖼️ JPEG - All Pages' : 'Unknown' }}
+          </div>
+        </div>
+        
+        <div class="flex gap-3 justify-end">
+          <button 
+            @click="cancelExport"
+            class="px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
           >
-            💾 Save Invoice
+            Cancel
+          </button>
+          <button 
+            @click="confirmExport"
+            :disabled="!customFilename.trim()"
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-md transition-colors disabled:cursor-not-allowed"
+          >
+            Export
           </button>
         </div>
       </div>
@@ -210,13 +510,13 @@
 
     <!-- Invoice Preview Section - always visible on all screen sizes -->
     <section 
-      class="w-full flex items-center justify-center pb-[30vh] pt-[2vh]"
+      class="w-full overflow-auto flex items-start justify-center pb-[30vh] pt-[2vh]"
     >
-      <!-- Mobile wrapper - scales down on mobile, full size on desktop -->
+      <!-- Wrapper - maintains actual size, uses zoom controls only -->
       <div 
-        class="w-full flex items-center justify-center" 
+        class="flex items-center justify-center" 
         :style="{ 
-          transform: isMobile ? `scale(${mobileScale * zoomLevel})` : `scale(${zoomLevel})`, 
+          transform: `scale(${zoomLevel})`, 
           transformOrigin: 'top center',
           height: `${invoiceHeight}in`,
           maxHeight: `${invoiceHeight}in`
@@ -257,12 +557,11 @@
             </div>
             
           
-             <!-- Organization Name (Dynamically scales with invoice height) -->
-            <div class="w-auto text-center items-center max-w-[420px]">
-                 <!-- Business Number (BN) -->
-            <div>
+             <!-- Organization Name (Dynamically scales with invoice height) - Only show if any org info exists -->
+            <div v-if="businessNumber?.trim() || organizationName?.trim() || organizationSubName?.trim()" class="w-auto text-center items-center max-w-[420px]" style="margin: 0; padding: 0;">
+                 <!-- Business Number (BN) - Only show if filled -->
+            <div v-if="businessNumber?.trim()">
                 <p 
-                v-if="businessNumber"
                 class="text-right text-slate-900 dark:text-slate-100"
                 :style="{ 
                   fontSize: '10px',
@@ -274,23 +573,9 @@
               >
                 <strong>BN:</strong> {{ businessNumber }}
               </p>
-              
-              <p 
-                v-else
-                class="text-right text-gray-400"
-                :style="{ 
-                  fontSize: '10px',
-                  wordWrap: 'break-word',
-                  wordBreak: 'break-all',
-                  overflowWrap: 'break-word',
-                  whiteSpace: 'normal'
-                }"
-              >
-                <strong>BN:</strong> Enter business number
-              </p>
             </div>
               <h2 
-                v-if="organizationName"
+                v-if="organizationName?.trim()"
                 class="font-bold text-left"
                 :style="{ 
                   color: colorStyles.organizationTextColor,
@@ -307,27 +592,11 @@
               >
                 {{ organizationName }}
               </h2>
-              <h2 
-                v-else
-                class="font-bold text-left text-black"
-                :style="{ 
-                  fontFamily: 'Arial Narrow, Roboto Condensed, Oswald, sans-serif',
-                  fontWeight: 900,
-                  fontSize: organizationNameFontSize,
-                  letterSpacing: '-0.5px',
-                  marginTop: '0',
-                  wordWrap: 'break-word',
-                  wordBreak: 'break-all',
-                  overflowWrap: 'break-word',
-                  whiteSpace: 'normal'
-                }"
-              >
-                Enter organization name
-              </h2>
 
               <p 
-                v-if="organizationSubName"
+                v-if="organizationSubName?.trim()"
                 class="text-left mt-[-8px] text-slate-900 dark:text-slate-100"
+                style="margin: 0; padding: 0;"
                 :style="{ 
                   fontSize: organizationSubFontSize,
                   wordWrap: 'break-word',
@@ -338,19 +607,6 @@
               >
                 {{ organizationSubName }}
               </p>
-              <p 
-                v-else
-                class="text-left mt-[-8px] text-black"
-                :style="{ 
-                  fontSize: organizationSubFontSize,
-                  wordWrap: 'break-word',
-                  wordBreak: 'break-all',
-                  overflowWrap: 'break-word',
-                  whiteSpace: 'normal'
-                }"
-              >
-                Enter organization subtitle
-              </p>
               
            
               
@@ -360,12 +616,14 @@
         
       </div>
      
-      <div class="flex items-center justify-between mt-1 pl-4">
+      <!-- Address Section - Only show if any address info is provided -->
+      <!-- Address Section - Only show if ANY address or phone info exists -->
+      <div v-if="headOfficeAddress?.trim() || headOfficePhone?.trim() || branchAddress1?.trim() || branch1Phone?.trim() || branchAddress2?.trim() || branch2Phone?.trim()" class="flex items-center justify-between mt-1 pl-4">
        
-        <!-- Head Office Address & Phone -->
-        <div class="max-w-[280px] text-center  mx-auto">
+        <!-- Head Office Address & Phone - Only show if filled -->
+        <div v-if="headOfficeAddress?.trim() || headOfficePhone?.trim()" class="max-w-[280px] text-center mx-auto" style="margin: 0; padding: 0;">
           <!-- Head Office Address -->
-          <div v-if="headOfficeAddress" class="text-left">
+          <div v-if="headOfficeAddress?.trim()" class="text-left">
             <strong 
               class="text-slate-900 dark:text-slate-100"
               :style="{ 
@@ -385,30 +643,10 @@
               }"
             >{{ headOfficeAddress }}</span>
           </div>
-          <div v-else class="text-left">
-            <strong 
-              class="text-black"
-              :style="{ 
-                fontSize: addressFontSize,
-                wordWrap: 'break-word', 
-                wordBreak: 'break-word', 
-                whiteSpace: 'normal' 
-              }"
-            >Head Office Address:</strong>
-            <span 
-              class="text-black ml-1"
-              :style="{ 
-                fontSize: addressFontSize,
-                wordWrap: 'break-word', 
-                wordBreak: 'break-word', 
-                whiteSpace: 'normal' 
-              }"
-            >Enter head office address</span>
-          </div>
           
           <!-- Head Office Phone -->
           <div 
-            v-if="headOfficePhone"
+            v-if="headOfficePhone?.trim()"
             class="text-left mt-0.5"
           >
             <strong 
@@ -430,24 +668,12 @@
               }"
             >{{ headOfficePhone }}</span>
           </div>
-          <p 
-            v-else
-            class="text-left mt-0.5 font-bold text-black"
-            :style="{ 
-              fontSize: phoneFontSize,
-              wordWrap: 'break-word', 
-              wordBreak: 'break-word', 
-              whiteSpace: 'normal' 
-            }"
-          >
-            Tel: Enter head office phone number
-          </p>
         </div>
        
         <!-- Branch Address 1 (Only show if filled) -->
-        <div v-if="branchAddress1 || branch1Phone" class="max-w-[280px] text-center ml-2 mx-auto">
+        <div v-if="branchAddress1?.trim() || branch1Phone?.trim()" class="max-w-[280px] text-center ml-2 mx-auto">
           <!-- Branch 1 Address -->
-          <div v-if="branchAddress1" class="text-left">
+          <div v-if="branchAddress1?.trim()" class="text-left">
             <strong 
               class="text-slate-900 dark:text-slate-100"
               :style="{ 
@@ -470,7 +696,7 @@
           
           <!-- Branch 1 Phone -->
           <div 
-            v-if="branch1Phone"
+            v-if="branch1Phone?.trim()"
             class="text-left mt-0.5"
           >
             <strong 
@@ -495,9 +721,9 @@
         </div>
 
         <!-- Branch Address 2 (Only show if filled) -->
-        <div v-if="branchAddress2 || branch2Phone" class="max-w-[280px] text-center ml-2 mx-auto">
+        <div v-if="branchAddress2?.trim() || branch2Phone?.trim()" class="max-w-[280px] text-center ml-2 mx-auto">
           <!-- Branch 2 Address -->
-          <div v-if="branchAddress2" class="text-left">
+          <div v-if="branchAddress2?.trim()" class="text-left">
             <strong 
               class="text-slate-900 dark:text-slate-100"
               :style="{ 
@@ -520,7 +746,7 @@
           
           <!-- Branch 2 Phone -->
           <div 
-            v-if="branch2Phone"
+            v-if="branch2Phone?.trim()"
             class="text-left mt-0.5"
           >
             <strong 
@@ -637,7 +863,7 @@
               }"
             >
               <tr>
-                <th class="w-[7%] px-1.5 py-1 text-center" style="border-top: 1px solid #000000; border-right: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000;">QTY</th>
+                <th class="w-[7.8%] px-1.5 py-1 text-center" style="border-top: 1px solid #000000; border-right: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000;">QTY</th>
                 <th :class="invoiceData.taxEnabled ? 'w-[56%]' : 'w-[64%]'" class="px-1.5 py-1 text-left" style="border-top: 1px solid #000000; border-right: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #ffffff;">DESCRIPTION OF GOODS</th>
                 <th :class="invoiceData.taxEnabled ? 'w-[9%]' : 'w-[17%]'" class="px-1.5 py-1 text-center" style="border-top: 1px solid #000000; border-right: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #ffffff;">RATE</th>
                 <th v-if="invoiceData.taxEnabled" class="w-[8%] px-1.5 py-1 text-center" style="border-top: 1px solid #000000; border-right: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #ffffff;">TAX%</th>
@@ -886,13 +1112,13 @@
                   class="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
                   @change="handleFontChange"
                 >
-                  <option value="Inter, sans-serif">Inter (Modern)</option>
-                  <option value="Arial, sans-serif">Arial (Classic)</option>
-                  <option value="Helvetica, sans-serif">Helvetica (Clean)</option>
-                  <option value="Georgia, serif">Georgia (Professional)</option>
-                  <option value="Times New Roman, serif">Times New Roman</option>
-                  <option value="Roboto, sans-serif">Roboto (Google)</option>
-                  <option value="Montserrat, sans-serif">Montserrat (Modern)</option>
+                  <option value="Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">Inter (Modern)</option>
+                  <option value="Arial, Helvetica, sans-serif">Arial (Classic)</option>
+                  <option value="Helvetica, 'Helvetica Neue', Arial, sans-serif">Helvetica (Clean)</option>
+                  <option value="Georgia, 'Times New Roman', Times, serif">Georgia (Professional)</option>
+                  <option value="'Times New Roman', Times, serif">Times New Roman</option>
+                  <option value="Roboto, 'Segoe UI', Arial, sans-serif">Roboto (Google)</option>
+                  <option value="Montserrat, 'Segoe UI', Arial, sans-serif">Montserrat (Modern)</option>
                 </select>
               </div>
 
@@ -982,10 +1208,10 @@
                     v-model="selectedElementStyles.fontFamily"
                     class="w-full px-1 py-0.5 text-[10px] border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-slate-700"
                   >
-                    <option value="Inter, sans-serif">Inter</option>
-                    <option value="Arial, sans-serif">Arial</option>
-                    <option value="Georgia, serif">Georgia</option>
-                    <option value="Times New Roman, serif">Times</option>
+                    <option value="Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">Inter</option>
+                    <option value="Arial, Helvetica, sans-serif">Arial</option>
+                    <option value="Georgia, 'Times New Roman', Times, serif">Georgia</option>
+                    <option value="'Times New Roman', Times, serif">Times</option>
                   </select>
                 </div>
                 
@@ -1214,6 +1440,11 @@ export default defineComponent({
     const isExporting = ref(false);
     const showExportOptions = ref(false);
     
+    // Filename customization modal
+    const showFilenameModal = ref(false);
+    const customFilename = ref('');
+    const pendingExportType = ref('');
+    
     // Panel visibility - open by default
     const showSettings = ref(true);
     
@@ -1240,29 +1471,51 @@ export default defineComponent({
       sumOf2: ''
     });
     
-    // Size settings
-    const invoiceWidth = ref(5.827);
-    const invoiceHeight = ref(8.268);
+    // Size settings - Default to 5x8 inches
+    const invoiceWidth = ref(5);
+    const invoiceHeight = ref(8);
     const isMobile = ref(false);
     const mobileScale = ref(1);
     
     // Zoom controls
     const zoomLevel = ref(1);
     
+    const minZoom = 0.3;
+    const maxZoom = 2;
+    
     const zoomIn = () => {
-      if (zoomLevel.value < 2) {
-        zoomLevel.value = Math.round((Math.min(2, zoomLevel.value + 0.1)) * 10) / 10;
+      if (zoomLevel.value < maxZoom) {
+        zoomLevel.value = Math.round((Math.min(maxZoom, zoomLevel.value + 0.1)) * 10) / 10;
       }
     };
     
     const zoomOut = () => {
-      if (zoomLevel.value > 0.5) {
-        zoomLevel.value = Math.round((Math.max(0.5, zoomLevel.value - 0.1)) * 10) / 10;
+      if (zoomLevel.value > minZoom) {
+        zoomLevel.value = Math.round((Math.max(minZoom, zoomLevel.value - 0.1)) * 10) / 10;
       }
     };
     
     const resetZoom = () => {
       zoomLevel.value = 1;
+    };
+    
+    // Auto-fit zoom to show complete invoice on load
+    const autoFitZoom = () => {
+      nextTick(() => {
+        const container = document.querySelector('section.w-full.overflow-auto');
+        if (container && invoiceWidth.value && invoiceHeight.value) {
+          const containerWidth = container.clientWidth - 40; // padding
+          const containerHeight = container.clientHeight - 100; // padding + header
+          const invoiceWidthPx = invoiceWidth.value * 96; // convert inches to pixels (96 DPI)
+          const invoiceHeightPx = invoiceHeight.value * 96;
+          
+          const scaleX = containerWidth / invoiceWidthPx;
+          const scaleY = containerHeight / invoiceHeightPx;
+          const optimalScale = Math.min(scaleX, scaleY, 1); // Don't zoom in beyond 100%
+          
+          zoomLevel.value = Math.max(minZoom, optimalScale);
+        }
+      });
     };
     
     // Pagination navigation methods
@@ -1304,6 +1557,62 @@ export default defineComponent({
       showExportOptions.value = false;
     };
     
+    // Filename customization methods
+    const showFilenameDialog = (exportType) => {
+      pendingExportType.value = exportType;
+      
+      // Generate default filename based on export type and invoice data
+      const invoiceNum = currentInvoiceNumber.value.replace('/', '-') || 'Invoice';
+      const customerNamePart = customerName.value ? `-${customerName.value.replace(/[^a-zA-Z0-9]/g, '')}` : '';
+      
+      let defaultName = '';
+      
+      if (exportType === 'pdf-current') {
+        defaultName = `${invoiceNum}${customerNamePart}`;
+      } else if (exportType === 'pdf-all') {
+        defaultName = `${invoiceNum}-All-Pages-${totalCopies.value}-copies`;
+      } else if (exportType === 'jpeg-current') {
+        defaultName = `${invoiceNum}${customerNamePart}-Image`;
+      } else if (exportType === 'jpeg-all') {
+        defaultName = `${invoiceNum}-All-Images-${totalCopies.value}-copies`;
+      }
+      
+      customFilename.value = defaultName;
+      showFilenameModal.value = true;
+    };
+    
+    const cancelExport = () => {
+      showFilenameModal.value = false;
+      customFilename.value = '';
+      pendingExportType.value = '';
+    };
+    
+    const confirmExport = async () => {
+      if (!customFilename.value.trim()) return;
+      
+      const filename = customFilename.value.trim();
+      showFilenameModal.value = false;
+      
+      // Execute the export based on the pending type
+      try {
+        if (pendingExportType.value === 'pdf-current') {
+          await handleExportPDF('current', filename);
+        } else if (pendingExportType.value === 'pdf-all') {
+          await handleExportPDF('all', filename);
+        } else if (pendingExportType.value === 'jpeg-current') {
+          await handleExportJPEG('current', filename);
+        } else if (pendingExportType.value === 'jpeg-all') {
+          await handleExportJPEG('all', filename);
+        }
+      } catch (error) {
+        console.error('Export failed:', error);
+        alert('Export failed. Please try again.');
+      } finally {
+        customFilename.value = '';
+        pendingExportType.value = '';
+      }
+    };
+    
     // Click outside handler for export dropdown
     const handleClickOutside = (event) => {
       if (exportDropdownRef.value && !exportDropdownRef.value.contains(event.target)) {
@@ -1337,7 +1646,7 @@ export default defineComponent({
     const canRedo = computed(() => historyIndex.value < history.value.length - 1);
 
     // Font selection variables
-    const selectedFont = ref('Inter, sans-serif');
+    const selectedFont = ref('Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
     const baseFontSize = ref(12);
     const fontSizePresets = ref([
       { name: 'Small', size: 10 },
@@ -1462,7 +1771,7 @@ export default defineComponent({
     const selectedTextElement = ref(null);
     const selectedElementId = ref('');
     const selectedElementStyles = ref({
-      fontFamily: 'Inter, sans-serif',
+      fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       fontSize: 12,
       cmykColor: 'black'
     });
@@ -1475,7 +1784,7 @@ export default defineComponent({
     const selectedElementIds = ref([]); // Array of selected element IDs
     const isMultiSelectMode = ref(false); // Toggle for multi-select mode
     const groupStyles = ref({
-      fontFamily: 'Inter, sans-serif',
+      fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       fontSize: 12,
       cmykColor: 'black'
     });
@@ -1501,7 +1810,10 @@ export default defineComponent({
     const currentPage = ref(1);
     const showPageNumbers = ref(false);
     
-    // Editable fields from the new template
+    // Per-page data storage - each page can have different data
+    const pageData = ref({});
+    
+    // Global/shared fields (same for all pages)
     const logoDataUrl = ref('');
     const organizationName = ref('');
     const organizationSubName = ref('');
@@ -1514,25 +1826,164 @@ export default defineComponent({
     const branch2Phone = ref('');
     const receiptNumber = ref(1);
     const autoReceiptNumber = ref(true);
-    const customerName = ref('');
-    const customerAddress = ref('');
-    const date = ref('');
     const autoDate = ref(true);
-    const lpo = ref('');
-    const items = ref([
-      { id: 1, quantity: 0, description: '', price: 0, tax: 0 },
-      { id: 2, quantity: 0, description: '', price: 0, tax: 0 },
-      { id: 3, quantity: 0, description: '', price: 0, tax: 0 },
-      { id: 4, quantity: 0, description: '', price: 0, tax: 0 },
-      { id: 5, quantity: 0, description: '', price: 0, tax: 0 },
-      { id: 6, quantity: 0, description: '', price: 0, tax: 0 },
-      { id: 7, quantity: 0, description: '', price: 0, tax: 0 },
-      { id: 8, quantity: 0, description: '', price: 0, tax: 0 },
-      { id: 9, quantity: 0, description: '', price: 0, tax: 0 },
-      { id: 10, quantity: 0, description: '', price: 0, tax: 0 },
-      { id: 11, quantity: 0, description: '', price: 0, tax: 0 },
-      { id: 12, quantity: 0, description: '', price: 0, tax: 0 }
-    ]);
+    
+    // Initialize default page data structure
+    const createDefaultPageData = () => ({
+      customerName: '',
+      customerAddress: '',
+      date: new Date().toISOString().split('T')[0], // Default to today
+      lpo: '',
+      sumOf: '',
+      sumOf2: '',
+      signatureImage1: '',
+      signatureImage2: '',
+      selectedSignature1: '',
+      selectedSignature2: '',
+      items: [
+        { id: 1, quantity: 0, description: '', price: 0, tax: 0 },
+        { id: 2, quantity: 0, description: '', price: 0, tax: 0 },
+        { id: 3, quantity: 0, description: '', price: 0, tax: 0 },
+        { id: 4, quantity: 0, description: '', price: 0, tax: 0 },
+        { id: 5, quantity: 0, description: '', price: 0, tax: 0 },
+        { id: 6, quantity: 0, description: '', price: 0, tax: 0 },
+        { id: 7, quantity: 0, description: '', price: 0, tax: 0 },
+        { id: 8, quantity: 0, description: '', price: 0, tax: 0 },
+        { id: 9, quantity: 0, description: '', price: 0, tax: 0 },
+        { id: 10, quantity: 0, description: '', price: 0, tax: 0 },
+        { id: 11, quantity: 0, description: '', price: 0, tax: 0 },
+        { id: 12, quantity: 0, description: '', price: 0, tax: 0 }
+      ]
+    });
+    
+    // Initialize page data for current page
+    const ensurePageData = (pageNum) => {
+      if (!pageData.value[pageNum]) {
+        pageData.value[pageNum] = createDefaultPageData();
+      }
+    };
+    
+    // Computed properties for current page data
+    const customerName = computed({
+      get: () => {
+        ensurePageData(currentPage.value);
+        return pageData.value[currentPage.value]?.customerName || '';
+      },
+      set: (value) => {
+        ensurePageData(currentPage.value);
+        pageData.value[currentPage.value].customerName = value;
+      }
+    });
+    
+    const customerAddress = computed({
+      get: () => {
+        ensurePageData(currentPage.value);
+        return pageData.value[currentPage.value]?.customerAddress || '';
+      },
+      set: (value) => {
+        ensurePageData(currentPage.value);
+        pageData.value[currentPage.value].customerAddress = value;
+      }
+    });
+    
+    const date = computed({
+      get: () => {
+        ensurePageData(currentPage.value);
+        return pageData.value[currentPage.value]?.date || new Date().toISOString().split('T')[0];
+      },
+      set: (value) => {
+        ensurePageData(currentPage.value);
+        pageData.value[currentPage.value].date = value;
+      }
+    });
+    
+    const lpo = computed({
+      get: () => {
+        ensurePageData(currentPage.value);
+        return pageData.value[currentPage.value]?.lpo || '';
+      },
+      set: (value) => {
+        ensurePageData(currentPage.value);
+        pageData.value[currentPage.value].lpo = value;
+      }
+    });
+    
+    const sumOf = computed({
+      get: () => {
+        ensurePageData(currentPage.value);
+        return pageData.value[currentPage.value]?.sumOf || '';
+      },
+      set: (value) => {
+        ensurePageData(currentPage.value);
+        pageData.value[currentPage.value].sumOf = value;
+      }
+    });
+    
+    const sumOf2 = computed({
+      get: () => {
+        ensurePageData(currentPage.value);
+        return pageData.value[currentPage.value]?.sumOf2 || '';
+      },
+      set: (value) => {
+        ensurePageData(currentPage.value);
+        pageData.value[currentPage.value].sumOf2 = value;
+      }
+    });
+    
+    const items = computed({
+      get: () => {
+        ensurePageData(currentPage.value);
+        return pageData.value[currentPage.value]?.items || createDefaultPageData().items;
+      },
+      set: (value) => {
+        ensurePageData(currentPage.value);
+        pageData.value[currentPage.value].items = value;
+      }
+    });
+    
+    const signatureImage1 = computed({
+      get: () => {
+        ensurePageData(currentPage.value);
+        return pageData.value[currentPage.value]?.signatureImage1 || '';
+      },
+      set: (value) => {
+        ensurePageData(currentPage.value);
+        pageData.value[currentPage.value].signatureImage1 = value;
+      }
+    });
+    
+    const signatureImage2 = computed({
+      get: () => {
+        ensurePageData(currentPage.value);
+        return pageData.value[currentPage.value]?.signatureImage2 || '';
+      },
+      set: (value) => {
+        ensurePageData(currentPage.value);
+        pageData.value[currentPage.value].signatureImage2 = value;
+      }
+    });
+    
+    const selectedSignature1 = computed({
+      get: () => {
+        ensurePageData(currentPage.value);
+        return pageData.value[currentPage.value]?.selectedSignature1 || '';
+      },
+      set: (value) => {
+        ensurePageData(currentPage.value);
+        pageData.value[currentPage.value].selectedSignature1 = value;
+      }
+    });
+    
+    const selectedSignature2 = computed({
+      get: () => {
+        ensurePageData(currentPage.value);
+        return pageData.value[currentPage.value]?.selectedSignature2 || '';
+      },
+      set: (value) => {
+        ensurePageData(currentPage.value);
+        pageData.value[currentPage.value].selectedSignature2 = value;
+      }
+    });
     
     // Dynamic MAX_ITEMS based on invoice height
     const MAX_ITEMS = computed(() => {
@@ -1614,7 +2065,8 @@ export default defineComponent({
 
     // Calculate per-page invoice number
     const currentInvoiceNumber = computed(() => {
-      if (showPageNumbers.value && totalCopies.value > 1) {
+      // Automatically use page numbering when multiple copies are requested
+      if (totalCopies.value > 1) {
         const baseNumber = receiptNumber.value || 1;
         return `${String(baseNumber + currentPage.value - 1).padStart(3, '0')}`;
       }
@@ -1634,10 +2086,21 @@ export default defineComponent({
         return;
       }
       
+      // Initialize data for new pages
+      for (let i = 1; i <= newTotal; i++) {
+        ensurePageData(i);
+      }
+      
       // Adjust current page if it exceeds new total
       if (currentPage.value > newTotal) {
         currentPage.value = Math.max(1, newTotal);
       }
+      
+      // Save the updated total copies
+      const currentData = JSON.parse(localStorage.getItem('invoicePreviewData') || '{}');
+      currentData.totalCopies = newTotal;
+      currentData.pageData = pageData.value; // Save per-page data
+      localStorage.setItem('invoicePreviewData', JSON.stringify(currentData));
     });
     
     // Watch for changes in current page to ensure it's valid
@@ -1777,36 +2240,47 @@ export default defineComponent({
       }
     });
     
-    const sumOf = ref('');
-    const sumOf2 = ref('');
     const sumOfInput1 = ref(null);
     const sumOfInput2 = ref(null);
-    const signatureImage1 = ref('');
-    const signatureImage2 = ref('');
     
     // Signature management
     const savedSignatures = ref([]);
-    const selectedSignature1 = ref('');
-    const selectedSignature2 = ref('');
     
     // Load invoice data from localStorage
     onMounted(() => {
+      // Initialize page 1 data first
+      ensurePageData(1);
+      
       const savedData = localStorage.getItem('invoicePreviewData');
       if (savedData) {
         const parsed = JSON.parse(savedData);
+        
+        // Only load organization data if it came from a form or explicit user action
+        // Check if the data has a formMode indicating it's from a form submission
+        const shouldLoadOrganizationData = parsed.formMode === 'generate' || parsed.fromQuickFill === true;
+        
         invoiceData.value = { ...invoiceData.value, ...parsed };
         
-        // Load size and color settings
+        // Load size and color settings (always load these)
         if (parsed.invoiceWidth) invoiceWidth.value = parsed.invoiceWidth;
         if (parsed.invoiceHeight) invoiceHeight.value = parsed.invoiceHeight;
         if (parsed.colorMode) colorMode.value = parsed.colorMode;
         
-        // Load page/copies settings
+        // Load page/copies settings (always load these)
         if (parsed.totalCopies) totalCopies.value = parsed.totalCopies;
         if (parsed.currentPage) currentPage.value = parsed.currentPage;
         if (parsed.showPageNumbers !== undefined) showPageNumbers.value = parsed.showPageNumbers;
+        
+        // Load per-page data if it exists
+        if (parsed.pageData) {
+          pageData.value = parsed.pageData;
+          // Initialize any missing pages
+          for (let i = 1; i <= totalCopies.value; i++) {
+            ensurePageData(i);
+          }
+        }
 
-        // Load font settings from quick settings
+        // Load font settings from quick settings (always load these)
         const quickSettings = localStorage.getItem('invoiceQuickSettings');
         if (quickSettings) {
           const fontSettings = JSON.parse(quickSettings);
@@ -1821,23 +2295,40 @@ export default defineComponent({
           }
         }
         
-        // Populate editable fields from invoiceData
-        logoDataUrl.value = parsed.logoDataUrl || '';
-        organizationName.value = parsed.organizationName || '';
-        organizationSubName.value = parsed.organizationSubName || '';
-        businessNumber.value = parsed.businessNumber || '';
-        headOfficeAddress.value = parsed.headOfficeAddress || '';
-        headOfficePhone.value = parsed.headOfficePhone || '';
-        branchAddress1.value = parsed.branchAddress1 || '';
-        branch1Phone.value = parsed.branch1Phone || '';
-        branchAddress2.value = parsed.branchAddress2 || '';
-        branch2Phone.value = parsed.branch2Phone || '';
-        receiptNumber.value = parsed.invoiceNumber || '';
+        // Only populate organization fields if user explicitly submitted form data or used Quick Fill
+        if (shouldLoadOrganizationData) {
+          logoDataUrl.value = parsed.logoDataUrl || '';
+          organizationName.value = parsed.organizationName || '';
+          organizationSubName.value = parsed.organizationSubName || '';
+          businessNumber.value = parsed.businessNumber || '';
+          headOfficeAddress.value = parsed.headOfficeAddress || '';
+          headOfficePhone.value = parsed.headOfficePhone || '';
+          branchAddress1.value = parsed.branchAddress1 || '';
+          branch1Phone.value = parsed.branch1Phone || '';
+          branchAddress2.value = parsed.branchAddress2 || '';
+          branch2Phone.value = parsed.branch2Phone || '';
+          receiptNumber.value = parsed.invoiceNumber || 1;
+        } else {
+          // Keep organization data empty if not from form/QuickFill
+          logoDataUrl.value = '';
+          organizationName.value = '';
+          organizationSubName.value = '';
+          businessNumber.value = '';
+          headOfficeAddress.value = '';
+          headOfficePhone.value = '';
+          branchAddress1.value = '';
+          branch1Phone.value = '';
+          branchAddress2.value = '';
+          branch2Phone.value = '';
+          receiptNumber.value = 1;
+        }
         
-        // Load tax enabled setting
+        // Load tax enabled setting (always load this)
         if (typeof parsed.taxEnabled !== 'undefined') {
           invoiceData.value.taxEnabled = parsed.taxEnabled;
         }
+        
+        // Always load customer and transaction data (this is expected to be filled during use)
         customerName.value = parsed.customerName || '';
         customerAddress.value = parsed.customerAddress || '';
         date.value = parsed.invoiceDate || '';
@@ -1880,6 +2371,9 @@ export default defineComponent({
       
       // Add click outside event listener for export dropdown
       document.addEventListener('click', handleClickOutside);
+      
+      // Auto-fit zoom when component is mounted
+      setTimeout(autoFitZoom, 500);
     });
     
     // Clean up event listeners on unmount
@@ -1925,6 +2419,8 @@ export default defineComponent({
 
     watch([invoiceWidth, invoiceHeight, items], () => {
       nextTick(updateContentScale);
+      // Auto-fit when dimensions change
+      setTimeout(autoFitZoom, 100);
     }, { deep: true });
 
     // Watch MAX_ITEMS and remove excess items when height decreases
@@ -2362,7 +2858,7 @@ export default defineComponent({
         const savedStyles = elementStyles.value[selectedElementId.value];
         
         selectedElementStyles.value = {
-          fontFamily: computedStyles.fontFamily || 'Inter, sans-serif',
+          fontFamily: computedStyles.fontFamily || 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
           fontSize: parseInt(computedStyles.fontSize) || 12,
           cmykColor: savedStyles?.cmykColor || 'black'
         };
@@ -2431,7 +2927,7 @@ export default defineComponent({
           // Save to element styles store
           if (!elementStyles.value[elementId]) {
             elementStyles.value[elementId] = {
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
               fontSize: 12,
               cmykColor: color
             };
@@ -2460,7 +2956,7 @@ export default defineComponent({
       
       // Update selected styles to default
       selectedElementStyles.value = {
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         fontSize: 12,
         cmykColor: 'black'
       };
@@ -2839,7 +3335,7 @@ export default defineComponent({
     };
     
     // Export handlers
-    const handleExportPDF = async (exportType = 'current') => {
+    const handleExportPDF = async (exportType = 'current', customName = null) => {
       if (!invoiceRef.value || isExporting.value) return;
       
       // Store original styles
@@ -2946,8 +3442,7 @@ export default defineComponent({
             orientation: 'portrait'
           });
           
-          // Remove the first blank page
-          pdf.deletePage(1);
+          let isFirstPage = true;
           
           for (let page = 1; page <= totalCopies.value; page++) {
             currentPage.value = page;
@@ -2962,10 +3457,13 @@ export default defineComponent({
               backgroundColor: '#ffffff'
             });
             
-            // Add new page to PDF
-            pdf.addPage([invoiceWidth.value, invoiceHeight.value], 'portrait');
+            // Add new page to PDF (except for the first page which already exists)
+            if (!isFirstPage) {
+              pdf.addPage([invoiceWidth.value, invoiceHeight.value], 'portrait');
+            }
+            isFirstPage = false;
             
-            // Add canvas image to PDF page
+            // Add canvas image to current PDF page
             const imgData = canvas.toDataURL('image/jpeg', 0.98);
             pdf.addImage(imgData, 'JPEG', 0, 0, invoiceWidth.value, invoiceHeight.value);
             
@@ -2974,33 +3472,89 @@ export default defineComponent({
           }
           
           // Save the combined PDF
-          const filename = `Invoice-All-Pages-${totalCopies.value}-copies.pdf`;
-          pdf.save(filename);
+          const filename = customName ? `${customName}.pdf` : `Invoice-All-Pages-${totalCopies.value}-copies.pdf`;
+          
+          // For mobile/APK compatibility, try different save methods
+          try {
+            pdf.save(filename);
+          } catch (error) {
+            console.warn('Standard save failed, trying alternative method:', error);
+            
+            // Alternative method for mobile/APK
+            const pdfOutput = pdf.output('blob');
+            const url = URL.createObjectURL(pdfOutput);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          }
           
           // Restore original page
           currentPage.value = originalPage;
           return;
         }
         
-        const filename = `Invoice-${currentInvoiceNumber.value.replace('/', '-')}.pdf`;
-        const options = {
-          margin: 0,
-          filename,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { 
-            scale: 3, 
-            useCORS: true, 
+        const filename = customName ? `${customName}.pdf` : `Invoice-${currentInvoiceNumber.value.replace('/', '-')}.pdf`;
+        
+        // For mobile/APK compatibility, use alternative approach
+        try {
+          const options = {
+            margin: 0,
+            filename,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { 
+              scale: 3, 
+              useCORS: true, 
+              logging: false,
+              backgroundColor: '#ffffff'
+            },
+            jsPDF: { 
+              unit: 'in', 
+              format: [invoiceWidth.value, invoiceHeight.value], 
+              orientation: 'portrait' 
+            },
+          };
+          
+          await html2pdf().set(options).from(invoiceRef.value).save();
+        } catch (error) {
+          console.warn('HTML2PDF failed, trying canvas to PDF method:', error);
+          
+          // Alternative method using canvas for mobile compatibility
+          const canvas = await html2canvas(invoiceRef.value, {
+            scale: 3,
+            useCORS: true,
             logging: false,
             backgroundColor: '#ffffff'
-          },
-          jsPDF: { 
-            unit: 'in', 
-            format: [invoiceWidth.value, invoiceHeight.value], 
-            orientation: 'portrait' 
-          },
-        };
-        
-        await html2pdf().set(options).from(invoiceRef.value).save();
+          });
+          
+          const { jsPDF } = window.jspdf;
+          const pdf = new jsPDF({
+            unit: 'in',
+            format: [invoiceWidth.value, invoiceHeight.value],
+            orientation: 'portrait'
+          });
+          
+          const imgData = canvas.toDataURL('image/jpeg', 0.98);
+          pdf.addImage(imgData, 'JPEG', 0, 0, invoiceWidth.value, invoiceHeight.value);
+          
+          // Try to save with fallback
+          try {
+            pdf.save(filename);
+          } catch (saveError) {
+            const pdfOutput = pdf.output('blob');
+            const url = URL.createObjectURL(pdfOutput);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          }
+        }
         
         // Restore table row heights
         originalRowHeights.forEach(({ element, originalStyle }) => {
@@ -3087,7 +3641,7 @@ export default defineComponent({
       }
     };
     
-    const handleExportJPEG = async (exportType = 'current') => {
+    const handleExportJPEG = async (exportType = 'current', customName = null) => {
       if (!invoiceRef.value || isExporting.value) return;
       
       // Store original styles
@@ -3198,11 +3752,24 @@ export default defineComponent({
               backgroundColor: '#ffffff'
             });
             
-            // Create download link
-            const link = document.createElement('a');
-            link.download = `Invoice-${(receiptNumber.value || 1) + page - 1}-Page-${page}.jpg`;
-            link.href = dataUrl;
-            link.click();
+            // Create download link with custom filename
+            const baseFilename = customName || `Invoice-${(receiptNumber.value || 1) + page - 1}`;
+            const filename = `${baseFilename}-Page-${page}.jpg`;
+            
+            // Mobile-compatible download
+            try {
+              const link = document.createElement('a');
+              link.download = filename;
+              link.href = dataUrl;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            } catch (error) {
+              console.warn('JPEG download failed:', error);
+              // Fallback: open in new window for manual save
+              const newWindow = window.open();
+              newWindow.document.write(`<img src="${dataUrl}" alt="Invoice" />`);
+            }
             
             // Small delay between exports
             await new Promise(resolve => setTimeout(resolve, 500));
@@ -3217,11 +3784,23 @@ export default defineComponent({
             backgroundColor: '#ffffff'
           });
           
-          // Create download link
-          const link = document.createElement('a');
-          link.download = `Invoice-${currentInvoiceNumber.value.replace('/', '-')}.jpg`;
-          link.href = dataUrl;
-          link.click();
+          // Create download link with custom filename
+          const filename = customName ? `${customName}.jpg` : `Invoice-${currentInvoiceNumber.value.replace('/', '-')}.jpg`;
+          
+          // Mobile-compatible download
+          try {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = dataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          } catch (error) {
+            console.warn('JPEG download failed:', error);
+            // Fallback: open in new window for manual save
+            const newWindow = window.open();
+            newWindow.document.write(`<img src="${dataUrl}" alt="Invoice" style="max-width: 100%; height: auto;" />`);
+          }
         }
         
         // Restore table row heights
@@ -3526,6 +4105,23 @@ export default defineComponent({
       localStorage.setItem('signatureReturnType', 'invoice');
       router.push('/signature');
     };
+
+    // Navigation functions
+    const viewSavedInvoices = () => {
+      router.push('/invoices/saved');
+    };
+
+    const createNewInvoice = () => {
+      if (confirm('Are you sure you want to start a new invoice? Any unsaved changes will be lost.')) {
+        // Clear all invoice data
+        localStorage.removeItem('invoicePreviewData');
+        localStorage.removeItem('generateInvoiceFormData');
+        localStorage.removeItem('invoiceQuickSettings');
+        
+        // Navigate to new invoice creation
+        router.push('/invoice-template/classic-professional');
+      }
+    };
     
     return {
       invoiceRef,
@@ -3539,9 +4135,12 @@ export default defineComponent({
       isMobile,
       mobileScale,
       zoomLevel,
+      minZoom,
+      maxZoom,
       zoomIn,
       zoomOut,
       resetZoom,
+      autoFitZoom,
       totalCopies,
       currentPage,
       goToPreviousPage,
@@ -3598,7 +4197,7 @@ export default defineComponent({
       invoiceDimensions,
       colorStyles,
       grandTotal,
-      // New editable fields
+      // Global/shared fields
       logoDataUrl,
       organizationName,
       organizationSubName,
@@ -3611,12 +4210,23 @@ export default defineComponent({
       branch2Phone,
       receiptNumber,
       autoReceiptNumber,
+      autoDate,
+      // Per-page data (computed properties)
+      pageData,
       customerName,
       customerAddress,
       date,
-      autoDate,
       lpo,
       items,
+      signatureImage1,
+      signatureImage2,
+      selectedSignature1,
+      selectedSignature2,
+      sumOf,
+      sumOf2,
+      // Helper functions
+      createDefaultPageData,
+      ensurePageData,
       MAX_ITEMS,
       logoHeight,
       headerPaddingTop,
@@ -3628,16 +4238,10 @@ export default defineComponent({
       footerFontSize,
       outlineBoxHeight,
       customerBoxHeight,
-      sumOf,
-      sumOf2,
       sumOfInput1,
       sumOfInput2,
-      signatureImage1,
-      signatureImage2,
       // Signature management
       savedSignatures,
-      selectedSignature1,
-      selectedSignature2,
       // Methods
       getItemAmount,
       toCurrency,
@@ -3649,6 +4253,12 @@ export default defineComponent({
       handleExportPDF,
       handleExportJPEG,
       handleSaveInvoice,
+      showFilenameDialog,
+      cancelExport,
+      confirmExport,
+      showFilenameModal,
+      customFilename,
+      pendingExportType,
       handleBack,
       autoResize,
       addItemAfter,
@@ -3672,7 +4282,10 @@ export default defineComponent({
       checkTextOverflow,
       applySlimFont,
       setupAutoAdjustment,
-      resetAutoAdjustment
+      resetAutoAdjustment,
+      // Navigation methods
+      viewSavedInvoices,
+      createNewInvoice
     };
   }
 });
@@ -3709,6 +4322,41 @@ export default defineComponent({
 #meblink-invoice table td,
 #meblink-invoice table th {
   border: 1px solid #d1d5db;
+}
+
+/* Mobile touch and scroll optimization */
+@media (max-width: 768px) {
+  /* Enable smooth scrolling and touch optimization for mobile */
+  .relative.min-h-screen {
+    touch-action: pan-x pan-y pinch-zoom;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Ensure invoice container allows horizontal scrolling */
+  section.w-full.overflow-auto {
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y pinch-zoom;
+  }
+  
+  /* Prevent zoom conflicts with browser zoom */
+  #meblink-invoice {
+    touch-action: pan-x pan-y pinch-zoom;
+  }
+}
+
+/* Font loading optimization */
+#meblink-invoice {
+  font-display: swap;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Fallback font for better compatibility */
+#meblink-invoice * {
+  font-family: inherit;
 }
 
 /* Print/No-Print classes for interactive editing */
