@@ -4,12 +4,12 @@
     <Transition name="modal">
       <div
         v-if="isOpen"
-        class="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+        class="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2"
         style="z-index: 2000;"
         @click.self="handleClose"
       >
         <!-- Modal Content -->
-        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[80vh] flex flex-col">
           <!-- Header -->
           <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
@@ -114,14 +114,13 @@
               </div>
 
               <!-- Image Container -->
-              <div class="flex-1 bg-gray-100 dark:bg-slate-900 rounded-lg overflow-hidden order-1 lg:order-2" :style="{ minHeight: '300px', maxHeight: '650px', height: containerHeight }">
-                <div class="w-full h-full flex items-center justify-center relative" style="max-width: 100%; max-height: 100%; position: relative;">
+              <div class="flex-1 bg-gray-100 dark:bg-slate-900 rounded-lg overflow-hidden order-1 lg:order-2" :style="{ minHeight: '220px', maxHeight: '380px', height: containerHeight }">
+                <div class="w-full h-full flex items-center justify-center relative cropper-wrapper">
                   <img
                     ref="imageElement"
                     :src="imageUrl"
                     alt="Crop preview"
-                    class="block"
-                    style="max-width: 95%; max-height: 95%; object-fit: contain; width: auto; height: auto; position: relative; z-index: 1;"
+                    class="block max-w-full max-h-full"
                     @load="onImageLoad"
                   />
                 </div>
@@ -179,7 +178,7 @@ const zoomLevel = ref(0);
 const scaleX = ref(1);
 const imageLoaded = ref(false);
 const currentRotation = ref(0); // Track current rotation in degrees
-const containerHeight = ref('400px'); // Dynamic container height
+const containerHeight = ref('350px'); // Dynamic container height
 
 // Handle image load event
 const onImageLoad = () => {
@@ -300,8 +299,8 @@ const autoSizeImageToFit = () => {
     if (!containerData || !imageData) return;
     
     // Calculate available space with margins
-    const availableWidth = containerData.width * 0.8; // 80% of container
-    const availableHeight = containerData.height * 0.8; // 80% of container
+    const availableWidth = containerData.width * 0.95; // 95% of container for better fit
+    const availableHeight = containerData.height * 0.95; // 95% of container for better fit
     
     // Calculate scale needed to fit both dimensions
     const widthScale = availableWidth / imageData.naturalWidth;
@@ -373,14 +372,14 @@ const fitImageToContainer = () => {
     const containerRatio = containerData.width / containerData.height;
     const imageRatio = effectiveWidth / effectiveHeight;
     
-    // Use more conservative scaling to ensure image always fits
+    // Use 95% scaling to maximize visible area while ensuring image fits
     let scale;
     if (imageRatio > containerRatio) {
-      // Image is wider - fit to width with safety margin
-      scale = Math.min((containerData.width * 0.85) / effectiveWidth, (containerData.height * 0.85) / effectiveHeight);
+      // Image is wider - fit to width
+      scale = (containerData.width * 0.95) / effectiveWidth;
     } else {
-      // Image is taller - fit to height with safety margin
-      scale = Math.min((containerData.height * 0.85) / effectiveHeight, (containerData.width * 0.85) / effectiveWidth);
+      // Image is taller - fit to height
+      scale = (containerData.height * 0.95) / effectiveHeight;
     }
     
     // Ensure minimum scale to prevent tiny images
@@ -421,9 +420,9 @@ const updateContainerDimensions = () => {
     const aspectRatio = effectiveHeight / effectiveWidth;
     
     // Set container height based on aspect ratio
-    // Assuming a max width of around 600px for the container
-    const maxWidth = 600;
-    const calculatedHeight = Math.min(600, maxWidth * aspectRatio);
+    // Cap at 380px to ensure image shows completely on laptop screens
+    const maxWidth = 550;
+    const calculatedHeight = Math.min(380, maxWidth * aspectRatio);
     containerHeight.value = `${calculatedHeight}px`;
   }
 };
@@ -464,11 +463,11 @@ const rotateAndFit = (degrees) => {
       
       let scale;
       if (imageRatio > containerRatio) {
-        // Image is wider - fit to width with 90% container usage
-        scale = (newContainerData.width * 0.90) / effectiveWidth;
+        // Image is wider - fit to width with 80% container usage
+        scale = (newContainerData.width * 0.80) / effectiveWidth;
       } else {
-        // Image is taller - fit to height with 90% container usage
-        scale = (newContainerData.height * 0.90) / effectiveHeight;
+        // Image is taller - fit to height with 80% container usage
+        scale = (newContainerData.height * 0.80) / effectiveHeight;
       }
       
       // Apply proper scaling
@@ -505,9 +504,9 @@ const handleZoom = (event) => {
       
       let baseFitScale;
       if (imageRatio > containerRatio) {
-        baseFitScale = (containerData.width * 0.90) / imageData.naturalWidth;
+        baseFitScale = (containerData.width * 0.80) / imageData.naturalWidth;
       } else {
-        baseFitScale = (containerData.height * 0.90) / imageData.naturalHeight;
+        baseFitScale = (containerData.height * 0.80) / imageData.naturalHeight;
       }
       
       // 0 = fitted state, 1-200 = zoom in from fitted
@@ -539,9 +538,9 @@ const zoomIn = () => {
       
       let baseFitScale;
       if (imageRatio > containerRatio) {
-        baseFitScale = (containerData.width * 0.90) / imageData.naturalWidth;
+        baseFitScale = (containerData.width * 0.80) / imageData.naturalWidth;
       } else {
-        baseFitScale = (containerData.height * 0.90) / imageData.naturalHeight;
+        baseFitScale = (containerData.height * 0.80) / imageData.naturalHeight;
       }
       
       const zoomMultiplier = 1 + (newZoom / 100) * 2;
@@ -571,9 +570,9 @@ const zoomOut = () => {
       
       let baseFitScale;
       if (imageRatio > containerRatio) {
-        baseFitScale = (containerData.width * 0.90) / imageData.naturalWidth;
+        baseFitScale = (containerData.width * 0.80) / imageData.naturalWidth;
       } else {
-        baseFitScale = (containerData.height * 0.90) / imageData.naturalHeight;
+        baseFitScale = (containerData.height * 0.80) / imageData.naturalHeight;
       }
       
       const zoomMultiplier = 1 + (newZoom / 100) * 2;
@@ -624,6 +623,12 @@ const flipHorizontal = () => {
     scaleX.value = -scaleX.value;
     console.log('🔄 New scaleX:', scaleX.value);
     cropper.value.scaleX(scaleX.value);
+    
+    // Reduce container size and fit image to show completely
+    setTimeout(() => {
+      updateContainerDimensions();
+      fitImageToContainer();
+    }, 50);
   } else {
     console.error('❌ Cropper not initialized');
   }
@@ -635,7 +640,7 @@ const reset = () => {
     cropper.value.reset();
     scaleX.value = 1;
     currentRotation.value = 0; // Reset rotation tracking
-    containerHeight.value = '400px'; // Reset to default height
+    containerHeight.value = '350px'; // Reset to default height
     // Fit image after reset and set zoom to 0%
     setTimeout(() => {
       updateContainerDimensions();
@@ -749,5 +754,19 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
   border: 2px solid white;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Ensure cropper elements fill the full height */
+.cropper-wrapper :deep(.cropper-container) {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.cropper-wrapper :deep(.cropper-canvas),
+.cropper-wrapper :deep(.cropper-drag-box),
+.cropper-wrapper :deep(.cropper-crop-box),
+.cropper-wrapper :deep(.cropper-modal) {
+  width: 100% !important;
+  height: 100% !important;
 }
 </style>
