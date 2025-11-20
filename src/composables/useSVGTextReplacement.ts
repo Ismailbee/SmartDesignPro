@@ -34,6 +34,7 @@ export interface ReplacementState {
 }
 
 export function useSVGTextReplacement() {
+  // Version: 2025-11-12-15:30 - FORCE BROWSER CACHE REFRESH
   const replacementState = ref<ReplacementState>({
     isReplaced: false,
     selectedSvgFile: null,
@@ -44,10 +45,23 @@ export function useSVGTextReplacement() {
    * Check if description contains all required keywords (case-insensitive)
    */
   const hasAllKeywords = (description: string, keywords: string[]): boolean => {
-    if (!description || keywords.length === 0) return false
+    if (!description || keywords.length === 0) {
+      console.log(`❌ hasAllKeywords: Invalid input - description: "${description}", keywords:`, keywords)
+      return false
+    }
     
     const lowerDesc = description.toLowerCase()
-    return keywords.every(keyword => lowerDesc.includes(keyword.toLowerCase()))
+    console.log(`🔍 hasAllKeywords checking description: "${lowerDesc}"`)
+    console.log(`🔍 Keywords to check:`, keywords)
+    
+    const result = keywords.every(keyword => {
+      const found = lowerDesc.includes(keyword.toLowerCase())
+      console.log(`  - Checking keyword "${keyword}": ${found ? '✅ FOUND' : '❌ NOT FOUND'}`)
+      return found
+    })
+    
+    console.log(`📊 hasAllKeywords result: ${result ? '✅ ALL KEYWORDS FOUND' : '❌ SOME KEYWORDS MISSING'}`)
+    return result
   }
 
   /**
@@ -111,91 +125,98 @@ export function useSVGTextReplacement() {
     config: ReplacementConfig
   ): Promise<boolean> => {
     try {
+      console.log('🎨 Starting SVG replacement process... VERSION: 2025-11-12-16:00 LATEST')
+      console.log('🔗 SVG Path to fetch:', config.svgFiles[0])
+      
       // Store original elements first
       storeOriginalElements(svgElement, config.targetElementIds)
 
       // Select SVG file (random or first available)
       const selectedSvg = replacementState.value.selectedSvgFile || selectRandomSvg(config.svgFiles)
       replacementState.value.selectedSvgFile = selectedSvg
+      console.log('📁 Selected SVG file:', selectedSvg)
 
-      // Fetch the SVG file to get its dimensions
+      // Fetch the SVG file content
       const response = await fetch(selectedSvg)
       if (!response.ok) {
-        console.error(`Failed to fetch SVG: ${selectedSvg}`)
+        console.error(`❌ Failed to fetch SVG: ${selectedSvg}`, response.status, response.statusText)
         return false
       }
 
       const svgText = await response.text()
+      console.log('✅ SVG content fetched, length:', svgText.length)
+      console.log('📄 First 200 chars:', svgText.substring(0, 200))
+      
       const parser = new DOMParser()
       const svgDoc = parser.parseFromString(svgText, 'image/svg+xml')
       const fetchedSvg = svgDoc.querySelector('svg')
 
-      if (!fetchedSvg) {
-        console.error('Invalid SVG file')
+      // Check for parsing errors
+      const parserError = svgDoc.querySelector('parsererror')
+      if (parserError) {
+        console.error('❌ XML parsing error:', parserError.textContent)
         return false
       }
 
-      // Get original SVG dimensions from viewBox or width/height attributes
-      const viewBox = fetchedSvg.getAttribute('viewBox')
-      let originalWidth = 718.18 // Default from Nikkah.svg
-      let originalHeight = 289.67
-
-      if (viewBox) {
-        const [, , w, h] = viewBox.split(' ').map(Number)
-        originalWidth = w
-        originalHeight = h
-      } else {
-        const width = fetchedSvg.getAttribute('width')
-        const height = fetchedSvg.getAttribute('height')
-        if (width && height) {
-          originalWidth = parseFloat(width)
-          originalHeight = parseFloat(height)
-        }
+      if (!fetchedSvg) {
+        console.error('❌ Invalid SVG file - no <svg> element found')
+        console.log('📄 Document body:', svgDoc.documentElement?.outerHTML?.substring(0, 500))
+        return false
       }
 
-      // Calculate scaled dimensions
-      const scaled = calculateScaledDimensions(
-        originalWidth,
-        originalHeight,
-        config.position.width,
-        config.position.height
-      )
+      console.log('✅ SVG parsed successfully')
 
       // Remove original text elements
+      console.log('🗑️ Removing original text elements:', config.targetElementIds)
       config.targetElementIds.forEach(id => {
         const element = svgElement.querySelector(`#${id}`)
         if (element) {
+          console.log(`  ✅ Removed element: #${id}`)
           element.remove()
+        } else {
+          console.log(`  ⚠️ Element not found: #${id}`)
         }
       })
 
-      // Create image element for the replacement SVG
-      const imageElement = document.createElementNS('http://www.w3.org/2000/svg', 'image')
-      imageElement.setAttribute('id', 'nikkah-replacement-image')
-      imageElement.setAttribute('href', selectedSvg)
+      // Create a group element to hold the embedded SVG content
+      const groupElement = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+      groupElement.setAttribute('id', 'wedding-title-replacement')
       
-      // Position the image (centered horizontally)
-      const centerX = config.position.x - (scaled.width / 2)
-      imageElement.setAttribute('x', centerX.toString())
-      imageElement.setAttribute('y', config.position.y.toString())
-      imageElement.setAttribute('width', scaled.width.toString())
-      imageElement.setAttribute('height', scaled.height.toString())
+      // Set transform to position and scale the group
+      groupElement.setAttribute('transform', `translate(${config.position.x}, ${config.position.y})`)
+      
+      console.log('� Created group element with transform:', groupElement.getAttribute('transform'))
 
-      // Insert the image element at the same position as the first removed element
+      // Copy all child elements from the fetched SVG into the group
+      Array.from(fetchedSvg.children).forEach(child => {
+        const clonedChild = child.cloneNode(true)
+        groupElement.appendChild(clonedChild)
+      })
+      
+      console.log('✅ Copied', fetchedSvg.children.length, 'child elements into group')
+
+      // Insert the group element
       const firstOriginal = replacementState.value.originalElements.get(config.targetElementIds[0])
+      console.log('📍 Insertion point:', { 
+        hasFirstOriginal: !!firstOriginal, 
+        hasParent: !!firstOriginal?.parent,
+        parentTagName: firstOriginal?.parent?.tagName
+      })
+      
       if (firstOriginal?.parent) {
-        firstOriginal.parent.appendChild(imageElement)
+        firstOriginal.parent.appendChild(groupElement)
+        console.log('✅ Group appended to original parent:', firstOriginal.parent.tagName)
       } else {
-        svgElement.appendChild(imageElement)
+        svgElement.appendChild(groupElement)
+        console.log('✅ Group appended to SVG root')
       }
 
       replacementState.value.isReplaced = true
-      console.log(`✅ SVG text replaced with: ${selectedSvg}`)
-      console.log(`📐 Scaled dimensions: ${scaled.width.toFixed(2)}×${scaled.height.toFixed(2)} (scale: ${scaled.scale.toFixed(2)})`)
+      console.log(`✅ SVG text replaced with embedded content from: ${selectedSvg}`)
       
       return true
     } catch (error) {
-      console.error('Error replacing SVG text:', error)
+      console.error('❌ Error replacing SVG text:', error)
       return false
     }
   }
@@ -206,16 +227,18 @@ export function useSVGTextReplacement() {
   const restoreOriginalElements = (svgElement: SVGSVGElement): void => {
     if (!replacementState.value.isReplaced) return
 
-    // Remove replacement image
-    const replacementImage = svgElement.querySelector('#nikkah-replacement-image')
-    if (replacementImage) {
-      replacementImage.remove()
+    // Remove replacement group
+    const replacementGroup = svgElement.querySelector('#wedding-title-replacement')
+    if (replacementGroup) {
+      replacementGroup.remove()
+      console.log('🗑️ Removed replacement group')
     }
 
     // Restore original elements
     replacementState.value.originalElements.forEach((data, id) => {
       if (data.parent) {
         data.parent.appendChild(data.element.cloneNode(true))
+        console.log(`✅ Restored element: #${id}`)
       }
     })
 
@@ -234,12 +257,39 @@ export function useSVGTextReplacement() {
   ): Promise<void> => {
     const shouldReplace = hasAllKeywords(description, config.keywords)
 
-    if (shouldReplace && !replacementState.value.isReplaced) {
-      // Replace text with SVG
-      await replaceWithSvgImage(svgElement, config)
+    console.log('🔍 useSVGTextReplacement.handleReplacement:', {
+      description,
+      keywords: config.keywords,
+      shouldReplace,
+      isAlreadyReplaced: replacementState.value.isReplaced,
+      currentSvgFile: replacementState.value.selectedSvgFile,
+      newSvgFile: config.svgFiles[0]
+    })
+
+    if (shouldReplace) {
+      // Check if we need to replace with a different SVG
+      const needsReplacement = !replacementState.value.isReplaced || 
+                              replacementState.value.selectedSvgFile !== config.svgFiles[0]
+      
+      if (needsReplacement) {
+        // If already replaced with a different SVG, restore first
+        if (replacementState.value.isReplaced && replacementState.value.selectedSvgFile !== config.svgFiles[0]) {
+          console.log('🔄 Restoring before replacing with new SVG')
+          restoreOriginalElements(svgElement)
+        }
+        
+        // Replace text with SVG
+        console.log(`🎨 Replacing with: ${config.svgFiles[0]}`)
+        await replaceWithSvgImage(svgElement, config)
+      } else {
+        console.log('✅ Already replaced with the same SVG, skipping')
+      }
     } else if (!shouldReplace && replacementState.value.isReplaced) {
       // Restore original text
+      console.log('🔄 Restoring original text elements')
       restoreOriginalElements(svgElement)
+    } else {
+      console.log('❌ Conditions not met for replacement')
     }
   }
 

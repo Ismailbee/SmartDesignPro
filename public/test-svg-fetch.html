@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SVG Fetch Test</title>
+</head>
+<body>
+    <h1>Testing SVG File Access</h1>
+    <div id="results"></div>
+    
+    <script>
+        const svgPaths = [
+            '/weddigTitles/congrat.svg',
+            '/weddigTitles/Nikkah.svg',
+            '/weddigTitles/NikkahAl.svg',
+            '/weddigTitles/Ceremony.svg',
+            '/weddigTitles/Wed.svg',
+            '/weddigTitles/thanks.svg'
+        ];
+        
+        const resultsDiv = document.getElementById('results');
+        
+        async function testFetch(path) {
+            try {
+                const response = await fetch(path);
+                const text = await response.text();
+                const success = text.includes('<svg');
+                
+                resultsDiv.innerHTML += `
+                    <div style="padding: 10px; margin: 5px; background: ${success ? '#90EE90' : '#FFB6C1'}">
+                        <strong>${path}</strong><br>
+                        Status: ${response.status} ${response.statusText}<br>
+                        Is SVG: ${success ? 'YES ✅' : 'NO ❌'}<br>
+                        Content length: ${text.length} bytes<br>
+                        First 100 chars: <code>${text.substring(0, 100)}</code>
+                    </div>
+                `;
+            } catch (error) {
+                resultsDiv.innerHTML += `
+                    <div style="padding: 10px; margin: 5px; background: #FFB6C1">
+                        <strong>${path}</strong><br>
+                        Error: ${error.message} ❌
+                    </div>
+                `;
+            }
+        }
+        
+        // Test all paths
+        svgPaths.forEach(path => testFetch(path));
+    </script>
+</body>
+</html>

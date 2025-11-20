@@ -196,6 +196,16 @@
               </div>
             </div>
 
+            <!-- Flip Image Button -->
+            <div class="flip-controls-section">
+              <button @click="flipImage" class="flip-image-btn">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+                <span>Flip Image Horizontally</span>
+              </button>
+            </div>
+
             <!-- Image Positioning Controls (hidden for wedding sticker) -->
             <div v-if="false && selectedSVGImage" class="image-controls-section">
               <h4 class="controls-title">Edit: {{ selectedSVGImage.id }}</h4>
@@ -854,25 +864,142 @@ async function loadWeddingStickerTemplate() {
 
       // Apply current description if any
       if (formData.description) {
-        console.log('📝 Applying text from description:', formData.description)
-        updateStickerText(formData.description, svgElements)
+        console.log('📝 Checking description for SVG replacement:', formData.description)
+        // DON'T call updateStickerText here - it will be called after SVG replacement
 
         // Check if replacement should be applied
-        await handleReplacement(formData.description, svgElement, {
-          keywords: ['congratulation', 'nikkah'],
-          svgFiles: [
-            '/weddigTitlesNiKkah/Nikkah.svg',
-            '/weddigTitlesNiKkah/Nikkah1.svg',
-            '/weddigTitlesNiKkah/Nikkah2.svg'
-          ],
-          targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
-          position: {
-            x: 850.45,
-            y: 372.07,
-            width: 850,
-            height: 378
-          }
+        const hasAlhamdulillah = /alhamdulillah/i.test(formData.description)
+        const hasCongratulation = /congratulation/i.test(formData.description)
+        const hasCeremony = /ceremony/i.test(formData.description)
+        const hasWedding = /wedding/i.test(formData.description)
+        const hasNikkah = /nikkah/i.test(formData.description)
+        const hasThanks = /thank(?:s)?/i.test(formData.description)
+        const hasAttending = /attending/i.test(formData.description)
+        
+        console.log('🔍 Initial keyword detection:', {
+          description: formData.description,
+          hasCongratulation,
+          hasCeremony,
+          hasWedding,
+          hasAlhamdulillah,
+          hasNikkah,
+          hasThanks,
+          hasAttending
         })
+        
+        if (hasThanks && hasAttending && hasWedding) {
+          console.log('✅ Loading with thanks SVG replacement')
+          // Thanks for attending our wedding version
+          await handleReplacement(formData.description, svgElement, {
+            keywords: ['thank', 'attending', 'wedding'], // Check all required keywords
+            svgFiles: [
+              '/weddigTitles/thanks.svg'
+            ],
+            targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
+            position: {
+              x: 200,
+              y: 200,
+              width: 1350,
+              height: 550
+            }
+          })
+        } else if (hasCongratulation && hasCeremony) {
+          console.log('✅ Loading with congrat.svg replacement (ceremony)')
+          // Congratulation on your wedding ceremony version
+          await handleReplacement(formData.description, svgElement, {
+            keywords: ['congratulation', 'ceremony'],
+            svgFiles: [
+              '/weddigTitles/congrat.svg'
+            ],
+            targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
+            position: {
+              x: 200.45,
+              y: 280,
+              width: 1300,
+              height: 370
+            }
+          })
+        } else if (hasAlhamdulillah && hasCeremony) {
+          console.log('✅ Loading with Ceremony.svg replacement')
+          // Alhamdulillah with Ceremony version
+          await handleReplacement(formData.description, svgElement, {
+            keywords: ['alhamdulillah', 'ceremony'],
+            svgFiles: [
+              '/weddigTitles/Ceremony.svg'
+            ],
+            targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
+            position: {
+              x: 200,
+              y: 200,
+              width: 1350,
+              height: 550
+            }
+          })
+        } else if (hasCongratulation && hasNikkah) {
+          console.log('✅ Loading with Nikkah.svg replacement')
+          // Congratulation with Nikkah version
+          await handleReplacement(formData.description, svgElement, {
+            keywords: ['congratulation', 'nikkah'],
+            svgFiles: [
+              '/weddigTitles/Nikkah.svg'
+            ],
+            targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
+            position: {
+              x: 900,
+              y: 220,
+              width: 1350,
+              height: 550
+            }
+          })
+        } else if (hasAlhamdulillah && hasNikkah) {
+          console.log('✅ Loading with NikkahAl.svg replacement')
+          // Alhamdulillah with Nikkah version
+          await handleReplacement(formData.description, svgElement, {
+            keywords: ['alhamdulillah', 'nikkah'],
+            svgFiles: [
+              '/weddigTitles/NikkahAl.svg'
+            ],
+            targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
+            position: {
+              x: 900,
+              y: 220,
+              width: 1350,
+              height: 550
+            }
+          })
+        } else if (hasCongratulation && hasWedding) {
+          console.log('✅ Loading with Wed.svg replacement')
+          // Congratulation on your wedding version
+          await handleReplacement(formData.description, svgElement, {
+            keywords: ['congratulation', 'wedding'],
+            svgFiles: [
+              '/weddigTitles/Wed.svg'
+            ],
+            targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
+            position: {
+              x: 900,
+              y: 220,
+              width: 1350,
+              height: 550
+            }
+          })
+        } else if (hasAlhamdulillah && hasWedding) {
+          console.log('✅ Loading with Wed.svg replacement (Alhamdulillah)')
+          // Alhamdulillah on your wedding version
+          await handleReplacement(formData.description, svgElement, {
+            keywords: ['alhamdulillah', 'wedding'],
+            svgFiles: [
+              '/weddigTitles/Wed.svg'
+            ],
+            targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
+            position: {
+              x: 900,
+              y: 220,
+              width: 1350,
+              height: 550
+            }
+          })
+        }
       }
 
       console.log('🎉 Wedding sticker template loaded and ready for testing!')
@@ -895,28 +1022,194 @@ async function loadWeddingStickerTemplate() {
 }
 
 async function handleDescriptionInput() {
+  console.log('🎯 VERSION: 2025-11-12-15:30 - NEW CODE LOADED')
+  console.log('🎯 handleDescriptionInput called with:', formData.description)
+  console.log('📋 selectedCategory:', selectedCategory.value)
+  console.log('📋 svgElements exists?:', !!svgElements)
+  console.log('📋 weddingPreviewContainer exists?:', !!weddingPreviewContainer.value)
+  
   // Update wedding sticker preview in real-time
   if (selectedCategory.value === 'wedding' && svgElements) {
-    updateStickerText(formData.description, svgElements)
-
-    // Handle SVG text replacement for Nikkah graphics
+    // Handle SVG text replacement for Nikkah/Ceremony graphics
     const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
+    console.log('📋 svgElement found?:', !!svgElement)
     if (svgElement) {
-      await handleReplacement(formData.description, svgElement, {
-        keywords: ['congratulation', 'nikkah'],
-        svgFiles: [
-          '/weddigTitlesNiKkah/Nikkah.svg',
-          '/weddigTitlesNiKkah/Nikkah1.svg',
-          '/weddigTitlesNiKkah/Nikkah2.svg'
-        ],
-        targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
-        position: {
-          x: 850.45,  // Center x position (same as original text)
-          y: 372.07,  // Top y position (blessing-text y)
-          width: 850,  // Approximate width for scaling
-          height: 378  // Total height (750.44 - 372.07)
-        }
+      // Check if description contains keywords
+      const hasAlhamdulillah = /alhamdulillah/i.test(formData.description)
+      const hasCongratulation = /congratulation/i.test(formData.description)
+      const hasCeremony = /ceremony/i.test(formData.description)
+      const hasWedding = /wedding/i.test(formData.description)
+      const hasNikkah = /nikkah/i.test(formData.description)
+      const hasThanks = /thank(?:s)?/i.test(formData.description) // Matches "thank" or "thanks"
+      const hasAttending = /attending/i.test(formData.description)
+      
+      console.log('🔍 Keyword detection:', {
+        description: formData.description,
+        hasCongratulation,
+        hasCeremony,
+        hasWedding,
+        hasAlhamdulillah,
+        hasNikkah,
+        hasThanks,
+        hasAttending
       })
+      
+      console.log('🔍 Thanks check details:', {
+        'hasThanks': hasThanks,
+        'hasAttending': hasAttending,
+        'hasWedding': hasWedding,
+        'All three?': hasThanks && hasAttending && hasWedding
+      })
+      
+      // Check if we should replace with SVG graphics
+      const shouldReplace = (hasThanks && hasAttending && hasWedding) ||
+                           (hasCongratulation && hasWedding) ||
+                           (hasAlhamdulillah && hasWedding) ||
+                           (hasCongratulation && hasCeremony) || 
+                           (hasAlhamdulillah && hasCeremony) || 
+                           (hasAlhamdulillah && hasNikkah) || 
+                           (hasCongratulation && hasNikkah)
+      
+      if (shouldReplace) {
+        // When replacing, still update text but ONLY for non-replaced elements (names, date, courtesy)
+        // We'll call updateStickerText after replacement to update these fields
+        console.log('⚠️ SVG replacement mode - will update names/date/courtesy after replacement')
+      } else {
+        // No replacement - update all text normally
+        updateStickerText(formData.description, svgElements)
+      }
+      
+      // Priority order: Check more specific combinations first (ceremony, nikkah) before general (wedding)
+      if (hasThanks && hasAttending && hasWedding) {
+        console.log('✅ Triggering thanks SVG replacement')
+        console.log('📍 Thanks SVG path: /weddigTitles/thanks.svg')
+        console.log('📍 Position:', { x: 200, y: 200, width: 1350, height: 550 })
+        // Use thanks SVG for "Thanks for attending our wedding"
+        await handleReplacement(formData.description, svgElement, {
+          keywords: ['thank', 'attending', 'wedding'], // Check all required keywords
+          svgFiles: [
+            '/weddigTitles/thanks.svg'
+          ],
+          targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
+          position: {
+            x: 900,
+            y: 220,
+            width: 1350,
+            height: 550
+          }
+        })
+        console.log('✅ Thanks SVG replacement completed')
+        // Update names, date, courtesy after replacement
+        updateStickerText(formData.description, svgElements)
+      } else if (hasCongratulation && hasCeremony) {
+        console.log('✅ Triggering congrat.svg replacement (ceremony)')
+        // Use congrat.svg for Congratulation on your wedding ceremony
+        await handleReplacement(formData.description, svgElement, {
+          keywords: ['congratulation', 'ceremony'],
+          svgFiles: [
+            '/weddigTitles/congrat.svg'
+          ],
+          targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
+          position: {
+            x: 900,
+            y: 220,
+            width: 1350,
+            height: 550
+          }
+        })
+        // Update names, date, courtesy after replacement
+        updateStickerText(formData.description, svgElements)
+      } else if (hasAlhamdulillah && hasCeremony) {
+        console.log('✅ Triggering Ceremony.svg replacement')
+        // Use Ceremony.svg for Alhamdulillah with Ceremony
+        await handleReplacement(formData.description, svgElement, {
+          keywords: ['alhamdulillah', 'ceremony'],
+          svgFiles: [
+            '/weddigTitles/Ceremony.svg'
+          ],
+          targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
+          position: {
+            x: 900,
+            y: 220,
+            width: 1350,
+            height: 550
+          }
+        })
+        // Update names, date, courtesy after replacement
+        updateStickerText(formData.description, svgElements)
+      } else if (hasCongratulation && hasNikkah) {
+        console.log('✅ Triggering Nikkah.svg replacement')
+        // Use Nikkah.svg for Congratulation with Nikkah
+        await handleReplacement(formData.description, svgElement, {
+          keywords: ['congratulation', 'nikkah'],
+          svgFiles: [
+            '/weddigTitles/Nikkah.svg'
+          ],
+          targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
+          position: {
+            x: 900,
+            y: 220,
+            width: 1350,
+            height: 550
+          }
+        })
+        // Update names, date, courtesy after replacement
+        updateStickerText(formData.description, svgElements)
+      } else if (hasAlhamdulillah && hasNikkah) {
+        console.log('✅ Triggering NikkahAl.svg replacement')
+        // Use NikkahAl.svg for Alhamdulillah with Nikkah
+        await handleReplacement(formData.description, svgElement, {
+          keywords: ['alhamdulillah', 'nikkah'],
+          svgFiles: [
+            '/weddigTitles/NikkahAl.svg'
+          ],
+          targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
+          position: {
+            x: 900,
+            y: 220,
+            width: 1350,
+            height: 550
+          }
+        })
+        // Update names, date, courtesy after replacement
+        updateStickerText(formData.description, svgElements)
+      } else if (hasCongratulation && hasWedding) {
+        console.log('✅ Triggering Wed.svg replacement (wedding)')
+        // Use Wed.svg for Congratulation on your wedding
+        await handleReplacement(formData.description, svgElement, {
+          keywords: ['congratulation', 'wedding'],
+          svgFiles: [
+            '/weddigTitles/Wed.svg'
+          ],
+          targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
+          position: {
+            x: 900,
+            y: 220,
+            width: 1350,
+            height: 550
+          }
+        })
+        // Update names, date, courtesy after replacement
+        updateStickerText(formData.description, svgElements)
+      } else if (hasAlhamdulillah && hasWedding) {
+        console.log('✅ Triggering Wed.svg replacement (Alhamdulillah)')
+        // Use Wed.svg for Alhamdulillah on your wedding
+        await handleReplacement(formData.description, svgElement, {
+          keywords: ['alhamdulillah', 'wedding'],
+          svgFiles: [
+            '/weddigTitles/Wed.svg'
+          ],
+          targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
+          position: {
+            x: 900,
+            y: 220,
+            width: 1350,
+            height: 550
+          }
+        })
+        // Update names, date, courtesy after replacement
+        updateStickerText(formData.description, svgElements)
+      }
     }
   }
 
@@ -1083,6 +1376,30 @@ function updateSelectedImageProperty(property: string, value: any) {
   }
 }
 
+function flipImage() {
+  if (!svgImageManager.selectedImageId.value) {
+    console.log('No image selected to flip')
+    return
+  }
+
+  const selectedImage = svgImageManager.images.value.find(
+    img => img.id === svgImageManager.selectedImageId.value
+  )
+
+  if (!selectedImage) {
+    console.log('Selected image not found')
+    return
+  }
+
+  // Toggle flip state
+  selectedImage.flipped = !selectedImage.flipped
+  
+  console.log(`Image ${selectedImage.flipped ? 'flipped' : 'unflipped'}`)
+
+  // Update SVG to reflect the change
+  updateSVGWithImages()
+}
+
 function updateSVGWithImages() {
   if (!weddingPreviewContainer.value) return
 
@@ -1100,8 +1417,10 @@ function updateSVGWithImages() {
   // Sort by z-index
   const sortedImages = [...images].sort((a, b) => a.zIndex - b.zIndex)
 
-  // Find insertion point (before first text element)
+  // Find insertion point - look for placeholder image or any text element
+  const placeholderImage = svgElement.querySelector('#placeholder-image')
   const firstTextElement = svgElement.querySelector('text')
+  let insertionPoint = placeholderImage || firstTextElement
 
   // Add each image
   sortedImages.forEach(img => {
@@ -1114,17 +1433,34 @@ function updateSVGWithImages() {
     imageElement.setAttribute('height', img.height.toString())
     imageElement.setAttribute('opacity', (img.opacity / 100).toString())
     imageElement.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', img.dataUrl)
+    
+    // NO clip path - show the full image as-is
+    // NO preserveAspectRatio manipulation - let it display naturally
 
+    // Build transform attribute
+    const transforms: string[] = []
+    
+    // Apply flip if needed
+    if (img.flipped) {
+      const centerX = img.x + img.width / 2
+      // Flip horizontally around center point
+      transforms.push(`translate(${centerX}, 0) scale(-1, 1) translate(-${centerX}, 0)`)
+    }
+    
     // Apply rotation
     if (img.rotation !== 0) {
       const centerX = img.x + img.width / 2
       const centerY = img.y + img.height / 2
-      imageElement.setAttribute('transform', `rotate(${img.rotation} ${centerX} ${centerY})`)
+      transforms.push(`rotate(${img.rotation} ${centerX} ${centerY})`)
+    }
+    
+    if (transforms.length > 0) {
+      imageElement.setAttribute('transform', transforms.join(' '))
     }
 
-    // Insert before first text or append
-    if (firstTextElement) {
-      svgElement.insertBefore(imageElement, firstTextElement)
+    // Insert before insertion point or append to SVG
+    if (insertionPoint && insertionPoint.parentNode === svgElement) {
+      svgElement.insertBefore(imageElement, insertionPoint)
     } else {
       svgElement.appendChild(imageElement)
     }

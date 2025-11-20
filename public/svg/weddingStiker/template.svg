@@ -1,10 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Wedding Names Font Sizing Test</title>
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2996.9 1685.75" width="4in" height="2.25in">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2996.9 1685.75" width="4in" height="2.25in">
   
   <!-- Background -->
   <rect fill="#F8F8F8" width="2996.89" height="1685.75"/>
@@ -15,17 +9,39 @@
   <path fill="#507C95" d="M0 539.04c926.95 695.49 1904.9-177.45 2996.89 529.68v617.04H0z"/>
   <path fill="#104C6E" d="M0 616.09c926.95 695.48 1904.9-254.49 2996.89 452.63v617.04H0z"/>
 
-  <!-- Placeholder image -->
-  <image id="placeholder-image" x="1100" y="2" width="2450" height="2450" opacity="0" href=""/>
-
-  <!-- Define styles -->
+  <!-- Define styles and clip paths -->
   <defs>
     <!-- Gradient for wave layer -->
     <linearGradient id="g1" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" style="stop-color:#FFCC29;stop-opacity:1" />
       <stop offset="100%" style="stop-color:#FF9900;stop-opacity:1" />
     </linearGradient>
+
+    <!-- Clip path for image - Rounded rectangle -->
+    <clipPath id="image-clip-rounded">
+<<<<<<< HEAD
+      <rect x="-100" y="2" width="2450" height="2450" rx="200" ry="200"/>
+=======
+      <rect x="1250" y="100" width="1230" height="1430" rx="80" ry="80"/>
+>>>>>>> daa93bc97d2a1e5650d630536900d2314d0d77e2
+    </clipPath>
+
+    <!-- Alternative: Circle clip path (uncomment to use) -->
+    <!-- <clipPath id="image-clip-circle">
+      <circle cx="2325" cy="1227" r="1225"/>
+    </clipPath> -->
   </defs>
+
+  <!-- Placeholder image with clip path applied -->
+<<<<<<< HEAD
+  <image id="placeholder-image" x="1200" y="2" width="2450" height="2450" 
+=======
+  <image id="placeholder-image" x="1250" y="100" width="1230" height="1430" 
+>>>>>>> daa93bc97d2a1e5650d630536900d2314d0d77e2
+         opacity="1" 
+         href="" 
+         clip-path="url(#image-clip-rounded)"
+         preserveAspectRatio="xMidYMid meet"/>
 
   <!-- Editable text elements with IDs -->
   <text id="blessing-text" x="850.45" y="280" text-anchor="middle" font-family="serif" font-size="197.68" fill="#000">Alhamdulillahi</text>
@@ -42,6 +58,3 @@
   <text id="date-text" x="800.45" y="1480" text-anchor="middle" font-family="sans-serif" font-size="100" font-weight="bold" fill="#FFFF00">8th March, 2025</text>
   <text id="courtesy-text" x="800.45" y="1600" text-anchor="middle" font-family="sans-serif" font-size="100" font-weight="bold" fill="#FFFFFF">Courtesy: Maijama'a Famiy</text>
 </svg>
-</body>
-</html>
-
