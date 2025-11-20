@@ -261,13 +261,15 @@
               </div>
             </div>
             
-            <!-- Status Indicator -->
-            <div class="mt-3 p-2 bg-blue-100 dark:bg-blue-900/30 rounded border border-blue-300 dark:border-blue-700">
-              <p class="text-[10px] text-blue-800 dark:text-blue-300 flex items-start gap-1">
+            <!-- AI Status Indicator -->
+            <div class="mt-3 p-2 rounded border" :class="parsedData.parseMethod === 'not_configured' ? 'bg-yellow-100 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700' : 'bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700'">
+              <p class="text-[10px] flex items-start gap-1" :class="parsedData.parseMethod === 'not_configured' ? 'text-yellow-800 dark:text-yellow-300' : 'text-blue-800 dark:text-blue-300'">
                 <svg class="w-3 h-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path v-if="parsedData.parseMethod === 'not_configured'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.996-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
-                <span><strong>Smart Fallback:</strong> If AI is unavailable, the system automatically switches to traditional pattern matching for reliability.</span>
+                <span v-if="parsedData.parseMethod === 'not_configured'"><strong>Setup Required:</strong> Add a free AI API key to unlock intelligent text parsing. See AI_SETUP_GUIDE.md for quick setup.</span>
+                <span v-else><strong>AI-Powered:</strong> Using advanced natural language processing to extract organization details automatically from any business text.</span>
               </p>
             </div>
           </div>
@@ -325,37 +327,88 @@
             />
           </div>
 
-          <!-- Smart Text Input -->
+            <!-- Smart Text Input -->
           <div class="space-y-3">
-            <div>
-              <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <div class="flex items-center justify-between mb-2">
+              <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">
                 🧠 Smart Text Input - Paste or Type Your Organization Details
               </label>
+              
+              <!-- AI Status & Manual Toggle -->
+              <div class="flex items-center gap-2">
+                <div v-if="parsedData.isLoading" class="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                  <svg class="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span>{{ parsedData.loadingMessage || 'Processing...' }}</span>
+                </div>
+                
+                <button 
+                  v-if="parsedData.parseMethod === 'manual_required' || parsedData.parseMethod === 'error'"
+                  @click="showManualGuide = !showManualGuide"
+                  class="flex items-center gap-1 px-2 py-1 bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-300 text-xs rounded-lg transition-colors"
+                >
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C20.168 18.477 18.582 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                  Manual Mode
+                </button>
+              </div>
+            </div>
+            
+            <div>
               <textarea
                 v-model="smartTextInput"
                 rows="8"
                 class="w-full px-3 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm font-mono resize-none transition-all"
-                :class="{ 'border-red-500 focus:ring-red-500 focus:border-red-500': validationErrors.length > 0 }"
-                :placeholder="smartInputPlaceholder"
+                :class="{ 
+                  'border-red-500 focus:ring-red-500 focus:border-red-500': validationErrors.length > 0,
+                  'border-blue-500 focus:ring-blue-500 focus:border-blue-500': parsedData.isLoading
+                }"
+                :placeholder="parsedData.parseMethod === 'manual_required' ? manualInputPlaceholder : smartInputPlaceholder"
                 @input="parseSmartText"
                 @paste="handlePaste"
               ></textarea>
-            </div>
-
-            <!-- Validation Warnings -->
-            <div v-if="validationErrors.length > 0" class="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-700">
-              <h4 class="text-sm font-semibold text-red-800 dark:text-red-300 mb-2 flex items-center gap-1">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            </div>            <!-- AI Status & Manual Fallback Messages -->
+            <div v-if="validationErrors.length > 0" class="p-3 rounded-lg border" :class="parsedData.parseMethod === 'manual_required' ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'">
+              <h4 class="text-sm font-semibold mb-2 flex items-center gap-1" :class="parsedData.parseMethod === 'manual_required' ? 'text-orange-800 dark:text-orange-300' : 'text-red-800 dark:text-red-300'">
+                <svg v-if="parsedData.parseMethod === 'manual_required'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C20.168 18.477 18.582 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Formatting Issues Found
+                {{ parsedData.parseMethod === 'manual_required' ? 'Manual Formatting Mode' : 'AI Parsing Status' }}
               </h4>
               <ul class="space-y-1">
-                <li v-for="error in validationErrors" :key="error" class="text-[11px] text-red-700 dark:text-red-400 flex items-start gap-1">
-                  <span class="text-red-500 dark:text-red-400 mt-0.5">•</span>
+                <li v-for="error in validationErrors" :key="error" class="text-[11px] flex items-start gap-1" :class="parsedData.parseMethod === 'manual_required' ? 'text-orange-700 dark:text-orange-400' : 'text-red-700 dark:text-red-400'">
+                  <span class="mt-0.5" :class="parsedData.parseMethod === 'manual_required' ? 'text-orange-500 dark:text-orange-400' : 'text-red-500 dark:text-red-400'">•</span>
                   <span>{{ error }}</span>
                 </li>
               </ul>
+            </div>
+            
+            <!-- Quick Manual Guide -->
+            <div v-if="showManualGuide && parsedData.parseMethod === 'manual_required'" class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+              <h4 class="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Quick Manual Formatting Guide
+              </h4>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px]">
+                <div class="space-y-1">
+                  <div class="font-medium text-blue-700 dark:text-blue-400">Format Rules:</div>
+                  <div class="text-gray-600 dark:text-gray-400 font-mono">(Company Name) - Organization</div>
+                  <div class="text-gray-600 dark:text-gray-400 font-mono">"Tagline" - Subtitle</div>
+                  <div class="text-gray-600 dark:text-gray-400 font-mono">Address: your address</div>
+                  <div class="text-gray-600 dark:text-gray-400 font-mono">Phone: your number</div>
+                </div>
+                <div class="space-y-1">
+                  <div class="font-medium text-blue-700 dark:text-blue-400">Example:</div>
+                  <div class="text-gray-600 dark:text-gray-400 font-mono text-[9px]">(ABC Corp)<br>"Innovation First"<br>Address: 123 Main St<br>Phone: 555-1234</div>
+                </div>
+              </div>
             </div>
 
             <!-- AI-Enhanced Parsed Data Preview -->
@@ -505,12 +558,14 @@ export default defineComponent({
     // Smart Text Parser Variables
     const smartTextInput = ref('');
     const showFormatGuide = ref(false);
+    const showManualGuide = ref(false);
     const validationErrors = ref([]);
     const parsedData = ref({
       organizationName: '',
       subtitle: '',
       addresses: [],
-      phones: []
+      phones: [],
+      parseMethod: 'none'
     });
 
     // AI-enhanced smart input placeholder text
@@ -535,6 +590,26 @@ Contact: info@company.com
 • Falls back to structured parsing if needed
 
 Just paste any business text and watch the AI magic! 🎯`;
+
+    // Manual mode placeholder when AI fails
+    const manualInputPlaceholder = `📝 MANUAL MODE - Use Symbol-Based Formatting
+
+AI parsing is unavailable. Please format your text using these symbols:
+
+ORGANIZATION: (Your Company Name)
+SUBTITLE: "Your Business Tagline"
+ADDRESS: Address: 123 Main Street, City, State
+PHONE: Phone: +1-555-123-4567
+EMAIL: Contact: info@company.com
+
+EXAMPLE:
+(TechCorp Solutions)
+"Innovation at its Best"
+Address: 456 Tech Park, Silicon Valley
+Phone: (555) 123-TECH
+Contact: hello@techcorp.com
+
+💡 Tip: Each item should be on a separate line for best results.`;
     
     // Page navigation methods
     const goToPreviousPage = () => {
@@ -812,32 +887,44 @@ Just paste any business text and watch the AI magic! 🎯`;
       saveFormData(); // Save to localStorage when cleared
     };
 
-    // AI-Enhanced Smart Text Parser Methods
+    // AI-First Smart Text Parser Methods
     const parseSmartText = async () => {
       const text = smartTextInput.value.trim();
       if (!text) {
-        parsedData.value = { organizationName: '', subtitle: '', addresses: [], phones: [] };
+        parsedData.value = { organizationName: '', subtitle: '', addresses: [], phones: [], parseMethod: 'none' };
         validationErrors.value = [];
         return;
       }
 
       validationErrors.value = [];
       
+      // Show loading state with AI indicator
+      parsedData.value = { 
+        ...parsedData.value, 
+        isLoading: true, 
+        parseMethod: 'loading',
+        loadingMessage: '🤖 AI is analyzing your text...' 
+      };
+      
       try {
-        // Show loading state
-        const tempParsedData = { ...parsedData.value, isLoading: true };
-        parsedData.value = tempParsedData;
-
-        // Use AI parser with fallback to regex
+        // Always try AI first
         const result = await aiTextParser.parseOrganizationText(text);
         
-        // Update validation based on parsing method and confidence
-        if (result.method === 'regex' || result.confidence === 'low') {
+        // Handle AI parsing results
+        if (result.method === 'ai' && result.confidence === 'high') {
+          // AI successfully parsed - no additional validation needed
+          validationErrors.value = [];
+        } else if (result.method === 'regex' || result.confidence === 'low') {
+          // AI failed - provide helpful suggestions for manual formatting
+          validationErrors.value = [];
           if (!result.organizationName && text.length > 0) {
-            validationErrors.value.push('⚠️ AI couldn\'t detect organization name. Try wrapping it in brackets: (Your Company Name)');
+            validationErrors.value.push('🤖 AI couldn\'t detect organization name clearly. For better results, try: (Your Company Name)');
           }
           if (!result.subtitle && text.includes('"')) {
-            validationErrors.value.push('💡 Subtitle detected but unclear. Ensure quotes are properly formatted: "Your Tagline"');
+            validationErrors.value.push('💡 For better subtitle detection, use: "Your Tagline Here"');
+          }
+          if (result.addresses.length === 0 && text.length > 20) {
+            validationErrors.value.push('📍 To help AI find addresses, try starting with "Address:" or "Located at:"');
           }
         }
 
@@ -887,11 +974,35 @@ Just paste any business text and watch the AI magic! 🎯`;
       } catch (error) {
         console.error('AI parsing failed:', error);
         
-        // Fallback to basic regex parsing
-        const result = parseWithBasicRegex(text);
-        parsedData.value = { ...result, isLoading: false, parseMethod: 'fallback', confidence: 'low' };
-        
-        validationErrors.value.push('🔄 AI parsing unavailable, using basic text detection. Results may be less accurate.');
+        // Only fallback to regex if it's a configuration issue
+        if (error.message.includes('No AI service configured')) {
+          validationErrors.value = [];
+          validationErrors.value.push('⚡ AI parsing requires setup. Using manual detection mode.');
+          validationErrors.value.push('💡 For automatic parsing, add a free API key (see AI_SETUP_GUIDE.md)');
+          validationErrors.value.push('📝 For now, use manual formatting: (Company Name), "Tagline", Address: your address');
+          
+          // Try basic regex as last resort
+          const result = parseWithBasicRegex(text);
+          parsedData.value = { 
+            ...result, 
+            isLoading: false, 
+            parseMethod: 'manual_required', 
+            confidence: 'low',
+            manualMode: true 
+          };
+        } else {
+          // Network or API error - show retry option
+          validationErrors.value.push('🔄 AI service temporarily unavailable. Check your internet connection.');
+          validationErrors.value.push('🔁 Try again in a moment, or use manual formatting as backup.');
+          
+          parsedData.value = { 
+            ...parsedData.value, 
+            isLoading: false, 
+            parseMethod: 'error', 
+            confidence: 'low',
+            error: error.message 
+          };
+        }
         saveFormData();
       }
     };
@@ -1017,9 +1128,11 @@ Just paste any business text and watch the AI magic! 🎯`;
       // Smart Text Parser
       smartTextInput,
       showFormatGuide,
+      showManualGuide,
       validationErrors,
       parsedData,
       smartInputPlaceholder,
+      manualInputPlaceholder,
       parseSmartText,
       handlePaste,
       // Methods

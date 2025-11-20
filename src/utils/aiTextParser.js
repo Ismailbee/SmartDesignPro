@@ -47,33 +47,46 @@ class AITextParser {
   }
 
   /**
-   * Main parsing function - enhanced with AI
+   * Main parsing function - AI-only mode
    */
   async parseOrganizationText(text) {
+    // Check if AI is configured
+    if (!this.isConfigured) {
+      return {
+        ...this.getEmptyResult(),
+        method: 'not_configured',
+        confidence: 'none',
+        error: 'AI service not configured. Please add your API key to enable intelligent text parsing.'
+      };
+    }
+
     try {
-      // First try AI parsing
+      // AI-only parsing
       const aiResult = await this.parseWithAI(text);
       if (aiResult && this.isValidResult(aiResult)) {
         return {
           ...aiResult,
           method: 'ai',
-          confidence: 'high'
+          confidence: this.calculateConfidence(aiResult)
+        };
+      } else {
+        // AI returned empty/invalid result
+        return {
+          ...this.getEmptyResult(),
+          method: 'ai',
+          confidence: 'low',
+          error: 'AI could not extract meaningful information from the text. Try providing more structured business information.'
         };
       }
     } catch (error) {
-      console.warn('AI parsing failed, falling back to regex:', error);
-    }
-
-    // Fallback to current regex method
-    if (this.fallbackToRegex) {
+      console.error('AI parsing failed:', error);
       return {
-        ...this.parseWithRegex(text),
-        method: 'regex',
-        confidence: 'medium'
+        ...this.getEmptyResult(),
+        method: 'ai_error',
+        confidence: 'none',
+        error: `AI parsing failed: ${error.message}. Please check your internet connection and API configuration.`
       };
     }
-
-    return this.getEmptyResult();
   }
 
   /**
@@ -409,6 +422,30 @@ Format as valid JSON only:`;
   }
 
   /**
+   * Calculate confidence based on AI result completeness
+   */
+  calculateConfidence(result) {
+    let score = 0;
+    
+    // Organization name is most important
+    if (result.organizationName && result.organizationName.length > 2) score += 40;
+    
+    // Contact information
+    if (result.addresses && result.addresses.length > 0) score += 25;
+    if (result.phones && result.phones.length > 0) score += 20;
+    if (result.emails && result.emails.length > 0) score += 10;
+    
+    // Additional information
+    if (result.subtitle) score += 3;
+    if (result.websites && result.websites.length > 0) score += 2;
+    
+    // Return confidence level
+    if (score >= 80) return 'high';
+    if (score >= 50) return 'medium';
+    return 'low';
+  }
+
+  /**
    * Validation helpers
    */
   isValidPhone(phone) {
@@ -429,7 +466,7 @@ Format as valid JSON only:`;
       emails: [],
       websites: [],
       method: 'none',
-      confidence: 'low'
+      confidence: 'none'
     };
   }
 
