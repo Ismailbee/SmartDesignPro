@@ -1,6 +1,6 @@
 <template>
   <div class="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-purple-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-900 p-2 md:p-3">
-    <div class="max-w-4xl mx-auto">
+    <div class="max-w-4xl mx-auto lg:max-w-6xl xl:max-w-7xl">
       <!-- Header -->
       <div class="mb-3">
         <button
@@ -13,16 +13,16 @@
           Back
         </button>
 
-        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-2.5 border border-purple-200 dark:border-purple-700">
-          <div class="flex items-center gap-2 mb-1">
-            <div class="p-1.5 bg-purple-100 dark:bg-purple-900 rounded-lg">
-              <svg class="w-4 h-4 text-purple-600 dark:text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-2.5 lg:p-4 xl:p-5 border border-purple-200 dark:border-purple-700">
+          <div class="flex items-center gap-2 lg:gap-3 xl:gap-4 mb-1">
+            <div class="p-1.5 lg:p-2 xl:p-2.5 bg-purple-100 dark:bg-purple-900 rounded-lg lg:rounded-xl">
+              <svg class="w-4 h-4 lg:w-6 lg:h-6 xl:w-7 xl:h-7 text-purple-600 dark:text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
               </svg>
             </div>
             <div>
-              <h1 class="text-base font-bold text-slate-900 dark:text-white">Digital Signature</h1>
-              <p class="text-[10px] text-slate-600 dark:text-slate-300">Create and manage your signatures</p>
+              <h1 class="text-base lg:text-xl xl:text-2xl font-bold text-slate-900 dark:text-white">Digital Signature</h1>
+              <p class="text-[10px] lg:text-sm xl:text-base text-slate-600 dark:text-slate-300">Create and manage your signatures</p>
             </div>
           </div>
         </div>
@@ -31,20 +31,20 @@
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
         <!-- Signature Drawing Area -->
         <div class="lg:col-span-2">
-          <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-2.5 border border-slate-200 dark:border-slate-700">
-            <div class="mb-2.5">
-              <h2 class="text-xs font-semibold text-slate-900 dark:text-white mb-2">Draw Your Signature</h2>
+          <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-2.5 lg:p-4 xl:p-5 border border-slate-200 dark:border-slate-700">
+            <div class="mb-2.5 lg:mb-4 xl:mb-5">
+              <h2 class="text-xs lg:text-base xl:text-lg font-semibold text-slate-900 dark:text-white mb-2 lg:mb-3 xl:mb-4">Draw Your Signature</h2>
 
               <!-- Color Picker -->
-              <div class="flex items-center gap-2 mb-2">
-                <label class="text-[10px] font-medium text-slate-700 dark:text-slate-300">Pen Color:</label>
-                <div class="flex gap-1">
+              <div class="flex items-center gap-2 lg:gap-3 xl:gap-4 mb-2 lg:mb-3 xl:mb-4">
+                <label class="text-[10px] lg:text-sm xl:text-base font-medium text-slate-700 dark:text-slate-300">Pen Color:</label>
+                <div class="flex gap-1 lg:gap-2">
                   <button
                     v-for="color in colors"
                     :key="color.value"
                     @click="penColor = color.value"
                     :class="[
-                      'w-5 h-5 rounded-full border-2 transition-all',
+                      'w-5 h-5 lg:w-7 lg:h-7 xl:w-8 xl:h-8 rounded-full border-2 transition-all',
                       penColor === color.value ? 'border-slate-900 dark:border-white scale-110' : 'border-slate-300 dark:border-slate-600'
                     ]"
                     :style="{ backgroundColor: color.value }"
@@ -54,16 +54,16 @@
               </div>
 
               <!-- Pen Size -->
-              <div class="flex items-center gap-2 mb-2">
-                <label class="text-[10px] font-medium text-slate-700 dark:text-slate-300">Pen Size:</label>
+              <div class="flex items-center gap-2 lg:gap-3 xl:gap-4 mb-2 lg:mb-3 xl:mb-4">
+                <label class="text-[10px] lg:text-sm xl:text-base font-medium text-slate-700 dark:text-slate-300">Pen Size:</label>
                 <input
                   v-model.number="penSize"
                   type="range"
                   min="1"
                   max="10"
-                  class="flex-1 max-w-xs"
+                  class="flex-1 max-w-xs lg:max-w-md xl:max-w-lg"
                 />
-                <span class="text-[10px] text-slate-600 dark:text-slate-400">{{ penSize }}px</span>
+                <span class="text-[10px] lg:text-sm xl:text-base text-slate-600 dark:text-slate-400">{{ penSize }}px</span>
               </div>
             </div>
 
@@ -116,8 +116,8 @@
 
         <!-- Saved Signatures -->
         <div class="lg:col-span-1">
-          <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-2.5 border border-slate-200 dark:border-slate-700">
-            <h2 class="text-xs font-semibold text-slate-900 dark:text-white mb-2">Saved Signatures</h2>
+          <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-2.5 lg:p-4 xl:p-5 border border-slate-200 dark:border-slate-700">
+            <h2 class="text-xs lg:text-base xl:text-lg font-semibold text-slate-900 dark:text-white mb-2 lg:mb-3 xl:mb-4">Saved Signatures</h2>
 
             <div v-if="signatures.length === 0" class="text-center py-4 text-slate-500 dark:text-slate-400">
               <svg class="w-8 h-8 mx-auto mb-1.5 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
