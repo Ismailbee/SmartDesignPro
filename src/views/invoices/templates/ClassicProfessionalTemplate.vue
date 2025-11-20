@@ -262,14 +262,14 @@
             </div>
             
             <!-- AI Status Indicator -->
-            <div class="mt-3 p-2 rounded border" :class="parsedData.parseMethod === 'not_configured' ? 'bg-yellow-100 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700' : 'bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700'">
-              <p class="text-[10px] flex items-start gap-1" :class="parsedData.parseMethod === 'not_configured' ? 'text-yellow-800 dark:text-yellow-300' : 'text-blue-800 dark:text-blue-300'">
+            <div class="mt-3 p-2 rounded border" :class="parsedData.parseMethod === 'manual_required' ? 'bg-yellow-100 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700' : 'bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700'">
+              <p class="text-[10px] flex items-start gap-1" :class="parsedData.parseMethod === 'manual_required' ? 'text-yellow-800 dark:text-yellow-300' : 'text-blue-800 dark:text-blue-300'">
                 <svg class="w-3 h-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path v-if="parsedData.parseMethod === 'not_configured'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.996-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  <path v-if="parsedData.parseMethod === 'manual_required'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.996-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                   <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
-                <span v-if="parsedData.parseMethod === 'not_configured'"><strong>Setup Required:</strong> Add a free AI API key to unlock intelligent text parsing. See AI_SETUP_GUIDE.md for quick setup.</span>
-                <span v-else><strong>AI-Powered:</strong> Using advanced natural language processing to extract organization details automatically from any business text.</span>
+                <span v-if="parsedData.parseMethod === 'manual_required'"><strong>🤖 AI-First Mode:</strong> System will attempt AI parsing first. If unavailable, manual symbol formatting will be required. <a href="#" class="underline text-yellow-900 dark:text-yellow-200" @click.prevent="showFormatGuide = true">See setup guide</a> for AI configuration.</span>
+                <span v-else><strong>🚀 AI-Powered:</strong> Advanced natural language processing will automatically extract organization details from any business text. Manual formatting available as backup.</span>
               </p>
             </div>
           </div>
