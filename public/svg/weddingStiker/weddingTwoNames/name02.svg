@@ -1,14 +1,14 @@
  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 579.05 180">
   <style>
-    .fil0 { fill: #FEFEFE; }
-    .fil1 { fill: #FFF212; }
-    .fnt0 { font-weight: 700; font-size: 70px; font-family: 'Cinzel Decorative', serif; }
+    .name-fil0 { fill: #FFFFFF; }
+    .name-fil1 { fill: #FFF212; }
+    .name-fnt0 { font-weight: 700; font-size: 84.15px; font-family: 'Cinzel Decorative', serif; }
   </style>
-  <g transform="translate(40, 0)">
+  <g>
     <g>
-      <text id="name1-first" x="-20" y="90" class="fil0 fnt0">Muhammad</text>
-      <text id="name2-first" x="30.23" y="158" class="fil0 fnt0">Hauwawu</text>
-      <text id="name-separator" x="-40.3" y="160.4" class="fil1 fnt0">&amp;</text>
+      <text id="name1-first" x="-50" y="85" class="name-fil0 name-fnt0">Muhammad</text>
+      <text id="name2-first" x="10.23" y="160" class="name-fil0 name-fnt0">Hauwawu</text>
+      <text id="name-separator" x="-70.3" y="160.4" class="name-fil1 name-fnt0">&amp;</text>
     </g>
    
   </g>

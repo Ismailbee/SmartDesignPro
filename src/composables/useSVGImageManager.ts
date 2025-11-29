@@ -20,6 +20,7 @@ export interface SVGImage {
   originalWidth: number
   originalHeight: number
   flipped: boolean
+  isRetouched?: boolean
 }
 
 export interface ImageUploadOptions {
@@ -130,7 +131,7 @@ export function useSVGImageManager(options: ImageUploadOptions = {}) {
     }
 
     // Find placeholder image element
-    const placeholder = svgElement.querySelector('#placeholder-image') as SVGImageElement
+    const placeholder = (svgElement.querySelector('#userImage') || svgElement.querySelector('#placeholder-image')) as SVGImageElement
     if (!placeholder) {
       return defaults
     }
@@ -140,9 +141,6 @@ export function useSVGImageManager(options: ImageUploadOptions = {}) {
     const y = parseFloat(placeholder.getAttribute('y') || String(config.defaultY))
     const width = parseFloat(placeholder.getAttribute('width') || String(config.defaultWidth))
     const height = parseFloat(placeholder.getAttribute('height') || String(config.defaultHeight))
-
-    console.log('📍 Placeholder position found:', { x, y, width, height })
-
     return { x, y, width, height }
   }
 
@@ -202,8 +200,6 @@ export function useSVGImageManager(options: ImageUploadOptions = {}) {
       // Select the newly added image
       selectedImageId.value = image.id
 
-      console.log(`✅ Image added: ${image.id}`, image)
-
       isProcessing.value = false
       return image
     } catch (error) {
@@ -231,8 +227,6 @@ export function useSVGImageManager(options: ImageUploadOptions = {}) {
       if (selectedImageId.value === imageId) {
         selectedImageId.value = images.value.length > 0 ? images.value[0].id : null
       }
-
-      console.log(`🗑️ Image removed: ${imageId}`)
     }
   }
 
@@ -252,7 +246,6 @@ export function useSVGImageManager(options: ImageUploadOptions = {}) {
       }
 
       Object.assign(image, updates)
-      console.log(`🔄 Image updated: ${imageId}`, updates)
     }
   }
 
@@ -286,8 +279,6 @@ export function useSVGImageManager(options: ImageUploadOptions = {}) {
       images.value.forEach((img, idx) => {
         img.zIndex = idx
       })
-
-      console.log(`⬆️ Image moved up: ${imageId}`)
     }
   }
 
@@ -306,8 +297,6 @@ export function useSVGImageManager(options: ImageUploadOptions = {}) {
       images.value.forEach((img, idx) => {
         img.zIndex = idx
       })
-
-      console.log(`⬇️ Image moved down: ${imageId}`)
     }
   }
 
@@ -324,8 +313,6 @@ export function useSVGImageManager(options: ImageUploadOptions = {}) {
       images.value.forEach((img, idx) => {
         img.zIndex = idx
       })
-
-      console.log(`🔝 Image brought to front: ${imageId}`)
     }
   }
 
@@ -342,8 +329,6 @@ export function useSVGImageManager(options: ImageUploadOptions = {}) {
       images.value.forEach((img, idx) => {
         img.zIndex = idx
       })
-
-      console.log(`🔙 Image sent to back: ${imageId}`)
     }
   }
 
@@ -354,7 +339,6 @@ export function useSVGImageManager(options: ImageUploadOptions = {}) {
     images.value = []
     selectedImageId.value = null
     imageCounter = 0
-    console.log('🧹 All images cleared')
   }
 
   /**

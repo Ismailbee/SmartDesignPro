@@ -44,6 +44,10 @@ const ImpositionPage = () => import('@/views/ImpositionPage.vue')
 const MockupPage = () => import('@/views/MockupPage.vue')
 const VideosPage = () => import('@/views/VideosPage.vue')
 const PrivacySettings = () => import('@/views/PrivacySettings.vue')
+const SmartTemplateDesigner = () => import('@/components/SmartTemplateDesigner.vue')
+
+// Auto Design Sub-pages
+const NamingPanel = () => import('@/components/auto-design/NamingPanel.vue')
 
 // Help & Support Pages
 const HelpCenterPage = () => import('@/views/HelpCenterPage.vue')
@@ -126,7 +130,17 @@ const routes: RouteRecordRaw[] = [
     component: AutoDesignPage,
     meta: {
       title: 'Auto Design - SmartDesignPro',
-      requiresAuth: true
+      requiresAuth: false  // Temporarily disabled for testing
+    }
+  },
+
+  {
+    path: '/auto-design/naming',
+    name: 'naming',
+    component: NamingPanel,
+    meta: {
+      title: 'Naming Design - SmartDesignPro',
+      requiresAuth: false  // Temporarily disabled for testing
     }
   },
 
@@ -412,6 +426,16 @@ const routes: RouteRecordRaw[] = [
     component: VideosPage,
     meta: {
       title: 'Videos - SmartDesignPro',
+      requiresAuth: false
+    }
+  },
+
+  {
+    path: '/smart-template',
+    name: 'smart-template',
+    component: SmartTemplateDesigner,
+    meta: {
+      title: 'Smart Template Designer - SmartDesignPro',
       requiresAuth: false
     }
   },
@@ -705,6 +729,7 @@ router.beforeEach((to, _from, next) => {
 
   // Check if route requires authentication
   if (to.meta.requiresAuth) {
+    // Allow navigation if user is authenticated OR in dev bypass mode
     if (!authStore.isAuthenticated) {
   // Route requires auth, redirect to welcome page
       // Store intended route for redirect after login

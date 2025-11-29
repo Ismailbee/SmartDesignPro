@@ -18,92 +18,226 @@
           </button>
         </div>
 
-        <!-- Sticker Type Selection -->
-        <div class="sticker-type-section">
-          <div class="sticker-type-header">
-            <label class="sticker-type-label">Select the styles you want <span class="optional-text">(Optional)</span></label>
-          </div>
-          <div class="sticker-type-checkboxes">
-            <div class="checkbox-item">
-              <input
-                id="box-sticker"
-                v-model="formData.stickerTypes.box"
-                type="checkbox"
-                class="sticker-checkbox"
-              />
-              <label for="box-sticker" class="checkbox-label">Box Sticker</label>
-            </div>
-            <div class="checkbox-item">
-              <input
-                id="circle-sticker"
-                v-model="formData.stickerTypes.circle"
-                type="checkbox"
-                class="sticker-checkbox"
-              />
-              <label for="circle-sticker" class="checkbox-label">Circle Sticker</label>
-            </div>
-            <div class="checkbox-item">
-              <input
-                id="die-cut"
-                v-model="formData.stickerTypes.dieCut"
-                type="checkbox"
-                class="sticker-checkbox"
-              />
-              <label for="die-cut" class="checkbox-label">Die-cut</label>
+
+
+        <!-- Category Selection Grid -->
+        <div v-if="!selectedCategory" class="category-selection-container">
+          <div class="selection-title">Select a Sticker Category</div>
+          <div class="category-grid">
+            <div 
+              v-for="category in categories" 
+              :key="category.id"
+              class="category-card"
+              :style="{ background: category.gradient }"
+              @click="selectCategory(category.id)"
+            >
+              <div class="category-icon">{{ category.icon }}</div>
+              <div class="category-name">{{ category.name }}</div>
             </div>
           </div>
         </div>
 
-        <!-- Category Pills -->
-        <div class="category-pills">
-          <button
-            v-for="category in categories"
-            :key="category.id"
-            :class="['category-pill', { active: selectedCategory === category.id }]"
-            @click="selectCategory(category.id)"
-          >
-            {{ category.name }}
-          </button>
-        </div>
+        <!-- Category Pills Removed -->
 
         <!-- Form Section -->
-        <div class="form-section">
-      <!-- Description Field -->
-      <div class="form-group">
+        <div class="form-section" v-if="selectedCategory">
+          <!-- Smart Camera Input (Hidden for Wedding) -->
+          <div v-if="isDescriptionVisible && selectedCategory !== 'wedding'" class="form-group">
+            <SmartCameraInput 
+              @update:description="handleDescriptionUpdate" 
+              :initial-text="formData.description"
+            />
+          </div>
+
+      <!-- Description Field (Hidden for Wedding) -->
+      <div v-if="isDescriptionVisible && selectedCategory !== 'wedding'" class="form-group">
         <label for="description" class="form-label">Description</label>
-        <textarea
+        <SmartTextarea
           id="description"
           v-model="formData.description"
           @input="handleDescriptionInput"
+          @keydown="handleDescriptionKeydown"
           class="form-textarea"
+          data-explain="description-textarea"
           rows="4"
           placeholder="Enter sticker description... (e.g., Congratulations on your wedding! John and Mary, 15th April 2025, courtesy: Smith Family)"
-        ></textarea>
+        />
+
+        <!-- Validation Warnings -->
+        <div v-if="validationWarnings.length > 0" class="validation-warnings-container">
+          <div class="warning-header">
+            <svg class="w-5 h-5 text-amber-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span class="text-amber-800 font-medium">Please check the following:</span>
+          </div>
+          <ul class="warning-list">
+            <li v-for="(warning, index) in validationWarnings" :key="index" class="warning-list-item">
+              {{ warning }}
+            </li>
+          </ul>
+        </div>
       </div>
 
-      <!-- Wedding Sticker Preview (shown when wedding category is selected) -->
-      <div v-if="selectedCategory === 'wedding'" class="wedding-preview-section">
-        <label class="form-label">Live Preview</label>
-        <div class="wedding-preview-container" ref="weddingPreviewContainer">
-          <!-- SVG will be loaded here -->
-        </div>
-
-        <!-- Image Upload & Management for Wedding Sticker -->
-        <div class="svg-image-management">
-          <label class="form-label">Add Images to Sticker</label>
-
-          <!-- Background Removal Toggle -->
-          <div class="background-removal-toggle">
-            <label class="toggle-label">
-              <input
-                type="checkbox"
-                v-model="autoRemoveBackground"
-                class="toggle-checkbox"
-              />
-              <span class="toggle-text">Automatically remove background from uploaded images</span>
-            </label>
-            <p class="toggle-hint">Uses AI to remove backgrounds (may take a few seconds)</p>
+      <!-- Wedding Chat Interface -->
+      <div v-if="selectedCategory === 'wedding'" class="wedding-chat-interface">
+        <div class="chat-history" ref="chatHistoryContainer">
+          <!-- Welcome Message -->
+          <div v-if="chatMessages.length === 0 && !isGeneratingPreview && !showWeddingStickerPreview" class="chat-welcome-message">
+            <div class="welcome-icon">💍</div>
+            <h3>Wedding Sticker Designer</h3>
+            <p>Hi! I can help you design a beautiful wedding sticker. Please tell me the couple's names, the date, and who it's from.</p>
           </div>
+
+          <!-- Messages -->
+          <div v-for="msg in chatMessages" :key="msg.id" class="chat-message" :class="msg.sender">
+            <div class="message-bubble">
+              {{ msg.text }}
+              <div v-if="msg.image" class="chat-image-container">
+                <img :src="msg.image" class="chat-image" alt="Uploaded image" />
+              </div>
+            </div>
+            <div class="message-time">{{ msg.time }}</div>
+          </div>
+
+          <!-- Analyzing Indicator -->
+          <div v-if="isAnalyzing" class="chat-message ai">
+            <div class="message-bubble analyzing">
+              <div class="typing-dot"></div>
+              <div class="typing-dot"></div>
+              <div class="typing-dot"></div>
+            </div>
+          </div>
+
+          <!-- Generating Animation -->
+          <div v-if="isGeneratingPreview" class="chat-message ai">
+            <div class="message-bubble generating">
+              <div class="generating-spinner-inline">
+                <div class="spinner-ring-inline"></div>
+                <div class="spinner-ring-inline"></div>
+                <div class="spinner-ring-inline"></div>
+              </div>
+              <div class="generating-text">
+                <p class="generating-title-inline">Designing Your Sticker</p>
+                <p class="generating-subtitle-inline">Applying your text and images...</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- SVG Preview in Chat -->
+          <div v-if="showWeddingStickerPreview && !isGeneratingPreview" class="chat-message ai">
+            <div class="message-bubble svg-bubble">
+              <!-- SVG Container -->
+              <div class="wedding-preview-container-inline" ref="weddingPreviewContainer">
+                <!-- SVG will be loaded here -->
+              </div>
+            </div>
+            <div class="message-time">{{ new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit Modal for Wedding Sticker -->
+      <div v-if="selectedCategory === 'wedding' && showWeddingStickerPreview && showEditModal" class="wedding-preview-section">
+        <label class="form-label">Edit Your Design</label>
+        
+        <!-- Image Upload & Export Controls -->
+        <div class="wedding-preview-controls">
+          <!-- Edit Button - Toggle Image Controls -->
+          <div v-if="svgImageManager.images.value.length > 0" class="edit-toggle-section">
+            <button @click="showImageControls = !showImageControls" class="edit-toggle-btn">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              {{ showImageControls ? 'Hide' : 'Edit' }}
+              <svg class="w-3 h-3" :class="{ 'rotate-180': showImageControls }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Image Controls (collapsible) -->
+          <div v-if="svgImageManager.images.value.length > 0 && showImageControls" class="image-controls-container">
+            <!-- Primary Actions Row -->
+            <div class="wedding-controls-row">
+              <button 
+                @click="showUploadModal = true" 
+                class="add-image-btn wedding-control-btn primary"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Change Image
+              </button>
+              
+              <button 
+                @click="openEditModal" 
+                class="edit-description-btn wedding-control-btn primary"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit Description
+              </button>
+              
+              <button @click="autoRetouchImage" class="auto-retouch-btn wedding-control-btn primary" :disabled="!selectedSVGImage || isRetouching || selectedSVGImage?.isRetouched">
+                <svg v-if="!isRetouching && !selectedSVGImage?.isRetouched" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                </svg>
+                <svg v-else-if="selectedSVGImage?.isRetouched" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <svg v-else class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {{ isRetouching ? 'Retouching...' : selectedSVGImage?.isRetouched ? 'Enhanced ✓' : 'Auto Retouch' }}
+            </button>
+          </div>
+
+          <!-- Image Scale Control -->
+          <div v-if="selectedSVGImage" class="image-scale-control">
+            <label class="scale-label">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+              </svg>
+              <span>Image Size: {{ Math.round((selectedSVGImage.scale || 1.15) * 100) }}%</span>
+            </label>
+            <input 
+              type="range" 
+              :value="selectedSVGImage.scale || 1.15"
+              @input="handleImageScaleChange"
+              min="0.5" 
+              max="2.5" 
+              step="0.05"
+              class="scale-slider"
+            />
+            <div class="scale-presets">
+              <button @click="setImageScale(0.8)" class="preset-btn">80%</button>
+              <button @click="setImageScale(1.0)" class="preset-btn">100%</button>
+              <button @click="setImageScale(1.15)" class="preset-btn">115%</button>
+              <button @click="setImageScale(1.5)" class="preset-btn">150%</button>
+              <button @click="setImageScale(2.0)" class="preset-btn">200%</button>
+            </div>
+          </div>
+
+          <!-- Image Editing Controls -->
+          <div class="flip-controls-section">
+            <button @click="flipImage" class="flip-image-btn">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+              <span>Flip</span>
+            </button>
+            
+            <button @click="retouchImage" class="retouch-image-btn" :disabled="!selectedSVGImage">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              <span>Crop</span>
+            </button>
+          </div>
+        </div>
 
           <!-- Background Removal Processing Indicator -->
           <div v-if="isRemovingBackground" class="processing-indicator">
@@ -132,210 +266,20 @@
             </div>
           </div>
 
-          <!-- Drag & Drop Zone -->
-          <div
-            class="image-drop-zone"
-            :class="{ 'is-dragging': svgImageManager.isDragging.value }"
-            @dragover="svgImageManager.handleDragOver"
-            @dragleave="svgImageManager.handleDragLeave"
-            @drop="handleImageDrop"
-            @click="triggerImageFileInput"
-          >
-            <div v-if="svgImageManager.isProcessing.value" class="drop-zone-content">
-              <div class="loading-spinner"></div>
-              <p>Processing image...</p>
-            </div>
-            <div v-else class="drop-zone-content">
-              <svg class="w-12 h-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-              <p class="drop-zone-text">Drag & drop images here or click to browse</p>
-              <p class="drop-zone-subtext">PNG, JPG, JPEG, SVG (Max 5MB)</p>
-            </div>
-            <input
-              ref="imageFileInput"
-              type="file"
-              accept="image/png,image/jpeg,image/jpg,image/webp"
-              class="hidden"
-              @change="handleImageFileSelect"
-            />
-          </div>
+          <!-- Drag & Drop Zone Removed -->
 
           <!-- Error Message -->
           <div v-if="svgImageManager.uploadError.value" class="upload-error">
             {{ svgImageManager.uploadError.value }}
           </div>
 
-          <!-- Image List & Controls -->
-          <div v-if="svgImageManager.images.value.length > 0" class="image-list-section">
-            <div class="image-list-header">
-              <h4 class="image-list-title">Uploaded Images ({{ svgImageManager.images.value.length }})</h4>
-              <button @click="svgImageManager.clearAllImages" class="clear-all-btn">
-                Clear All
-              </button>
-            </div>
-
-            <!-- Image Gallery -->
-            <div class="image-gallery">
-              <div
-                v-for="image in svgImageManager.images.value"
-                :key="image.id"
-                class="image-gallery-item"
-                :class="{ 'selected': svgImageManager.selectedImageId.value === image.id }"
-                @click="svgImageManager.selectImage(image.id)"
-              >
-                <img :src="image.dataUrl" :alt="image.id" class="gallery-thumbnail" />
-                <div class="gallery-item-actions">
-                  <button @click.stop="svgImageManager.removeImage(image.id)" class="gallery-remove-btn" title="Remove">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-                <div class="gallery-item-label">{{ image.id }}</div>
-              </div>
-            </div>
-
-            <!-- Flip Image Button -->
-            <div class="flip-controls-section">
-              <button @click="flipImage" class="flip-image-btn">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                </svg>
-                <span>Flip Image Horizontally</span>
-              </button>
-            </div>
-
-            <!-- Image Positioning Controls (hidden for wedding sticker) -->
-            <div v-if="false && selectedSVGImage" class="image-controls-section">
-              <h4 class="controls-title">Edit: {{ selectedSVGImage.id }}</h4>
-
-              <div class="controls-grid">
-                <!-- Position Controls -->
-                <div class="control-group">
-                  <label class="control-label">X Position</label>
-                  <input
-                    type="number"
-                    :value="selectedSVGImage.x"
-                    @input="handleImagePropertyInput('x', $event)"
-                    class="control-input"
-                  />
-                </div>
-
-                <div class="control-group">
-                  <label class="control-label">Y Position</label>
-                  <input
-                    type="number"
-                    :value="selectedSVGImage.y"
-                    @input="handleImagePropertyInput('y', $event)"
-                    class="control-input"
-                  />
-                </div>
-
-                <!-- Size Controls -->
-                <div class="control-group">
-                  <label class="control-label">Width</label>
-                  <input
-                    type="number"
-                    :value="Math.round(selectedSVGImage.width)"
-                    @input="handleImagePropertyInput('width', $event)"
-                    class="control-input"
-                  />
-                </div>
-
-                <div class="control-group">
-                  <label class="control-label">Height</label>
-                  <input
-                    type="number"
-                    :value="Math.round(selectedSVGImage.height)"
-                    @input="handleImagePropertyInput('height', $event)"
-                    class="control-input"
-                    :disabled="selectedSVGImage.maintainAspectRatio"
-                  />
-                </div>
-
-                <!-- Rotation Control -->
-                <div class="control-group">
-                  <label class="control-label">Rotation (°)</label>
-                  <input
-                    type="number"
-                    :value="selectedSVGImage.rotation"
-                    @input="handleImagePropertyInput('rotation', $event)"
-                    min="0"
-                    max="360"
-                    class="control-input"
-                  />
-                </div>
-
-                <!-- Opacity Control -->
-                <div class="control-group">
-                  <label class="control-label">Opacity (%)</label>
-                  <input
-                    type="number"
-                    :value="selectedSVGImage.opacity"
-                    @input="handleImagePropertyInput('opacity', $event)"
-                    min="0"
-                    max="100"
-                    class="control-input"
-                  />
-                </div>
-              </div>
-
-              <!-- Aspect Ratio Toggle -->
-              <div class="control-group-full">
-                <label class="checkbox-control">
-                  <input
-                    type="checkbox"
-                    :checked="selectedSVGImage.maintainAspectRatio"
-                    @change="handleAspectRatioToggle"
-                  />
-                  <span>Maintain Aspect Ratio</span>
-                </label>
-              </div>
-
-              <!-- Layer Controls -->
-              <div class="layer-controls">
-                <h5 class="layer-controls-title">Layer Order</h5>
-                <div class="layer-buttons">
-                  <button @click="svgImageManager.bringToFront(selectedSVGImage.id)" class="layer-btn" title="Bring to Front">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
-                    </svg>
-                    To Front
-                  </button>
-                  <button @click="svgImageManager.moveImageUp(selectedSVGImage.id)" class="layer-btn" title="Move Up">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
-                    </svg>
-                    Up
-                  </button>
-                  <button @click="svgImageManager.moveImageDown(selectedSVGImage.id)" class="layer-btn" title="Move Down">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                    Down
-                  </button>
-                  <button @click="svgImageManager.sendToBack(selectedSVGImage.id)" class="layer-btn" title="Send to Back">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                    To Back
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <!-- Export Button -->
-          <div v-if="svgImageManager.images.value.length > 0 || formData.description" class="export-section">
-            <button @click="exportWeddingSticker('svg')" class="export-btn export-svg-btn">
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Export as SVG
-            </button>
-            <button @click="exportWeddingSticker('png')" class="export-btn export-png-btn">
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div v-if="svgImageManager.images.value.length > 0 || formData.description" class="export-section wedding-controls-row">
+            <button 
+              @click="exportWeddingSticker('png')" 
+              class="export-btn export-png-btn wedding-control-btn secondary"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
               Export as PNG (300 DPI)
@@ -344,108 +288,31 @@
         </div>
       </div>
 
-      <!-- Options -->
-      <div class="options-group">
-        <div class="option-item">
-          <input
-            id="remove-bg"
-            v-model="formData.removeBackground"
-            type="checkbox"
-            class="option-checkbox"
-          />
-          <label for="remove-bg" class="option-label">Remove Background</label>
-        </div>
-
-        <div class="option-item">
-          <input
-            id="color-picker"
-            v-model="formData.useColorPicker"
-            type="checkbox"
-            class="option-checkbox"
-          />
-          <label for="color-picker" class="option-label">Color picker</label>
-        </div>
-      </div>
-
-      <!-- Color Picker (conditional) -->
-      <div v-if="formData.useColorPicker" class="color-picker-section">
-        <label class="form-label">Background Color</label>
-        <input
-          v-model="formData.backgroundColor"
-          type="color"
-          class="color-input"
-        />
-      </div>
-
-      <!-- Custom Size (always visible) -->
-      <div class="custom-size-section">
-        <label for="custom-size" class="form-label">Custom Size</label>
-        <input
-          id="custom-size"
-          v-model="formData.customSize"
-          type="text"
-          class="custom-size-input"
-          placeholder="e.g., 4x4, 3x3, 5x5"
-        />
-      </div>
-
-      <!-- Image Upload Section -->
-      <div class="image-upload-section">
-        <label class="form-label">Image</label>
-        <div class="image-slots-container">
-          <div class="image-slots">
-            <div
-              v-for="(image, index) in imageSlots"
-              :key="index"
-              class="image-slot"
-            >
-              <button
-                v-if="image"
-                @click="removeImage(index)"
-                class="remove-image-btn"
-              >
-                ×
-              </button>
-              <img
-                v-if="image"
-                :src="image.preview"
-                alt="Uploaded image"
-                class="slot-image"
-              />
-              <label v-else :for="`image-${index}`" class="upload-label">
-                <svg class="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-              </label>
-              <input
-                :id="`image-${index}`"
-                type="file"
-                accept="image/*"
-                class="hidden"
-                @change="handleImageUpload($event, index)"
-              />
-            </div>
-
-            <!-- Add Image Slot Button -->
-            <button @click="addImageSlot" class="add-image-slot-btn">
-              <svg class="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-              </svg>
-            </button>
+      <!-- Graduation Sticker Preview (shown when graduation category is selected) -->
+      <div v-if="selectedCategory === 'graduation'" class="graduation-preview-section">
+        <label class="form-label">Live Preview (Advanced Canvas Mode)</label>
+        <div class="canvas-container-wrapper">
+          <div class="graduation-preview-container" ref="graduationStageContainer">
+            <!-- Konva Stage will be loaded here -->
+          </div>
+          <div class="canvas-controls">
+            <p class="control-hint">✨ Drag text and elements to reposition them!</p>
           </div>
         </div>
       </div>
 
-          <!-- Generate Button -->
-          <button
-            @click="generateDesign"
-            :disabled="isGenerating"
-            class="generate-btn"
-          >
-            <span>Generate Design</span>
-          </button>
-        </div>
+      <!-- Options Removed -->
+
+      <!-- Hidden file input for chat upload -->
+      <input
+        ref="preGeneratedImageInput"
+        type="file"
+        accept="image/png,image/jpeg,image/jpg,image/webp"
+        class="hidden"
+        @change="handlePreGeneratedImageSelect"
+      />
       </div>
+    </div>
     </Transition>
 
     <!-- PREVIEW VIEW -->
@@ -515,6 +382,183 @@
       @close="handleCropModalClose"
       @crop="handleCropComplete"
     />
+
+    <!-- Beautiful Upload Modal -->
+    <div v-if="showUploadModal" class="upload-modal-overlay" @click="closeUploadModal">
+      <div class="upload-modal-container" @click.stop>
+        <button class="upload-modal-close" @click="closeUploadModal">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        <div class="upload-modal-content">
+          <!-- Icon -->
+          <div class="upload-modal-icon">
+            <svg class="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+
+          <!-- Title -->
+          <h2 class="upload-modal-title">Upload Your Picture</h2>
+          <p class="upload-modal-description">
+            Upload a photo for your wedding sticker.
+          </p>
+
+          <!-- Background Removal Toggle in Modal -->
+          <div class="background-removal-toggle" style="margin-bottom: 20px; background: #f3f4f6; padding: 12px; border-radius: 8px;">
+            <label class="toggle-label" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input
+                type="checkbox"
+                v-model="autoRemoveBackground"
+                class="toggle-checkbox"
+                style="width: 18px; height: 18px;"
+              />
+              <span class="toggle-text" style="font-weight: 500; color: #374151;">Remove background automatically</span>
+            </label>
+            <p class="toggle-hint" style="margin-top: 4px; margin-left: 28px; font-size: 0.85rem; color: #6b7280;">Uses AI to remove backgrounds (may take a few seconds)</p>
+          </div>
+
+          <!-- Background Removal Status -->
+          <div v-if="uploadModalProcessing" class="upload-modal-processing">
+            <div class="processing-spinner-wrapper">
+              <ion-spinner name="crescent" class="processing-spinner-large"></ion-spinner>
+            </div>
+            <p class="processing-status-text">{{ uploadModalStatusText }}</p>
+            <div class="processing-progress-bar">
+              <div class="processing-progress-fill" :style="{ width: uploadModalProgress + '%' }"></div>
+            </div>
+            <p class="processing-progress-text">{{ uploadModalProgress }}%</p>
+          </div>
+
+          <!-- Upload Button -->
+          <div v-if="!uploadModalProcessing" class="upload-modal-actions">
+            <button class="upload-modal-btn" @click="triggerModalFileInput">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              Choose Photo
+            </button>
+            <input
+              ref="modalFileInput"
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp"
+              class="hidden"
+              @change="handleModalFileSelect"
+            />
+          </div>
+
+          <!-- Success Message -->
+          <div v-if="uploadModalSuccess" class="upload-modal-success">
+            <svg class="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p>Image uploaded successfully!</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Description Modal -->
+    <div v-if="showEditModal" class="edit-modal-overlay">
+      <div class="edit-modal-container">
+        <h3 class="edit-modal-title">Edit Description</h3>
+        <p class="edit-modal-subtitle">Update your text below and click OK to refresh the design.</p>
+        
+        <div class="edit-modal-content">
+          <textarea
+            v-model="formData.description"
+            @input="handleDescriptionInput"
+            class="edit-modal-textarea"
+            rows="6"
+            placeholder="Enter sticker description..."
+          ></textarea>
+          
+          <!-- Validation Warnings in Modal -->
+          <div v-if="validationWarnings.length > 0" class="validation-warnings-container modal-warnings">
+            <div class="warning-header">
+              <svg class="w-5 h-5 text-amber-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span class="text-amber-800 font-medium">Please check:</span>
+            </div>
+            <ul class="warning-list">
+              <li v-for="(warning, index) in validationWarnings" :key="index" class="warning-list-item">
+                {{ warning }}
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="edit-modal-actions">
+          <button @click="closeEditModal" class="edit-modal-ok-btn">
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Chat Area - Footer -->
+  <div v-if="selectedCategory === 'wedding'" class="ai-chat-footer">
+    <!-- Action Buttons when SVG is shown -->
+    <div v-if="showWeddingStickerPreview" class="chat-footer-actions">
+      <button @click="openEditModal" class="footer-action-btn edit-btn">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+        Edit
+      </button>
+      <button @click="exportWeddingSticker('png')" class="footer-action-btn export-btn">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        Export
+      </button>
+    </div>
+
+    <!-- Chat Input Container -->
+    <div class="chat-input-container">
+      <button @click="showUploadOptions = !showUploadOptions" class="chat-add-btn" :class="{ 'active': showUploadOptions }">
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+      </button>
+      
+      <div class="chat-input-wrapper">
+        <input 
+          v-model="formData.description"
+          @input="handleDescriptionInput"
+          @keydown.enter="handleEnterKey"
+          type="text" 
+          :placeholder="showWeddingStickerPreview ? 'Ask me anything or make changes...' : 'What can I help with?'"
+          class="chat-input"
+        />
+      </div>
+
+      <button @click="toggleVoiceInput" class="chat-voice-btn">
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+        </svg>
+      </button>
+
+      <button @click="handleGenerateFromChat" class="chat-send-btn" :disabled="!formData.description.trim()">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="transform: rotate(0deg); margin-left: 2px;">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Upload Options Popup -->
+    <div v-if="showUploadOptions" class="upload-options-popup">
+      <button @click="triggerImageUpload" class="upload-option-btn">
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+        </svg>
+        <span>Upload Picture</span>
+      </button>
+    </div>
   </div>
 </template>
 
@@ -529,13 +573,44 @@ import { useSVGImageManager } from '@/composables/useSVGImageManager'
 import { useSVGExport } from '@/composables/useSVGExport'
 import { useSVGTextReplacement } from '@/composables/useSVGTextReplacement'
 import { useBackgroundRemoval } from '@/composables/useBackgroundRemoval'
+import { useImageRetouch } from '@/composables/useImageRetouch'
+import { SvgLayoutManager } from '@/services/svg-layout.service'
+import { createGraduationTemplate } from '@/services/graduation-template.preset'
+import Konva from 'konva'
 import ImageCropModal from '@/components/ImageCropModal.vue'
+import SmartCameraInput from './SmartCameraInput.vue'
+import SmartTextarea from './SmartTextarea.vue'
 import { IonSpinner } from '@ionic/vue'
+import { useDebounceFn } from '@vueuse/core'
 
 const router = useRouter()
 const autoDesignStore = useAutoDesignStore()
 const authStore = useAuthStore()
-const { updateStickerText, getSVGElements } = useWeddingStickerUpdater()
+const { updateStickerText, getSVGElements, extractNames } = useWeddingStickerUpdater()
+const { applyRetouch } = useImageRetouch()
+
+// Validation Warnings
+const validationWarnings = ref<string[]>([])
+
+function updateValidationWarnings(data: any) {
+  const warnings: string[] = []
+  
+  // Only show warnings if user has started typing (description is not empty)
+  if (formData.description.trim()) {
+    if (!data.date) {
+      warnings.push('You did not include the date.')
+    }
+    if (!data.courtesy) {
+      warnings.push('You did not include the courtesy.')
+    }
+    // Check names. 
+    if (!data.name1 && !data.name2) {
+      warnings.push('You did not include the name')
+    }
+  }
+  
+  validationWarnings.value = warnings
+}
 
 // SVG Image Management
 const svgImageManager = useSVGImageManager({
@@ -547,8 +622,17 @@ const svgImageManager = useSVGImageManager({
 
 const { exportSVG } = useSVGExport()
 
+// Retouch state
+const isRetouching = ref(false)
+
+// Toggle for image editing controls
+const showImageControls = ref(false)
+
+// Chat footer states
+const showUploadOptions = ref(false)
+
 // SVG Text Replacement (for Nikkah graphics)
-const { handleReplacement, resetReplacement } = useSVGTextReplacement()
+const { handleReplacement, resetReplacement, restoreOriginalElements, replacementState } = useSVGTextReplacement()
 
 // Background Removal
 const {
@@ -562,19 +646,188 @@ const {
 
 // Wedding sticker refs
 const weddingPreviewContainer = ref<HTMLDivElement | null>(null)
+const graduationStageContainer = ref<HTMLDivElement | null>(null)
 const imageFileInput = ref<HTMLInputElement | null>(null)
 let svgElements: ReturnType<typeof getSVGElements> | null = null
+let graduationLayoutManager: SvgLayoutManager | null = null
 
 const showMenu = ref(false)
-const selectedCategory = ref('naming')
+const selectedCategory = ref<string | null>(null)
+const lastFormScrollPosition = ref(0)
 const previewUrl = ref('')
 const isGenerating = ref(false)
 const viewMode = ref<'form' | 'preview'>('form')
+
+// Wedding warning banner state
+const showWeddingStickerPreview = ref(false)
+const isGeneratingPreview = ref(false)
+const isDescriptionVisible = ref(true)
+const showEditModal = ref(false)
+
+function openEditModal() {
+  showEditModal.value = true
+}
+
+function closeEditModal() {
+  showEditModal.value = false
+  // Ensure update is processed
+  processDescriptionInput()
+}
+
+// Chat footer handlers
+function triggerImageUpload() {
+  showUploadOptions.value = false
+  if (selectedCategory.value === 'wedding') {
+    preGeneratedImageInput.value?.click()
+  }
+}
+
+function toggleVoiceInput() {
+  authStore.showNotification({
+    title: 'Voice Input',
+    message: 'Voice input feature coming soon!',
+    type: 'info'
+  })
+}
+
+
+
+// AI Chat handler
+function handleChatClick() {
+  authStore.showNotification({
+    title: 'AI Assistant',
+    message: 'Coming Soon! Our AI assistant will help you create amazing designs.',
+    type: 'info'
+  })
+}
+
+async function generateWeddingPreview() {
+  if (!formData.description.trim()) {
+    authStore.showNotification({
+      title: 'Description Required',
+      message: 'Please enter a description for your wedding sticker',
+      type: 'info'
+    })
+    return
+  }
+
+  // Check requirements: Must have names OR a picture
+  const { name1, name2 } = extractNames(formData.description)
+  const hasNames = !!(name1 || name2)
+  const hasPicture = !!preGeneratedImageFile.value
+
+  if (!hasNames && !hasPicture) {
+    authStore.showNotification({
+      title: 'Missing Information',
+      message: 'Please include at least a Name in the description or upload a Picture to generate the preview.',
+      type: 'info'
+    })
+    
+    // Ensure validation warnings are shown
+    const data = await updateStickerText(formData.description, {} as any)
+    updateValidationWarnings(data)
+    
+    return
+  }
+
+  isGeneratingPreview.value = true
+  showWeddingStickerPreview.value = true // Ensure container exists in DOM (even if hidden)
+  
+  try {
+    // Artificial delay for "AI processing" feel
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    
+    await nextTick()
+    await loadWeddingStickerTemplate()
+    
+    // Process the description to update the SVG with names, date, courtesy
+    await processDescriptionInput()
+
+    // Handle pre-uploaded image if exists
+    if (preGeneratedImageFile.value) {
+      const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
+      if (svgElement) {
+        let fileToProcess = preGeneratedImageFile.value
+
+        // Remove background if requested
+        if (autoRemoveBackground.value && isBackgroundRemovalSupported()) {
+          try {
+            const result = await removeBackground(fileToProcess, {
+              quality: 'high',
+              outputFormat: 'image/png',
+              maxDimensions: 2048
+            })
+            
+            fileToProcess = new File([result.blob], fileToProcess.name.replace(/\.[^/.]+$/, '.png'), {
+              type: 'image/png',
+              lastModified: Date.now()
+            })
+          } catch (error) {
+            console.warn('Background removal failed, using original image', error)
+          }
+        }
+
+        // Add image to SVG
+        await svgImageManager.addImage(fileToProcess, svgElement)
+        updateSVGWithImages()
+      }
+    }
+    
+    // Check for warnings to show appropriate notification
+    if (validationWarnings.value.length > 0) {
+      authStore.showNotification({
+        title: 'Preview Generated',
+        message: 'Preview ready, but some details are missing. Please check the warnings below.',
+        type: 'info'
+      })
+    } else {
+      authStore.showNotification({
+        title: 'Preview Generated',
+        message: 'Your wedding sticker preview is ready!',
+        type: 'success'
+      })
+    }
+    
+    // Hide description field on success
+    isDescriptionVisible.value = false
+    
+    // Scroll to bottom to show the generated SVG
+    scrollToBottom()
+    
+  } finally {
+    isGeneratingPreview.value = false
+    // Ensure final scroll after animation completes
+    setTimeout(() => {
+      scrollToBottom()
+    }, 100)
+  }
+}
 
 // Image crop modal state
 const showCropModal = ref(false)
 const cropImageSrc = ref('')
 const cropImageFile = ref<File | null>(null)
+const isPreGenerationCrop = ref(false)
+
+// Upload modal state
+const showUploadModal = ref(false)
+const modalFileInput = ref<HTMLInputElement | null>(null)
+const uploadModalProcessing = ref(false)
+const uploadModalProgress = ref(0)
+const uploadModalStatusText = ref('Preparing...')
+const uploadModalSuccess = ref(false)
+
+// Pre-generation image upload state
+const preGeneratedImageFile = ref<File | null>(null)
+const preGeneratedImagePreview = ref<string | null>(null)
+const preGeneratedImageInput = ref<HTMLInputElement | null>(null)
+
+// Smart Camera Handler
+function handleDescriptionUpdate(newText: string) {
+  formData.description = newText
+  // Trigger the input handler to update the preview immediately
+  handleDescriptionInput()
+}
 
 // Background removal state
 const autoRemoveBackground = ref(false)
@@ -644,14 +897,14 @@ const loadingAnimation = {
 }
 
 const categories = [
-  { id: 'naming', name: 'Naming' },
-  { id: 'wedding', name: 'Wedding' },
-  { id: 'graduation', name: 'Graduation' },
-  { id: 'association', name: 'Association' },
-  { id: 'organization', name: 'Organization' },
-  { id: 'product-business-1', name: 'Product/Business' },
-  { id: 'product-business-2', name: 'Product/Business' },
-  { id: 'product-business-3', name: 'Product/Business' }
+  { id: 'naming', name: 'Naming', icon: '👶', gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
+  { id: 'wedding', name: 'Wedding', icon: '💍', gradient: 'linear-gradient(135deg, #f093fb 0%, #a855f7 100%)' },
+  { id: 'graduation', name: 'Graduation', icon: '🎓', gradient: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)' },
+  { id: 'association', name: 'Association', icon: '🤝', gradient: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)' },
+  { id: 'organization', name: 'Organization', icon: '🏢', gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' },
+  { id: 'product-business-1', name: 'Product', icon: '🛍️', gradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)' },
+  { id: 'product-business-2', name: 'Business', icon: '💼', gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' },
+  { id: 'product-business-3', name: 'Promo', icon: '🏷️', gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }
 ]
 
 const formData = reactive({
@@ -660,12 +913,212 @@ const formData = reactive({
   useColorPicker: false,
   backgroundColor: '#ffffff',
   customSize: '4x4',
-  stickerTypes: {
-    box: false,
-    circle: false,
-    dieCut: false
-  }
+  svgWidth: 400,
+  svgHeight: 400
 })
+
+// Chat Logic for Wedding Category
+const chatMessages = ref<Array<{ id: number; text: string; sender: 'user' | 'ai'; time: string; image?: string }>>([])
+const isAnalyzing = ref(false)
+const chatHistoryContainer = ref<HTMLElement | null>(null)
+const accumulatedDescription = ref('')
+const awaitingBackgroundRemovalDecision = ref(false)
+
+const scrollToBottom = () => {
+  nextTick(() => {
+    if (chatHistoryContainer.value) {
+      chatHistoryContainer.value.scrollTop = chatHistoryContainer.value.scrollHeight
+    }
+  })
+}
+
+async function sendMessage() {
+  const text = formData.description.trim()
+  if (!text) return
+
+  // Add User Message
+  chatMessages.value.push({
+    id: Date.now(),
+    text: text,
+    sender: 'user',
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  })
+
+  // Accumulate description
+  accumulatedDescription.value += (accumulatedDescription.value ? ' ' : '') + text
+
+  // Clear Input
+  formData.description = ''
+  scrollToBottom()
+
+  // Start Analysis
+  isAnalyzing.value = true
+  
+  // Simulate AI Delay
+  setTimeout(() => {
+    analyzeMessage(text)
+  }, 1500)
+}
+
+function analyzeMessage(lastUserMessage: string) {
+  isAnalyzing.value = false
+  
+  const fullText = accumulatedDescription.value
+  const lowerMessage = lastUserMessage.toLowerCase()
+  const userName = authStore.user?.name || authStore.user?.email?.split('@')[0] || 'there'
+  
+  let aiResponse = ''
+  
+  // Handle Background Removal Decision
+  if (awaitingBackgroundRemovalDecision.value) {
+    if (lowerMessage === 'yes' || lowerMessage.includes('yes please') || lowerMessage.includes('remove')) {
+      autoRemoveBackground.value = true
+      aiResponse = "Got it! I'll remove the background for you."
+    } else {
+      autoRemoveBackground.value = false
+      aiResponse = "Okay, I'll keep the original background."
+    }
+    
+    awaitingBackgroundRemovalDecision.value = false
+    
+    chatMessages.value.push({
+      id: Date.now(),
+      text: aiResponse,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    })
+    scrollToBottom()
+    
+    // If we were updating an existing design, trigger regeneration now
+    if (showWeddingStickerPreview.value) {
+       setTimeout(() => {
+         generateWeddingPreview()
+       }, 1000)
+    }
+    return
+  }
+
+  // Check for required fields
+  const hasDate = /\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)|\d{1,2}[-/]\d{1,2}[-/]\d{2,4}/i.test(fullText)
+  const hasCourtesy = /(?:courtesy|from|by)/i.test(fullText)
+  const hasNames = /(?:and|&)/i.test(fullText) // Basic check for a couple
+  
+  // 1. Check for COMPLETE details first
+  if (hasDate && hasCourtesy && hasNames) {
+    aiResponse = `Perfect, ${userName}! All details confirmed. Generating your wedding design now.`
+    
+    chatMessages.value.push({
+      id: Date.now(),
+      text: aiResponse,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    })
+    scrollToBottom()
+
+    // Trigger Generation
+    // Set the full description back to formData so the generator uses it
+    formData.description = fullText 
+    
+    setTimeout(() => {
+      generateWeddingPreview()
+    }, 1000)
+    return
+  }
+
+  // 2. Check for Greetings & Questions
+  const greetings = ['hi', 'hello', 'hey', 'greetings', 'good morning', 'good afternoon', 'good evening', 'hola', 'bonjour', 'salam', 'assalamu alaikum', 'namaste']
+  const isGreeting = greetings.some(g => lowerMessage.includes(g))
+  
+  const isQuestion = lowerMessage.includes('?') || 
+                     lowerMessage.includes('how') || 
+                     lowerMessage.includes('what') || 
+                     lowerMessage.includes('help') ||
+                     lowerMessage.includes('guide') ||
+                     lowerMessage.includes('update') ||
+                     lowerMessage.includes('change') ||
+                     lowerMessage.includes('yes') ||
+                     lowerMessage.includes('no')
+
+  const hasAnyInfo = hasNames || hasDate || hasCourtesy
+
+  if (isQuestion) {
+     if (lowerMessage.includes('how')) {
+        aiResponse = "It's simple! Just tell me the couple's names (e.g., 'Romeo & Juliet'), the wedding date, and who the sticker is from (courtesy)."
+     } else if (lowerMessage.includes('what')) {
+        aiResponse = "I need three things to design your sticker: 1. The couple's names. 2. The date. 3. The courtesy (e.g., 'From the Smith Family')."
+     } else if (lowerMessage.includes('update') || lowerMessage.includes('change')) {
+        aiResponse = "You can update the information by simply typing the new details here. I will update the design automatically once I have everything."
+     } else if (lowerMessage === 'yes' || lowerMessage.includes('yes please')) {
+        // Handle confirmation for image update or general adjustments
+        if (showWeddingStickerPreview.value) {
+           aiResponse = "Great! I'm updating your design now..."
+           setTimeout(() => {
+             generateWeddingPreview()
+           }, 1000)
+           
+           chatMessages.value.push({
+            id: Date.now(),
+            text: aiResponse,
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+          scrollToBottom()
+          return
+        } else {
+           aiResponse = "What would you like to do? You can tell me the wedding details."
+        }
+     } else if (lowerMessage === 'no' || lowerMessage.includes('no thanks')) {
+        aiResponse = "Alright! Let me know if you need anything else."
+     } else {
+        aiResponse = "I'm here to help! Just provide the wedding details (Names, Date, Courtesy) and I'll create a design for you."
+     }
+  } else if (isGreeting && !hasAnyInfo) {
+     let replyGreeting = "Hello"
+     if (lowerMessage.includes('good morning')) replyGreeting = "Good morning"
+     else if (lowerMessage.includes('good afternoon')) replyGreeting = "Good afternoon"
+     else if (lowerMessage.includes('good evening')) replyGreeting = "Good evening"
+     else if (lowerMessage.includes('salam') || lowerMessage.includes('assalamu')) replyGreeting = "Wa alaikum assalam"
+     
+     aiResponse = `${replyGreeting}, ${userName}! How are you today? How can I help you with your wedding sticker?`
+  } else {
+    // 3. Standard Missing Fields Logic
+    const missingFields: string[] = []
+    if (!hasNames) missingFields.push('the couple\'s names (e.g. John & Mary)')
+    if (!hasDate) missingFields.push('the date')
+    if (!hasCourtesy) missingFields.push('who it is from (courtesy)')
+    
+    if (missingFields.length === 1) {
+      aiResponse = `I got that. Please provide your ${missingFields[0]}.`
+    } else {
+      aiResponse = `I'm listening. Please also tell me ${missingFields.join(' and ')}.`
+    }
+  }
+
+  chatMessages.value.push({
+    id: Date.now(),
+    text: aiResponse,
+    sender: 'ai',
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  })
+  scrollToBottom()
+}
+
+function handleEnterKey(e: KeyboardEvent) {
+  if (selectedCategory.value === 'wedding' && !showWeddingStickerPreview.value) {
+    e.preventDefault() // Prevent default only if we are handling it
+    sendMessage()
+  }
+  // Otherwise let it bubble or do nothing (SmartTextarea might handle it)
+}
+
+function handleGenerateFromChat() {
+  if (selectedCategory.value === 'wedding' && !showWeddingStickerPreview.value) {
+    sendMessage()
+  } else {
+    // Fallback for other categories if they use this button
+    generateDesign()
+  }
+}
 
 const imageSlots = ref<Array<{ file: File; preview: string } | null>>([
   null
@@ -679,7 +1132,6 @@ function selectCategory(categoryId: string) {
 
 function loadCategoryTemplate(categoryId: string) {
   // Load template based on category
-  console.log('Loading template for:', categoryId)
   // TODO: Integrate with template system
 }
 
@@ -723,6 +1175,9 @@ async function generateDesign() {
       return
     }
 
+    // Remember scroll position before switching view
+    lastFormScrollPosition.value = window.scrollY || window.pageYOffset || 0
+
     // Switch to preview mode and start generating
     viewMode.value = 'preview'
     isGenerating.value = true
@@ -739,12 +1194,6 @@ async function generateDesign() {
     autoDesignStore.updateFormData('options.backgroundColor', formData.backgroundColor)
     autoDesignStore.updateFormData('size', formData.customSize)
 
-    // Get selected sticker types
-    const selectedStickerTypes = Object.entries(formData.stickerTypes)
-      .filter(([_, isSelected]) => isSelected)
-      .map(([type, _]) => type)
-    autoDesignStore.updateFormData('options.stickerTypes', selectedStickerTypes)
-
     // Upload images
     for (const imageSlot of uploadedImages) {
       autoDesignStore.uploadedFiles.images.push(imageSlot.file)
@@ -754,8 +1203,8 @@ async function generateDesign() {
     await autoDesignStore.generateDesign()
 
     // Show preview
-    if (autoDesignStore.currentProject?.designUrl) {
-      previewUrl.value = autoDesignStore.currentProject.designUrl
+    if (autoDesignStore.currentProject?.design?.previewUrl) {
+      previewUrl.value = autoDesignStore.currentProject.design.previewUrl
     }
 
     authStore.showNotification({
@@ -780,15 +1229,23 @@ async function generateDesign() {
 
 function backToForm() {
   viewMode.value = 'form'
+  nextTick(() => {
+    window.scrollTo({ top: lastFormScrollPosition.value, behavior: 'smooth' })
+  })
 }
 
-function getCategoryName(categoryId: string): string {
+function getCategoryName(categoryId: string | null): string {
+  if (!categoryId) return ''
   const category = categories.find(cat => cat.id === categoryId)
   return category ? category.name : categoryId
 }
 
 function goBack() {
-  router.push('/home')
+  if (selectedCategory.value) {
+    selectedCategory.value = null
+  } else {
+    router.push('/home')
+  }
 }
 
 // Wedding Sticker Functions
@@ -796,8 +1253,6 @@ async function loadWeddingStickerTemplate() {
   if (!weddingPreviewContainer.value) return
 
   try {
-    console.log('🎨 Loading wedding sticker template...')
-
     // Reset replacement state when loading new template
     resetReplacement()
 
@@ -809,25 +1264,18 @@ async function loadWeddingStickerTemplate() {
         mode: 'cors'
       },
       {
-        name: 'Local (templates folder)',
-        url: '/templates/wedding-sticker/template.svg',
-        mode: 'cors'
-      },
-      {
         name: 'CloudFront',
         url: 'https://d27paqapg0ahqm.cloudfront.net/svg/weddingStiker/template.svg',
         mode: 'cors'
       }
     ]
 
-    let svgText = null
-    let successSource = null
+    let svgText: string | null = null
+    let successSource: string | null = null
 
     // Try each source until one works
     for (const source of sources) {
       try {
-        console.log(`📡 Trying ${source.name}: ${source.url}`)
-
         const response = await fetch(source.url, {
           mode: source.mode as RequestMode,
           cache: 'no-cache'
@@ -836,35 +1284,43 @@ async function loadWeddingStickerTemplate() {
         if (response.ok) {
           svgText = await response.text()
           successSource = source.name
-          console.log(`✅ SVG loaded successfully from ${source.name}`)
           break
-        } else {
-          console.warn(`⚠️ ${source.name} returned ${response.status}`)
         }
       } catch (err) {
-        console.warn(`⚠️ ${source.name} failed:`, err)
         continue
       }
     }
 
     if (!svgText) {
-      throw new Error('Failed to load SVG from all sources')
+      console.warn('Failed to load SVG from all sources, using fallback');
+      // Fallback SVG
+      svgText = `<svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100%" height="100%" fill="#f0f0f0"/>
+        <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" font-size="20">Template Load Failed</text>
+      </svg>`;
+      
+      authStore.showNotification({
+        title: 'Template Load Failed',
+        message: 'Could not load the sticker template. Using fallback.',
+        type: 'error'
+      })
     }
 
     // Insert SVG into container
     weddingPreviewContainer.value.innerHTML = svgText
-    console.log(`✅ SVG inserted into preview container (source: ${successSource})`)
 
     // Get SVG element and its text elements
     await nextTick()
     const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
     if (svgElement) {
+      // Apply current dimensions from form data
+      // svgElement.setAttribute('width', formData.svgWidth.toString())
+      // svgElement.setAttribute('height', formData.svgHeight.toString())
+
       svgElements = getSVGElements(svgElement)
-      console.log('✅ SVG elements retrieved:', Object.keys(svgElements).filter(key => svgElements[key as keyof typeof svgElements] !== null))
 
       // Apply current description if any
       if (formData.description) {
-        console.log('📝 Checking description for SVG replacement:', formData.description)
         // DON'T call updateStickerText here - it will be called after SVG replacement
 
         // Check if replacement should be applied
@@ -876,19 +1332,7 @@ async function loadWeddingStickerTemplate() {
         const hasThanks = /thank(?:s)?/i.test(formData.description)
         const hasAttending = /attending/i.test(formData.description)
         
-        console.log('🔍 Initial keyword detection:', {
-          description: formData.description,
-          hasCongratulation,
-          hasCeremony,
-          hasWedding,
-          hasAlhamdulillah,
-          hasNikkah,
-          hasThanks,
-          hasAttending
-        })
-        
         if (hasThanks && hasAttending && hasWedding) {
-          console.log('✅ Loading with thanks SVG replacement')
           // Thanks for attending our wedding version
           await handleReplacement(formData.description, svgElement, {
             keywords: ['thank', 'attending', 'wedding'], // Check all required keywords
@@ -904,7 +1348,6 @@ async function loadWeddingStickerTemplate() {
             }
           })
         } else if (hasCongratulation && hasCeremony) {
-          console.log('✅ Loading with congrat.svg replacement (ceremony)')
           // Congratulation on your wedding ceremony version
           await handleReplacement(formData.description, svgElement, {
             keywords: ['congratulation', 'ceremony'],
@@ -920,7 +1363,6 @@ async function loadWeddingStickerTemplate() {
             }
           })
         } else if (hasAlhamdulillah && hasCeremony) {
-          console.log('✅ Loading with Ceremony.svg replacement')
           // Alhamdulillah with Ceremony version
           await handleReplacement(formData.description, svgElement, {
             keywords: ['alhamdulillah', 'ceremony'],
@@ -929,14 +1371,13 @@ async function loadWeddingStickerTemplate() {
             ],
             targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
             position: {
-              x: 200,
-              y: 200,
+              x: 260,
+              y: 280,
               width: 1350,
               height: 550
             }
           })
         } else if (hasCongratulation && hasNikkah) {
-          console.log('✅ Loading with Nikkah.svg replacement')
           // Congratulation with Nikkah version
           await handleReplacement(formData.description, svgElement, {
             keywords: ['congratulation', 'nikkah'],
@@ -945,14 +1386,13 @@ async function loadWeddingStickerTemplate() {
             ],
             targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
             position: {
-              x: 900,
-              y: 220,
-              width: 1350,
-              height: 550
+              x: 275,  // Centered position to match "Alhamdulillahi on your wedding ceremony" text
+              y: 200,  // Match blessing-text y position
+              width: 1150,
+              height: 500
             }
           })
         } else if (hasAlhamdulillah && hasNikkah) {
-          console.log('✅ Loading with NikkahAl.svg replacement')
           // Alhamdulillah with Nikkah version
           await handleReplacement(formData.description, svgElement, {
             keywords: ['alhamdulillah', 'nikkah'],
@@ -961,14 +1401,13 @@ async function loadWeddingStickerTemplate() {
             ],
             targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
             position: {
-              x: 900,
-              y: 220,
-              width: 1350,
-              height: 550
+              x: 275,  // Centered position to match "Alhamdulillahi on your wedding ceremony" text
+              y: 200,  // Match blessing-text y position
+              width: 1150,
+              height: 500
             }
           })
         } else if (hasCongratulation && hasWedding) {
-          console.log('✅ Loading with Wed.svg replacement')
           // Congratulation on your wedding version
           await handleReplacement(formData.description, svgElement, {
             keywords: ['congratulation', 'wedding'],
@@ -977,14 +1416,13 @@ async function loadWeddingStickerTemplate() {
             ],
             targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
             position: {
-              x: 900,
-              y: 220,
-              width: 1350,
-              height: 550
+              x: 275,  // Centered position to match "Alhamdulillahi on your wedding ceremony" text
+              y: 200,  // Match blessing-text y position
+              width: 1150,
+              height: 500
             }
           })
         } else if (hasAlhamdulillah && hasWedding) {
-          console.log('✅ Loading with Wed.svg replacement (Alhamdulillah)')
           // Alhamdulillah on your wedding version
           await handleReplacement(formData.description, svgElement, {
             keywords: ['alhamdulillah', 'wedding'],
@@ -993,16 +1431,14 @@ async function loadWeddingStickerTemplate() {
             ],
             targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
             position: {
-              x: 900,
-              y: 220,
-              width: 1350,
-              height: 550
+              x: 275,  // Centered position to match "Alhamdulillahi on your wedding ceremony" text
+              y: 200,  // Match blessing-text y position
+              width: 1150,
+              height: 500
             }
           })
         }
       }
-
-      console.log('🎉 Wedding sticker template loaded and ready for testing!')
 
       // Show success notification
       authStore.showNotification({
@@ -1021,18 +1457,158 @@ async function loadWeddingStickerTemplate() {
   }
 }
 
-async function handleDescriptionInput() {
-  console.log('🎯 VERSION: 2025-11-12-15:30 - NEW CODE LOADED')
-  console.log('🎯 handleDescriptionInput called with:', formData.description)
-  console.log('📋 selectedCategory:', selectedCategory.value)
-  console.log('📋 svgElements exists?:', !!svgElements)
-  console.log('📋 weddingPreviewContainer exists?:', !!weddingPreviewContainer.value)
+// State to track crop context.
+// const isPreGenerationCrop = ref(false)
+
+// Helper function to update only date and courtesy (not names) when title SVG is active
+function updateDateAndCourtesy(description: string, svgElements: any) {
+  console.log('🔍 updateDateAndCourtesy called with:', { description, svgElements: !!svgElements })
+  // Extract date from description
+  const extractDate = (desc: string): string | null => {
+    // Match patterns like "15th March 2025", "March 15, 2025", "2025-03-15"
+    const datePatterns = [
+      /(\d{1,2}(?:st|nd|rd|th)?\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s*,?\s*\d{4})/i,
+      /(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{4}/i,
+      /\d{4}-\d{2}-\d{2}/,
+      /\d{1,2}\/\d{1,2}\/\d{4}/
+    ]
+    
+    for (const pattern of datePatterns) {
+      const match = desc.match(pattern)
+      if (match) return match[0].trim()
+    }
+    return null
+  }
+
+  // Extract courtesy from description  
+  const extractCourtesy = (desc: string): { text: string, prefix: string } | null => {
+    const courtesyPattern = /courtesy:\s*([^\n]+?)(?:\s*$|\.|\n)/i
+    const courtesyMatch = desc.match(courtesyPattern)
+    if (courtesyMatch) return { text: courtesyMatch[1].trim(), prefix: 'Courtesy:' }
+    
+    const cutCeePattern = /cut-cee:\s*([^\n]+?)(?:\s*$|\.|\n)/i
+    const cutCeeMatch = desc.match(cutCeePattern)
+    if (cutCeeMatch) return { text: cutCeeMatch[1].trim(), prefix: 'CUT-CEE:' }
+    
+    return null
+  }
+
+  // Update date if found
+  const dateText = extractDate(description)
+  if (dateText && svgElements.dateText) {
+    svgElements.dateText.textContent = dateText
+    console.log('📅 Date updated:', dateText)
+  }
+
+  // Update courtesy if found
+  const courtesyData = extractCourtesy(description)
+  if (courtesyData && svgElements.courtesyText) {
+    svgElements.courtesyText.textContent = `${courtesyData.prefix} ${courtesyData.text}`
+    console.log('🎭 Courtesy updated:', courtesyData)
+  }
+}
+
+// Helper function to handle names when title SVG is active (use decorative name02.svg)
+async function handleNamesWithTitleSVG(description: string, svgElements: any) {
+  console.log('🔍 handleNamesWithTitleSVG called with:', { description })
+  
+  // Always call updateStickerText to ensure date and courtesy are updated
+  // regardless of whether names are present or not
+  const data = await updateStickerText(description, svgElements)
+  
+  // Extract names from parentheses for logging purposes
+  const nameMatch = description.match(/\(([^)]+)\)/)?.[1]
+  
+  if (nameMatch) {
+    const names = nameMatch.split(/\s*[&and]+\s*/i).map(name => name.trim())
+    if (names.length === 2 && svgElements?.weddingNamesGroup) {
+      console.log('✅ Two names detected, decorative SVG injection handled by updateStickerText')
+    }
+  }
+  
+  return data
+}
+
+// Auto-completion handler for description field
+function handleDescriptionKeydown(event: KeyboardEvent) {
+  const textarea = event.target as HTMLTextAreaElement
+  const cursorPos = textarea.selectionStart
+  const textBeforeCursor = formData.description.substring(0, cursorPos)
+  
+  // Auto-pair parentheses
+  if (event.key === '(') {
+    event.preventDefault()
+    const textAfterCursor = formData.description.substring(cursorPos)
+    formData.description = textBeforeCursor + '()' + textAfterCursor
+    // Position cursor between parentheses
+    setTimeout(() => {
+      textarea.selectionStart = cursorPos + 1
+      textarea.selectionEnd = cursorPos + 1
+    }, 0)
+    console.log('✅ Auto-paired parentheses')
+  }
+  
+  // Auto-complete courtesy keywords
+  if (event.key === ' ' || event.key === 'Tab') {
+    const lastWord = textBeforeCursor.split(/\s+/).pop()?.toLowerCase() || ''
+    
+    // List of courtesy keyword variations to auto-complete
+    const courtesyKeywords = [
+      { trigger: 'cour', complete: 'courtesy:' },
+      { trigger: 'court', complete: 'courtesy:' },
+      { trigger: 'courte', complete: 'courtesy:' },
+      { trigger: 'courtes', complete: 'courtesy:' },
+      { trigger: 'coutesy', complete: 'courtesy:' },
+      { trigger: 'coutees', complete: 'courtesy:' },
+      { trigger: 'cut', complete: 'cut-cee:' },
+      { trigger: 'cutcee', complete: 'cut-cee:' },
+      { trigger: 'cut-cee', complete: 'cut-cee:' },
+      { trigger: 'cutc', complete: 'cut-cee:' },
+    ]
+    
+    const match = courtesyKeywords.find(k => lastWord === k.trigger)
+    
+    if (match) {
+      event.preventDefault()
+      // Replace the trigger word with the complete keyword
+      const wordsBeforeLast = textBeforeCursor.substring(0, textBeforeCursor.length - lastWord.length)
+      const textAfterCursor = formData.description.substring(cursorPos)
+      formData.description = wordsBeforeLast + match.complete + ' ' + textAfterCursor
+      
+      // Position cursor after the completed keyword
+      setTimeout(() => {
+        const newPos = wordsBeforeLast.length + match.complete.length + 1
+        textarea.selectionStart = newPos
+        textarea.selectionEnd = newPos
+      }, 0)
+      
+      console.log(`✅ Auto-completed "${lastWord}" to "${match.complete}"`)
+    }
+  }
+}
+
+// Debounced input handler to prevent UI freezing during typing
+const handleDescriptionInput = useDebounceFn(() => {
+  processDescriptionInput()
+}, 50)
+
+async function processDescriptionInput() {
+  console.log('🔄 processDescriptionInput triggered:', { 
+    description: formData.description, 
+    category: selectedCategory.value, 
+    hasSvgElements: !!svgElements 
+  })
+
+  // Perform validation even if SVG elements are not loaded yet
+  if (selectedCategory.value === 'wedding' && !svgElements) {
+    const stickerData = await updateStickerText(formData.description, {} as any)
+    updateValidationWarnings(stickerData)
+  }
   
   // Update wedding sticker preview in real-time
   if (selectedCategory.value === 'wedding' && svgElements) {
     // Handle SVG text replacement for Nikkah/Ceremony graphics
     const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
-    console.log('📋 svgElement found?:', !!svgElement)
     if (svgElement) {
       // Check if description contains keywords
       const hasAlhamdulillah = /alhamdulillah/i.test(formData.description)
@@ -1043,47 +1619,27 @@ async function handleDescriptionInput() {
       const hasThanks = /thank(?:s)?/i.test(formData.description) // Matches "thank" or "thanks"
       const hasAttending = /attending/i.test(formData.description)
       
-      console.log('🔍 Keyword detection:', {
-        description: formData.description,
-        hasCongratulation,
-        hasCeremony,
-        hasWedding,
-        hasAlhamdulillah,
-        hasNikkah,
-        hasThanks,
-        hasAttending
-      })
-      
-      console.log('🔍 Thanks check details:', {
-        'hasThanks': hasThanks,
-        'hasAttending': hasAttending,
-        'hasWedding': hasWedding,
-        'All three?': hasThanks && hasAttending && hasWedding
-      })
-      
       // Check if we should replace with SVG graphics
       const shouldReplace = (hasThanks && hasAttending && hasWedding) ||
                            (hasCongratulation && hasWedding) ||
                            (hasAlhamdulillah && hasWedding) ||
-                           (hasCongratulation && hasCeremony) || 
-                           (hasAlhamdulillah && hasCeremony) || 
+                           (hasCongratulation && hasCeremony && hasWedding) || 
+                           (hasAlhamdulillah && hasCeremony && hasWedding) || 
                            (hasAlhamdulillah && hasNikkah) || 
                            (hasCongratulation && hasNikkah)
       
+      let stickerData: any = null
+
       if (shouldReplace) {
         // When replacing, still update text but ONLY for non-replaced elements (names, date, courtesy)
         // We'll call updateStickerText after replacement to update these fields
-        console.log('⚠️ SVG replacement mode - will update names/date/courtesy after replacement')
       } else {
         // No replacement - update all text normally
-        updateStickerText(formData.description, svgElements)
+        // We'll do it in the main logic block
       }
       
       // Priority order: Check more specific combinations first (ceremony, nikkah) before general (wedding)
       if (hasThanks && hasAttending && hasWedding) {
-        console.log('✅ Triggering thanks SVG replacement')
-        console.log('📍 Thanks SVG path: /weddigTitles/thanks.svg')
-        console.log('📍 Position:', { x: 200, y: 200, width: 1350, height: 550 })
         // Use thanks SVG for "Thanks for attending our wedding"
         await handleReplacement(formData.description, svgElement, {
           keywords: ['thank', 'attending', 'wedding'], // Check all required keywords
@@ -1092,17 +1648,15 @@ async function handleDescriptionInput() {
           ],
           targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
           position: {
-            x: 900,
-            y: 220,
-            width: 1350,
-            height: 550
+            x: 275,  // Centered position to match "Alhamdulillahi on your wedding ceremony" text
+            y: 200,  // Match blessing-text y position
+            width: 1150,
+            height: 500
           }
         })
-        console.log('✅ Thanks SVG replacement completed')
-        // Update names, date, courtesy after replacement
-        updateStickerText(formData.description, svgElements)
-      } else if (hasCongratulation && hasCeremony) {
-        console.log('✅ Triggering congrat.svg replacement (ceremony)')
+        // When title SVG is active, use comprehensive update that handles names, date, and courtesy
+        stickerData = await handleNamesWithTitleSVG(formData.description, svgElements)
+      } else if (hasCongratulation && hasCeremony && hasWedding) {
         // Use congrat.svg for Congratulation on your wedding ceremony
         await handleReplacement(formData.description, svgElement, {
           keywords: ['congratulation', 'ceremony'],
@@ -1111,16 +1665,15 @@ async function handleDescriptionInput() {
           ],
           targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
           position: {
-            x: 900,
-            y: 220,
-            width: 1350,
-            height: 550
+            x: 275,  // Centered position to match "Alhamdulillahi on your wedding ceremony" text
+            y: 200,  // Match blessing-text y position
+            width: 1150,
+            height: 500
           }
         })
-        // Update names, date, courtesy after replacement
-        updateStickerText(formData.description, svgElements)
-      } else if (hasAlhamdulillah && hasCeremony) {
-        console.log('✅ Triggering Ceremony.svg replacement')
+        // When title SVG is active, use comprehensive update that handles names, date, and courtesy
+        stickerData = await handleNamesWithTitleSVG(formData.description, svgElements)
+      } else if (hasAlhamdulillah && hasCeremony && hasWedding) {
         // Use Ceremony.svg for Alhamdulillah with Ceremony
         await handleReplacement(formData.description, svgElement, {
           keywords: ['alhamdulillah', 'ceremony'],
@@ -1129,16 +1682,15 @@ async function handleDescriptionInput() {
           ],
           targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
           position: {
-            x: 900,
-            y: 220,
-            width: 1350,
-            height: 550
+            x: 300,  // Moved right from 275
+            y: 200,  // Match blessing-text y position
+            width: 1150,
+            height: 500
           }
         })
-        // Update names, date, courtesy after replacement
-        updateStickerText(formData.description, svgElements)
+        // When title SVG is active, use comprehensive update that handles names, date, and courtesy
+        stickerData = await handleNamesWithTitleSVG(formData.description, svgElements)
       } else if (hasCongratulation && hasNikkah) {
-        console.log('✅ Triggering Nikkah.svg replacement')
         // Use Nikkah.svg for Congratulation with Nikkah
         await handleReplacement(formData.description, svgElement, {
           keywords: ['congratulation', 'nikkah'],
@@ -1147,16 +1699,15 @@ async function handleDescriptionInput() {
           ],
           targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
           position: {
-            x: 900,
-            y: 220,
-            width: 1350,
-            height: 550
+            x: 275,  // Centered position to match "Alhamdulillahi on your wedding ceremony" text
+            y: 200,  // Match blessing-text y position
+            width: 1150,
+            height: 500
           }
         })
-        // Update names, date, courtesy after replacement
-        updateStickerText(formData.description, svgElements)
+        // When title SVG is active, use comprehensive update that handles names, date, and courtesy
+        stickerData = await handleNamesWithTitleSVG(formData.description, svgElements)
       } else if (hasAlhamdulillah && hasNikkah) {
-        console.log('✅ Triggering NikkahAl.svg replacement')
         // Use NikkahAl.svg for Alhamdulillah with Nikkah
         await handleReplacement(formData.description, svgElement, {
           keywords: ['alhamdulillah', 'nikkah'],
@@ -1165,16 +1716,15 @@ async function handleDescriptionInput() {
           ],
           targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
           position: {
-            x: 900,
-            y: 220,
-            width: 1350,
-            height: 550
+            x: 275,  // Centered position to match "Alhamdulillahi on your wedding ceremony" text
+            y: 200,  // Match blessing-text y position
+            width: 1150,
+            height: 500
           }
         })
-        // Update names, date, courtesy after replacement
-        updateStickerText(formData.description, svgElements)
+        // When title SVG is active, use comprehensive update that handles names, date, and courtesy
+        stickerData = await handleNamesWithTitleSVG(formData.description, svgElements)
       } else if (hasCongratulation && hasWedding) {
-        console.log('✅ Triggering Wed.svg replacement (wedding)')
         // Use Wed.svg for Congratulation on your wedding
         await handleReplacement(formData.description, svgElement, {
           keywords: ['congratulation', 'wedding'],
@@ -1183,16 +1733,15 @@ async function handleDescriptionInput() {
           ],
           targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
           position: {
-            x: 900,
-            y: 220,
-            width: 1350,
-            height: 550
+            x: 275,  // Centered position to match "Alhamdulillahi on your wedding ceremony" text
+            y: 200,  // Match blessing-text y position
+            width: 1150,
+            height: 500
           }
         })
-        // Update names, date, courtesy after replacement
-        updateStickerText(formData.description, svgElements)
+        // When title SVG is active, use comprehensive update that handles names, date, and courtesy
+        stickerData = await handleNamesWithTitleSVG(formData.description, svgElements)
       } else if (hasAlhamdulillah && hasWedding) {
-        console.log('✅ Triggering Wed.svg replacement (Alhamdulillah)')
         // Use Wed.svg for Alhamdulillah on your wedding
         await handleReplacement(formData.description, svgElement, {
           keywords: ['alhamdulillah', 'wedding'],
@@ -1201,14 +1750,34 @@ async function handleDescriptionInput() {
           ],
           targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
           position: {
-            x: 900,
-            y: 220,
-            width: 1350,
-            height: 550
+            x: 275,  // Centered position to match "Alhamdulillahi on your wedding ceremony" text
+            y: 200,  // Match blessing-text y position
+            width: 1150,
+            height: 500
           }
         })
-        // Update names, date, courtesy after replacement
-        updateStickerText(formData.description, svgElements)
+        // When title SVG is active, use comprehensive update that handles names, date, and courtesy
+        stickerData = await handleNamesWithTitleSVG(formData.description, svgElements)
+      } else {
+        // No replacement - update all text normally
+        
+        // Check if we currently have an SVG replacement active and need to restore original text
+        if (replacementState.value.isReplaced) {
+           const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
+           if (svgElement) {
+             console.log('🔄 Restoring original text elements because replacement logic is no longer met')
+             restoreOriginalElements(svgElement)
+             // Re-acquire element references since DOM nodes were recreated
+             svgElements = getSVGElements(svgElement)
+           }
+        }
+        
+        stickerData = await updateStickerText(formData.description, svgElements)
+      }
+      
+      // Update validation warnings
+      if (stickerData) {
+        updateValidationWarnings(stickerData)
       }
     }
   }
@@ -1216,6 +1785,78 @@ async function handleDescriptionInput() {
   // Update SVG with embedded images in real-time
   updateSVGWithImages()
 }
+
+// Graduation Template Functions (Konva-based)
+async function loadGraduationTemplate() {
+  if (!graduationStageContainer.value) return
+
+  // Initialize Konva Stage if not already done
+  if (!graduationLayoutManager) {
+    const stage = new Konva.Stage({
+      container: graduationStageContainer.value,
+      width: 400,
+      height: 400
+    })
+
+    graduationLayoutManager = new SvgLayoutManager(stage, {
+      width: 400,
+      height: 400,
+      backgroundColor: '#1a1a1a' // Dark background for graduation
+    })
+  }
+
+  // Clear previous content
+  graduationLayoutManager.clear()
+
+  // Parse description to extract graduation details
+  const details = parseGraduationDescription(formData.description)
+
+  // Create template using the preset
+  await createGraduationTemplate(graduationLayoutManager, {
+    studentName: details.name,
+    year: details.year,
+    schoolName: details.school,
+    degree: details.degree
+  })
+}
+
+function parseGraduationDescription(description: string) {
+  // Simple parser for graduation details
+  // Expected format: "Name (School), Year, Degree"
+  // Or just try to find patterns
+  
+  const yearMatch = description.match(/\b(20\d{2})\b/)
+  const year = yearMatch ? yearMatch[1] : '2025'
+  
+  // Extract name (first part or inside parentheses if specified differently)
+  // For now, let's assume the first few words are the name until a comma or keyword
+  let name = 'STUDENT NAME'
+  let school = 'University of Excellence'
+  
+  if (description) {
+    const parts = description.split(',')
+    if (parts.length > 0) {
+      name = parts[0].trim()
+    }
+    if (parts.length > 1) {
+      school = parts[1].trim()
+    }
+  }
+  
+  return { name, year, school, degree: 'Graduate' }
+}
+
+// Update graduation template when description changes
+watch(() => formData.description, () => {
+  if (selectedCategory.value === 'graduation' && graduationLayoutManager) {
+    const details = parseGraduationDescription(formData.description)
+    
+    // Update text nodes directly for performance
+    graduationLayoutManager.updateText('student_name', details.name)
+    graduationLayoutManager.updateText('year_text', details.year)
+    graduationLayoutManager.updateText('school_text', details.school)
+  }
+})
 
 // SVG Image Management Functions
 const selectedSVGImage = computed(() => svgImageManager.getSelectedImage())
@@ -1227,6 +1868,10 @@ function triggerImageFileInput() {
 async function handleImageDrop(event: DragEvent) {
   // Get SVG element to read placeholder position
   const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
+  
+  // Clear existing images to prevent accumulation/duplication
+  svgImageManager.clearAllImages()
+  
   await svgImageManager.handleDrop(event, svgElement)
 
   // Update SVG preview with new images
@@ -1237,32 +1882,22 @@ async function handleImageFileSelect(event: Event) {
   const target = event.target as HTMLInputElement
   const files = target.files
 
-  console.log('📸 handleImageFileSelect called', { filesCount: files?.length })
-
   if (files && files.length > 0) {
     // For now, only handle the first file with cropping
     let file = files[0]
-
-    console.log('📸 File selected:', {
-      name: file.name,
-      type: file.type,
-      size: file.size
-    })
 
     // Step 1: Remove background if enabled
     if (autoRemoveBackground.value && isBackgroundRemovalSupported()) {
       try {
         backgroundRemovalError.value = null
-        console.log('🎨 Starting background removal...')
 
         const result = await removeBackground(file, {
-          quality: 'medium',
+          quality: 'high',
           outputFormat: 'image/png',
-          maxDimensions: 2048,
-          onProgress: (progress) => {
-            console.log(`⏳ Background removal progress: ${progress}%`)
-          }
+          maxDimensions: 2048
         })
+
+        uploadModalProgress.value = 80
 
         // Convert blob to File
         file = new File([result.blob], file.name.replace(/\.[^/.]+$/, '.png'), {
@@ -1270,35 +1905,22 @@ async function handleImageFileSelect(event: Event) {
           lastModified: Date.now()
         })
 
-        console.log('✅ Background removed successfully')
-        console.log(`📐 Processed image: ${result.width}×${result.height}, ${result.processingTime}ms`)
-
+        uploadModalStatusText.value = 'Background removed!'
       } catch (error: any) {
-        console.error('❌ Background removal failed:', error)
         backgroundRemovalError.value = error.message || 'Failed to remove background'
         // Continue with original image
-        console.log('⚠️ Continuing with original image')
       }
     } else if (autoRemoveBackground.value && !isBackgroundRemovalSupported()) {
       backgroundRemovalError.value = 'Background removal is not supported in this browser'
-      console.warn('⚠️ Background removal not supported')
     }
 
     // Step 2: Create object URL for the image (original or processed)
     const imageUrl = URL.createObjectURL(file)
 
-    console.log('📸 Object URL created:', imageUrl)
-
     // Step 3: Set crop modal data
     cropImageSrc.value = imageUrl
     cropImageFile.value = file
     showCropModal.value = true
-
-    console.log('📸 Crop modal state set:', {
-      showCropModal: showCropModal.value,
-      cropImageSrc: cropImageSrc.value,
-      hasCropImageFile: !!cropImageFile.value
-    })
   }
 
   // Reset input
@@ -1309,7 +1931,53 @@ async function handleImageFileSelect(event: Event) {
 
 // Image crop modal handlers
 async function handleCropComplete(data: { dataUrl: string; blob: Blob; width: number; height: number }) {
-  console.log('🎨 Crop complete:', { width: data.width, height: data.height })
+
+  if (isPreGenerationCrop.value) {
+    // Handle pre-generation crop
+    if (cropImageFile.value) {
+      const croppedFile = new File([data.blob], cropImageFile.value.name, {
+        type: 'image/png',
+        lastModified: Date.now()
+      })
+      
+      preGeneratedImageFile.value = croppedFile
+      preGeneratedImagePreview.value = data.dataUrl
+      
+      // Add image message to chat
+      chatMessages.value.push({
+        id: Date.now(),
+        text: 'Image uploaded',
+        sender: 'user',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        image: data.dataUrl
+      })
+      scrollToBottom()
+
+      // Ask about background removal
+      setTimeout(() => {
+        chatMessages.value.push({
+          id: Date.now(),
+          text: "I've received your photo. Do you want me to remove the background?",
+          sender: 'ai',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        })
+        scrollToBottom()
+        awaitingBackgroundRemovalDecision.value = true
+      }, 500)
+      
+      // Reset state
+      isPreGenerationCrop.value = false
+      showCropModal.value = false
+      
+      // Clean up object URL
+      if (cropImageSrc.value) {
+        URL.revokeObjectURL(cropImageSrc.value)
+        cropImageSrc.value = ''
+      }
+      cropImageFile.value = null
+    }
+    return
+  }
 
   // Get SVG element to read placeholder position
   const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
@@ -1324,6 +1992,9 @@ async function handleCropComplete(data: { dataUrl: string; blob: Blob; width: nu
     type: 'image/png',
     lastModified: Date.now()
   })
+
+  // Clear existing images to prevent accumulation/duplication
+  svgImageManager.clearAllImages()
 
   // Add the cropped image using the existing image manager
   // This will automatically read the placeholder position from the SVG
@@ -1340,6 +2011,7 @@ async function handleCropComplete(data: { dataUrl: string; blob: Blob; width: nu
 
 function handleCropModalClose() {
   showCropModal.value = false
+  isPreGenerationCrop.value = false
 
   // Clean up object URL
   if (cropImageSrc.value) {
@@ -1376,9 +2048,25 @@ function updateSelectedImageProperty(property: string, value: any) {
   }
 }
 
+function handleImageScaleChange(event: Event) {
+  const target = event.target as HTMLInputElement
+  const scale = parseFloat(target.value)
+  
+  if (svgImageManager.selectedImageId.value) {
+    svgImageManager.updateImage(svgImageManager.selectedImageId.value, { scale })
+    updateSVGWithImages()
+  }
+}
+
+function setImageScale(scale: number) {
+  if (svgImageManager.selectedImageId.value) {
+    svgImageManager.updateImage(svgImageManager.selectedImageId.value, { scale })
+    updateSVGWithImages()
+  }
+}
+
 function flipImage() {
   if (!svgImageManager.selectedImageId.value) {
-    console.log('No image selected to flip')
     return
   }
 
@@ -1387,17 +2075,283 @@ function flipImage() {
   )
 
   if (!selectedImage) {
-    console.log('Selected image not found')
     return
   }
 
   // Toggle flip state
   selectedImage.flipped = !selectedImage.flipped
-  
-  console.log(`Image ${selectedImage.flipped ? 'flipped' : 'unflipped'}`)
 
   // Update SVG to reflect the change
   updateSVGWithImages()
+}
+
+async function autoRetouchImage() {
+  const selectedImage = svgImageManager.getSelectedImage()
+  
+  if (!selectedImage) {
+    authStore.showNotification({
+      title: 'No Image Selected',
+      message: 'Please select an image to enhance',
+      type: 'info'
+    })
+    return
+  }
+
+  // Check if image has already been retouched
+  if (selectedImage.isRetouched) {
+    authStore.showNotification({
+      title: 'Already Enhanced',
+      message: 'This image has already been retouched',
+      type: 'info'
+    })
+    return
+  }
+
+  try {
+    isRetouching.value = true
+    
+    // Apply automatic retouch
+    const retouchedDataUrl = await applyRetouch(selectedImage.dataUrl)
+    
+    // Update the image in the manager and mark as retouched
+    if (svgImageManager.selectedImageId.value) {
+      svgImageManager.updateImage(svgImageManager.selectedImageId.value, {
+        dataUrl: retouchedDataUrl,
+        isRetouched: true
+      })
+      
+      // Update SVG preview
+      updateSVGWithImages()
+      
+      authStore.showNotification({
+        title: 'Image Enhanced',
+        message: 'Your image has been automatically retouched',
+        type: 'success'
+      })
+    }
+    
+  } catch (error) {
+    console.error('Auto retouch failed:', error)
+    authStore.showNotification({
+      title: 'Retouch Failed',
+      message: 'Failed to enhance image. Please try again.',
+      type: 'error'
+    })
+  } finally {
+    isRetouching.value = false
+  }
+}
+
+async function retouchImage() {
+  const selectedImage = svgImageManager.getSelectedImage()
+  
+  if (!selectedImage) {
+    authStore.showNotification({
+      title: 'No Image Selected',
+      message: 'Please select an image to retouch',
+      type: 'info'
+    })
+    return
+  }
+
+  try {
+    // Open the crop modal with the selected image for retouching
+    cropImageSrc.value = selectedImage.dataUrl
+    cropImageFile.value = selectedImage.file
+    showCropModal.value = true
+    
+  } catch (error) {
+    console.error('Failed to open retouch:', error)
+    authStore.showNotification({
+      title: 'Retouch Error',
+      message: 'Failed to open image for retouching',
+      type: 'error'
+    })
+  }
+}
+
+// Make SVG image draggable
+function makeSVGImageDraggable(imageElement: SVGImageElement, imageId: string) {
+  let isDragging = false
+  let startX = 0
+  let startY = 0
+  let initialX = 0
+  let initialY = 0
+
+  // Add visual feedback
+  imageElement.style.cursor = 'move'
+  imageElement.style.transition = 'opacity 0.2s'
+
+  const handleMouseDown = (e: MouseEvent) => {
+    isDragging = true
+    const svgElement = imageElement.ownerSVGElement
+    if (!svgElement) return
+
+    const pt = svgElement.createSVGPoint()
+    pt.x = e.clientX
+    pt.y = e.clientY
+    const svgPt = pt.matrixTransform(svgElement.getScreenCTM()?.inverse())
+
+    startX = svgPt.x
+    startY = svgPt.y
+    initialX = parseFloat(imageElement.getAttribute('x') || '0')
+    initialY = parseFloat(imageElement.getAttribute('y') || '0')
+
+    imageElement.style.opacity = '0.7'
+    e.preventDefault()
+  }
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return
+
+    const svgElement = imageElement.ownerSVGElement
+    if (!svgElement) return
+
+    const pt = svgElement.createSVGPoint()
+    pt.x = e.clientX
+    pt.y = e.clientY
+    const svgPt = pt.matrixTransform(svgElement.getScreenCTM()?.inverse())
+
+    let dx = svgPt.x - startX
+    const dy = svgPt.y - startY
+
+    // If image is flipped, invert horizontal drag direction
+    const img = svgImageManager.images.value.find(i => i.id === imageId)
+    if (img && img.flipped) {
+      dx = -dx
+    }
+
+    const newX = initialX + dx
+    const newY = initialY + dy
+
+    imageElement.setAttribute('x', newX.toString())
+    imageElement.setAttribute('y', newY.toString())
+
+    // Update the image manager with new position
+    svgImageManager.updateImage(imageId, { x: newX, y: newY })
+
+    e.preventDefault()
+  }
+
+  const handleMouseUp = () => {
+    if (isDragging) {
+      isDragging = false
+      imageElement.style.opacity = '1'
+    }
+  }
+
+  // Add event listeners
+  imageElement.addEventListener('mousedown', handleMouseDown)
+  document.addEventListener('mousemove', handleMouseMove)
+  document.addEventListener('mouseup', handleMouseUp)
+
+  // Store cleanup function
+  const cleanup = () => {
+    imageElement.removeEventListener('mousedown', handleMouseDown)
+    document.removeEventListener('mousemove', handleMouseMove)
+    document.removeEventListener('mouseup', handleMouseUp)
+  }
+
+  // Store cleanup reference on element
+  ;(imageElement as any).__dragCleanup = cleanup
+}
+
+async function setupWeddingPhotoKonva(file: File) {
+  if (!konvaPhotoEnabled.value) return
+  if (!weddingPhotoKonvaHost.value) return
+
+  const host = weddingPhotoKonvaHost.value
+
+  // Lazily create stage/layer once
+  if (!weddingPhotoStage) {
+    const hostRect = host.getBoundingClientRect()
+    const stageWidth = hostRect.width || 400
+    const stageHeight = hostRect.height || 400
+
+    weddingPhotoStage = new Konva.Stage({
+      container: host,
+      width: stageWidth,
+      height: stageHeight
+    })
+
+    weddingPhotoLayer = new Konva.Layer()
+    weddingPhotoStage.add(weddingPhotoLayer)
+
+    weddingPhotoTransformer = new Konva.Transformer({
+      rotateEnabled: false,
+      enabledAnchors: ['top-left', 'top-right', 'bottom-left', 'bottom-right'],
+      anchorSize: 8,
+      borderStroke: '#3b82f6',
+      anchorStroke: '#1d4ed8',
+      anchorFill: '#ffffff'
+    })
+    weddingPhotoLayer.add(weddingPhotoTransformer)
+  }
+
+  if (!weddingPhotoLayer || !weddingPhotoStage) return
+
+  // Load image
+  const imageObj = new window.Image()
+  imageObj.src = URL.createObjectURL(file)
+
+  await new Promise<void>((resolve, reject) => {
+    imageObj.onload = () => resolve()
+    imageObj.onerror = () => reject(new Error('Failed to load image'))
+  })
+
+  // Clear previous photo
+  if (weddingPhotoImage) {
+    weddingPhotoImage.destroy()
+    weddingPhotoImage = null
+  }
+
+  const stageWidth = weddingPhotoStage.width()
+  const stageHeight = weddingPhotoStage.height()
+
+  const imageRatio = imageObj.width / imageObj.height
+  const frameRatio = stageWidth / stageHeight
+
+  let displayWidth: number
+  let displayHeight: number
+
+  if (imageRatio > frameRatio) {
+    // Image is wider than frame
+    displayHeight = stageHeight * 0.9
+    displayWidth = displayHeight * imageRatio
+  } else {
+    displayWidth = stageWidth * 0.9
+    displayHeight = displayWidth / imageRatio
+  }
+
+  const imageNode = new Konva.Image({
+    image: imageObj,
+    x: (stageWidth - displayWidth) / 2,
+    y: (stageHeight - displayHeight) / 2 + 12,
+    width: displayWidth,
+    height: displayHeight,
+    draggable: true
+  })
+
+  weddingPhotoLayer.add(imageNode)
+  weddingPhotoImage = imageNode
+
+  // Attach transformer
+  weddingPhotoTransformer!.nodes([imageNode])
+
+  // Keep image within stage bounds on drag/transform
+  imageNode.on('dragmove', () => {
+    const box = imageNode.getClientRect()
+    const dx = Math.min(0, stageWidth - box.x - box.width)
+    const dy = Math.min(0, stageHeight - box.y - box.height)
+    const sx = Math.max(0, -box.x)
+    const sy = Math.max(0, -box.y)
+    if (sx || sy || dx || dy) {
+      imageNode.x(imageNode.x() + sx + dx)
+      imageNode.y(imageNode.y() + sy + dy)
+    }
+  })
+
+  weddingPhotoLayer.draw()
 }
 
 function updateSVGWithImages() {
@@ -1406,12 +2360,90 @@ function updateSVGWithImages() {
   const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
   if (!svgElement) return
 
+  const images = svgImageManager.images.value
+  
+  // Check for the specific userImage element we want to control (or fallback to placeholder-image)
+  const userImageElement = svgElement.querySelector('#userImage') || svgElement.querySelector('#placeholder-image')
+  
+  if (userImageElement && images.length > 0) {
+    // We are in "replace placeholder" mode
+    // Use the LAST image to populate #userImage (in case multiple were added, we want the latest)
+    const img = images[images.length - 1]
+
+    // Use FIXED frame position from SVG template
+    const frameX = 1400
+    const frameY = 35
+    const frameWidth = 1580
+    const frameHeight = 1650.75
+    
+    // Use custom scale from image if available, otherwise default to 1.15
+    const scale = img.scale || 1.15
+    const adjustedWidth = frameWidth * scale
+    const adjustedHeight = frameHeight * scale
+    
+    // Center the enlarged image within the frame
+    const adjustedX = frameX - (adjustedWidth - frameWidth) / 2
+    // Move only the uploaded image down by 90px
+    const adjustedY = frameY - (adjustedHeight - frameHeight) / 2 + 90
+    
+    userImageElement.setAttribute('x', adjustedX.toString())
+    userImageElement.setAttribute('y', adjustedY.toString())
+    userImageElement.setAttribute('width', adjustedWidth.toString())
+    userImageElement.setAttribute('height', adjustedHeight.toString())
+    userImageElement.setAttribute('opacity', (img.opacity / 100).toString())
+    userImageElement.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', img.dataUrl)
+    userImageElement.setAttribute('href', img.dataUrl)
+    
+    // Make image draggable
+    makeSVGImageDraggable(userImageElement as SVGImageElement, img.id)
+    
+    // Ensure clip-path and preserveAspectRatio are set as requested
+    if (!userImageElement.hasAttribute('clip-path')) {
+        // Only set default clip-path if it's the userImage element
+        if (userImageElement.id === 'userImage') {
+            userImageElement.setAttribute('clip-path', 'url(#imageClip)')
+        }
+    }
+    if (!userImageElement.hasAttribute('preserveAspectRatio')) {
+        userImageElement.setAttribute('preserveAspectRatio', 'xMidYMid meet')
+    }
+
+    // Build transform attribute
+    const transforms: string[] = []
+    
+    // Compute visual center based on the DISPLAYED image dimensions
+    // This ensures flip happens around the actual visible center
+    const displayCenterX = adjustedX + adjustedWidth / 2
+    const displayCenterY = adjustedY + adjustedHeight / 2
+
+    // Apply flip if needed (around visual center of displayed image)
+    if (img.flipped) {
+      transforms.push(`translate(${displayCenterX}, 0) scale(-1, 1) translate(-${displayCenterX}, 0)`)
+    }
+    
+    // Apply rotation around same center
+    if (img.rotation !== 0) {
+      transforms.push(`rotate(${img.rotation} ${displayCenterX} ${displayCenterY})`)
+    }
+    
+    if (transforms.length > 0) {
+      userImageElement.setAttribute('transform', transforms.join(' '))
+    } else {
+      userImageElement.removeAttribute('transform')
+    }
+
+    // Also remove any old style "user-image-*" elements just in case
+    const existingImages = svgElement.querySelectorAll('image[id^="user-image-"]')
+    existingImages.forEach(img => img.remove())
+    
+    return
+  }
+
+  // Fallback to old behavior if #userImage is not found
   // Remove existing user images
   const existingImages = svgElement.querySelectorAll('image[id^="user-image-"]')
   existingImages.forEach(img => img.remove())
 
-  // Add current images
-  const images = svgImageManager.images.value
   if (images.length === 0) return
 
   // Sort by z-index
@@ -1514,10 +2546,161 @@ async function exportWeddingSticker(format: 'svg' | 'png') {
 // Watch for category changes to load wedding template
 watch(selectedCategory, async (newCategory) => {
   if (newCategory === 'wedding') {
+    // Reset preview
+    showWeddingStickerPreview.value = false
+  } else if (newCategory === 'graduation') {
     await nextTick()
-    await loadWeddingStickerTemplate()
+    await loadGraduationTemplate()
+  } else {
+    // Reset wedding states when switching away
+    showWeddingStickerPreview.value = false
   }
 })
+
+// Watch for SVG size changes
+watch([() => formData.svgWidth, () => formData.svgHeight], ([newWidth, newHeight]) => {
+  if (selectedCategory.value === 'wedding' && weddingPreviewContainer.value) {
+    const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
+    if (svgElement) {
+      svgElement.setAttribute('width', newWidth.toString())
+      svgElement.setAttribute('height', newHeight.toString())
+    }
+  }
+})
+
+// Upload Modal Functions
+function closeUploadModal() {
+  if (!uploadModalProcessing.value) {
+    showUploadModal.value = false
+    uploadModalSuccess.value = false
+  }
+}
+
+function triggerModalFileInput() {
+  modalFileInput.value?.click()
+}
+
+async function handleModalFileSelect(event: Event) {
+  const target = event.target as HTMLInputElement
+  const files = target.files
+
+  if (files && files.length > 0) {
+    const file = files[0]
+
+    // Start processing
+    uploadModalProcessing.value = true
+    uploadModalProgress.value = 0
+    uploadModalStatusText.value = 'Uploading image...'
+    uploadModalSuccess.value = false
+
+    try {
+      // Simulate upload progress
+      uploadModalProgress.value = 30
+      await new Promise(resolve => setTimeout(resolve, 300))
+
+      let processedFile = file
+
+      // Remove background automatically ONLY if requested
+      if (autoRemoveBackground.value && isBackgroundRemovalSupported()) {
+        uploadModalStatusText.value = 'Removing background...'
+        uploadModalProgress.value = 50
+
+        try {
+          const result = await removeBackground(file, {
+            quality: 'high',
+            outputFormat: 'image/png',
+            maxDimensions: 2048
+          })
+
+          uploadModalProgress.value = 80
+
+          // Convert blob to File
+          processedFile = new File([result.blob], file.name.replace(/\.[^/.]+$/, '.png'), {
+            type: 'image/png',
+            lastModified: Date.now()
+          })
+
+          uploadModalStatusText.value = 'Background removed!'
+        } catch (error: any) {
+          console.warn('Background removal failed, using original image:', error)
+          uploadModalStatusText.value = 'Processing image...'
+          // Continue with original file
+        }
+      } else {
+        uploadModalStatusText.value = 'Processing image...'
+        uploadModalProgress.value = 60
+      }
+
+      // Instead of adding directly to SVG, open crop modal
+      cropImageSrc.value = URL.createObjectURL(processedFile)
+      cropImageFile.value = processedFile
+      isPreGenerationCrop.value = false
+      showCropModal.value = true
+
+      uploadModalProgress.value = 100
+      uploadModalStatusText.value = 'Ready to crop'
+      uploadModalSuccess.value = true
+
+      // Close modal once crop opens
+      setTimeout(() => {
+        closeUploadModal()
+        uploadModalProcessing.value = false
+      }, 500)
+
+    } catch (error) {
+      console.error('Upload failed:', error)
+      uploadModalProcessing.value = false
+      uploadModalProgress.value = 0
+      
+      authStore.showNotification({
+        title: 'Upload Failed',
+        message: 'Failed to process image. Please try again.',
+        type: 'error'
+      })
+    }
+  }
+
+  // Reset input
+  if (target) {
+    target.value = ''
+  }
+}
+
+// Pre-generation image upload handlers
+function triggerPreGeneratedImageInput() {
+  preGeneratedImageInput.value?.click()
+}
+
+function handlePreGeneratedImageSelect(event: Event) {
+  const target = event.target as HTMLInputElement
+  const files = target.files
+  
+  if (files && files.length > 0) {
+    const file = files[0]
+    
+    // Open crop modal instead of setting directly
+    cropImageSrc.value = URL.createObjectURL(file)
+    cropImageFile.value = file
+    isPreGenerationCrop.value = true
+    showCropModal.value = true
+  }
+  
+  // Reset input
+  if (target) {
+    target.value = ''
+  }
+}
+
+// Handle crop completion (Updated for Chat)
+
+
+function removePreGeneratedImage() {
+  preGeneratedImageFile.value = null
+  if (preGeneratedImagePreview.value) {
+    URL.revokeObjectURL(preGeneratedImagePreview.value)
+    preGeneratedImagePreview.value = null
+  }
+}
 
 onMounted(() => {
   // Clear previous form data
@@ -1534,17 +2717,231 @@ onMounted(() => {
     nextTick(() => {
       loadWeddingStickerTemplate()
     })
+  } else if (selectedCategory.value === 'graduation') {
+    nextTick(() => {
+      loadGraduationTemplate()
+    })
   }
 })
 </script>
 
 <style scoped>
-/* Transitions */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+/* Wedding Warning Banner */
+.wedding-warning-banner {
+  background: linear-gradient(to right, #eff6ff, #f5f3ff);
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+  display: flex;
+  gap: 16px;
+  position: relative;
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.1);
+  animation: slideDown 0.4s ease-out;
 }
 
+.warning-icon-wrapper {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  background: #dbeafe;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2563eb;
+}
+
+.warning-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.warning-content {
+  flex: 1;
+}
+
+.warning-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.warning-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e40af;
+  margin: 0;
+}
+
+.warning-badge {
+  background: #dbeafe;
+  color: #1e40af;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.warning-body {
+  color: #3b82f6;
+}
+
+.warning-main-text {
+  font-size: 14px;
+  color: #1e3a8a;
+  margin: 0 0 12px 0;
+  line-height: 1.5;
+}
+
+.warning-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.warning-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #1e40af;
+}
+
+.check-icon {
+  width: 16px;
+  height: 16px;
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.warning-example {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px dashed #93c5fd;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.example-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2563eb;
+  margin: 0 0 4px 0;
+}
+
+.example-code {
+  font-family: monospace;
+  font-size: 13px;
+  color: #1e40af;
+  background: rgba(255, 255, 255, 0.5);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.warning-dismiss-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: #93c5fd;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.warning-dismiss-btn:hover {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.warning-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.start-design-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+}
+
+.start-design-btn:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 8px -1px rgba(37, 99, 235, 0.3);
+}
+
+.start-design-btn:active {
+  transform: translateY(0);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Graduation Preview Styles */
+.graduation-preview-section {
+  margin-top: 24px;
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.canvas-container-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.wedding-preview-container {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 10px;
+  padding: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.wedding-preview-container svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  max-width: 100%;
+  min-height: auto;
+}
 .fade-enter-from {
   opacity: 0;
   transform: translateY(20px);
@@ -1606,120 +3003,63 @@ onMounted(() => {
   color: #111827;
 }
 
-/* Sticker Type Section */
-.sticker-type-section {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
+/* Category selection */
+.category-selection-container {
+  margin-top: 8px;
+  padding: 20px 4px 12px;
+}
+
+.selection-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
   margin-bottom: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  text-align: center;
+  letter-spacing: -0.02em;
 }
 
-.sticker-type-header {
-  margin-bottom: 16px;
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
 }
 
-.sticker-type-label {
-  font-size: 16px;
-  font-weight: 600;
-  color: #111827;
-  display: block;
-}
-
-.optional-text {
-  font-size: 14px;
-  font-weight: 400;
-  color: #6b7280;
-  font-style: italic;
-}
-
-.sticker-type-checkboxes {
-  display: flex;
-  flex-direction: row;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.checkbox-item {
+.category-card {
+  background: white;
+  border-radius: 16px;
+  border: 1.5px solid #e5e7eb;
+  padding: 20px 18px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  transition: background 0.2s;
-  flex: 1;
-  min-width: 0;
-}
-
-.checkbox-item:hover {
-  background: #f9fafb;
-}
-
-.sticker-checkbox {
-  width: 16px;
-  height: 16px;
+  gap: 14px;
   cursor: pointer;
-  accent-color: #3b82f6;
-  flex-shrink: 0;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
 }
 
-.checkbox-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: #374151;
-  cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
+.category-card:hover {
+  border-color: transparent;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-3px);
 }
 
-/* Mobile optimization */
-@media (max-width: 640px) {
-  .sticker-type-checkboxes {
-    gap: 4px;
-  }
-
-  .checkbox-item {
-    gap: 4px;
-    padding: 6px 8px;
-  }
-
-  .checkbox-label {
-    font-size: 12px;
-  }
-
-  .sticker-checkbox {
-    width: 14px;
-    height: 14px;
-  }
-}
-
-.category-pills {
+.category-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  margin-bottom: 20px;
-  padding-bottom: 8px;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.category-pill {
-  padding: 8px 16px;
-  background: white;
-  border: 1px solid #d1d5db;
-  border-radius: 20px;
-  font-size: 14px;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.category-pill.active {
-  background: #3b82f6;
-  color: white;
-  border-color: #3b82f6;
-}
-
-.category-pill:hover:not(.active) {
-  border-color: #9ca3af;
+.category-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .preview-section {
@@ -1759,6 +3099,7 @@ onMounted(() => {
 }
 
 .form-section {
+  position: relative;
   background: white;
   border-radius: 12px;
   padding: 20px;
@@ -1886,13 +3227,13 @@ onMounted(() => {
   right: 4px;
   width: 24px;
   height: 24px;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(220, 38, 38, 0.9);
   color: white;
   border: none;
   border-radius: 50%;
   font-size: 18px;
   cursor: pointer;
-  z-index: 10;
+  transition: all 0.2s;
 }
 
 .upload-label {
@@ -1934,6 +3275,51 @@ onMounted(() => {
 .generate-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* Generate Wedding Preview Button */
+.generate-preview-section {
+  margin: 24px 0;
+  text-align: center;
+}
+
+.generate-preview-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 32px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.generate-preview-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(139, 92, 246, 0.4);
+}
+
+.generate-preview-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.generate-preview-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #cbd5e1;
+  box-shadow: none;
+}
+
+.generate-hint {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #64748b;
 }
 
 /* Preview View Styles */
@@ -2045,7 +3431,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   min-height: 500px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .generated-image {
@@ -2110,16 +3496,563 @@ onMounted(() => {
   max-width: 800px;
   margin: 0 auto;
   background: white;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  overflow: auto;
+  border-radius: 10px;
+  padding: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  position: relative;
+  overflow: hidden;
 }
 
 .wedding-preview-container svg {
   width: 100%;
   height: auto;
   display: block;
+  max-width: 100%;
+  min-height: auto;
+}
+
+.wedding-photo-konva-host {
+  position: absolute;
+  inset: 8px;
+  pointer-events: auto;
+}
+
+.wedding-preview-controls {
+  margin-top: 16px;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 10px;
+  border: 1px dashed rgba(148, 163, 184, 0.6);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wedding-controls-row {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.wedding-controls-row .wedding-control-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.wedding-control-btn.primary {
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+.wedding-control-btn.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+}
+
+.wedding-control-btn.secondary {
+  background: #f9fafb;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+}
+
+.wedding-control-btn.secondary:hover {
+  background: #eff6ff;
+}
+
+/* Pre-upload Preview Styles */
+.pre-upload-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.pre-upload-image-container {
+  position: relative;
+  display: inline-flex;
+  line-height: 0;
+}
+
+.preview-thumbnail {
+  max-width: 120px;
+  max-height: 120px;
+  width: auto;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  display: block;
+}
+
+.remove-preview-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #ef4444;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s;
+}
+
+.remove-preview-btn:hover {
+  background: #fef2f2;
+  transform: scale(1.1);
+}
+
+/* Validation Warnings */
+.validation-warnings-container {
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: #fffbeb;
+  border: 1px solid #fbbf24;
+  border-radius: 8px;
+}
+
+.warning-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  color: #92400e;
+  font-weight: 600;
+}
+
+.warning-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.warning-list-item {
+  padding: 4px 0;
+  padding-left: 24px;
+  color: #92400e;
+  font-size: 0.9rem;
+  position: relative;
+}
+
+.warning-list-item:before {
+  content: "•";
+  position: absolute;
+  left: 8px;
+  color: #fbbf24;
+  font-weight: bold;
+}
+
+/* Edit Description Button */
+.edit-description-trigger {
+  margin: 16px 0;
+  text-align: center;
+}
+
+.edit-description-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.edit-description-btn:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.retouch-image-btn:hover:not(:disabled) {
+  background: #0ea5e9;
+}
+
+/* Image Scale Control */
+.image-scale-control {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.scale-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 12px;
+}
+
+.scale-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, #e2e8f0, #3b82f6, #e2e8f0);
+  outline: none;
+  -webkit-appearance: none;
+  margin-bottom: 12px;
+}
+
+.scale-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.5);
+  transition: all 0.2s;
+}
+
+.scale-slider::-webkit-slider-thumb:hover {
+  background: #2563eb;
+  transform: scale(1.15);
+  box-shadow: 0 3px 6px rgba(59, 130, 246, 0.6);
+}
+
+.scale-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.5);
+  transition: all 0.2s;
+}
+
+.scale-slider::-moz-range-thumb:hover {
+  background: #2563eb;
+  transform: scale(1.15);
+  box-shadow: 0 3px 6px rgba(59, 130, 246, 0.6);
+}
+
+.scale-presets {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.preset-btn {
+  flex: 1;
+  padding: 6px 10px;
+  background: white;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.preset-btn:hover {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+  transform: translateY(-1px);
+}
+
+.preset-btn:active {
+  transform: translateY(0);
+}
+
+/* Image Drop Zone */
+.image-drop-zone {
+  padding: 32px;
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
+  background: #f9fafb;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.image-drop-zone:hover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.drop-zone-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.drop-zone-text {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #374151;
+  margin: 0;
+}
+
+.drop-zone-subtext {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Processing Indicator */
+.processing-indicator {
+  margin: 16px 0;
+  padding: 16px;
+  background: #eff6ff;
+  border: 1px solid #3b82f6;
+  border-radius: 8px;
+}
+
+.processing-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.processing-spinner {
+  width: 32px;
+  height: 32px;
+  color: #3b82f6;
+}
+
+.processing-text {
+  flex: 1;
+}
+
+.processing-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e40af;
+  margin: 0 0 4px 0;
+}
+
+.processing-progress {
+  font-size: 0.85rem;
+  color: #3b82f6;
+  margin: 0;
+}
+
+.cancel-btn {
+  padding: 6px 12px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.cancel-btn:hover {
+  background: #dc2626;
+}
+
+/* Background Removal Error */
+.background-removal-error {
+  margin: 16px 0;
+  padding: 12px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+}
+
+.error-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.error-icon {
+  width: 24px;
+  height: 24px;
+  color: #dc2626;
+  flex-shrink: 0;
+}
+
+.error-text {
+  flex: 1;
+}
+
+.error-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #991b1b;
+  margin: 0 0 4px 0;
+}
+
+.error-message {
+  font-size: 0.85rem;
+  color: #b91c1c;
+  margin: 0 0 4px 0;
+}
+
+.error-hint {
+  font-size: 0.8rem;
+  color: #dc2626;
+  margin: 0;
+  font-style: italic;
+}
+
+.error-close-btn {
+  padding: 4px 8px;
+  background: transparent;
+  color: #dc2626;
+  border: none;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+  transition: all 0.2s;
+}
+
+.error-close-btn:hover {
+  color: #991b1b;
+  background: rgba(220, 38, 38, 0.1);
+  border-radius: 4px;
+}
+
+.upload-error {
+  margin: 12px 0;
+  padding: 12px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  color: #991b1b;
+  font-size: 0.9rem;
+}
+
+/* SVG Image Management */
+.svg-image-management {
+  margin-top: 20px;
+}
+
+/* Edit Modal */
+.edit-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: modalFadeIn 0.3s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.edit-modal-container {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 600px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: modalSlideUp 0.3s ease-out;
+}
+
+@keyframes modalSlideUp {
+  from {
+    transform: translateY(40px) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.edit-modal-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 8px 0;
+}
+
+.edit-modal-subtitle {
+  font-size: 0.95rem;
+  color: #6b7280;
+  margin: 0 0 24px 0;
+}
+
+.edit-modal-content {
+  margin-bottom: 24px;
+}
+
+.edit-modal-textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.edit-modal-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.edit-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.edit-modal-ok-btn {
+  padding: 10px 24px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.edit-modal-ok-btn:hover {
+  background: #2563eb;
+}
+
+.modal-warnings {
+  margin-top: 16px;
 }
 
 /* Responsive */
@@ -2151,145 +4084,208 @@ onMounted(() => {
   }
 
   .wedding-preview-section {
-    padding: 12px;
+    padding: 8px;
   }
 
   .wedding-preview-container {
-    padding: 12px;
+    padding: 0;
+    max-width: 100%;
+    margin: 0;
+    border-radius: 4px;
+    overflow-x: hidden;
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+    height: auto !important;
+    max-width: 100%;
   }
 }
 
-/* SVG Image Management Styles */
-.svg-image-management {
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 2px solid #e5e7eb;
-}
-
-.image-drop-zone {
-  border: 2px dashed #d1d5db;
-  border-radius: 12px;
-  padding: 40px 20px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  background: #f9fafb;
-  margin-top: 12px;
-}
-
-.image-drop-zone:hover {
-  border-color: #3b82f6;
-  background: #eff6ff;
-}
-
-.image-drop-zone.is-dragging {
-  border-color: #3b82f6;
-  background: #dbeafe;
-  transform: scale(1.02);
-}
-
-.drop-zone-content {
+/* Generating Overlay Styles */
+.generating-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+    inset: 8px;
+    z-index: 2;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
+  animation: fadeIn 0.3s ease-out;
 }
 
-.drop-zone-text {
-  font-size: 16px;
-  font-weight: 500;
-  color: #374151;
+.generating-content {
+  text-align: center;
+  padding: 2rem;
+  animation: generatingFloat 3.2s ease-in-out infinite;
 }
 
-.drop-zone-subtext {
-  font-size: 14px;
-  color: #6b7280;
+.generating-spinner {
+  display: inline-block;
+  position: relative;
+  width: 140px;
+  height: 140px;
+  margin-bottom: 2rem;
 }
 
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #e5e7eb;
-  border-top-color: #3b82f6;
+.spinner-ring {
+  position: absolute;
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  border: 3px solid transparent;
+  animation: spinnerOrbit 2.2s cubic-bezier(0.45, 0, 0.25, 1) infinite;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+.spinner-ring:nth-child(1) {
+  inset: 0;
+  border-top-color: #4f46e5;
+  border-left-color: rgba(79, 70, 229, 0.3);
+  box-shadow: 0 0 25px rgba(79, 70, 229, 0.35);
 }
 
-.upload-error {
-  margin-top: 12px;
-  padding: 12px;
-  background: #fee2e2;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  color: #dc2626;
-  font-size: 14px;
+.spinner-ring:nth-child(2) {
+  inset: 10px;
+  border-bottom-color: #0ea5e9;
+  border-right-color: rgba(14, 165, 233, 0.4);
+  animation-duration: 2.8s;
+  animation-direction: reverse;
+  box-shadow: 0 0 20px rgba(14, 165, 233, 0.35);
 }
 
+.spinner-ring:nth-child(3) {
+  inset: 22px;
+  border-top-color: #f97316;
+  border-left-color: rgba(249, 115, 22, 0.4);
+  animation-duration: 3.4s;
+  box-shadow: 0 0 18px rgba(249, 115, 22, 0.35);
+}
+
+.generating-spinner::before {
+  content: '';
+  position: absolute;
+  inset: 32px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 20%, #ffffff, #e0f2fe 45%, #e0f2fe00 70%);
+  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.18);
+}
+
+.generating-spinner::after {
+  content: '';
+  position: absolute;
+  inset: 46px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 20%, #f9fafb, #e5e7eb);
+}
+
+@keyframes spinnerOrbit {
+  0% {
+    transform: rotate(0deg) scale(0.98);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.02);
+  }
+  100% {
+    transform: rotate(360deg) scale(0.98);
+  }
+}
+
+@keyframes generatingFloat {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.generating-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.generating-subtitle {
+  color: #6b7280;
+  font-size: 1rem;
+}
+
+/* Image List Section */
 .image-list-section {
-  margin-top: 24px;
+  margin-top: 20px;
+  padding: 16px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
 }
 
 .image-list-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .image-list-title {
-  font-size: 16px;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: #111827;
+  color: #374151;
+  margin: 0;
 }
 
 .clear-all-btn {
   padding: 6px 12px;
-  background: #fee2e2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
+  background: #ef4444;
+  color: white;
+  border: none;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s;
 }
 
 .clear-all-btn:hover {
-  background: #fecaca;
+  background: #dc2626;
 }
 
 .image-gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: 12px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .image-gallery-item {
   position: relative;
   aspect-ratio: 1;
-  border: 2px solid #e5e7eb;
   border-radius: 8px;
-  overflow: auto;
-  /* Changed from overflow: hidden to allow scrolling in template item */
+  overflow: hidden;
   cursor: pointer;
+  border: 2px solid transparent;
   transition: all 0.2s;
 }
 
 .image-gallery-item:hover {
   border-color: #3b82f6;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: scale(1.02);
 }
 
 .image-gallery-item.selected {
   border-color: #3b82f6;
-  border-width: 3px;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
 .gallery-thumbnail {
@@ -2302,20 +4298,29 @@ onMounted(() => {
   position: absolute;
   top: 4px;
   right: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.image-gallery-item:hover .gallery-item-actions {
+  opacity: 1;
 }
 
 .gallery-remove-btn {
   padding: 4px;
-  background: rgba(220, 38, 38, 0.9);
+  background: rgba(239, 68, 68, 0.9);
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
 }
 
 .gallery-remove-btn:hover {
-  background: rgba(220, 38, 38, 1);
+  background: #dc2626;
 }
 
 .gallery-item-label {
@@ -2326,341 +4331,1459 @@ onMounted(() => {
   padding: 4px;
   background: rgba(0, 0, 0, 0.7);
   color: white;
-  font-size: 11px;
+  font-size: 0.75rem;
   text-align: center;
-  overflow: hidden;
-  /* Keeping overflow: hidden for text truncation with ellipsis - this is intentional */
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.image-controls-section {
-  padding: 20px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-}
-
-.controls-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #111827;
-  margin-bottom: 16px;
-}
-
-.controls-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.control-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.control-group-full {
-  margin-bottom: 16px;
-}
-
-.control-label {
-  font-size: 14px;
   font-weight: 500;
-  color: #374151;
 }
 
-.control-input {
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 14px;
-  transition: all 0.2s;
+/* Edit Toggle Button */
+.edit-toggle-section {
+  margin-top: 16px;
+  text-align: center;
 }
 
-.control-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.control-input:disabled {
-  background: #f3f4f6;
-  cursor: not-allowed;
-}
-
-.checkbox-control {
-  display: flex;
+.edit-toggle-btn {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  color: #374151;
-}
-
-.checkbox-control input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-}
-
-.layer-controls {
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.layer-controls-title {
-  font-size: 14px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
   font-weight: 600;
-  color: #374151;
-  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
-.layer-buttons {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+.edit-toggle-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.edit-toggle-btn:active {
+  transform: translateY(0);
+}
+
+.edit-toggle-btn svg:last-child {
+  transition: transform 0.3s ease;
+}
+
+.edit-toggle-btn svg.rotate-180 {
+  transform: rotate(180deg);
+}
+
+/* Image Controls Container */
+.image-controls-container {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.flip-controls-section {
+  display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
 }
 
-.layer-btn {
+.flip-image-btn,
+.retouch-image-btn {
+  flex: 1;
+  min-width: 120px;
+  padding: 8px 12px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 12px;
-  background: white;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #374151;
-  cursor: pointer;
   transition: all 0.2s;
 }
 
-.layer-btn:hover {
-  background: #f3f4f6;
+.flip-image-btn:hover,
+.retouch-image-btn:hover:not(:disabled) {
+  background: #e5e7eb;
   border-color: #9ca3af;
 }
 
-.export-section {
-  margin-top: 24px;
-  display: flex;
-  gap: 12px;
+.retouch-image-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
-.export-btn {
-  flex: 1;
+/* Upload Modal Styles */
+.upload-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 10000;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 12px 20px;
+  padding: 20px;
+  animation: modalFadeIn 0.3s ease-out;
+}
+
+.upload-modal-container {
+  position: relative;
+  background: white;
+  border-radius: 24px;
+  padding: 48px 40px;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: modalSlideUp 0.3s ease-out;
+  border: 1px solid #e5e7eb;
+}
+
+.upload-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  padding: 8px;
+  background: #f3f4f6;
   border: none;
-  border-radius: 8px;
-  font-size: 15px;
-  font-weight: 600;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
+  color: #6b7280;
 }
 
-.export-svg-btn {
-  background: #3b82f6;
+.upload-modal-close:hover {
+  background: #e5e7eb;
+  color: #374151;
+  transform: rotate(90deg);
+}
+
+.upload-modal-content {
+  text-align: center;
+}
+
+.upload-modal-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 96px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  margin-bottom: 24px;
+  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+  animation: iconPulse 2s ease-in-out infinite;
+}
+
+@keyframes iconPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 15px 40px rgba(102, 126, 234, 0.5);
+  }
+}
+
+.upload-modal-icon svg {
+  width: 48px;
+  height: 48px;
   color: white;
 }
 
-.export-svg-btn:hover {
-  background: #2563eb;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+.upload-modal-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 12px 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-.export-png-btn {
-  background: #10b981;
+.upload-modal-description {
+  font-size: 16px;
+  color: #6b7280;
+  line-height: 1.6;
+  margin: 0 0 32px 0;
+}
+
+.upload-modal-actions {
+  margin-top: 32px;
+}
+
+.upload-modal-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 48px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
 }
 
-.export-png-btn:hover {
-  background: #059669;
+.upload-modal-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 12px 32px rgba(102, 126, 234, 0.5);
 }
 
-@media (max-width: 640px) {
-  .controls-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .layer-buttons {
-    grid-template-columns: 1fr;
-  }
-
-  .export-section {
-    flex-direction: column;
-  }
-
-  .image-gallery {
-    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  }
+.upload-modal-btn:active {
+  transform: translateY(0);
 }
 
-/* Background Removal Styles */
-.background-removal-toggle {
+.upload-modal-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.upload-modal-processing {
+  margin-top: 32px;
+  padding: 24px;
+  background: #f9fafb;
+  border-radius: 16px;
+}
+
+.processing-spinner-wrapper {
+  display: flex;
+  justify-content: center;
   margin-bottom: 16px;
-  padding: 12px;
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
-  border-radius: 8px;
+}
+
+.processing-spinner-large {
+  width: 48px;
+  height: 48px;
+  color: #667eea;
+}
+
+.processing-status-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 16px 0;
+}
+
+.processing-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.processing-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.processing-progress-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #667eea;
+  margin: 0;
+}
+
+.upload-modal-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 24px;
+  background: #f0fdf4;
+  border-radius: 16px;
+  color: #16a34a;
+  animation: successPop 0.5s ease-out;
+}
+
+@keyframes successPop {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.upload-modal-success svg {
+  width: 48px;
+  height: 48px;
+}
+
+.upload-modal-success p {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.background-removal-toggle {
+  text-align: left;
 }
 
 .toggle-label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   cursor: pointer;
-  font-size: 14px;
-  color: #0c4a6e;
-  font-weight: 500;
+  user-select: none;
 }
 
 .toggle-checkbox {
-  width: 18px;
-  height: 18px;
   cursor: pointer;
-  accent-color: #0284c7;
+  accent-color: #667eea;
 }
 
 .toggle-text {
-  flex: 1;
+  font-size: 0.95rem;
 }
 
 .toggle-hint {
-  margin: 8px 0 0 28px;
-  font-size: 12px;
-  color: #0369a1;
-  font-style: italic;
+  font-size: 0.85rem;
 }
 
-.processing-indicator {
-  margin-bottom: 16px;
-  padding: 16px;
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-  border: 2px solid #fbbf24;
+@media (min-width: 768px) {
+  .category-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  /* Category cards mobile */
+  .category-selection-container {
+    padding: 16px 8px 12px;
+  }
+
+  .selection-title {
+    font-size: 16px;
+    margin-bottom: 16px;
+  }
+
+  .category-grid {
+    gap: 12px;
+  }
+
+  .category-card {
+    padding: 16px 14px;
+    gap: 12px;
+  }
+
+  .category-icon {
+    width: 38px;
+    height: 38px;
+    font-size: 20px;
+  }
+
+  .category-name {
+    font-size: 14px;
+  }
+
+  /* Wedding controls mobile */
+  .wedding-controls-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .wedding-control-btn {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+    justify-content: center;
+    padding: 8px 12px !important;
+    font-size: 0.8rem !important;
+  }
+
+  .wedding-control-btn svg,
+  .wedding-control-btn .w-4 {
+    width: 14px !important;
+    height: 14px !important;
+  }
+
+  /* Flip controls mobile */
+  .flip-controls-section {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .flip-image-btn,
+  .retouch-image-btn {
+    flex: 1 1 calc(50% - 3px);
+    min-width: 0;
+    padding: 7px 10px;
+    font-size: 0.75rem;
+  }
+
+  .flip-image-btn span,
+  .retouch-image-btn span {
+    display: inline;
+  }
+
+  .flip-image-btn svg,
+  .retouch-image-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* Edit toggle button mobile */
+  .edit-toggle-btn {
+    padding: 8px 16px;
+    font-size: 0.85rem;
+  }
+
+  .edit-toggle-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* Image controls container mobile */
+  .image-controls-container {
+    padding: 12px;
+    margin-top: 12px;
+  }
+
+  /* Scale slider mobile */
+  .scale-slider-container {
+    padding: 12px;
+  }
+
+  .scale-preset-buttons {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .preset-btn {
+    flex: 1 1 calc(33.333% - 6px);
+    min-width: 70px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+
+  /* Form sections mobile */
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .form-label {
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+
+  /* Generate button mobile */
+  .generate-preview-btn {
+    padding: 10px 20px;
+    font-size: 0.9rem;
+    width: 100%;
+  }
+
+  .generate-preview-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .generate-preview-section {
+    margin: 16px 0;
+    padding: 0 8px;
+  }
+
+  /* Image scale control mobile */
+  .image-scale-control {
+    padding: 10px;
+    margin-top: 10px;
+  }
+
+  .scale-label {
+    font-size: 0.8rem;
+    margin-bottom: 8px;
+  }
+
+  .scale-label svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .scale-presets {
+    gap: 6px;
+  }
+
+  .preset-btn {
+    flex: 1 1 calc(33.333% - 4px);
+    min-width: 55px;
+    padding: 5px 6px;
+    font-size: 0.7rem;
+  }
+
+  /* Edit toggle button mobile */
+  .edit-toggle-section {
+    margin-top: 12px;
+  }
+
+  .edit-toggle-btn {
+    padding: 7px 14px;
+    font-size: 0.8rem;
+  }
+
+  /* Image controls container mobile */
+  .image-controls-container {
+    padding: 10px;
+  }
+
+  .image-scale-control {
+    padding: 10px;
+    margin-top: 0;
+  }
+
+  /* Preview info mobile */
+  .preview-info {
+    padding: 20px;
+  }
+
+  .preview-info-title {
+    font-size: 18px;
+    margin-bottom: 16px;
+  }
+
+  .preview-info-item {
+    padding: 12px 0;
+  }
+
+  .info-label,
+  .info-value {
+    font-size: 13px;
+  }
+
+  /* Export section mobile */
+  .export-section {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .export-section button {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+  }
+
+  .export-section button svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* Modal mobile */
+  .upload-modal-overlay {
+    padding: 12px;
+  }
+
+  .upload-modal-container {
+    max-width: 100%;
+    margin: 0;
+    padding: 20px;
+  }
+
+  .modal-header {
+    padding: 16px;
+  }
+
+  .modal-title {
+    font-size: 18px;
+  }
+
+  .modal-body {
+    padding: 16px;
+  }
+
+  /* Preview mobile */
+  .wedding-preview-container {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .wedding-preview-container svg {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Extra small mobile devices */
+  .category-card {
+    padding: 12px 10px;
+    gap: 10px;
+  }
+
+  .category-icon {
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+  }
+
+  .category-name {
+    font-size: 12px;
+  }
+
+  .selection-title {
+    font-size: 14px;
+  }
+
+  .wedding-control-btn {
+    padding: 7px 10px !important;
+    font-size: 0.75rem !important;
+    gap: 4px;
+  }
+
+  .wedding-control-btn svg,
+  .wedding-control-btn .w-4 {
+    width: 12px !important;
+    height: 12px !important;
+  }
+
+  .flip-image-btn,
+  .retouch-image-btn {
+    padding: 6px 8px;
+    font-size: 0.7rem;
+  }
+
+  .flip-image-btn svg,
+  .retouch-image-btn svg {
+    width: 11px;
+    height: 11px;
+  }
+
+  .preset-btn {
+    flex: 1 1 calc(50% - 4px);
+    font-size: 0.65rem;
+    padding: 4px 6px;
+  }
+
+  .edit-toggle-btn {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+  }
+
+  .edit-toggle-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .generate-preview-btn {
+    padding: 8px 16px;
+    font-size: 0.85rem;
+  }
+
+  /* Adjust SVG container for very small screens */
+  .wedding-preview-container {
+    padding: 0;
+  }
+
+  .form-textarea {
+    font-size: 13px;
+    padding: 10px;
+  }
+
+  .scale-label {
+    font-size: 0.75rem;
+  }
+}
+
+/* Landscape mobile orientation */
+@media (max-width: 896px) and (orientation: landscape) {
+  .category-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .category-card {
+    padding: 12px 10px;
+  }
+
+  .wedding-controls-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .wedding-control-btn {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 140px;
+  }
+}
+
+/* Touch device improvements */
+@media (hover: none) and (pointer: coarse) {
+  .category-card {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .category-card:active {
+    transform: scale(0.98);
+  }
+
+  .wedding-control-btn:active {
+    transform: scale(0.98);
+  }
+
+  .flip-image-btn:active,
+  .retouch-image-btn:active {
+    transform: scale(0.98);
+  }
+
+  /* Increase touch target sizes */
+  button {
+    min-height: 44px;
+  }
+
+  /* Improve slider thumb size for touch */
+  .scale-slider::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+  }
+
+  .scale-slider::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+/* Safe area support for notched devices */
+@supports (padding: max(0px)) {
+  .preview-header,
+  .category-selection-container,
+  .form-section {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+
+  .upload-modal-container {
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+  }
+
+  @media (max-width: 768px) {
+    .wedding-controls-row,
+    .flip-controls-section {
+      padding-left: max(8px, env(safe-area-inset-left));
+      padding-right: max(8px, env(safe-area-inset-right));
+    }
+  }
+}
+
+/* Prevent text selection on interactive elements (better mobile UX) */
+.category-card,
+.wedding-control-btn,
+.flip-image-btn,
+.retouch-image-btn,
+.preset-btn {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Fix for iOS input zoom */
+@media (max-width: 768px) {
+  input[type="text"],
+  input[type="range"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Smooth scrolling for mobile */
+@media (max-width: 768px) {
+  .wedding-preview-container,
+  .upload-modal-container,
+  .preview-view {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+}
+
+/* Improve button spacing on very small screens */
+@media (max-width: 360px) {
+  .wedding-control-btn {
+    padding: 6px 10px !important;
+    font-size: 0.7rem !important;
+    gap: 3px;
+  }
+
+  .wedding-control-btn svg {
+    width: 11px !important;
+    height: 11px !important;
+  }
+
+  .flip-image-btn,
+  .retouch-image-btn {
+    padding: 6px 10px;
+    font-size: 0.7rem;
+  }
+
+  .flip-image-btn svg,
+  .retouch-image-btn svg {
+    width: 11px;
+    height: 11px;
+  }
+
+  .preset-btn {
+    padding: 5px 6px;
+    font-size: 0.65rem;
+  }
+
+  .category-name {
+    font-size: 11px;
+  }
+
+  .category-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 15px;
+  }
+
+  .edit-toggle-btn {
+    padding: 6px 10px;
+    font-size: 0.7rem;
+  }
+
+  .generate-preview-btn {
+    padding: 7px 14px;
+    font-size: 0.8rem;
+  }
+}
+
+/* AI Chat Footer */
+.ai-chat-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+  padding: 12px 16px;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+  z-index: 1000;
+}
+
+/* Chat SVG Preview Styles */
+.chat-svg-preview {
+  margin: 20px;
+  background: white;
   border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(251, 191, 36, 0.1);
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  animation: fadeIn 0.3s ease-out;
 }
 
-.processing-content {
+.svg-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.preview-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.edit-preview-btn {
   display: flex;
   align-items: center;
-  gap: 16px;
-}
-
-.processing-spinner {
-  width: 32px;
-  height: 32px;
-  color: #d97706;
-}
-
-.processing-text {
-  flex: 1;
-}
-
-.processing-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #92400e;
-  margin: 0 0 4px 0;
-}
-
-.processing-progress {
-  font-size: 13px;
-  color: #b45309;
-  margin: 0;
-  font-weight: 500;
-}
-
-.cancel-btn {
-  padding: 6px 12px;
-  background: white;
-  color: #d97706;
-  border: 1px solid #fbbf24;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.cancel-btn:hover {
-  background: #fef3c7;
-  border-color: #f59e0b;
-}
-
-.background-removal-error {
-  margin-bottom: 16px;
-  padding: 14px;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-}
-
-.error-content {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.error-icon {
-  width: 24px;
-  height: 24px;
-  color: #dc2626;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.error-text {
-  flex: 1;
-}
-
-.error-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #991b1b;
-  margin: 0 0 4px 0;
-}
-
-.error-message {
-  font-size: 13px;
-  color: #b91c1c;
-  margin: 0 0 4px 0;
-}
-
-.error-hint {
-  font-size: 12px;
-  color: #dc2626;
-  margin: 0;
-  font-style: italic;
-}
-
-.error-close-btn {
-  padding: 4px 8px;
-  background: transparent;
-  color: #dc2626;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #f3f4f6;
+  color: #374151;
   border: none;
-  font-size: 20px;
-  font-weight: bold;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
   cursor: pointer;
-  line-height: 1;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
-.error-close-btn:hover {
-  color: #991b1b;
-  background: rgba(220, 38, 38, 0.1);
-  border-radius: 4px;
+.edit-preview-btn:hover {
+  background: #e5e7eb;
+  transform: translateY(-1px);
+}
+
+.export-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+}
+
+.export-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: #1f2937;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.export-action-btn:hover {
+  background: #111827;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.chat-input-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.chat-add-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  color: #374151;
+}
+
+.chat-add-btn:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.chat-add-btn.active {
+  background: #1f2937;
+  border-color: #1f2937;
+  color: white;
+  transform: rotate(45deg);
+}
+
+.chat-input-wrapper {
+  flex: 1;
+  position: relative;
+}
+
+.chat-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 24px;
+  font-size: 15px;
+  outline: none;
+  transition: all 0.2s ease;
+  background: #f9fafb;
+}
+
+.chat-input:focus {
+  border-color: #1f2937;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.1);
+}
+
+.chat-input::placeholder {
+  color: #9ca3af;
+}
+
+.chat-voice-btn,
+.chat-send-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.chat-voice-btn {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.chat-voice-btn:hover {
+  background: #e5e7eb;
+}
+
+.chat-send-btn {
+  background: #1f2937;
+  color: white;
+}
+
+.chat-send-btn:hover:not(:disabled) {
+  background: #111827;
+  transform: translateY(-1px);
+}
+
+.chat-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-send-btn svg {
+  transform: rotate(90deg);
+}
+
+/* Upload Options Popup */
+.upload-options-popup {
+  position: absolute;
+  bottom: 70px;
+  left: 16px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 8px;
+  min-width: 200px;
+  animation: slideUp 0.2s ease-out;
+  z-index: 1001;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.upload-option-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #374151;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.upload-option-btn:hover {
+  background: #f3f4f6;
+}
+
+.upload-option-btn svg {
+  color: #1f2937;
+}
+
+/* Chat Image Styles */
+.chat-image-container {
+  margin-top: 8px;
+  border-radius: 12px;
+  overflow: hidden;
+  max-width: 200px;
+  border: 1px solid #e5e7eb;
+}
+
+.chat-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Mobile adjustments for chat footer */
+@media (max-width: 768px) {
+  .ai-chat-footer {
+    padding: 10px 12px;
+  }
+
+  .chat-input-container {
+    gap: 8px;
+  }
+
+  .chat-add-btn,
+  .chat-voice-btn,
+  .chat-send-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .chat-add-btn svg,
+  .chat-voice-btn svg,
+  .chat-send-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .chat-input {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+
+  .upload-options-popup {
+    left: 12px;
+    bottom: 60px;
+    min-width: 180px;
+  }
+
+  .upload-option-btn {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ai-chat-footer {
+    padding: 8px 10px;
+  }
+
+  .chat-input-container {
+    gap: 6px;
+  }
+
+  .chat-add-btn,
+  .chat-voice-btn,
+  .chat-send-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .chat-add-btn svg,
+  .chat-voice-btn svg,
+  .chat-send-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .chat-input {
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+
+  .upload-options-popup {
+    left: 10px;
+    bottom: 56px;
+  }
+
+  .upload-option-btn {
+    padding: 9px 12px;
+    font-size: 13px;
+    gap: 10px;
+  }
+}
+
+/* Chat History Styles */
+.wedding-chat-interface {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 200px); /* Adjust based on header/footer */
+  overflow: hidden;
+  background: #f9fafb;
+  margin: -20px -20px 0 -20px; /* Negative margin to fill container */
+}
+
+.chat-history {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 100px; /* Space for footer */
+}
+
+.chat-welcome-message {
+  text-align: center;
+  padding: 40px 20px;
+  color: #4b5563;
+}
+
+.welcome-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.chat-welcome-message h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #1f2937;
+}
+
+.chat-welcome-message p {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+.chat-message {
+  display: flex;
+  flex-direction: column;
+  max-width: 80%;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.chat-message.user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.chat-message.ai {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.message-bubble {
+  padding: 12px 16px;
+  border-radius: 18px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  position: relative;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.chat-message.user .message-bubble {
+  background: #1f2937;
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-message.ai .message-bubble {
+  background: white;
+  color: #1f2937;
+  border: 1px solid #e5e7eb;
+  border-bottom-left-radius: 4px;
+}
+
+.message-time {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  margin-top: 4px;
+  padding: 0 4px;
+}
+
+.chat-image-container {
+  margin-top: 8px;
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 200px;
+}
+
+.chat-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Analyzing Animation */
+.message-bubble.analyzing {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 20px;
+  min-width: 60px;
+  justify-content: center;
+}
+
+.typing-dot {
+  width: 6px;
+  height: 6px;
+  background: #9ca3af;
+  border-radius: 50%;
+  animation: typing 1.4s infinite ease-in-out both;
+}
+
+.typing-dot:nth-child(1) { animation-delay: -0.32s; }
+.typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+/* Generating Animation in Chat */
+.message-bubble.generating {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px;
+  min-width: 250px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+}
+
+.generating-spinner-inline {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.spinner-ring-inline {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.spinner-ring-inline:nth-child(2) { animation-delay: 0.1s; }
+.spinner-ring-inline:nth-child(3) { animation-delay: 0.2s; }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.generating-text {
+  text-align: center;
+}
+
+.generating-title-inline {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.generating-subtitle-inline {
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
+
+/* SVG Bubble in Chat */
+.message-bubble.svg-bubble {
+  padding: 0;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  max-width: 100%;
+  width: fit-content;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.svg-actions-bar {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.svg-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.svg-action-btn.edit-btn {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.svg-action-btn.edit-btn:hover {
+  background: #e5e7eb;
+}
+
+.svg-action-btn.export-btn {
+  background: #1f2937;
+  color: white;
+}
+
+.svg-action-btn.export-btn:hover {
+  background: #111827;
+}
+
+.wedding-preview-container-inline {
+  padding: 16px;
+  background: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.wedding-preview-container-inline svg {
+  max-width: 100%;
+  height: auto;
+}
+
+@keyframes typing {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Add bottom padding to main container to account for fixed footer */
+.form-section,
+.wedding-preview-section {
+  margin-bottom: 80px;
+}
+
+@media (max-width: 768px) {
+  .form-section,
+  .wedding-preview-section {
+    margin-bottom: 70px;
+  }
 }
 </style>
+
 
