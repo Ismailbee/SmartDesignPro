@@ -51,25 +51,40 @@ body.sidebar-scroll-lock .sidebar-content {
   background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
 }
 
-/* Hide all scrollbars globally while maintaining scroll functionality */
+/* Show all scrollbars globally */
 * {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* Internet Explorer 10+ */
+  scrollbar-width: auto; /* Firefox */
+  -ms-overflow-style: auto; /* Internet Explorer 10+ */
 }
 
-/* Hide scrollbars for WebKit browsers (Chrome, Safari, Edge) */
+/* Show scrollbars for WebKit browsers (Chrome, Safari, Edge) */
 *::-webkit-scrollbar {
-  display: none;
-  width: 0px;
-  background: transparent;
+  display: block;
+  width: 12px;
+  height: 12px;
+  background: #f1f1f1;
 }
 
-/* Ensure scrolling still works for all elements */
-*::-webkit-scrollbar-track,
-*::-webkit-scrollbar-thumb,
+/* Scrollbar track */
+*::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+/* Scrollbar thumb */
+*::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 10px;
+}
+
+/* Scrollbar thumb on hover */
+*::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Scrollbar corner */
 *::-webkit-scrollbar-corner {
-  display: none;
-  background: transparent;
+  background: #f1f1f1;
 }
 
 /* Custom scrollbar (now hidden by default) */
