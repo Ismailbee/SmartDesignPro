@@ -12,6 +12,16 @@
       <!-- Member Info Banner -->
       <div class="w-full max-w-4xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-2.5 rounded-lg shadow-md flex items-center justify-between">
         <div class="flex items-center gap-2.5">
+          <!-- Back Button -->
+          <button
+            class="w-7 h-7 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors"
+            title="Go Back"
+            @click="$router.go(-1)"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+          </button>
           <div class="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -24,7 +34,7 @@
         </div>
       </div>
 
-      <!-- Control Panel Section -->
+      <!-- Control  Panel Section -->
       <section class="w-full max-w-4xl bg-white dark:bg-slate-800 p-2 rounded-xl shadow-lg">
         <div class="flex items-center justify-between flex-wrap gap-2.5">
           <!-- Title -->
@@ -147,7 +157,7 @@
         </div>
       </section>
 
-      <!-- Smart Text Input Section -->
+      <!-- Organization Details Form -->
       <section class="w-full max-w-4xl">
         <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-4 border border-gray-200 dark:border-gray-700">
           <div class="flex items-center justify-between mb-3">
@@ -156,22 +166,12 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               <h2 class="text-base font-semibold text-slate-900 dark:text-white">
-                🧠 Smart Text Parser - Quick Fill Invoice
+                📋 Organization Details Form
               </h2>
             </div>
             
-            <!-- Help & Refresh Buttons -->
+            <!-- Clear Button -->
             <div class="flex gap-2">
-              <button
-                class="flex items-center gap-1 px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-medium rounded-lg transition-colors shadow-sm"
-                title="Show formatting guide"
-                @click="showFormatGuide = !showFormatGuide"
-              >
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Guide</span>
-              </button>
               <button
                 class="flex items-center gap-1 px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-medium rounded-lg transition-colors shadow-sm"
                 title="Clear all fields and start fresh"
@@ -182,95 +182,6 @@
                 </svg>
                 <span>Clear</span>
               </button>
-            </div>
-          </div>
-
-          <!-- AI-Enhanced Format Guide (Collapsible) -->
-          <div v-if="showFormatGuide" class="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-700">
-            <h3 class="text-xs font-semibold text-purple-900 dark:text-purple-300 mb-2 flex items-center gap-1">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-              </svg>
-              🤖 AI-Powered Text Parser Guide
-            </h3>
-            
-            <!-- AI Benefits Banner -->
-            <div class="mb-3 p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded border border-emerald-300 dark:border-emerald-700">
-              <p class="text-[10px] text-emerald-800 dark:text-emerald-300 flex items-start gap-1">
-                <svg class="w-3 h-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                <span><strong>NEW:</strong> AI automatically detects organization details without special formatting! Just paste natural text and watch the magic happen.</span>
-              </p>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-[10px]">
-              <!-- AI Features Column -->
-              <div class="space-y-2">
-                <div class="p-2 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded border border-blue-200 dark:border-blue-700">
-                  <strong class="text-blue-700 dark:text-blue-400 flex items-center gap-1">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
-                    AI Smart Detection:
-                  </strong>
-                  <ul class="text-gray-600 dark:text-gray-400 mt-1 space-y-0.5 text-[9px]">
-                    <li>• Automatically finds company names</li>
-                    <li>• Detects addresses without keywords</li>
-                    <li>• Identifies phone numbers in any format</li>
-                    <li>• Extracts emails and websites</li>
-                    <li>• Works with messy, unformatted text</li>
-                  </ul>
-                </div>
-                
-                <div class="p-2 bg-gradient-to-r from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20 rounded border border-green-200 dark:border-green-700">
-                  <strong class="text-green-700 dark:text-green-400">✨ Natural Text Examples:</strong>
-                  <p class="text-gray-600 dark:text-gray-400 mt-1 text-[8px] font-mono leading-tight">
-                    ABC Corp is located at 123 Main Street<br>
-                    Call us: (555) 123-4567<br>
-                    Our tagline: Innovation First<br>
-                    Email: info@abc.com<br><br>
-                    <span class="text-green-600 dark:text-green-400 font-semibold">✅ AI will extract everything!</span>
-                  </p>
-                </div>
-              </div>
-              
-              <!-- Fallback Format Column -->
-              <div class="space-y-2">
-                <div class="p-2 bg-white dark:bg-slate-800 rounded border">
-                  <strong class="text-orange-700 dark:text-orange-400">📋 Structured Format (Optional):</strong>
-                  <p class="text-gray-600 dark:text-gray-400 mt-1 text-[9px]">For maximum accuracy, you can still use:</p>
-                  <ul class="text-gray-600 dark:text-gray-400 mt-1 space-y-0.5 text-[8px] font-mono">
-                    <li>(Company Name) - for organization</li>
-                    <li>"Tagline" - for subtitle</li>
-                    <li>Address: your address</li>
-                    <li>Phone: your number</li>
-                  </ul>
-                </div>
-                
-                <div class="p-2 bg-white dark:bg-slate-800 rounded border">
-                  <strong class="text-indigo-700 dark:text-indigo-400">🔄 Hybrid Example:</strong>
-                  <p class="text-gray-600 dark:text-gray-400 mt-1 text-[8px] font-mono leading-tight">
-                    (TechSolutions Inc)<br>
-                    "Innovation at its Best"<br>
-                    Located at 456 Tech Park<br>
-                    You can reach us at +1-800-TECH<br>
-                    Visit: www.techsolutions.com
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <!-- AI Status Indicator -->
-            <div class="mt-3 p-2 rounded border" :class="parsedData.parseMethod === 'manual_required' ? 'bg-yellow-100 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700' : 'bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700'">
-              <p class="text-[10px] flex items-start gap-1" :class="parsedData.parseMethod === 'manual_required' ? 'text-yellow-800 dark:text-yellow-300' : 'text-blue-800 dark:text-blue-300'">
-                <svg class="w-3 h-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path v-if="parsedData.parseMethod === 'manual_required'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.996-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-                <span v-if="parsedData.parseMethod === 'manual_required'"><strong>🤖 AI-First Mode:</strong> System will attempt AI parsing first. If unavailable, manual symbol formatting will be required. <a href="#" class="underline text-yellow-900 dark:text-yellow-200" @click.prevent="showFormatGuide = true">See setup guide</a> for AI configuration.</span>
-                <span v-else><strong>🚀 AI-Powered:</strong> Advanced natural language processing will automatically extract organization details from any business text. Manual formatting available as backup.</span>
-              </p>
             </div>
           </div>
 
@@ -314,165 +225,120 @@
             </div>
           </div>
 
-          <!-- BN/RC Number (kept separate) -->
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              📋 BN/RC Number
-            </label>
-            <input
-              v-model="businessNumber"
-              type="text"
-              placeholder="Enter business registration number (BN/RC)"
-              class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-            />
-          </div>
-
-            <!-- Smart Text Input -->
-          <div class="space-y-3">
-            <div class="flex items-center justify-between mb-2">
-              <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                🧠 Smart Text Input - Paste or Type Your Organization Details
+          <!-- Organization Details Form -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <!-- BN/RC Number -->
+            <div class="mb-1">
+              <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">
+                📋 BN/RC Number
               </label>
-              
-              <!-- AI Status & Manual Toggle -->
-              <div class="flex items-center gap-2">
-                <div v-if="parsedData.isLoading" class="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
-                  <svg class="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  <span>{{ parsedData.loadingMessage || 'Processing...' }}</span>
-                </div>
-                
-                <button 
-                  v-if="parsedData.parseMethod === 'manual_required' || parsedData.parseMethod === 'error'"
-                  @click="showManualGuide = !showManualGuide"
-                  class="flex items-center gap-1 px-2 py-1 bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-300 text-xs rounded-lg transition-colors"
-                >
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C20.168 18.477 18.582 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
-                  Manual Mode
-                </button>
-              </div>
-            </div>
-            
-            <div>
-              <textarea
-                v-model="smartTextInput"
-                rows="8"
-                class="w-full px-3 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm font-mono resize-none transition-all"
-                :class="{ 
-                  'border-red-500 focus:ring-red-500 focus:border-red-500': validationErrors.length > 0,
-                  'border-blue-500 focus:ring-blue-500 focus:border-blue-500': parsedData.isLoading
-                }"
-                :placeholder="parsedData.parseMethod === 'manual_required' ? manualInputPlaceholder : smartInputPlaceholder"
-                @input="parseSmartText"
-                @paste="handlePaste"
-              ></textarea>
-            </div>            <!-- AI Status & Manual Fallback Messages -->
-            <div v-if="validationErrors.length > 0" class="p-3 rounded-lg border" :class="parsedData.parseMethod === 'manual_required' ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'">
-              <h4 class="text-sm font-semibold mb-2 flex items-center gap-1" :class="parsedData.parseMethod === 'manual_required' ? 'text-orange-800 dark:text-orange-300' : 'text-red-800 dark:text-red-300'">
-                <svg v-if="parsedData.parseMethod === 'manual_required'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C20.168 18.477 18.582 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                {{ parsedData.parseMethod === 'manual_required' ? 'Manual Formatting Mode' : 'AI Parsing Status' }}
-              </h4>
-              <ul class="space-y-1">
-                <li v-for="error in validationErrors" :key="error" class="text-[11px] flex items-start gap-1" :class="parsedData.parseMethod === 'manual_required' ? 'text-orange-700 dark:text-orange-400' : 'text-red-700 dark:text-red-400'">
-                  <span class="mt-0.5" :class="parsedData.parseMethod === 'manual_required' ? 'text-orange-500 dark:text-orange-400' : 'text-red-500 dark:text-red-400'">•</span>
-                  <span>{{ error }}</span>
-                </li>
-              </ul>
-            </div>
-            
-            <!-- Quick Manual Guide -->
-            <div v-if="showManualGuide && parsedData.parseMethod === 'manual_required'" class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-              <h4 class="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-1">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Quick Manual Formatting Guide
-              </h4>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px]">
-                <div class="space-y-1">
-                  <div class="font-medium text-blue-700 dark:text-blue-400">Format Rules:</div>
-                  <div class="text-gray-600 dark:text-gray-400 font-mono">(Company Name) - Organization</div>
-                  <div class="text-gray-600 dark:text-gray-400 font-mono">"Tagline" - Subtitle</div>
-                  <div class="text-gray-600 dark:text-gray-400 font-mono">Address: your address</div>
-                  <div class="text-gray-600 dark:text-gray-400 font-mono">Phone: your number</div>
-                </div>
-                <div class="space-y-1">
-                  <div class="font-medium text-blue-700 dark:text-blue-400">Example:</div>
-                  <div class="text-gray-600 dark:text-gray-400 font-mono text-[9px]">(ABC Corp)<br>"Innovation First"<br>Address: 123 Main St<br>Phone: 555-1234</div>
-                </div>
-              </div>
+              <input
+                v-model="businessNumber"
+                type="text"
+                placeholder="Enter business registration number"
+                class="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+              />
             </div>
 
-            <!-- AI-Enhanced Parsed Data Preview -->
-            <div 
-              v-if="parsedData.organizationName || parsedData.subtitle || parsedData.addresses.length > 0 || parsedData.phones.length > 0" 
-              class="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700"
-            >
-              <div class="flex items-center justify-between mb-2">
-                <h4 class="text-sm font-semibold text-green-800 dark:text-green-300 flex items-center gap-1">
-                  <svg v-if="parsedData.parseMethod === 'ai'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
-                  <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {{ parsedData.parseMethod === 'ai' ? '🤖 AI-Detected Information' : '📋 Parsed Information Preview' }}
-                </h4>
-                
-                <!-- Confidence Badge -->
-                <div v-if="parsedData.confidence" class="flex items-center gap-1">
-                  <span 
-                    class="text-[9px] px-2 py-0.5 rounded-full font-medium"
-                    :class="{
-                      'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300': parsedData.confidence === 'high',
-                      'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300': parsedData.confidence === 'medium',
-                      'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300': parsedData.confidence === 'low'
-                    }"
+            <!-- Organization Name -->
+            <div class="mb-1">
+              <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">
+                🏢 Organization Name
+              </label>
+              <input
+                v-model="organizationName"
+                type="text"
+                placeholder="Enter organization name"
+                class="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                @input="debouncedSaveFormData"
+                @blur="saveFormData"
+              />
+            </div>
+
+            <!-- Organization Subtitle -->
+            <div class="mb-1 md:col-span-2">
+              <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">
+                📝 Subtitle/Tagline
+              </label>
+              <input
+                v-model="organizationSubName"
+                type="text"
+                placeholder="Enter organization subtitle or tagline"
+                class="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+              />
+            </div>
+
+            <!-- Head Office Address -->
+            <div class="mb-1">
+              <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">
+                📍 Head Office Address
+              </label>
+              <input
+                v-model="headOfficeAddress"
+                type="text"
+                placeholder="Enter head office address"
+                class="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+              />
+            </div>
+
+            <!-- Head Office Phone -->
+            <div class="mb-1">
+              <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">
+                📞 Head Office Phone
+              </label>
+              <input
+                v-model="headOfficePhone"
+                type="text"
+                placeholder="Enter head office phone"
+                class="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+              />
+            </div>
+
+            <!-- Dynamic Branch Addresses and Phones -->
+            <template v-for="(branch, index) in additionalBranches" :key="'branch-' + index">
+              <div class="mb-1">
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5 flex items-center justify-between">
+                  <span>🏪 Branch {{ index + 1 }} Address</span>
+                  <button
+                    @click="removeBranch(index)"
+                    class="text-red-500 hover:text-red-700 text-xs ml-2 px-1"
+                    title="Remove branch"
                   >
-                    {{ parsedData.confidence === 'high' ? '✨ High Confidence' : parsedData.confidence === 'medium' ? '⚡ Medium Confidence' : '⚠️ Low Confidence' }}
-                  </span>
-                </div>
+                    ✕
+                  </button>
+                </label>
+                <input
+                  v-model="branch.address"
+                  type="text"
+                  :placeholder="`Enter branch ${index + 1} address`"
+                  class="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                />
               </div>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
-                <div v-if="parsedData.organizationName" class="p-2 bg-white dark:bg-slate-800 rounded border">
-                  <strong class="text-green-700 dark:text-green-400">Organization:</strong>
-                  <p class="text-gray-700 dark:text-gray-300 mt-1">{{ parsedData.organizationName }}</p>
-                </div>
-                <div v-if="parsedData.subtitle" class="p-2 bg-white dark:bg-slate-800 rounded border">
-                  <strong class="text-blue-700 dark:text-blue-400">Subtitle:</strong>
-                  <p class="text-gray-700 dark:text-gray-300 mt-1">{{ parsedData.subtitle }}</p>
-                </div>
-                <div v-for="(address, index) in parsedData.addresses" :key="'addr-' + index" class="p-2 bg-white dark:bg-slate-800 rounded border">
-                  <strong class="text-orange-700 dark:text-orange-400">
-                    {{ index === 0 ? 'Head Office Address:' : `Branch ${index} Address:` }}
-                  </strong>
-                  <p class="text-gray-700 dark:text-gray-300 mt-1">{{ address }}</p>
-                </div>
-                <div v-for="(phone, index) in parsedData.phones" :key="'phone-' + index" class="p-2 bg-white dark:bg-slate-800 rounded border">
-                  <strong class="text-red-700 dark:text-red-400">Phone {{ index + 1 }}:</strong>
-                  <p class="text-gray-700 dark:text-gray-300 mt-1 font-bold">{{ phone }}</p>
-                </div>
-                
-                <!-- AI-detected emails -->
-                <div v-for="(email, index) in parsedData.emails" :key="'email-' + index" class="p-2 bg-white dark:bg-slate-800 rounded border">
-                  <strong class="text-purple-700 dark:text-purple-400">Email {{ index + 1 }}:</strong>
-                  <p class="text-gray-700 dark:text-gray-300 mt-1">{{ email }}</p>
-                </div>
-                
-                <!-- AI-detected websites -->
-                <div v-for="(website, index) in parsedData.websites" :key="'website-' + index" class="p-2 bg-white dark:bg-slate-800 rounded border">
-                  <strong class="text-cyan-700 dark:text-cyan-400">Website {{ index + 1 }}:</strong>
-                  <p class="text-gray-700 dark:text-gray-300 mt-1">{{ website }}</p>
-                </div>
+
+              <div class="mb-1">
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">
+                  📱 Branch {{ index + 1 }} Phone
+                </label>
+                <input
+                  v-model="branch.phone"
+                  type="text"
+                  :placeholder="`Enter branch ${index + 1} phone`"
+                  class="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                />
               </div>
+            </template>
+
+            <!-- Add Branch Button -->
+            <div class="md:col-span-2 mb-1">
+              <button
+                @click="addNewBranch"
+                class="w-full py-1.5 px-3 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs font-medium rounded-md transition-colors border border-blue-300 dark:border-blue-600 flex items-center justify-center gap-1"
+              >
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Add Branch Address & Phone
+              </button>
             </div>
           </div>
   
@@ -497,10 +363,10 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { defineComponent, ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import LogoCropper from '@/components/LogoCropper.vue';
-import { useRouter } from 'vue-router';
-import { aiTextParser } from '@/utils/aiTextParser.js';
+import { useRouter, useRoute } from 'vue-router';
+import { safeLocalStorage } from '@/utils/storage.utils';
 
 export default defineComponent({
   name: 'GenerateInvoicePage',
@@ -509,6 +375,7 @@ export default defineComponent({
   },
   setup() {
     const router = useRouter();
+    const route = useRoute();
     const authenticatedMember = ref(null);
     
     // Form fields
@@ -527,6 +394,43 @@ export default defineComponent({
     const taxEnabled = ref(true); // Tax column enable/disable toggle
     const showPageNumbers = ref(false); // Show page/copy numbers toggle
     
+    // Dynamic Branches Management
+    const additionalBranches = ref([]);
+    
+    // Branch Management Methods
+    const addNewBranch = () => {
+      // If there are existing branch values in the old fields, migrate them first
+      if (branchAddress1.value || branch1Phone.value) {
+        additionalBranches.value.push({
+          address: branchAddress1.value,
+          phone: branch1Phone.value
+        });
+        branchAddress1.value = '';
+        branch1Phone.value = '';
+      }
+      
+      if (branchAddress2.value || branch2Phone.value) {
+        additionalBranches.value.push({
+          address: branchAddress2.value,
+          phone: branch2Phone.value
+        });
+        branchAddress2.value = '';
+        branch2Phone.value = '';
+      }
+      
+      // Add new empty branch
+      additionalBranches.value.push({
+        address: '',
+        phone: ''
+      });
+    };
+    
+    const removeBranch = (index) => {
+      if (additionalBranches.value.length > 0) {
+        additionalBranches.value.splice(index, 1);
+      }
+    };
+    
     // Multiple pages/copies functionality
     const totalCopies = ref(1);
     const currentPage = ref(1);
@@ -535,6 +439,18 @@ export default defineComponent({
     const showImageCropper = ref(false);
     const tempImageUrl = ref('');
     const logoInput = ref(null);
+
+    // Removed parser variables (kept as placeholders to prevent template errors)
+    const smartTextInput = ref('');
+    const showFormatGuide = ref(false);
+    const showManualGuide = ref(false);
+    const showParsedPreview = ref(false);
+    const validationErrors = ref([]);
+    const parsedData = ref({});
+    const smartInputPlaceholder = '';
+    const manualInputPlaceholder = '';
+    const parseSmartText = () => {}; // Empty function
+    const handlePaste = () => {}; // Empty function
 
     // Business Number Quick Fill
     const showBNDropdown = ref(false);
@@ -555,61 +471,9 @@ export default defineComponent({
       { id: 4, format: 'XXX-XXX-XXX', description: 'Hyphenated Format' }
     ]);
 
-    // Smart Text Parser Variables
-    const smartTextInput = ref('');
-    const showFormatGuide = ref(false);
-    const showManualGuide = ref(false);
-    const validationErrors = ref([]);
-    const parsedData = ref({
-      organizationName: '',
-      subtitle: '',
-      addresses: [],
-      phones: [],
-      parseMethod: 'none'
-    });
 
-    // AI-enhanced smart input placeholder text
-    const smartInputPlaceholder = `🤖 AI-POWERED TEXT PARSER - Just paste your organization details naturally!
 
-NATURAL TEXT EXAMPLE:
-TechCorp Solutions is a leading software company based at 123 Innovation Drive, Silicon Valley, CA 94025. Our mission is "Transforming Ideas into Reality". You can reach us at (555) 123-TECH or email us at hello@techcorp.com. Visit our website at www.techcorp.com for more information.
 
-STRUCTURED FORMAT (OPTIONAL):
-(ABC Company Limited)
-"Your Trusted Business Partner"
-Address: 123 Main Street, Downtown, City, State 12345
-Phone: +1-555-123-4567
-Contact: info@company.com
-
-✨ AI FEATURES:
-• Automatically detects company names without brackets
-• Finds addresses without "Address:" labels
-• Identifies phone numbers in any format
-• Extracts emails and websites automatically
-• Works with messy, unformatted business cards/documents
-• Falls back to structured parsing if needed
-
-Just paste any business text and watch the AI magic! 🎯`;
-
-    // Manual mode placeholder when AI fails
-    const manualInputPlaceholder = `📝 MANUAL MODE - Use Symbol-Based Formatting
-
-AI parsing is unavailable. Please format your text using these symbols:
-
-ORGANIZATION: (Your Company Name)
-SUBTITLE: "Your Business Tagline"
-ADDRESS: Address: 123 Main Street, City, State
-PHONE: Phone: +1-555-123-4567
-EMAIL: Contact: info@company.com
-
-EXAMPLE:
-(TechCorp Solutions)
-"Innovation at its Best"
-Address: 456 Tech Park, Silicon Valley
-Phone: (555) 123-TECH
-Contact: hello@techcorp.com
-
-💡 Tip: Each item should be on a separate line for best results.`;
     
     // Page navigation methods
     const goToPreviousPage = () => {
@@ -650,51 +514,7 @@ Contact: hello@techcorp.com
       return `${String(currentPage.value).padStart(3, '0')}`;
     });
 
-    onMounted(() => {
-      const memberData = localStorage.getItem('authenticatedMember');
-      if (memberData) {
-        authenticatedMember.value = JSON.parse(memberData);
-      }
-
-      // Load saved form data if any
-      const savedFormData = localStorage.getItem('generateInvoiceFormData');
-      if (savedFormData) {
-        try {
-          const formData = JSON.parse(savedFormData);
-          if (formData.organizationName !== undefined) organizationName.value = formData.organizationName;
-          if (formData.organizationSubName !== undefined) organizationSubName.value = formData.organizationSubName;
-          if (formData.businessNumber !== undefined) businessNumber.value = formData.businessNumber;
-          if (formData.headOfficeAddress !== undefined) headOfficeAddress.value = formData.headOfficeAddress;
-          if (formData.headOfficePhone !== undefined) headOfficePhone.value = formData.headOfficePhone;
-          if (formData.branchAddress1 !== undefined) branchAddress1.value = formData.branchAddress1;
-          if (formData.branch1Phone !== undefined) branch1Phone.value = formData.branch1Phone;
-          if (formData.branchAddress2 !== undefined) branchAddress2.value = formData.branchAddress2;
-          if (formData.branch2Phone !== undefined) branch2Phone.value = formData.branch2Phone;
-          if (formData.logoDataUrl !== undefined) logoDataUrl.value = formData.logoDataUrl;
-          if (formData.taxEnabled !== undefined) taxEnabled.value = formData.taxEnabled;
-          if (formData.showPageNumbers !== undefined) showPageNumbers.value = formData.showPageNumbers;
-          if (formData.totalCopies !== undefined) totalCopies.value = formData.totalCopies;
-          if (formData.currentPage !== undefined) currentPage.value = formData.currentPage;
-          if (formData.smartTextInput !== undefined) {
-            smartTextInput.value = formData.smartTextInput;
-            // Trigger parsing of the loaded smart text
-            nextTick(() => {
-              parseSmartText();
-            });
-          }
-        } catch (error) {
-          console.error('Error loading saved form data:', error);
-        }
-      }
-
-      // Save data when the user is about to leave the page
-      window.addEventListener('beforeunload', saveFormData);
-    });
-
-    // Cleanup event listener when component is unmounted
-    onBeforeUnmount(() => {
-      window.removeEventListener('beforeunload', saveFormData);
-    });
+    // Component lifecycle moved below to consolidate with other lifecycle hook
     
     // Watch for changes in total copies to adjust current page
     watch(totalCopies, (newTotal) => {
@@ -724,12 +544,12 @@ Contact: hello@techcorp.com
       saveFormData(); // Save when current page changes
     });
     
-    // Watch for changes in showPageNumbers to auto-save
+    // Watch for changes in showPageNumbers to auto-save (debounced)
     watch(showPageNumbers, () => {
-      saveFormData();
+      debouncedSaveFormData();
     });
 
-    // Watch all form fields for changes and auto-save
+    // Watch all form fields for changes and auto-save (debounced to reduce writes)
     watch([
       organizationName, 
       organizationSubName, 
@@ -742,9 +562,10 @@ Contact: hello@techcorp.com
       branch2Phone, 
       logoDataUrl, 
       taxEnabled,
-      smartTextInput
+      smartTextInput,
+      additionalBranches
     ], () => {
-      saveFormData();
+      debouncedSaveFormData();
     }, { deep: true });
 
     // Logo upload handler
@@ -788,6 +609,26 @@ Contact: hello@techcorp.com
       tempImageUrl.value = '';
     };
 
+    // Debounced save to reduce storage writes
+    let saveFormDataTimeout = null;
+    const debouncedSaveFormData = (immediate = false) => {
+      if (immediate) {
+        // Save immediately if requested (e.g., before navigation)
+        if (saveFormDataTimeout) clearTimeout(saveFormDataTimeout);
+        saveFormData();
+        return;
+      }
+      
+      // Clear existing timeout
+      if (saveFormDataTimeout) clearTimeout(saveFormDataTimeout);
+      
+      // Set new timeout for debounced save
+      saveFormDataTimeout = setTimeout(() => {
+        saveFormData();
+        saveFormDataTimeout = null;
+      }, 500); // Wait 500ms after last change
+    };
+
     const saveFormData = () => {
       const formData = {
         organizationName: organizationName.value,
@@ -804,43 +645,118 @@ Contact: hello@techcorp.com
         showPageNumbers: showPageNumbers.value,
         totalCopies: totalCopies.value,
         currentPage: currentPage.value,
-        smartTextInput: smartTextInput.value
+
+        additionalBranches: additionalBranches.value, // Save dynamic branches
+        timestamp: Date.now() // Add timestamp for data validation
       };
       
-      localStorage.setItem('generateInvoiceFormData', JSON.stringify(formData));
+      // Use safe localStorage with automatic cleanup and fallback
+      const success = safeLocalStorage.setItem('generateInvoiceFormData', JSON.stringify(formData), { 
+        fallbackToMemory: true,
+        maxSize: 1 // Limit to 1MB to prevent huge form data
+      });
+      
+      if (!success) {
+        console.warn('Form data could not be saved to storage, using memory fallback');
+      }
+    };
+
+    const loadFormData = () => {
+      try {
+        const savedData = safeLocalStorage.getItem('generateInvoiceFormData');
+        if (savedData) {
+          const formData = JSON.parse(savedData);
+          
+          // Load all form fields
+          organizationName.value = formData.organizationName || '';
+          organizationSubName.value = formData.organizationSubName || '';
+          businessNumber.value = formData.businessNumber || '';
+          headOfficeAddress.value = formData.headOfficeAddress || '';
+          headOfficePhone.value = formData.headOfficePhone || '';
+          branchAddress1.value = formData.branchAddress1 || '';
+          branch1Phone.value = formData.branch1Phone || '';
+          branchAddress2.value = formData.branchAddress2 || '';
+          branch2Phone.value = formData.branch2Phone || '';
+          logoDataUrl.value = formData.logoDataUrl || '';
+          taxEnabled.value = formData.taxEnabled !== undefined ? formData.taxEnabled : true;
+          showPageNumbers.value = formData.showPageNumbers || false;
+          totalCopies.value = formData.totalCopies || 1;
+          currentPage.value = formData.currentPage || 1;
+
+          
+          // Restore dynamic branches if available
+          if (formData.additionalBranches && Array.isArray(formData.additionalBranches)) {
+            additionalBranches.value = formData.additionalBranches;
+          }
+          
+
+          
+          // Form data loaded successfully
+        }
+      } catch (error) {
+        console.error('Error loading form data:', error);
+        // Don't show alert on load error, just log it
+      }
     };
 
     const handlePreviewClick = () => {
-      // Save form data
-      saveFormData();
-      
-      // Save preview data for invoice preview page
-      const previewData = {
-        organizationName: organizationName.value,
-        organizationSubName: organizationSubName.value,
-        businessNumber: businessNumber.value,
-        headOfficeAddress: headOfficeAddress.value,
-        headOfficePhone: headOfficePhone.value,
-        branchAddress1: branchAddress1.value,
-        branch1Phone: branch1Phone.value,
-        branchAddress2: branchAddress2.value,
-        branch2Phone: branch2Phone.value,
-        logoDataUrl: logoDataUrl.value,
-        taxEnabled: taxEnabled.value,
-        totalCopies: totalCopies.value,
-        currentPage: currentPage.value,
-        showPageNumbers: showPageNumbers.value,
-        formMode: 'generate'
-      };
-      
-      localStorage.setItem('invoicePreviewData', JSON.stringify(previewData));
-      
-      // Navigate to Classic Professional preview page
-      router.push('/invoice-template/classic-professional/preview');
+      try {
+        // Force immediate save before navigation
+        debouncedSaveFormData(true);
+        
+        // Prepare clean preview data with proper type validation
+        const previewData = {
+          organizationName: String(organizationName.value || '').trim(),
+          organizationSubName: String(organizationSubName.value || '').trim(),
+          businessNumber: String(businessNumber.value || '').trim(),
+          headOfficeAddress: String(headOfficeAddress.value || '').trim(),
+          headOfficePhone: String(headOfficePhone.value || '').trim(),
+          branchAddress1: String(branchAddress1.value || '').trim(),
+          branch1Phone: String(branch1Phone.value || '').trim(),
+          branchAddress2: String(branchAddress2.value || '').trim(),
+          branch2Phone: String(branch2Phone.value || '').trim(),
+          logoDataUrl: String(logoDataUrl.value || ''),
+          taxEnabled: Boolean(taxEnabled.value),
+          totalCopies: Math.max(1, Math.min(100, parseInt(totalCopies.value) || 1)),
+          currentPage: Math.max(1, parseInt(currentPage.value) || 1),
+          showPageNumbers: Boolean(showPageNumbers.value),
+          additionalBranches: Array.isArray(additionalBranches.value) ? additionalBranches.value : [],
+          formMode: 'generate',
+          fromQuickFill: true,
+
+          timestamp: Date.now() // Add timestamp for cache busting
+        };
+        
+        // Clear any existing corrupted data first
+        safeLocalStorage.removeItem('invoicePreviewData');
+        
+        // Save with error handling
+        const serializedData = JSON.stringify(previewData);
+        safeLocalStorage.setItem('invoicePreviewData', serializedData, { fallbackToMemory: true });
+        
+        // Preview data saved successfully
+        
+        // Navigate to Classic Professional preview page
+        router.push('/invoice-template/classic-professional/preview');
+        
+      } catch (error) {
+        console.error('❌ Error preparing preview data:', error);
+        alert('Error preparing preview. Please try again.');
+      }
     };
 
     const handleRefreshForm = () => {
-      if (confirm('Are you sure you want to clear all form data and start fresh?')) {
+      // Check if there's any data to clear
+      const hasData = organizationName.value || organizationSubName.value || businessNumber.value || 
+                     headOfficeAddress.value || smartTextInput.value || logoDataUrl.value;
+      
+      if (!hasData) {
+        alert('ℹ️ Form is already empty!');
+        return;
+      }
+      
+      if (confirm('🗑️ Clear All Data\n\nAre you sure you want to clear all form data and start fresh?\n\nThis will remove:\n• Organization details\n• Logo\n• All settings\n\nThis action cannot be undone.')) {
+        // Clear all form fields
         organizationName.value = '';
         organizationSubName.value = '';
         businessNumber.value = '';
@@ -856,15 +772,18 @@ Contact: hello@techcorp.com
         currentPage.value = 1;
         showPageNumbers.value = false;
         
+        // Clear dynamic branches
+        additionalBranches.value = [];
+        
         // Clear smart text parser
         smartTextInput.value = '';
         validationErrors.value = [];
-        parsedData.value = { organizationName: '', subtitle: '', addresses: [], phones: [] };
+        parsedData.value = { organizationName: '', subtitle: '', addresses: [], phones: [], parseMethod: 'none' };
         
+        // Clear localStorage
         localStorage.removeItem('generateInvoiceFormData');
         
-        alert('✅ Form cleared successfully!');
-        try { router.go(0); } catch (e) { window.location.reload(); }
+        alert('✅ Form cleared successfully! Ready for new data.');
       }
     };
 
@@ -887,181 +806,88 @@ Contact: hello@techcorp.com
       saveFormData(); // Save to localStorage when cleared
     };
 
-    // AI-First Smart Text Parser Methods
-    const parseSmartText = async () => {
-      const text = smartTextInput.value.trim();
-      if (!text) {
-        parsedData.value = { organizationName: '', subtitle: '', addresses: [], phones: [], parseMethod: 'none' };
-        validationErrors.value = [];
-        return;
-      }
 
-      validationErrors.value = [];
-      
-      // Show loading state with AI indicator
-      parsedData.value = { 
-        ...parsedData.value, 
-        isLoading: true, 
-        parseMethod: 'loading',
-        loadingMessage: '🤖 AI is analyzing your text...' 
-      };
-      
-      try {
-        // Always try AI first
-        const result = await aiTextParser.parseOrganizationText(text);
-        
-        // Handle AI parsing results
-        if (result.method === 'ai' && result.confidence === 'high') {
-          // AI successfully parsed - no additional validation needed
-          validationErrors.value = [];
-        } else if (result.method === 'regex' || result.confidence === 'low') {
-          // AI failed - provide helpful suggestions for manual formatting
-          validationErrors.value = [];
-          if (!result.organizationName && text.length > 0) {
-            validationErrors.value.push('🤖 AI couldn\'t detect organization name clearly. For better results, try: (Your Company Name)');
-          }
-          if (!result.subtitle && text.includes('"')) {
-            validationErrors.value.push('💡 For better subtitle detection, use: "Your Tagline Here"');
-          }
-          if (result.addresses.length === 0 && text.length > 20) {
-            validationErrors.value.push('📍 To help AI find addresses, try starting with "Address:" or "Located at:"');
-          }
-        }
-
-        // Auto-assign to form fields
-        if (result.organizationName) {
-          organizationName.value = result.organizationName;
-        }
-        
-        if (result.subtitle) {
-          organizationSubName.value = result.subtitle;
-        }
-
-        if (result.addresses && result.addresses.length > 0) {
-          headOfficeAddress.value = result.addresses[0];
-          if (result.addresses.length > 1) {
-            branchAddress1.value = result.addresses[1];
-          }
-          if (result.addresses.length > 2) {
-            branchAddress2.value = result.addresses[2];
-          }
-        }
-
-        if (result.phones && result.phones.length > 0) {
-          headOfficePhone.value = result.phones[0];
-          if (result.phones.length > 1) {
-            branch1Phone.value = result.phones[1];
-          }
-          if (result.phones.length > 2) {
-            branch2Phone.value = result.phones[2];
-          }
-        }
-
-        // Store the enhanced result with AI metadata
-        parsedData.value = {
-          ...result,
-          isLoading: false,
-          parseMethod: result.method,
-          confidence: result.confidence,
-          emails: result.emails || [],
-          websites: result.websites || []
-        };
-
-        saveFormData();
-        
-        // AI parsing completed successfully
-
-      } catch (error) {
-        console.error('AI parsing failed:', error);
-        
-        // Only fallback to regex if it's a configuration issue
-        if (error.message.includes('No AI service configured')) {
-          validationErrors.value = [];
-          validationErrors.value.push('⚡ AI parsing requires setup. Using manual detection mode.');
-          validationErrors.value.push('💡 For automatic parsing, add a free API key (see AI_SETUP_GUIDE.md)');
-          validationErrors.value.push('📝 For now, use manual formatting: (Company Name), "Tagline", Address: your address');
-          
-          // Try basic regex as last resort
-          const result = parseWithBasicRegex(text);
-          parsedData.value = { 
-            ...result, 
-            isLoading: false, 
-            parseMethod: 'manual_required', 
-            confidence: 'low',
-            manualMode: true 
-          };
-        } else {
-          // Network or API error - show retry option
-          validationErrors.value.push('🔄 AI service temporarily unavailable. Check your internet connection.');
-          validationErrors.value.push('🔁 Try again in a moment, or use manual formatting as backup.');
-          
-          parsedData.value = { 
-            ...parsedData.value, 
-            isLoading: false, 
-            parseMethod: 'error', 
-            confidence: 'low',
-            error: error.message 
-          };
-        }
-        saveFormData();
-      }
-    };
-
-    // Basic regex fallback function
-    const parseWithBasicRegex = (text) => {
-      const result = { organizationName: '', subtitle: '', addresses: [], phones: [] };
-
-      // Parse organization name (wrapped in brackets)
-      const orgNameMatch = text.match(/\(([^)]+)\)/);
-      if (orgNameMatch) {
-        result.organizationName = orgNameMatch[1].trim();
-        organizationName.value = result.organizationName;
-      }
-
-      // Parse subtitle (wrapped in quotes)
-      const subtitleMatch = text.match(/"([^"]+)"/);
-      if (subtitleMatch) {
-        result.subtitle = subtitleMatch[1].trim();
-        organizationSubName.value = result.subtitle;
-      }
-
-      // Parse addresses
-      const addressRegex = /(?:^|\n)([^\n]*(?:address|Address):\s*([^\n]+))/gim;
-      let addressMatch;
-      while ((addressMatch = addressRegex.exec(text)) !== null) {
-        const addressPart = addressMatch[2].trim();
-        if (addressPart) {
-          result.addresses.push(addressPart);
-        }
-      }
-
-      // Parse phone numbers
-      const phoneRegex = /(?:^|\n)([^\n]*(?:phone|tel|contact|call):\s*([^\n]+))/gim;
-      let phoneMatch;
-      while ((phoneMatch = phoneRegex.exec(text)) !== null) {
-        const phonePart = phoneMatch[2].trim();
-        if (phonePart) {
-          result.phones.push(phonePart);
-        }
-      }
-
-      return result;
-    };
-
-    const handlePaste = (_event) => {
-      // Allow default paste behavior, then parse after a short delay
-      setTimeout(() => {
-        parseSmartText();
-      }, 100);
-    };
 
     // Navigation functions
     const viewSavedInvoices = () => {
       router.push('/invoices/saved');
     };
 
+    // Component lifecycle
+    // Watch for route changes to reload form data when returning from preview
+    watch(() => route.path, (newPath, oldPath) => {
+      // If we're coming back from the preview page, reload form data
+      if (oldPath && oldPath.includes('preview') && newPath.includes('classic-professional')) {
+        setTimeout(() => {
+          loadFormData();
+        }, 100); // Small delay to ensure component is ready
+      }
+    });
+
+    onMounted(() => {
+      // Load authenticated member data
+      const memberData = localStorage.getItem('authenticatedMember');
+      if (memberData) {
+        try {
+          authenticatedMember.value = JSON.parse(memberData);
+        } catch (error) {
+          console.error('Error loading member data:', error);
+        }
+      }
+
+      // Load saved form data on component mount
+      loadFormData();
+      
+
+
+      // Save data when the user is about to leave the page
+      window.addEventListener('beforeunload', saveFormData);
+
+      // Add visibility change listener to reload form data when tab becomes visible
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          // Tab became visible, reload form data in case user navigated back
+          setTimeout(() => {
+            loadFormData();
+          }, 100);
+        }
+      });
+    });
+
+    // Cleanup and save before unmount
+    onBeforeUnmount(() => {
+      window.removeEventListener('beforeunload', saveFormData);
+      
+      // Clear pending debounced save and save immediately
+      if (saveFormDataTimeout) {
+        clearTimeout(saveFormDataTimeout);
+        saveFormDataTimeout = null;
+      }
+      
+      // Save form data immediately when navigating away
+      saveFormData();
+      
+      // Clean up large data to free memory
+      additionalBranches.value = [];
+    });
+
     const createNewInvoice = () => {
-      if (confirm('Are you sure you want to start a new invoice? Any unsaved changes will be lost.')) {
+      // Check if there's any data that would be lost
+      const hasData = organizationName.value || organizationSubName.value || businessNumber.value || 
+                     headOfficeAddress.value || logoDataUrl.value;
+      
+      if (!hasData) {
+        alert('ℹ️ You\'re already working on a fresh invoice!');
+        return;
+      }
+      
+      if (confirm('🆕 Start New Invoice\n\nDo you want to save your current work before starting a new invoice?\n\nClick OK to save and start new, or Cancel to start new without saving.')) {
+        // User wants to save first
+        saveFormData();
+        alert('💾 Current work saved! You can return to it later.');
+      }
+      
+      if (confirm('⚠️ Final Confirmation\n\nThis will clear all current form data and start fresh.\n\nProceed with new invoice?')) {
         // Clear form data
         organizationName.value = '';
         organizationSubName.value = '';
@@ -1077,11 +903,6 @@ Contact: hello@techcorp.com
         totalCopies.value = 1;
         currentPage.value = 1;
         showPageNumbers.value = false;
-        
-        // Clear smart text parser
-        smartTextInput.value = '';
-        validationErrors.value = [];
-        parsedData.value = { organizationName: '', subtitle: '', addresses: [], phones: [] };
         
         // Clear localStorage
         localStorage.removeItem('generateInvoiceFormData');
@@ -1125,10 +946,15 @@ Contact: hello@techcorp.com
       selectBusinessNumber,
       selectBNTemplate,
       clearBusinessNumber,
-      // Smart Text Parser
+      // Dynamic Branch Management
+      additionalBranches,
+      addNewBranch,
+      removeBranch,
+      // Parser placeholders (removed functionality)
       smartTextInput,
       showFormatGuide,
       showManualGuide,
+      showParsedPreview,
       validationErrors,
       parsedData,
       smartInputPlaceholder,
@@ -1142,6 +968,7 @@ Contact: hello@techcorp.com
       handlePreviewClick,
       handleRefreshForm,
       saveFormData,
+      loadFormData,
       viewSavedInvoices,
       createNewInvoice
     };

@@ -363,6 +363,7 @@
 <script>
 import { defineComponent, ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { safeLocalStorage } from '@/utils/storage.utils';
 
 export default defineComponent({
   name: 'SavedInvoicesPage',
@@ -555,7 +556,7 @@ export default defineComponent({
         fromSavedInvoice: true
       };
       
-      localStorage.setItem('invoicePreviewData', JSON.stringify(editData));
+      safeLocalStorage.setItem('invoicePreviewData', JSON.stringify(editData), { fallbackToMemory: true });
       
       // Navigate to preview for editing
       router.push('/invoice-template/classic-professional/preview');
@@ -572,7 +573,7 @@ export default defineComponent({
         fromSavedInvoice: true
       };
       
-      localStorage.setItem('invoicePreviewData', JSON.stringify(duplicateData));
+      safeLocalStorage.setItem('invoicePreviewData', JSON.stringify(duplicateData), { fallbackToMemory: true });
       router.push('/invoice-template/classic-professional/preview');
     };
 
@@ -599,7 +600,7 @@ export default defineComponent({
         invoices.value = invoices.value.filter(inv => inv.id !== invoice.id);
         
         // Update localStorage backup
-        localStorage.setItem(`invoices_${member.branch}`, JSON.stringify(invoices.value));
+        safeLocalStorage.setItem(`invoices_${member.branch}`, JSON.stringify(invoices.value), { fallbackToMemory: true });
         
         alert('Invoice deleted successfully!');
       } catch (error) {

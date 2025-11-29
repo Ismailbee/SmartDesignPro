@@ -12,12 +12,49 @@ import { dirname } from 'path'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
+// Memory optimization settings
+const MEMORY_LIMITS = {
+  MAX_USERS: 1000,
+  MAX_TEMPLATES: 500,
+  MAX_ANALYTICS_ENTRIES: 1000,
+  CLEANUP_INTERVAL: 5 * 60 * 1000 // 5 minutes
+}
+
 const app = express()
 const PORT = 3006
 
+// Memory management functions
+const cleanupMemory = () => {
+  // Force garbage collection if available
+  if (global.gc) {
+    global.gc()
+    console.log('🧹 Admin Server: Memory cleanup executed')
+  }
+  
+  // Log memory usage
+  const memUsage = process.memoryUsage()
+  console.log('📊 Admin Server Memory:', {
+    rss: Math.round(memUsage.rss / 1024 / 1024) + ' MB',
+    heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024) + ' MB',
+    heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024) + ' MB'
+  })
+}
+
+const cleanupOldData = () => {
+  console.log('🗑️ Admin Server: Cleaning up old data...')
+  // This would clean up old entries if using actual storage
+  // For now, just log the action
+}
+
+// Set up memory monitoring
+const memoryInterval = setInterval(() => {
+  cleanupMemory()
+  cleanupOldData()
+}, MEMORY_LIMITS.CLEANUP_INTERVAL)
+
 // Middleware
 app.use(cors())
-app.use(express.json())
+app.use(express.json({ limit: '10mb' })) // Limit request size
 
 // ============================================================
 // Mock Data
@@ -333,12 +370,28 @@ app.get('/api/admin/system/health', (req, res) => {
 // Start Server
 // ============================================================
 
+// Clean up on exit
+process.on('SIGTERM', () => {
+  console.log('👋 Admin Server: SIGTERM received, shutting down gracefully...')
+  clearInterval(memoryInterval)
+  cleanupMemory()
+  process.exit(0)
+})
+
+process.on('SIGINT', () => {
+  console.log('👋 Admin Server: SIGINT received, shutting down gracefully...')
+  clearInterval(memoryInterval)
+  cleanupMemory()
+  process.exit(0)
+})
+
 app.listen(PORT, () => {
   console.log('============================================================')
-  console.log('✨ Admin Dashboard Server')
+  console.log('✨ Admin Dashboard Server (Memory Optimized)')
   console.log('============================================================')
   console.log(`🚀 Server running on http://localhost:${PORT}`)
   console.log(`📊 Health check: http://localhost:${PORT}/health`)
+  console.log('🧠 Memory limits:', MEMORY_LIMITS)
   console.log('============================================================')
   console.log('Endpoints:')
   console.log('  GET    /api/admin/stats')

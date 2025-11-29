@@ -67,14 +67,7 @@ import {
 const router = useRouter()
 
 function handleBack() {
-  try {
-    if (window.history.length > 1) {
-      window.history.back()
-      return
-    }
-  } catch (e) {
-    // ignore and fallback
-  }
+  // Route specifically to home page
   router.push('/home')
 }
 
@@ -156,28 +149,28 @@ function navigateTo(type: 'invoice' | 'receipt' | 'signature') {
 }
 
 .dashboard-container {
-  max-width: 800px;
+  max-width: 700px;
   margin: 0 auto;
   padding: 1rem 0.75rem;
 }
 
-/* Large screen responsive scaling */
-@media (min-width: 1024px) {
+/* Responsive scaling */
+@media (min-width: 768px) {
   .dashboard-container {
-    max-width: 1200px;
-    padding: 2rem 1.5rem;
+    max-width: 800px;
+    padding: 1.25rem 1rem;
   }
 }
 
-@media (min-width: 1440px) {
+@media (min-width: 1024px) {
   .dashboard-container {
-    max-width: 1400px;
-    padding: 2.5rem 2rem;
+    max-width: 850px;
+    padding: 1.5rem 1.25rem;
   }
 }
 
 .page-title {
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   font-weight: 700;
   color: #1e293b;
   text-align: center;
@@ -185,71 +178,74 @@ function navigateTo(type: 'invoice' | 'receipt' | 'signature') {
   letter-spacing: -0.02em;
 }
 
-/* Large screen title scaling */
+/* Responsive title scaling */
+@media (min-width: 768px) {
+  .page-title {
+    font-size: 1.375rem;
+    margin-bottom: 0.375rem;
+  }
+}
+
 @media (min-width: 1024px) {
   .page-title {
-    font-size: 2rem;
+    font-size: 1.5rem;
     margin-bottom: 0.5rem;
   }
 }
 
-@media (min-width: 1440px) {
-  .page-title {
-    font-size: 2.5rem;
-    margin-bottom: 0.75rem;
-  }
-}
-
 .page-subtitle {
-  font-size: 0.8125rem;
+  font-size: 0.8rem;
   color: #64748b;
   text-align: center;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.125rem;
 }
 
-/* Large screen subtitle scaling */
-@media (min-width: 1024px) {
+/* Responsive subtitle scaling */
+@media (min-width: 768px) {
   .page-subtitle {
-    font-size: 1.125rem;
-    margin-bottom: 2rem;
+    font-size: 0.875rem;
+    margin-bottom: 1.25rem;
   }
 }
 
-@media (min-width: 1440px) {
+@media (min-width: 1024px) {
   .page-subtitle {
-    font-size: 1.25rem;
-    margin-bottom: 2.5rem;
+    font-size: 0.9375rem;
+    margin-bottom: 1.5rem;
   }
 }
 
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 0.875rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
   margin-bottom: 1rem;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-/* Large screen grid scaling */
-@media (min-width: 1024px) {
+/* Responsive grid scaling */
+@media (min-width: 768px) {
   .cards-grid {
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.25rem;
   }
 }
 
-@media (min-width: 1440px) {
+@media (min-width: 1024px) {
   .cards-grid {
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 2rem;
-    margin-bottom: 2.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
   }
 }
 
 .selection-card {
   position: relative;
   background: white;
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 1rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   border: 2px solid transparent;
@@ -261,17 +257,17 @@ function navigateTo(type: 'invoice' | 'receipt' | 'signature') {
 /* Large screen card scaling */
 @media (min-width: 1024px) {
   .selection-card {
-    padding: 2rem;
-    border-radius: 16px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.07);
   }
 }
 
 @media (min-width: 1440px) {
   .selection-card {
-    padding: 2.5rem;
-    border-radius: 20px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+    padding: 1.75rem;
+    border-radius: 14px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   }
 }
 
@@ -299,49 +295,49 @@ function navigateTo(type: 'invoice' | 'receipt' | 'signature') {
   height: 45px;
   margin: 0 auto 0.75rem;
   background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
-  border-radius: 12px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 8px rgba(6, 182, 212, 0.25);
+  box-shadow: 0 3px 6px rgba(6, 182, 212, 0.2);
 }
 
 /* Large screen icon scaling */
 @media (min-width: 1024px) {
   .card-icon {
-    width: 70px;
-    height: 70px;
-    margin: 0 auto 1.5rem;
-    border-radius: 16px;
-    box-shadow: 0 6px 12px rgba(6, 182, 212, 0.3);
+    width: 55px;
+    height: 55px;
+    margin: 0 auto 1rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 8px rgba(6, 182, 212, 0.25);
   }
 }
 
 @media (min-width: 1440px) {
   .card-icon {
-    width: 85px;
-    height: 85px;
-    margin: 0 auto 2rem;
-    border-radius: 20px;
-    box-shadow: 0 8px 16px rgba(6, 182, 212, 0.35);
+    width: 65px;
+    height: 65px;
+    margin: 0 auto 1.25rem;
+    border-radius: 14px;
+    box-shadow: 0 5px 10px rgba(6, 182, 212, 0.3);
   }
 }
 
 .card-icon ion-icon {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   color: white;
 }
 
 /* Large screen icon font scaling */
 @media (min-width: 1024px) {
   .card-icon ion-icon {
-    font-size: 2.25rem;
+    font-size: 1.6rem;
   }
 }
 
 @media (min-width: 1440px) {
   .card-icon ion-icon {
-    font-size: 2.75rem;
+    font-size: 1.8rem;
   }
 }
 
@@ -364,8 +360,8 @@ function navigateTo(type: 'invoice' | 'receipt' | 'signature') {
 }
 
 .card-title {
-  font-size: 1.125rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 600;
   color: #1e293b;
   margin-bottom: 0.375rem;
 }
@@ -373,15 +369,15 @@ function navigateTo(type: 'invoice' | 'receipt' | 'signature') {
 /* Large screen title scaling */
 @media (min-width: 1024px) {
   .card-title {
-    font-size: 1.5rem;
-    margin-bottom: 0.75rem;
+    font-size: 1.125rem;
+    margin-bottom: 0.5rem;
   }
 }
 
 @media (min-width: 1440px) {
   .card-title {
-    font-size: 1.75rem;
-    margin-bottom: 1rem;
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
   }
 }
 
@@ -394,14 +390,14 @@ function navigateTo(type: 'invoice' | 'receipt' | 'signature') {
 /* Large screen description scaling */
 @media (min-width: 1024px) {
   .card-description {
-    font-size: 1rem;
+    font-size: 0.875rem;
     line-height: 1.5;
   }
 }
 
 @media (min-width: 1440px) {
   .card-description {
-    font-size: 1.125rem;
+    font-size: 0.9375rem;
     line-height: 1.6;
   }
 }

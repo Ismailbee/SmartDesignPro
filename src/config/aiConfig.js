@@ -7,7 +7,7 @@ export const AI_CONFIG = {
   // Hugging Face (Recommended - Free with good limits)
   HUGGING_FACE: {
     enabled: true,
-    apiKey: process.env.VITE_HUGGING_FACE_TOKEN || '', // Get free token from huggingface.co/settings/tokens
+    apiKey: '', // 👈 PASTE YOUR TOKEN HERE - Get free token from huggingface.co/settings/tokens
     baseUrl: 'https://api-inference.huggingface.co/models',
     models: {
       ner: 'dbmdz/bert-large-cased-finetuned-conll03-english', // Named Entity Recognition

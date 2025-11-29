@@ -27,22 +27,29 @@
       </p>
       
       <div class="hero-actions">
-        <button class="btn-primary" @click="$emit('startProject')">
-          Start Your Project
+        <button class="btn-primary" @click="toggleAutoDesign">
+          Auto Design
         </button>
-        <button class="btn-secondary" @click="scrollToSection('portfolio')">
-          View Our Work
+        <button class="btn-secondary" @click="$emit('startProject')">
+          Start Your Project
         </button>
       </div>
     </div>
     
     <!-- Background decoration -->
     <!-- <div class="hero-background"></div> -->
+    
+    <!-- Auto Design Modal -->
+    <AutoDesignModal
+      :is-open="isAutoDesignOpen"
+      @close="closeAutoDesign"
+    />
   </section>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import AutoDesignModal from './AutoDesignModal.vue'
 
 const backgroundImages = [
   "https://images.unsplash.com/photo-1558655146-d09347e92766?q=80&w=2864&auto=format&fit=crop",
@@ -71,7 +78,17 @@ const backgroundImages = [
 
 
 const currentImageIndex = ref(0)
+const isAutoDesignOpen = ref(false)
 let intervalId: number | undefined
+
+// Auto Design Modal Functions
+const toggleAutoDesign = () => {
+  isAutoDesignOpen.value = !isAutoDesignOpen.value
+}
+
+const closeAutoDesign = () => {
+  isAutoDesignOpen.value = false
+}
 
 onMounted(() => {
   intervalId = window.setInterval(() => {
@@ -88,33 +105,6 @@ onUnmounted(() => {
 defineEmits<{
   startProject: []
 }>()
-
-const scrollToSection = (sectionId: string) => {
-  console.log('🔍 Hero: Scrolling to section:', sectionId)
-  const element = document.getElementById(sectionId)
-
-  if (element) {
-    console.log('✅ Hero: Element found:', element)
-    const headerOffset = 80
-    const elementPosition = element.getBoundingClientRect().top
-    const currentScrollY = window.scrollY || window.pageYOffset
-    const offsetPosition = elementPosition + currentScrollY - headerOffset
-
-    console.log('📊 Hero: Scroll calculation:', {
-      elementPosition,
-      currentScrollY,
-      offsetPosition,
-      headerOffset
-    })
-
-    window.scrollTo({
-      top: offsetPosition,
-      behavior: 'smooth'
-    })
-  } else {
-    console.error('❌ Hero: Element not found with ID:', sectionId)
-  }
-}
 </script>
 
 <style scoped>

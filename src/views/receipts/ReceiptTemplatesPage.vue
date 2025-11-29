@@ -241,39 +241,49 @@ const selectTemplate = (template: string) => {
 }
 
 .templates-container {
-  max-width: 1200px;
+  max-width: 800px;
   margin: 0 auto;
-  padding: 1.5rem 1rem;
+  padding: 1.25rem 1rem;
+}
+
+@media (min-width: 768px) {
+  .templates-container {
+    max-width: 900px;
+    padding: 1.5rem 1.25rem;
+  }
 }
 
 .page-title {
-  font-size: 2rem;
-  font-weight: 800;
+  font-size: 1.8rem;
+  font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 0.5rem;
   text-align: center;
 }
 
 .page-subtitle {
-  font-size: 1.1rem;
+  font-size: 1rem;
   color: var(--text-secondary);
   text-align: center;
-  margin-bottom: 2.5rem;
+  margin-bottom: 2rem;
 }
 
 .templates-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
   margin-bottom: 2rem;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .template-card {
   background: white;
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.07);
-  border: 3px solid transparent;
+  border: 2px solid transparent;
   cursor: pointer;
   transition: all 0.3s ease;
 }
@@ -307,21 +317,21 @@ const selectTemplate = (template: string) => {
 }
 
 .template-info {
-  padding: 1.5rem;
+  padding: 1.25rem;
   text-align: center;
 }
 
 .template-name {
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: 1.1rem;
+  font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 0.5rem;
 }
 
 .template-desc {
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   color: var(--text-secondary);
-  line-height: 1.5;
+  line-height: 1.4;
   margin: 0;
 }
 
@@ -329,11 +339,11 @@ const selectTemplate = (template: string) => {
   display: inline-block;
   background: #f59e0b;
   color: white;
-  padding: 0.375rem 0.875rem;
+  padding: 0.25rem 0.75rem;
   border-radius: 999px;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  margin-top: 0.75rem;
+  margin-top: 0.5rem;
 }
 
 .action-buttons {

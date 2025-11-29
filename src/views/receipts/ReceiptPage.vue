@@ -404,6 +404,7 @@ import {
   saveMemberActivity,
   getAllSignatures
 } from '@/firebase/database';
+import { safeLocalStorage } from '@/utils/storage.utils.ts';
 
 export default defineComponent({
   name: 'ReceiptPage',
@@ -860,7 +861,7 @@ export default defineComponent({
         signatureImage2: signatureImage2.value
       };
 
-      localStorage.setItem('receiptPreviewData', JSON.stringify(receiptPreviewData));
+      safeLocalStorage.setItem('receiptPreviewData', JSON.stringify(receiptPreviewData));
 
       // Also save complete form data for when user navigates back
       const receiptFormData = {
@@ -889,7 +890,7 @@ export default defineComponent({
         selectedSignature2: selectedSignature2.value
       };
 
-      localStorage.setItem('receiptFormData', JSON.stringify(receiptFormData));
+      safeLocalStorage.setItem('receiptFormData', JSON.stringify(receiptFormData));
 
       // Navigate to preview page
       router.push({ name: 'receipt-preview' });
@@ -909,7 +910,7 @@ export default defineComponent({
           timestamp: new Date().toISOString(),
           branch: route.query.branch || 'Unknown'
         });
-        localStorage.setItem('memberActivities', JSON.stringify(activities));
+        safeLocalStorage.setItem('memberActivities', JSON.stringify(activities));
         
         // Navigate to Dashboard
         router.push({ name: 'Dashboard' });
@@ -974,7 +975,7 @@ export default defineComponent({
             branch: authenticatedMember.value.branch,
             timestamp: new Date().toISOString()
           });
-          localStorage.setItem('memberActivities', JSON.stringify(activities));
+          safeLocalStorage.setItem('memberActivities', JSON.stringify(activities));
           
           alert(result.isUpdate ? '✅ Receipt updated successfully!' : '✅ Receipt saved to cloud successfully!');
         } else {
@@ -1040,7 +1041,7 @@ export default defineComponent({
         branch: authenticatedMember.value.branch,
         timestamp: new Date().toISOString()
       });
-      localStorage.setItem('memberActivities', JSON.stringify(activities));
+      safeLocalStorage.setItem('memberActivities', JSON.stringify(activities));
       
       alert(`✅ Receipt #${receipt.receiptNumber} loaded! You can now edit and save it.`);
     };
@@ -1077,7 +1078,7 @@ export default defineComponent({
             branch: authenticatedMember.value.branch,
             timestamp: new Date().toISOString()
           });
-          localStorage.setItem('memberActivities', JSON.stringify(activities));
+          safeLocalStorage.setItem('memberActivities', JSON.stringify(activities));
           
           // If we're currently editing this receipt, clear the current ID
           if (currentReceiptId.value === receipt.id) {
@@ -1122,7 +1123,7 @@ export default defineComponent({
         branch: authenticatedMember.value.branch,
         timestamp: new Date().toISOString()
       });
-      localStorage.setItem('memberActivities', JSON.stringify(activities));
+      safeLocalStorage.setItem('memberActivities', JSON.stringify(activities));
     };
 
     // Load signatures from Firebase
@@ -1192,8 +1193,8 @@ export default defineComponent({
     // Navigate to signature page
     const handleCreateSignature = () => {
       // Store the return path so SignaturePage knows where to redirect after creating signature
-      localStorage.setItem('signatureReturnPath', '/receipt');
-      localStorage.setItem('signatureReturnType', 'receipt');
+      safeLocalStorage.setItem('signatureReturnPath', '/receipt');
+      safeLocalStorage.setItem('signatureReturnType', 'receipt');
       router.push('/signature');
     };
 
@@ -1596,7 +1597,7 @@ export default defineComponent({
         activities.splice(50);
       }
       
-      localStorage.setItem('memberActivities', JSON.stringify(activities));
+      safeLocalStorage.setItem('memberActivities', JSON.stringify(activities));
     };
 
     return {
