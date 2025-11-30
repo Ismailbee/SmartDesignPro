@@ -11,11 +11,22 @@
             </svg>
           </button>
           <h2 class="panel-title">Sticker Template</h2>
-          <button @click="showMenu = !showMenu" class="menu-btn">
-            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-            </svg>
-          </button>
+          <div style="display: flex; gap: 8px;">
+            <button @click="showChatHelp" class="menu-btn" title="Help & Guide">
+              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+            <button @click="toggleVoice" class="menu-btn" :class="{ 'active': isVoiceEnabled }" :title="isVoiceEnabled ? 'Turn off voice' : 'Turn on voice'">
+              <svg v-if="isVoiceEnabled" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+              </svg>
+              <svg v-else class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+              </svg>
+            </button>
+          </div>
         </div>
 
 
@@ -81,6 +92,7 @@
 
       <!-- Wedding Chat Interface -->
       <div v-if="selectedCategory === 'wedding'" class="wedding-chat-interface">
+        
         <div class="chat-history" ref="chatHistoryContainer">
           <!-- Welcome Message -->
           <div v-if="chatMessages.length === 0 && !isGeneratingPreview && !showWeddingStickerPreview" class="chat-welcome-message">
@@ -91,7 +103,16 @@
 
           <!-- Messages -->
           <div v-for="msg in chatMessages" :key="msg.id" class="chat-message" :class="msg.sender">
-            <div class="message-bubble">
+            <!-- Special Preview Message -->
+            <div v-if="msg.type === 'preview'" class="message-bubble svg-bubble">
+              <!-- SVG Container -->
+              <div class="wedding-preview-container-inline" ref="chatPreviewContainer">
+                <!-- SVG will be loaded here dynamically -->
+              </div>
+            </div>
+
+            <!-- Normal Text Message -->
+            <div v-else class="message-bubble">
               {{ msg.text }}
               <div v-if="msg.image" class="chat-image-container">
                 <img :src="msg.image" class="chat-image" alt="Uploaded image" />
@@ -108,33 +129,12 @@
               <div class="typing-dot"></div>
             </div>
           </div>
-
-          <!-- Generating Animation -->
-          <div v-if="isGeneratingPreview" class="chat-message ai">
-            <div class="message-bubble generating">
-              <div class="generating-spinner-inline">
-                <div class="spinner-ring-inline"></div>
-                <div class="spinner-ring-inline"></div>
-                <div class="spinner-ring-inline"></div>
-              </div>
-              <div class="generating-text">
-                <p class="generating-title-inline">Designing Your Sticker</p>
-                <p class="generating-subtitle-inline">Applying your text and images...</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- SVG Preview in Chat -->
-          <div v-if="showWeddingStickerPreview && !isGeneratingPreview" class="chat-message ai">
-            <div class="message-bubble svg-bubble">
-              <!-- SVG Container -->
-              <div class="wedding-preview-container-inline" ref="weddingPreviewContainer">
-                <!-- SVG will be loaded here -->
-              </div>
-            </div>
-            <div class="message-time">{{ new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</div>
-          </div>
         </div>
+      </div>
+
+      <!-- Hidden Wedding Preview Container (for SVG manipulation) -->
+      <div v-if="selectedCategory === 'wedding' && showWeddingStickerPreview" class="wedding-preview-container" ref="weddingPreviewContainer" style="display: none;">
+        <!-- SVG will be loaded here for manipulation -->
       </div>
 
       <!-- Edit Modal for Wedding Sticker -->
@@ -282,7 +282,7 @@
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              Export as PNG (300 DPI)
+              Download as PNG (300 DPI)
             </button>
           </div>
         </div>
@@ -514,7 +514,7 @@
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
         </svg>
-        Export
+        Download
       </button>
     </div>
 
@@ -528,9 +528,9 @@
       
       <div class="chat-input-wrapper">
         <input 
-          v-model="formData.description"
-          @input="handleDescriptionInput"
+          v-model="chatInputText"
           @keydown.enter="handleEnterKey"
+          @paste="handlePaste"
           type="text" 
           :placeholder="showWeddingStickerPreview ? 'Ask me anything or make changes...' : 'What can I help with?'"
           class="chat-input"
@@ -543,7 +543,7 @@
         </svg>
       </button>
 
-      <button @click="handleGenerateFromChat" class="chat-send-btn" :disabled="!formData.description.trim()">
+      <button @click="handleGenerateFromChat" class="chat-send-btn" :disabled="!chatInputText.trim()">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="transform: rotate(0deg); margin-left: 2px;">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
         </svg>
@@ -646,6 +646,8 @@ const {
 
 // Wedding sticker refs
 const weddingPreviewContainer = ref<HTMLDivElement | null>(null)
+// Note: chatPreviewContainer is an array because the ref is inside a v-for loop
+const chatPreviewContainer = ref<HTMLDivElement[] | HTMLDivElement | null>(null)
 const graduationStageContainer = ref<HTMLDivElement | null>(null)
 const imageFileInput = ref<HTMLInputElement | null>(null)
 let svgElements: ReturnType<typeof getSVGElements> | null = null
@@ -734,18 +736,48 @@ async function generateWeddingPreview() {
   showWeddingStickerPreview.value = true // Ensure container exists in DOM (even if hidden)
   
   try {
-    // Artificial delay for "AI processing" feel
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
+    // Wait for DOM to create the container element
     await nextTick()
+    await nextTick() // Double nextTick to ensure Vue has fully rendered the component
+    
+    // Artificial delay for "AI processing" feel - REMOVED
+    // await new Promise(resolve => setTimeout(resolve, 2000))
+    
     await loadWeddingStickerTemplate()
     
     // Process the description to update the SVG with names, date, courtesy
     await processDescriptionInput()
 
+    // Apply custom size if specified (CRITICAL: This prevents stretching by adjusting viewBox)
+    if (formData.customSize) {
+       const sizeMatch = formData.customSize.match(/(\d+(?:\.\d+)?)\s*(?:x|by)\s*(\d+(?:\.\d+)?)/i)
+       if (sizeMatch) {
+          const w = parseFloat(sizeMatch[1])
+          const h = parseFloat(sizeMatch[2])
+          console.log(`📏 Applying initial size: ${w}x${h} inches`)
+          
+          // Ensure container is available before resizing
+          if (weddingPreviewContainer.value) {
+            await handleSizeChange(w, h)
+          } else {
+            console.warn('⚠️ weddingPreviewContainer not ready for initial resize, skipping.')
+          }
+       }
+    }
+
+    // Clear the input field now that we've processed the description
+    formData.description = ''
+
     // Handle pre-uploaded image if exists
     if (preGeneratedImageFile.value) {
-      const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
+      await nextTick() // Ensure DOM is ready
+      
+      if (!weddingPreviewContainer.value) {
+        console.error('❌ weddingPreviewContainer not available')
+        return
+      }
+      
+      const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
       if (svgElement) {
         let fileToProcess = preGeneratedImageFile.value
 
@@ -781,19 +813,104 @@ async function generateWeddingPreview() {
         type: 'info'
       })
     } else {
-      authStore.showNotification({
-        title: 'Preview Generated',
-        message: 'Your wedding sticker preview is ready!',
-        type: 'success'
-      })
+      // Only show success notification if it's the first generation
+      // or if we are not in a "silent update" mode
+      if (!showWeddingStickerPreview.value) {
+        authStore.showNotification({
+          title: 'Preview Generated',
+          message: 'Your wedding sticker preview is ready!',
+          type: 'success'
+        })
+      }
     }
     
     // Hide description field on success
     isDescriptionVisible.value = false
     
+    // Add the preview message to the chat history
+    chatMessages.value.push({
+      id: Date.now(),
+      text: '',
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      type: 'preview'
+    })
+
+    // Add guidance message
+    chatMessages.value.push({
+      id: Date.now() + 1,
+      text: "Here is your design! If it doesn't look right, you can click 'Edit' to make changes manually.",
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    })
+    
+    // Ensure SVG is visible and properly rendered
+    await nextTick()
+    await nextTick() // Double nextTick for chat container
+    
+    // Copy the SVG from main container to chat container
+    // Note: chatPreviewContainer is an array because it's in a v-for loop
+    if (weddingPreviewContainer.value) {
+      const svgElement = weddingPreviewContainer.value.querySelector('svg')
+      
+      if (svgElement) {
+        // Get the last preview container (the one we just added)
+        const previewContainers = Array.isArray(chatPreviewContainer.value) 
+          ? chatPreviewContainer.value 
+          : (chatPreviewContainer.value ? [chatPreviewContainer.value] : [])
+        
+        const targetContainer = previewContainers[previewContainers.length - 1]
+        
+        if (targetContainer) {
+          // Clone the SVG and insert it into the chat preview
+          const clonedSVG = svgElement.cloneNode(true) as SVGSVGElement
+          targetContainer.innerHTML = ''
+          targetContainer.appendChild(clonedSVG)
+          
+          console.log('✅ SVG successfully cloned to chat container')
+          
+          // Force a layout recalculation
+          void targetContainer.offsetHeight
+        } else {
+          console.error('❌ Chat preview container not available in array')
+        }
+      } else {
+        console.error('❌ SVG not found in weddingPreviewContainer')
+        
+        // Try to show a fallback in the last preview container
+        const previewContainers = Array.isArray(chatPreviewContainer.value) 
+          ? chatPreviewContainer.value 
+          : (chatPreviewContainer.value ? [chatPreviewContainer.value] : [])
+        
+        const targetContainer = previewContainers[previewContainers.length - 1]
+        
+        if (targetContainer) {
+          targetContainer.innerHTML = `
+            <svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+              <rect width="100%" height="100%" fill="#fee"/>
+              <text x="50%" y="45%" text-anchor="middle" font-size="16" fill="#c00">SVG Failed to Load</text>
+              <text x="50%" y="55%" text-anchor="middle" font-size="12" fill="#666">Please try again</text>
+            </svg>
+          `
+        }
+      }
+    } else {
+      console.error('❌ weddingPreviewContainer not available')
+    }
+    
     // Scroll to bottom to show the generated SVG
     scrollToBottom()
     
+  } catch (error) {
+    console.error('Generation failed:', error)
+    // Reset state on error so user can try again
+    showWeddingStickerPreview.value = false
+    
+    authStore.showNotification({
+      title: 'Generation Failed',
+      message: 'Something went wrong. Please try again.',
+      type: 'error'
+    })
   } finally {
     isGeneratingPreview.value = false
     // Ensure final scroll after animation completes
@@ -821,6 +938,134 @@ const uploadModalSuccess = ref(false)
 const preGeneratedImageFile = ref<File | null>(null)
 const preGeneratedImagePreview = ref<string | null>(null)
 const preGeneratedImageInput = ref<HTMLInputElement | null>(null)
+
+// Enhanced Name Extraction Function
+function extractNamesFromResponse(text: string): { name1: string | null; name2: string | null } {
+  // Pattern 1: Name and Name or Name & Name
+  const andPattern = /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:and|&)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b/
+  const andMatch = text.match(andPattern)
+  
+  if (andMatch) {
+    return { name1: andMatch[1].trim(), name2: andMatch[2].trim() }
+  }
+  
+  // Pattern 2: Two consecutive capitalized words (fallback)
+  const twoNamesPattern = /\b([A-Z][a-z]{2,})\s+([A-Z][a-z]{2,})\b/
+  const twoNamesMatch = text.match(twoNamesPattern)
+  
+  if (twoNamesMatch) {
+    return { name1: twoNamesMatch[1], name2: twoNamesMatch[2] }
+  }
+  
+  // Pattern 3: Single capitalized name
+  const singleNamePattern = /\b([A-Z][a-z]{2,})\b/
+  const singleMatch = text.match(singleNamePattern)
+  
+  if (singleMatch) {
+    return { name1: singleMatch[1], name2: null }
+  }
+  
+  return { name1: null, name2: null }
+}
+
+// Extract date from text
+function extractDateFromText(text: string): string | null {
+  const datePatterns = [
+    // Match dates like "5th January, 2023" or "5th January 2023" (with or without comma)
+    /\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[,\s]+\d{2,4}/i,
+    // Match numeric dates like "12/25/2023" or "12-25-2023"
+    /\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}/
+  ]
+  
+  for (const pattern of datePatterns) {
+    const match = text.match(pattern)
+    if (match) return match[0]
+  }
+  return null
+}
+
+// Extract courtesy from text
+function extractCourtesyFromText(text: string): string | null {
+  const courtesyPatterns = [
+    // Match "courtesy: Name" or "from Name" or "by Name"
+    // Capture from the keyword until end of text, but NOT including dates before it
+    /(?:courtesy|from|by)[\s:]+([A-Za-z\s]+?)(?=\s*$|\n)/i,
+  ]
+  
+  for (const pattern of courtesyPatterns) {
+    const match = text.match(pattern)
+    if (match) {
+      // Return the full match including the keyword
+      const fullMatch = match[0].trim()
+      // Clean up - remove trailing punctuation or extra spaces
+      return fullMatch.replace(/[,.]\s*$/, '').trim()
+    }
+  }
+  return null
+}
+
+// Extract size from text
+function extractSizeFromText(text: string): string | null {
+  const sizeMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:x|by)\s*(\d+(?:\.\d+)?)(?:\s*(?:inch|inches|in))?/i)
+  if (sizeMatch) {
+    const width = parseFloat(sizeMatch[1])
+    const height = parseFloat(sizeMatch[2])
+    return `${width}x${height} in`
+  }
+  return null
+}
+
+// Track image uploads
+function trackImageUpload(file: File) {
+  const timestamp = Date.now()
+  uploadedImages.value.push({ file, timestamp, used: false })
+  lastUploadedImage.value = file
+  
+  console.log('📸 Image uploaded:', { total: uploadedImages.value.length, timestamp })
+  
+  // Handle multiple image uploads
+  handleMultipleImageUploads()
+}
+
+// Handle multiple image uploads with AI confirmation
+function handleMultipleImageUploads() {
+  const unusedImages = uploadedImages.value.filter(img => !img.used)
+  
+  // Pre-generation: Multiple images uploaded
+  if (!showWeddingStickerPreview.value && unusedImages.length > 1) {
+    const firstImage = unusedImages[0]
+    const latestImage = unusedImages[unusedImages.length - 1]
+    const timeDiff = Math.round((latestImage.timestamp - firstImage.timestamp) / 1000)
+    
+    awaitingImageChoice.value = true
+    
+    const aiMessage = `I see you uploaded another picture (${timeDiff} seconds after the first one). Would you like me to use this new picture instead, or keep the first one?`
+    
+    chatMessages.value.push({
+      id: Date.now(),
+      text: aiMessage,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    })
+    scrollToBottom()
+  }
+  
+  // Post-generation: New image uploaded after design is created
+  if (showWeddingStickerPreview.value && lastUploadedImage.value) {
+    awaitingImageUpdateConfirmation.value = true
+    pendingImageFile.value = lastUploadedImage.value
+    
+    const aiMessage = "I notice you uploaded a new picture. Would you like me to replace the current image in your design?"
+    
+    chatMessages.value.push({
+      id: Date.now(),
+      text: aiMessage,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    })
+    scrollToBottom()
+  }
+}
 
 // Smart Camera Handler
 function handleDescriptionUpdate(newText: string) {
@@ -917,12 +1162,106 @@ const formData = reactive({
   svgHeight: 400
 })
 
+// Separate chat input state to prevent real-time SVG updates during chat
+const chatInputText = ref('')
+
 // Chat Logic for Wedding Category
-const chatMessages = ref<Array<{ id: number; text: string; sender: 'user' | 'ai'; time: string; image?: string }>>([])
+const chatMessages = ref<Array<{ id: number; text: string; sender: 'user' | 'ai'; time: string; image?: string; type?: 'text' | 'preview' }>>([])
 const isAnalyzing = ref(false)
+const isVoiceEnabled = ref(true) // Enabled by default
+
+// Voice / TTS Logic
+function toggleVoice() {
+  isVoiceEnabled.value = !isVoiceEnabled.value
+  if (isVoiceEnabled.value) {
+    // Announce voice is on
+    speakMessage("Voice guidance enabled. I will read my messages to you.")
+  } else {
+    window.speechSynthesis.cancel()
+  }
+}
+
+function speakMessage(text: string) {
+  if (!('speechSynthesis' in window)) return
+  
+  // Cancel any current speech
+  window.speechSynthesis.cancel()
+  
+  const utterance = new SpeechSynthesisUtterance(text)
+  // Try to find a good voice
+  const voices = window.speechSynthesis.getVoices()
+  // Prefer a female voice or a "Google US English" voice if available
+  const preferredVoice = voices.find(v => v.name.includes('Google US English') || v.name.includes('Female')) || voices[0]
+  if (preferredVoice) utterance.voice = preferredVoice
+  
+  utterance.rate = 1.0
+  utterance.pitch = 1.0
+  
+  window.speechSynthesis.speak(utterance)
+}
+
+// Initialize voice on mount
+onMounted(() => {
+  // Wait for voices to load
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = () => {
+      // Voices loaded
+    }
+  }
+})
+
+function showChatHelp() {
+  const helpText = "Here's a quick guide: 1. Type your details or upload a picture. 2. Pinch with two fingers to resize images on mobile. 3. Use the voice icon to hear my responses."
+  
+  chatMessages.value.push({
+    id: Date.now(),
+    text: helpText,
+    sender: 'ai',
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  })
+  scrollToBottom()
+}
+
+// Watch for new AI messages to speak them
+watch(() => chatMessages.value.length, (newLen, oldLen) => {
+  if (newLen > oldLen && isVoiceEnabled.value) {
+    const lastMsg = chatMessages.value[newLen - 1]
+    if (lastMsg.sender === 'ai') {
+      speakMessage(lastMsg.text)
+    }
+  }
+})
+
 const chatHistoryContainer = ref<HTMLElement | null>(null)
 const accumulatedDescription = ref('')
+const awaitingPictureDecision = ref(false)
+const awaitingSizeDecision = ref(false)
+const pictureStepComplete = ref(false)
+const sizeStepComplete = ref(false)
 const awaitingBackgroundRemovalDecision = ref(false)
+const awaitingImageUpdateConfirmation = ref(false)
+const pendingImageFile = ref<File | null>(null)
+
+// Enhanced AI state management
+const awaitingNameInput = ref(false)
+const awaitingImageChoice = ref(false)
+const uploadedImages = ref<Array<{ file: File; timestamp: number; used: boolean }>>([])
+const lastUploadedImage = ref<File | null>(null)
+const nameExtractionAttempts = ref(0)
+
+// Track extracted information to prevent re-asking
+const extractedInfo = ref({
+  date: null as string | null,
+  courtesy: null as string | null,
+  size: null as string | null,
+  names: { name1: null as string | null, name2: null as string | null }
+})
+
+// State for smart updates (post-generation)
+const awaitingDateChange = ref(false)
+const awaitingCourtesyChange = ref(false)
+const pendingDateUpdate = ref<string | null>(null)
+const pendingCourtesyUpdate = ref<string | null>(null)
 
 const scrollToBottom = () => {
   nextTick(() => {
@@ -933,7 +1272,7 @@ const scrollToBottom = () => {
 }
 
 async function sendMessage() {
-  const text = formData.description.trim()
+  const text = chatInputText.value.trim()
   if (!text) return
 
   // Add User Message
@@ -944,11 +1283,33 @@ async function sendMessage() {
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   })
 
-  // Accumulate description
-  accumulatedDescription.value += (accumulatedDescription.value ? ' ' : '') + text
+  // Accumulate description ONLY if we haven't generated the preview yet
+  // This ensures that after generation, chat messages don't accidentally become part of the sticker text
+  if (!showWeddingStickerPreview.value) {
+    accumulatedDescription.value += (accumulatedDescription.value ? ' ' : '') + text
+    
+    // Extract and store date, courtesy, and size from the message
+    const extractedDate = extractDateFromText(text)
+    const extractedCourtesy = extractCourtesyFromText(text)
+    const extractedSize = extractSizeFromText(text)
+    
+    if (extractedDate && !extractedInfo.value.date) {
+      extractedInfo.value.date = extractedDate
+    }
+    if (extractedCourtesy && !extractedInfo.value.courtesy) {
+      extractedInfo.value.courtesy = extractedCourtesy
+    }
+    if (extractedSize && !extractedInfo.value.size) {
+      extractedInfo.value.size = extractedSize
+      formData.customSize = extractedSize
+    }
+  } else {
+    // After preview is shown, messages are chat-only and don't update the SVG
+    console.log('📝 Preview already shown, message is chat-only:', text)
+  }
 
   // Clear Input
-  formData.description = ''
+  chatInputText.value = ''
   scrollToBottom()
 
   // Start Analysis
@@ -960,7 +1321,94 @@ async function sendMessage() {
   }, 1500)
 }
 
-function analyzeMessage(lastUserMessage: string) {
+async function handleSizeChange(widthInches: number, heightInches: number) {
+  console.log(`📏 Resizing to ${widthInches}x${heightInches} inches`)
+  
+  if (!weddingPreviewContainer.value) {
+    console.error('❌ weddingPreviewContainer not available for resize')
+    return
+  }
+  
+  const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
+  if (!svgElement) {
+    console.error('❌ SVG element not found for resize')
+    return
+  }
+
+  // Get current viewBox dimensions BEFORE changes
+  let viewBox = svgElement.getAttribute('viewBox')?.split(/\s+|,/).map(Number)
+  
+  // Fallback if viewBox is missing or invalid
+  if (!viewBox || viewBox.length !== 4 || viewBox.some(isNaN)) {
+    const w = parseFloat(svgElement.getAttribute('width') || '400')
+    const h = parseFloat(svgElement.getAttribute('height') || '400')
+    viewBox = [0, 0, w || 400, h || 400]
+  }
+  
+  const oldViewBoxHeight = viewBox[3]
+  const currentViewBoxWidth = viewBox[2]
+
+  // 1. Store physical size for export
+  svgElement.setAttribute('data-export-width', `${widthInches}in`)
+  svgElement.setAttribute('data-export-height', `${heightInches}in`)
+  
+  // 2. Calculate new ViewBox height
+  // We keep the ViewBox width constant to ensure "width doesn't change" relative to the design scale
+  const newViewBoxHeight = currentViewBoxWidth * (heightInches / widthInches)
+  
+  if (isNaN(newViewBoxHeight) || newViewBoxHeight <= 0) {
+      console.error('Invalid new viewBox height calculated')
+      return
+  }
+
+  // 3. Update ViewBox
+  svgElement.setAttribute('viewBox', `${viewBox[0]} ${viewBox[1]} ${currentViewBoxWidth} ${newViewBoxHeight}`)
+  
+  // 4. Ensure Responsive Display
+  // Set width to 100% to fill container, remove fixed height to let viewBox aspect ratio take over
+  svgElement.setAttribute('width', '100%')
+  svgElement.removeAttribute('height')
+  svgElement.style.width = '100%'
+  svgElement.style.height = 'auto'
+  svgElement.style.display = 'block'
+
+  // 5. Adjust Internal Layout
+  const heightDiff = newViewBoxHeight - oldViewBoxHeight
+  
+  console.log(`📏 Height Diff: ${heightDiff} (Old: ${oldViewBoxHeight}, New: ${newViewBoxHeight})`)
+
+  // A. Adjust Background Rects
+  const rects = svgElement.querySelectorAll('rect')
+  rects.forEach(rect => {
+    // Update background rects to fill new height
+    const rectW = parseFloat(rect.getAttribute('width') || '0')
+    
+    if (rect.getAttribute('width') === '100%' || Math.abs(rectW - currentViewBoxWidth) < 1) {
+       rect.setAttribute('height', String(newViewBoxHeight)) 
+    }
+  })
+
+  // B. Adjust Image Height
+  const images = svgElement.querySelectorAll('image')
+  images.forEach(img => {
+      const currentH = parseFloat(img.getAttribute('height') || '0')
+      if (currentH > 0) {
+          // Only resize if it looks like a main image (significant size)
+          if (currentH > 50) { 
+              img.setAttribute('height', String(currentH + heightDiff))
+              // Ensure it fills the space
+              if (!img.hasAttribute('preserveAspectRatio')) {
+                  img.setAttribute('preserveAspectRatio', 'xMidYMid slice')
+              }
+          }
+      }
+  })
+  
+  // Force refresh
+  await nextTick()
+}
+
+async function analyzeMessage(lastUserMessage: string) {
   isAnalyzing.value = false
   
   const fullText = accumulatedDescription.value
@@ -969,6 +1417,304 @@ function analyzeMessage(lastUserMessage: string) {
   
   let aiResponse = ''
   
+  // Priority 1: Handle Image Choice (Multiple Uploads)
+  if (awaitingImageChoice.value) {
+    const wantsNew = lowerMessage.includes('new') || lowerMessage.includes('latest') || lowerMessage.includes('second') || lowerMessage.includes('yes')
+    const wantsFirst = lowerMessage.includes('first') || lowerMessage.includes('original') || lowerMessage.includes('no')
+    
+    if (wantsNew && lastUploadedImage.value) {
+      preGeneratedImageFile.value = lastUploadedImage.value
+      uploadedImages.value.forEach(img => img.used = false)
+      const lastIndex = uploadedImages.value.length - 1
+      if (lastIndex >= 0) uploadedImages.value[lastIndex].used = true
+      
+      aiResponse = "Perfect! I'll use the new picture you just uploaded."
+    } else if (wantsFirst && uploadedImages.value.length > 0) {
+      preGeneratedImageFile.value = uploadedImages.value[0].file
+      uploadedImages.value[0].used = true
+      
+      aiResponse = "Got it! I'll use the first picture you uploaded."
+    } else {
+      aiResponse = "Please say 'new' to use the latest picture, or 'first' to use the original one."
+      chatMessages.value.push({
+        id: Date.now(),
+        text: aiResponse,
+        sender: 'ai',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })
+      scrollToBottom()
+      return
+    }
+    
+    awaitingImageChoice.value = false
+    pictureStepComplete.value = true
+    
+    chatMessages.value.push({
+      id: Date.now(),
+      text: aiResponse,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    })
+    scrollToBottom()
+    
+    // Check if we have all info to proceed
+    const hasDate = /\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)|\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}/i.test(fullText)
+    const hasCourtesy = /(?:courtesy|from|by)/i.test(fullText)
+    const hasNames = /(?:and|&)/i.test(fullText) || extractNamesFromResponse(fullText).name1
+    
+    if (hasNames && hasDate && hasCourtesy) {
+      // Proceed to size or generation
+      if (!sizeStepComplete.value) {
+        setTimeout(() => {
+          aiResponse = `One last thing! What size would you like the sticker to be? (e.g., say '3x3' for inches, or 'default' for 4x4)`
+          awaitingSizeDecision.value = true
+          chatMessages.value.push({
+            id: Date.now(),
+            text: aiResponse,
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+          scrollToBottom()
+        }, 500)
+      }
+    }
+    return
+  }
+  
+  // Priority 2: Handle Date Change Confirmation (Post-Generation)
+  if (awaitingDateChange.value) {
+    if (lowerMessage.includes('yes') || lowerMessage.includes('change') || lowerMessage.includes('update')) {
+      if (pendingDateUpdate.value) {
+        // Update the accumulated description
+        const oldDate = extractedInfo.value.date
+        if (oldDate) {
+          accumulatedDescription.value = accumulatedDescription.value.replace(oldDate, pendingDateUpdate.value)
+        } else {
+          accumulatedDescription.value += ' ' + pendingDateUpdate.value
+        }
+        
+        extractedInfo.value.date = pendingDateUpdate.value
+        formData.description = accumulatedDescription.value
+        
+        // Update the SVG without regenerating
+        await processDescriptionInput()
+        
+        aiResponse = `Date updated to ${pendingDateUpdate.value}!`
+      }
+    } else {
+      aiResponse = "Okay, keeping the original date."
+    }
+    
+    awaitingDateChange.value = false
+    pendingDateUpdate.value = null
+    
+    chatMessages.value.push({
+      id: Date.now(),
+      text: aiResponse,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    })
+    scrollToBottom()
+    return
+  }
+  
+  // Priority 3: Handle Courtesy Change Confirmation (Post-Generation)
+  if (awaitingCourtesyChange.value) {
+    if (lowerMessage.includes('yes') || lowerMessage.includes('change') || lowerMessage.includes('update')) {
+      if (pendingCourtesyUpdate.value) {
+        // Update the accumulated description
+        const oldCourtesy = extractedInfo.value.courtesy
+        if (oldCourtesy) {
+          accumulatedDescription.value = accumulatedDescription.value.replace(oldCourtesy, pendingCourtesyUpdate.value)
+        } else {
+          accumulatedDescription.value += ' ' + pendingCourtesyUpdate.value
+        }
+        
+        extractedInfo.value.courtesy = pendingCourtesyUpdate.value
+        formData.description = accumulatedDescription.value
+        
+        // Update the SVG without regenerating
+        await processDescriptionInput()
+        
+        aiResponse = `Courtesy message updated!`
+      }
+    } else {
+      aiResponse = "Okay, keeping the original courtesy message."
+    }
+    
+    awaitingCourtesyChange.value = false
+    pendingCourtesyUpdate.value = null
+    
+    chatMessages.value.push({
+      id: Date.now(),
+      text: aiResponse,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    })
+    scrollToBottom()
+    return
+  }
+  
+  // Priority 4: Handle Name Input (After AI asks for name)
+  if (awaitingNameInput.value) {
+    const extracted = extractNamesFromResponse(lastUserMessage)
+    const extractedDate = extractDateFromText(lastUserMessage)
+    const extractedCourtesy = extractCourtesyFromText(lastUserMessage)
+    
+    if (extracted.name1) {
+      // Build the description with extracted info
+      const descriptionParts: string[] = []
+      
+      if (extracted.name2) {
+        descriptionParts.push(`${extracted.name1} and ${extracted.name2}`)
+        aiResponse = `Great! I have ${extracted.name1} and ${extracted.name2}.`
+      } else {
+        descriptionParts.push(extracted.name1)
+        aiResponse = `Got it! I have ${extracted.name1}.`
+      }
+      
+      if (extractedDate) {
+        descriptionParts.push(extractedDate)
+        aiResponse += ` Date: ${extractedDate}.`
+      }
+      
+      if (extractedCourtesy) {
+        descriptionParts.push(extractedCourtesy)
+        aiResponse += ` ${extractedCourtesy}.`
+      }
+      
+      // Update accumulated description
+      accumulatedDescription.value += (accumulatedDescription.value ? ' ' : '') + descriptionParts.join(' ')
+      
+      // Store extracted info
+      extractedInfo.value.names = extracted
+      if (extractedDate) extractedInfo.value.date = extractedDate
+      if (extractedCourtesy) extractedInfo.value.courtesy = extractedCourtesy
+      
+      // Check for size in the message
+      const extractedSize = extractSizeFromText(lastUserMessage)
+      if (extractedSize) {
+        extractedInfo.value.size = extractedSize
+        formData.customSize = extractedSize
+      }
+      
+      awaitingNameInput.value = false
+      nameExtractionAttempts.value = 0
+      
+      chatMessages.value.push({
+        id: Date.now(),
+        text: aiResponse,
+        sender: 'ai',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })
+      scrollToBottom()
+      
+      // Check what info we still need based on extractedInfo (not fullText)
+      const needsDate = !extractedInfo.value.date
+      const needsCourtesy = !extractedInfo.value.courtesy
+      
+      if (needsDate || needsCourtesy) {
+        // We still need date or courtesy
+        setTimeout(() => {
+          const missing: string[] = []
+          if (needsDate) missing.push('the date')
+          if (needsCourtesy) missing.push('courtesy message (who it\'s from)')
+          
+          aiResponse = `I'm listening. Please also tell me ${missing.join(' and ')}.`
+          chatMessages.value.push({
+            id: Date.now(),
+            text: aiResponse,
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+          scrollToBottom()
+        }, 800)
+      } else {
+        // Has everything (names, date, courtesy), ask about picture
+        setTimeout(() => {
+          if (!preGeneratedImageFile.value && !pictureStepComplete.value) {
+            aiResponse = `Perfect! Do you have a picture you'd like to use in your design?`
+            awaitingPictureDecision.value = true
+            chatMessages.value.push({
+              id: Date.now(),
+              text: aiResponse,
+              sender: 'ai',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            })
+            scrollToBottom()
+          } else {
+            // Has picture too, ask about size or proceed
+            pictureStepComplete.value = true
+            if (!extractedInfo.value.size && !sizeStepComplete.value) {
+              aiResponse = `One last thing! What size would you like the sticker to be? (e.g., say '3x3' for inches, or 'default' for 4x4)`
+              awaitingSizeDecision.value = true
+              chatMessages.value.push({
+                id: Date.now(),
+                text: aiResponse,
+                sender: 'ai',
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              })
+              scrollToBottom()
+            } else {
+              // Has everything including size, generate!
+              formData.description = accumulatedDescription.value
+              setTimeout(() => generateWeddingPreview(), 1000)
+            }
+          }
+        }, 800)
+      }
+      return
+    } else {
+      // Failed to extract name
+      nameExtractionAttempts.value++
+      
+      if (nameExtractionAttempts.value >= 2) {
+        aiResponse = "I'm having trouble finding the names. Please use a format like: 'John and Mary' or 'Sarah & Ahmed'"
+      } else {
+        aiResponse = "I didn't catch the name(s). Could you please provide them? For example: 'John and Mary'"
+      }
+      
+      chatMessages.value.push({
+        id: Date.now(),
+        text: aiResponse,
+        sender: 'ai',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })
+      scrollToBottom()
+      return
+    }
+  }
+  
+  // Handle Image Update Confirmation (Post-Generation)
+  if (awaitingImageUpdateConfirmation.value) {
+    if (lowerMessage === 'yes' || lowerMessage.includes('yes please') || lowerMessage.includes('sure') || lowerMessage.includes('ok')) {
+       aiResponse = "Great! Updating your sticker with the new image..."
+       
+       // Apply the image
+       if (pendingImageFile.value && weddingPreviewContainer.value) {
+          const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
+          if (svgElement) {
+             await svgImageManager.addImage(pendingImageFile.value, svgElement)
+             updateSVGWithImages()
+          }
+       }
+       pendingImageFile.value = null
+    } else {
+       aiResponse = "Okay, I'll ignore that image."
+       pendingImageFile.value = null
+    }
+    awaitingImageUpdateConfirmation.value = false
+    
+    chatMessages.value.push({
+      id: Date.now(),
+      text: aiResponse,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    })
+    scrollToBottom()
+    return
+  }
+
   // Handle Background Removal Decision
   if (awaitingBackgroundRemovalDecision.value) {
     if (lowerMessage === 'yes' || lowerMessage.includes('yes please') || lowerMessage.includes('remove')) {
@@ -981,6 +1727,17 @@ function analyzeMessage(lastUserMessage: string) {
     
     awaitingBackgroundRemovalDecision.value = false
     
+    // Set the pending image as the one to be used
+    if (pendingImageFile.value) {
+      preGeneratedImageFile.value = pendingImageFile.value
+      pendingImageFile.value = null
+    }
+    
+    // Mark picture step as complete if we have an image now
+    if (preGeneratedImageFile.value) {
+      pictureStepComplete.value = true
+    }
+    
     chatMessages.value.push({
       id: Date.now(),
       text: aiResponse,
@@ -989,23 +1746,88 @@ function analyzeMessage(lastUserMessage: string) {
     })
     scrollToBottom()
     
-    // If we were updating an existing design, trigger regeneration now
-    if (showWeddingStickerPreview.value) {
+    // Check if we have enough info to proceed using extractedInfo
+    const hasDate = extractedInfo.value.date !== null
+    const hasCourtesy = extractedInfo.value.courtesy !== null
+    const hasNames = extractedInfo.value.names.name1 !== null
+
+    if (!hasDate || !hasCourtesy || !hasNames) {
+       // We are missing info, so we should ask for it now instead of falling through
+       // because falling through might trigger the generic "no" handler if user said "no" to background
+       
+       const missingFields: string[] = []
+       if (!hasNames) missingFields.push('the couple\'s names')
+       if (!hasDate) missingFields.push('the date')
+       if (!hasCourtesy) missingFields.push('who it is from (courtesy)')
+       
        setTimeout(() => {
-         generateWeddingPreview()
-       }, 1000)
+          const followUp = `Now, please tell me ${missingFields.join(', ')}.`
+          chatMessages.value.push({
+            id: Date.now(),
+            text: followUp,
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+          scrollToBottom()
+       }, 500)
+       return
     }
-    return
+    
+    // If we have everything, fall through to the "Complete details" check which will trigger generation
   }
 
-  // Check for required fields
-  const hasDate = /\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)|\d{1,2}[-/]\d{1,2}[-/]\d{2,4}/i.test(fullText)
-  const hasCourtesy = /(?:courtesy|from|by)/i.test(fullText)
-  const hasNames = /(?:and|&)/i.test(fullText) // Basic check for a couple
-  
-  // 1. Check for COMPLETE details first
-  if (hasDate && hasCourtesy && hasNames) {
-    aiResponse = `Perfect, ${userName}! All details confirmed. Generating your wedding design now.`
+  // Check for required fields ONLY if preview hasn't been generated yet
+  // After generation, all messages are just chat responses
+  if (showWeddingStickerPreview.value) {
+    // Check if user is trying to change date or courtesy
+    const newDate = extractDateFromText(lastUserMessage)
+    const newCourtesy = extractCourtesyFromText(lastUserMessage)
+    
+    if (newDate && newDate !== extractedInfo.value.date) {
+      // User typed a new date
+      pendingDateUpdate.value = newDate
+      awaitingDateChange.value = true
+      aiResponse = `I see you mentioned a new date: ${newDate}. Would you like me to update the date in your design?`
+      
+      chatMessages.value.push({
+        id: Date.now(),
+        text: aiResponse,
+        sender: 'ai',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })
+      scrollToBottom()
+      return
+    }
+    
+    if (newCourtesy && newCourtesy !== extractedInfo.value.courtesy) {
+      // User typed a new courtesy
+      pendingCourtesyUpdate.value = newCourtesy
+      awaitingCourtesyChange.value = true
+      aiResponse = `I see you mentioned: "${newCourtesy}". Would you like me to update the courtesy message in your design?`
+      
+      chatMessages.value.push({
+        id: Date.now(),
+        text: aiResponse,
+        sender: 'ai',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })
+      scrollToBottom()
+      return
+    }
+    
+    // Preview is already shown - handle as chat message only
+    // Provide contextual AI response based on message content
+    let aiResponse = ''
+    
+    if (lowerMessage.includes('change') || lowerMessage.includes('update') || lowerMessage.includes('edit')) {
+      aiResponse = 'To make changes, you can use the Edit button below the design, or just tell me what you\'d like to change (date, courtesy, etc.).'
+    } else if (lowerMessage.includes('download') || lowerMessage.includes('save')) {
+      aiResponse = 'You can download your design using the Download button below the preview. It\'s available in SVG and PNG formats!'
+    } else if (lowerMessage.includes('thank') || lowerMessage.includes('great') || lowerMessage.includes('perfect')) {
+      aiResponse = 'You\'re welcome! I\'m glad you like it. Let me know if you need any adjustments! 😊'
+    } else {
+      aiResponse = 'Your design is ready! You can edit it, download it, or start a new design. How can I help you further?'
+    }
     
     chatMessages.value.push({
       id: Date.now(),
@@ -1014,6 +1836,177 @@ function analyzeMessage(lastUserMessage: string) {
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     })
     scrollToBottom()
+    isAnalyzing.value = false
+    return
+  }
+  
+  // Check what we have so far using extractedInfo
+  const hasNames = extractedInfo.value.names.name1 !== null
+  const hasDate = extractedInfo.value.date !== null
+  const hasCourtesy = extractedInfo.value.courtesy !== null
+  
+  // 1. Check for COMPLETE details first
+  if (hasNames && hasDate && hasCourtesy) {
+    // Step 1: Handle Picture Decision
+    // Check if we already have a picture uploaded (via UI or previous chat)
+    if (preGeneratedImageFile.value) {
+      pictureStepComplete.value = true
+    }
+
+    if (!pictureStepComplete.value) {
+      if (awaitingPictureDecision.value) {
+        const hasYes = lowerMessage.includes('yes') || lowerMessage.includes('yeah') || lowerMessage.includes('sure') || lowerMessage.includes('yep')
+        const hasNo = lowerMessage.includes('no') || lowerMessage.includes('nope') || lowerMessage.includes('not')
+        
+        if (hasYes) {
+          aiResponse = `Great! Please upload your picture using the image upload button.`
+          awaitingPictureDecision.value = false
+          // We don't set pictureStepComplete to true here because we want them to actually upload it
+          // But we can set a flag to remind them if they try to proceed without it
+          
+          chatMessages.value.push({
+            id: Date.now(),
+            text: aiResponse,
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+          scrollToBottom()
+          return
+        } else if (hasNo) {
+          aiResponse = `No problem! We'll proceed without a picture.`
+          awaitingPictureDecision.value = false
+          pictureStepComplete.value = true
+          
+          chatMessages.value.push({
+            id: Date.now(),
+            text: aiResponse,
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+          scrollToBottom()
+          
+          // Fall through to next step (Size)
+        } else {
+          // Unclear response
+          aiResponse = "Please answer Yes or No. Do you have a picture you'd like to use?"
+          chatMessages.value.push({
+            id: Date.now(),
+            text: aiResponse,
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+          scrollToBottom()
+          return
+        }
+      } else {
+        // Ask about picture if not already asked
+        if (!showWeddingStickerPreview.value) {
+          aiResponse = `Perfect, ${userName}! All details confirmed. Do you have any picture you'd like to use in your design?`
+          awaitingPictureDecision.value = true
+          
+          chatMessages.value.push({
+            id: Date.now(),
+            text: aiResponse,
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+          scrollToBottom()
+          return
+        }
+      }
+    }
+
+    // Step 2: Handle Size Decision (skip if already provided)
+    if (pictureStepComplete.value && !sizeStepComplete.value) {
+      // Check if size was already provided
+      if (extractedInfo.value.size) {
+        formData.customSize = extractedInfo.value.size
+        sizeStepComplete.value = true
+        // Don't ask, just proceed to generation
+        aiResponse = `Generating your wedding design now...`
+        
+        chatMessages.value.push({
+          id: Date.now(),
+          text: aiResponse,
+          sender: 'ai',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        })
+        scrollToBottom()
+        
+        formData.description = fullText
+        setTimeout(() => {
+          generateWeddingPreview()
+        }, 1000)
+        return
+      }
+      
+      if (awaitingSizeDecision.value) {
+        // Check for size in message
+        const sizeMatch = lowerMessage.match(/(\d+(?:\.\d+)?)\s*(?:x|by)\s*(\d+(?:\.\d+)?)(?:\s*(?:inch|inches|in))?/i)
+        const isDefault = lowerMessage.includes('default') || lowerMessage.includes('standard') || lowerMessage.includes('normal')
+        
+        if (sizeMatch) {
+           const width = parseFloat(sizeMatch[1])
+           const height = parseFloat(sizeMatch[2])
+           formData.customSize = `${width}x${height} in`
+           aiResponse = `Got it! Setting size to ${width}x${height} inches.`
+           awaitingSizeDecision.value = false
+           sizeStepComplete.value = true
+        } else if (isDefault) {
+           formData.customSize = '4x4'
+           aiResponse = `Okay, using the default 4x4 inch size.`
+           awaitingSizeDecision.value = false
+           sizeStepComplete.value = true
+        } else {
+           aiResponse = "Please specify a size (e.g., '3x3') or say 'default' for 4x4 inches."
+           chatMessages.value.push({
+            id: Date.now(),
+            text: aiResponse,
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+          scrollToBottom()
+          return
+        }
+        
+        chatMessages.value.push({
+          id: Date.now(),
+          text: aiResponse,
+          sender: 'ai',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        })
+        scrollToBottom()
+        
+        // Fall through to Generation
+      } else {
+        // Ask about size
+        aiResponse = `One last thing! What size would you like the sticker to be? (e.g., say '3x3' for inches, or 'default' for 4x4)`
+        awaitingSizeDecision.value = true
+        
+        chatMessages.value.push({
+          id: Date.now(),
+          text: aiResponse,
+          sender: 'ai',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        })
+        scrollToBottom()
+        return
+      }
+    }
+    
+    // If we're here, all steps are complete. Proceed with generation.
+    aiResponse = `Generating your wedding design now...`
+    
+    // Only add the message if we haven't generated yet
+    if (!showWeddingStickerPreview.value) {
+      chatMessages.value.push({
+        id: Date.now(),
+        text: aiResponse,
+        sender: 'ai',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })
+      scrollToBottom()
+    }
 
     // Trigger Generation
     // Set the full description back to formData so the generator uses it
@@ -1037,17 +2030,114 @@ function analyzeMessage(lastUserMessage: string) {
                      lowerMessage.includes('update') ||
                      lowerMessage.includes('change') ||
                      lowerMessage.includes('yes') ||
-                     lowerMessage.includes('no')
+                     lowerMessage.includes('no') ||
+                     lowerMessage.includes('can you') ||
+                     lowerMessage.includes('could you') ||
+                     lowerMessage.includes('would you')
 
   const hasAnyInfo = hasNames || hasDate || hasCourtesy
 
-  if (isQuestion) {
+  // Check for "continue" or "skip" commands to proceed with partial info
+  if ((lowerMessage.includes('continue') || lowerMessage.includes('skip') || lowerMessage.includes('proceed')) && !showWeddingStickerPreview.value) {
+    if (extractedInfo.value.names.name1) {
+      // Has at least a name, can proceed
+      if (!pictureStepComplete.value && !preGeneratedImageFile.value) {
+        aiResponse = `Alright! Do you have a picture you'd like to use in your design?`
+        awaitingPictureDecision.value = true
+        chatMessages.value.push({
+          id: Date.now(),
+          text: aiResponse,
+          sender: 'ai',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        })
+        scrollToBottom()
+        return
+      } else {
+        // Proceed to generation
+        formData.description = fullText
+        setTimeout(() => generateWeddingPreview(), 1000)
+        return
+      }
+    }
+  }
+
+  // Check for size change request
+  const sizeMatch = lowerMessage.match(/(\d+(?:\.\d+)?)\s*(?:x|by)\s*(\d+(?:\.\d+)?)(?:\s*(?:inch|inches|in))?/i)
+  if (sizeMatch) {
+     const width = parseFloat(sizeMatch[1])
+     const height = parseFloat(sizeMatch[2])
+     
+     if (!isNaN(width) && !isNaN(height)) {
+        formData.customSize = `${width}x${height} in`
+        
+        if (showWeddingStickerPreview.value) {
+           await handleSizeChange(width, height)
+           aiResponse = `I've resized your design to ${width} x ${height} inches.`
+        } else {
+           aiResponse = `Got it! I'll make the design ${width} x ${height} inches. What else?`
+        }
+        
+        chatMessages.value.push({
+          id: Date.now(),
+          text: aiResponse,
+          sender: 'ai',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        })
+        scrollToBottom()
+        return
+     }
+  }
+
+  // Check for specific questions and requests
+  if (lowerMessage.includes('color') || lowerMessage.includes('colour')) {
+    aiResponse = "I can customize the colors! Just tell me which colors you'd like, and I'll apply them to your design."
+  } else if (lowerMessage.includes('size') || lowerMessage.includes('dimension')) {
+    aiResponse = "The sticker size can be adjusted! Just let me know what dimensions you need (e.g., '5x5 inches' or '400x400 pixels')."
+  } else if (lowerMessage.includes('example') || lowerMessage.includes('sample')) {
+    aiResponse = "Sure! Here's an example: 'Sarah & Michael, 20th June 2025, courtesy: Johnson Family'. Now, tell me your details!"
+  } else if (lowerMessage.includes('price') || lowerMessage.includes('cost') || lowerMessage.includes('pay')) {
+    aiResponse = "I'm here to help you design! For pricing information, please check with the team. Meanwhile, let's create your perfect sticker!"
+  } else if (lowerMessage.includes('download') || lowerMessage.includes('save')) {
+    aiResponse = "Once your design is ready, you'll see an 'Export' button at the bottom to download your sticker in high quality!"
+  } else if (lowerMessage.includes('redo') || lowerMessage.includes('start over') || lowerMessage.includes('again')) {
+    // Reset state for new generation
+    showWeddingStickerPreview.value = false
+    accumulatedDescription.value = ''
+    formData.description = ''
+    svgImageManager.clearAllImages()
+    preGeneratedImageFile.value = null
+    pendingImageFile.value = null
+    pictureStepComplete.value = false
+    sizeStepComplete.value = false
+    awaitingPictureDecision.value = false
+    awaitingSizeDecision.value = false
+    
+    aiResponse = "No problem! Just provide the new details, and I'll create a fresh design for you."
+  } else if (lowerMessage.includes('thank')) {
+    aiResponse = "You're very welcome! 😊 Happy to help make your special day even more memorable."
+  } else if (isQuestion) {
      if (lowerMessage.includes('how')) {
         aiResponse = "It's simple! Just tell me the couple's names (e.g., 'Romeo & Juliet'), the wedding date, and who the sticker is from (courtesy)."
      } else if (lowerMessage.includes('what')) {
         aiResponse = "I need three things to design your sticker: 1. The couple's names. 2. The date. 3. The courtesy (e.g., 'From the Smith Family')."
      } else if (lowerMessage.includes('update') || lowerMessage.includes('change')) {
-        aiResponse = "You can update the information by simply typing the new details here. I will update the design automatically once I have everything."
+        // If we have a preview, update it directly
+        if (showWeddingStickerPreview.value) {
+          aiResponse = "I'm updating your design with the changes..."
+          
+          // Update the description with the new text (assuming user typed the change)
+          // We might need to be smarter here about merging, but for now let's assume they typed the correction
+          // Or we can just trigger a re-process of the current accumulated description + new message
+          
+          // Actually, if they say "change date to X", we should probably parse that.
+          // For simplicity, let's just re-run the processDescriptionInput with the accumulated text
+          
+          setTimeout(() => {
+            processDescriptionInput()
+          }, 500)
+        } else {
+          aiResponse = "You can update the information by simply typing the new details here. I will update the design automatically once I have everything."
+        }
      } else if (lowerMessage === 'yes' || lowerMessage.includes('yes please')) {
         // Handle confirmation for image update or general adjustments
         if (showWeddingStickerPreview.value) {
@@ -1080,17 +2170,121 @@ function analyzeMessage(lastUserMessage: string) {
      else if (lowerMessage.includes('salam') || lowerMessage.includes('assalamu')) replyGreeting = "Wa alaikum assalam"
      
      aiResponse = `${replyGreeting}, ${userName}! How are you today? How can I help you with your wedding sticker?`
+  } else if (lowerMessage.includes('dont have') || lowerMessage.includes('don\'t have') || lowerMessage.includes('not now') || lowerMessage.includes('cancel') || lowerMessage.includes('leave it')) {
+     aiResponse = "Okay, no problem. Let me know if you want to make any other changes."
   } else {
-    // 3. Standard Missing Fields Logic
-    const missingFields: string[] = []
-    if (!hasNames) missingFields.push('the couple\'s names (e.g. John & Mary)')
-    if (!hasDate) missingFields.push('the date')
-    if (!hasCourtesy) missingFields.push('who it is from (courtesy)')
-    
-    if (missingFields.length === 1) {
-      aiResponse = `I got that. Please provide your ${missingFields[0]}.`
+    // If user provides info but it's incomplete or just an update
+    if (showWeddingStickerPreview.value) {
+       // Assume it's an update request
+       aiResponse = "I've updated your design with the new details."
+       setTimeout(() => {
+         processDescriptionInput()
+       }, 500)
     } else {
-      aiResponse = `I'm listening. Please also tell me ${missingFields.join(' and ')}.`
+      // 3. Standard Missing Fields Logic - Enhanced Name Detection
+      const missingFields: string[] = []
+      
+      // Try to extract any missing info from the current message first
+      if (!extractedInfo.value.date) {
+        const newDate = extractDateFromText(lastUserMessage)
+        if (newDate) {
+          extractedInfo.value.date = newDate
+          accumulatedDescription.value += ' ' + newDate
+        }
+      }
+      
+      if (!extractedInfo.value.courtesy) {
+        const newCourtesy = extractCourtesyFromText(lastUserMessage)
+        if (newCourtesy) {
+          extractedInfo.value.courtesy = newCourtesy
+          accumulatedDescription.value += ' ' + newCourtesy
+        }
+      }
+      
+      // Check for names using enhanced extraction
+      const extractedNames = extractNamesFromResponse(lastUserMessage)
+      if (extractedNames.name1 && !extractedInfo.value.names.name1) {
+        extractedInfo.value.names = extractedNames
+        // Add names to accumulated description
+        if (extractedNames.name2) {
+          accumulatedDescription.value += ' ' + extractedNames.name1 + ' and ' + extractedNames.name2
+        } else {
+          accumulatedDescription.value += ' ' + extractedNames.name1
+        }
+      }
+      
+      // Now check what's still missing based on extractedInfo
+      const hasNamesEnhanced = extractedInfo.value.names.name1 !== null
+      const hasDateEnhanced = extractedInfo.value.date !== null
+      const hasCourtesyEnhanced = extractedInfo.value.courtesy !== null
+      
+      // If we just got all the info, proceed!
+      if (hasNamesEnhanced && hasDateEnhanced && hasCourtesyEnhanced) {
+        // Has everything now, check picture and size
+        if (!preGeneratedImageFile.value && !pictureStepComplete.value) {
+          aiResponse = `Perfect! Do you have a picture you'd like to use in your design?`
+          awaitingPictureDecision.value = true
+          chatMessages.value.push({
+            id: Date.now(),
+            text: aiResponse,
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+          scrollToBottom()
+          return
+        } else {
+          pictureStepComplete.value = true
+          if (!extractedInfo.value.size && !sizeStepComplete.value) {
+            aiResponse = `One last thing! What size would you like? (e.g., '3x3' or 'default' for 4x4)`
+            awaitingSizeDecision.value = true
+            chatMessages.value.push({
+              id: Date.now(),
+              text: aiResponse,
+              sender: 'ai',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            })
+            scrollToBottom()
+            return
+          } else {
+            // Has everything, generate!
+            formData.description = accumulatedDescription.value
+            setTimeout(() => generateWeddingPreview(), 1000)
+            return
+          }
+        }
+      }
+      
+      if (!hasNamesEnhanced) {
+        missingFields.push('the couple\'s names')
+        
+        // If ONLY name is missing, trigger enhanced name extraction mode
+        if (hasDateEnhanced || hasCourtesyEnhanced || fullText.trim().length > 10) {
+          awaitingNameInput.value = true
+          nameExtractionAttempts.value = 0
+          aiResponse = `I have some information, but I need the couple's names. Please provide the names (e.g., 'John and Mary' or 'Sarah & Ahmed').`
+          
+          chatMessages.value.push({
+            id: Date.now(),
+            text: aiResponse,
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+          scrollToBottom()
+          return
+        }
+      }
+      
+      if (!hasDateEnhanced) missingFields.push('the date')
+      if (!hasCourtesyEnhanced) missingFields.push('who it is from (courtesy)')
+      
+      // Special case: User uploaded a picture but hasn't provided text details
+      if (preGeneratedImageFile.value && missingFields.length === 3) {
+         aiResponse = `I have your picture! Now, please tell me the couple's names, the date, and who the sticker is from.`
+      } else if (missingFields.length === 1) {
+        aiResponse = `I got that. Please provide ${missingFields[0]}.`
+      } else {
+        aiResponse = `I'm listening. Please also tell me ${missingFields.join(' and ')}.`
+      }
     }
   }
 
@@ -1104,11 +2298,41 @@ function analyzeMessage(lastUserMessage: string) {
 }
 
 function handleEnterKey(e: KeyboardEvent) {
-  if (selectedCategory.value === 'wedding' && !showWeddingStickerPreview.value) {
-    e.preventDefault() // Prevent default only if we are handling it
+  if (selectedCategory.value === 'wedding') {
+    e.preventDefault()
     sendMessage()
   }
   // Otherwise let it bubble or do nothing (SmartTextarea might handle it)
+}
+
+function handlePaste(e: ClipboardEvent) {
+  if (selectedCategory.value !== 'wedding') return
+
+  const items = e.clipboardData?.items
+  if (!items) return
+
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type.indexOf('image') !== -1) {
+      const blob = items[i].getAsFile()
+      if (blob) {
+        // Handle the pasted image
+        e.preventDefault()
+        
+        // Use the same logic as file selection
+        cropImageSrc.value = URL.createObjectURL(blob)
+        cropImageFile.value = blob
+        isPreGenerationCrop.value = true
+        showCropModal.value = true
+        
+        authStore.showNotification({
+          title: 'Image Pasted',
+          message: 'Image detected from clipboard!',
+          type: 'success'
+        })
+        return
+      }
+    }
+  }
 }
 
 function handleGenerateFromChat() {
@@ -1125,7 +2349,10 @@ const imageSlots = ref<Array<{ file: File; preview: string } | null>>([
 ])
 
 function selectCategory(categoryId: string) {
+  console.log('🎯 Category selected:', categoryId)
   selectedCategory.value = categoryId
+  console.log('✅ selectedCategory.value set to:', selectedCategory.value)
+  console.log('📋 Should show form now:', !!selectedCategory.value)
   // Load category-specific template
   loadCategoryTemplate(categoryId)
 }
@@ -1250,7 +2477,12 @@ function goBack() {
 
 // Wedding Sticker Functions
 async function loadWeddingStickerTemplate() {
-  if (!weddingPreviewContainer.value) return
+  if (!weddingPreviewContainer.value) {
+    console.error('❌ weddingPreviewContainer.value is null!')
+    return
+  }
+
+  console.log('🔄 Loading wedding sticker template...')
 
   try {
     // Reset replacement state when loading new template
@@ -1276,6 +2508,7 @@ async function loadWeddingStickerTemplate() {
     // Try each source until one works
     for (const source of sources) {
       try {
+        console.log(`🔍 Trying to load from: ${source.name}`)
         const response = await fetch(source.url, {
           mode: source.mode as RequestMode,
           cache: 'no-cache'
@@ -1284,38 +2517,80 @@ async function loadWeddingStickerTemplate() {
         if (response.ok) {
           svgText = await response.text()
           successSource = source.name
+          console.log(`✅ Successfully loaded from: ${source.name}`)
           break
+        } else {
+          console.warn(`⚠️ Failed from ${source.name}: ${response.status}`)
         }
       } catch (err) {
+        console.warn(`⚠️ Error from ${source.name}:`, err)
         continue
       }
     }
 
     if (!svgText) {
-      console.warn('Failed to load SVG from all sources, using fallback');
-      // Fallback SVG
+      console.warn('⚠️ Failed to load SVG from all sources, using fallback')
+      // Fallback SVG with better visibility
       svgText = `<svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
-        <rect width="100%" height="100%" fill="#f0f0f0"/>
-        <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" font-size="20">Template Load Failed</text>
-      </svg>`;
+        <rect width="100%" height="100%" fill="#667eea"/>
+        <image id="userImage" x="100" y="50" width="200" height="200" preserveAspectRatio="xMidYMid meet" />
+        <text x="50%" y="45%" text-anchor="middle" dominant-baseline="middle" font-size="24" fill="white" font-weight="bold">Wedding Sticker</text>
+        <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle" font-size="16" fill="white">Template Loading...</text>
+        <rect x="50" y="250" width="300" height="2" fill="white" opacity="0.3"/>
+        <g id="wedding-names-group">
+          <text id="name1-text" x="50%" y="280" text-anchor="middle" font-size="14" fill="white" opacity="0.8">Names will appear here</text>
+        </g>
+        <text id="date-text" x="50%" y="300" text-anchor="middle" font-size="14" fill="white" opacity="0.8">Date will appear here</text>
+        <text id="courtesy-text" x="50%" y="320" text-anchor="middle" font-size="14" fill="white" opacity="0.8">Courtesy will appear here</text>
+      </svg>`
       
       authStore.showNotification({
-        title: 'Template Load Failed',
-        message: 'Could not load the sticker template. Using fallback.',
-        type: 'error'
+        title: 'Using Fallback Template',
+        message: 'Could not load the sticker template. Using a basic design.',
+        type: 'warning'
       })
     }
 
+    console.log('📝 SVG text length:', svgText.length)
+    console.log('📝 First 200 chars:', svgText.substring(0, 200))
+
     // Insert SVG into container
     weddingPreviewContainer.value.innerHTML = svgText
+    console.log('✅ SVG inserted into container')
+    
+    // Force immediate DOM update
+    await nextTick()
+    await nextTick() // Double nextTick to ensure Vue has fully updated
+    
+    // Force a reflow to ensure the browser has rendered
+    if (weddingPreviewContainer.value) {
+      void weddingPreviewContainer.value.offsetHeight
+    }
 
     // Get SVG element and its text elements
-    await nextTick()
     const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
+    
+    if (!svgElement) {
+      console.error('❌ SVG element not found after insertion!')
+      console.error('Container HTML:', weddingPreviewContainer.value.innerHTML.substring(0, 200))
+      return
+    }
+    
+    console.log('✅ SVG element found:', svgElement)
+    
     if (svgElement) {
-      // Apply current dimensions from form data
-      // svgElement.setAttribute('width', formData.svgWidth.toString())
-      // svgElement.setAttribute('height', formData.svgHeight.toString())
+      // Ensure SVG has proper dimensions for display
+      if (!svgElement.hasAttribute('width') || !svgElement.hasAttribute('height')) {
+        svgElement.setAttribute('width', '400')
+        svgElement.setAttribute('height', '400')
+      }
+      
+      // Ensure viewBox exists
+      if (!svgElement.hasAttribute('viewBox')) {
+        const width = svgElement.getAttribute('width') || '400'
+        const height = svgElement.getAttribute('height') || '400'
+        svgElement.setAttribute('viewBox', `0 0 ${width} ${height}`)
+      }
 
       svgElements = getSVGElements(svgElement)
 
@@ -1601,7 +2876,8 @@ async function processDescriptionInput() {
 
   // Perform validation even if SVG elements are not loaded yet
   if (selectedCategory.value === 'wedding' && !svgElements) {
-    const stickerData = await updateStickerText(formData.description, {} as any)
+    // Pass null elements structure to avoid errors while validating
+    const stickerData = await updateStickerText(formData.description, getSVGElements(null))
     updateValidationWarnings(stickerData)
   }
   
@@ -1943,6 +3219,12 @@ async function handleCropComplete(data: { dataUrl: string; blob: Blob; width: nu
       preGeneratedImageFile.value = croppedFile
       preGeneratedImagePreview.value = data.dataUrl
       
+      // Mark this image as used in the tracking array
+      const uploadIndex = uploadedImages.value.findIndex(img => img.file === cropImageFile.value)
+      if (uploadIndex >= 0) {
+        uploadedImages.value[uploadIndex].used = true
+      }
+      
       // Add image message to chat
       chatMessages.value.push({
         id: Date.now(),
@@ -2177,6 +3459,10 @@ function makeSVGImageDraggable(imageElement: SVGImageElement, imageId: string) {
   let startY = 0
   let initialX = 0
   let initialY = 0
+  let initialDistance = 0
+  let initialScale = 1
+  let baseWidth = 0
+  let baseHeight = 0
 
   // Add visual feedback
   imageElement.style.cursor = 'move'
@@ -2240,16 +3526,140 @@ function makeSVGImageDraggable(imageElement: SVGImageElement, imageId: string) {
     }
   }
 
+  // Touch event handlers for mobile
+  const handleTouchStart = (e: TouchEvent) => {
+    if (e.touches.length === 1) {
+      // Single touch - drag
+      isDragging = true
+      const svgElement = imageElement.ownerSVGElement
+      if (!svgElement) return
+
+      const touch = e.touches[0]
+      const pt = svgElement.createSVGPoint()
+      pt.x = touch.clientX
+      pt.y = touch.clientY
+      const svgPt = pt.matrixTransform(svgElement.getScreenCTM()?.inverse())
+
+      startX = svgPt.x
+      startY = svgPt.y
+      initialX = parseFloat(imageElement.getAttribute('x') || '0')
+      initialY = parseFloat(imageElement.getAttribute('y') || '0')
+
+      imageElement.style.opacity = '0.7'
+    } else if (e.touches.length === 2) {
+      // Two finger - pinch to zoom
+      isDragging = false
+      const touch1 = e.touches[0]
+      const touch2 = e.touches[1]
+      initialDistance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      )
+      
+      const img = svgImageManager.images.value.find(i => i.id === imageId)
+      initialScale = img?.scale || 1.15
+      
+      // Calculate base dimensions from current element size and scale
+      const currentWidth = parseFloat(imageElement.getAttribute('width') || '0')
+      const currentHeight = parseFloat(imageElement.getAttribute('height') || '0')
+      
+      // Avoid division by zero or invalid scale
+      const safeScale = initialScale > 0 ? initialScale : 1
+      baseWidth = currentWidth / safeScale
+      baseHeight = currentHeight / safeScale
+    }
+    e.preventDefault()
+  }
+
+  const handleTouchMove = (e: TouchEvent) => {
+    if (e.touches.length === 1 && isDragging) {
+      // Single touch - drag
+      const svgElement = imageElement.ownerSVGElement
+      if (!svgElement) return
+
+      const touch = e.touches[0]
+      const pt = svgElement.createSVGPoint()
+      pt.x = touch.clientX
+      pt.y = touch.clientY
+      const svgPt = pt.matrixTransform(svgElement.getScreenCTM()?.inverse())
+
+      let dx = svgPt.x - startX
+      const dy = svgPt.y - startY
+
+      // If image is flipped, invert horizontal drag direction
+      const img = svgImageManager.images.value.find(i => i.id === imageId)
+      if (img && img.flipped) {
+        dx = -dx
+      }
+
+      const newX = initialX + dx
+      const newY = initialY + dy
+
+      imageElement.setAttribute('x', newX.toString())
+      imageElement.setAttribute('y', newY.toString())
+
+      // Update the image manager with new position
+      svgImageManager.updateImage(imageId, { x: newX, y: newY })
+    } else if (e.touches.length === 2) {
+      // Two finger - pinch to zoom
+      const touch1 = e.touches[0]
+      const touch2 = e.touches[1]
+      const currentDistance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      )
+      
+      const scaleFactor = currentDistance / initialDistance
+      const newScale = Math.max(0.5, Math.min(2.5, initialScale * scaleFactor))
+      
+      // Update image scale
+      const img = svgImageManager.images.value.find(i => i.id === imageId)
+      if (img) {
+        // Use calculated base dimensions instead of hardcoded values
+        const adjustedWidth = baseWidth * newScale
+        const adjustedHeight = baseHeight * newScale
+        
+        imageElement.setAttribute('width', adjustedWidth.toString())
+        imageElement.setAttribute('height', adjustedHeight.toString())
+        
+        // Update in manager (will trigger re-render)
+        const currentX = parseFloat(imageElement.getAttribute('x') || '0')
+        const currentY = parseFloat(imageElement.getAttribute('y') || '0')
+        svgImageManager.updateImage(imageId, { 
+          x: currentX,
+          y: currentY,
+          scale: newScale 
+        } as any)
+      }
+    }
+    e.preventDefault()
+  }
+
+  const handleTouchEnd = () => {
+    if (isDragging) {
+      isDragging = false
+      imageElement.style.opacity = '1'
+    }
+  }
+
   // Add event listeners
   imageElement.addEventListener('mousedown', handleMouseDown)
   document.addEventListener('mousemove', handleMouseMove)
   document.addEventListener('mouseup', handleMouseUp)
+  
+  // Touch events
+  imageElement.addEventListener('touchstart', handleTouchStart, { passive: false })
+  imageElement.addEventListener('touchmove', handleTouchMove, { passive: false })
+  imageElement.addEventListener('touchend', handleTouchEnd)
 
   // Store cleanup function
   const cleanup = () => {
     imageElement.removeEventListener('mousedown', handleMouseDown)
     document.removeEventListener('mousemove', handleMouseMove)
     document.removeEventListener('mouseup', handleMouseUp)
+    imageElement.removeEventListener('touchstart', handleTouchStart)
+    imageElement.removeEventListener('touchmove', handleTouchMove)
+    imageElement.removeEventListener('touchend', handleTouchEnd)
   }
 
   // Store cleanup reference on element
@@ -2363,18 +3773,61 @@ function updateSVGWithImages() {
   const images = svgImageManager.images.value
   
   // Check for the specific userImage element we want to control (or fallback to placeholder-image)
-  const userImageElement = svgElement.querySelector('#userImage') || svgElement.querySelector('#placeholder-image')
+  let userImageElement = svgElement.querySelector('#userImage') || svgElement.querySelector('#placeholder-image')
+  
+  // If no image element exists, create one
+  if (!userImageElement && images.length > 0) {
+    userImageElement = document.createElementNS('http://www.w3.org/2000/svg', 'image')
+    userImageElement.setAttribute('id', 'userImage')
+    // Insert as first child so it's behind text
+    if (svgElement.firstChild) {
+      svgElement.insertBefore(userImageElement, svgElement.firstChild)
+    } else {
+      svgElement.appendChild(userImageElement)
+    }
+  }
   
   if (userImageElement && images.length > 0) {
     // We are in "replace placeholder" mode
     // Use the LAST image to populate #userImage (in case multiple were added, we want the latest)
     const img = images[images.length - 1]
 
-    // Use FIXED frame position from SVG template
-    const frameX = 1400
-    const frameY = 35
-    const frameWidth = 1580
-    const frameHeight = 1650.75
+    // Determine frame dimensions based on SVG size
+    const viewBox = svgElement.getAttribute('viewBox')?.split(' ').map(Number)
+    const svgWidth = viewBox ? viewBox[2] : parseFloat(svgElement.getAttribute('width') || '400')
+    const svgHeight = viewBox ? viewBox[3] : parseFloat(svgElement.getAttribute('height') || '400')
+    
+    // Check if this is the large template (width > 1000)
+    const isLargeTemplate = svgWidth > 1000
+
+    let frameX, frameY, frameWidth, frameHeight
+
+    if (isLargeTemplate) {
+      // Use FIXED frame position from SVG template
+      frameX = 1400
+      frameY = 35
+      frameWidth = 1580
+      frameHeight = 1650.75
+    } else {
+      // Use centered position for fallback/smaller templates
+      // Default to 50% width/height centered
+      const existingWidth = parseFloat(userImageElement.getAttribute('width') || '0')
+      const existingHeight = parseFloat(userImageElement.getAttribute('height') || '0')
+      
+      if (existingWidth > 0 && existingHeight > 0) {
+        // Use existing element dimensions
+        frameX = parseFloat(userImageElement.getAttribute('x') || '0')
+        frameY = parseFloat(userImageElement.getAttribute('y') || '0')
+        frameWidth = existingWidth
+        frameHeight = existingHeight
+      } else {
+        // Create centered frame
+        frameWidth = svgWidth * 0.5
+        frameHeight = svgHeight * 0.5
+        frameX = (svgWidth - frameWidth) / 2
+        frameY = (svgHeight - frameHeight) / 2
+      }
+    }
     
     // Use custom scale from image if available, otherwise default to 1.15
     const scale = img.scale || 1.15
@@ -2383,8 +3836,8 @@ function updateSVGWithImages() {
     
     // Center the enlarged image within the frame
     const adjustedX = frameX - (adjustedWidth - frameWidth) / 2
-    // Move only the uploaded image down by 90px
-    const adjustedY = frameY - (adjustedHeight - frameHeight) / 2 + 90
+    // Move only the uploaded image down by 90px (only for large template)
+    const adjustedY = frameY - (adjustedHeight - frameHeight) / 2 + (isLargeTemplate ? 90 : 0)
     
     userImageElement.setAttribute('x', adjustedX.toString())
     userImageElement.setAttribute('y', adjustedY.toString())
@@ -2399,8 +3852,8 @@ function updateSVGWithImages() {
     
     // Ensure clip-path and preserveAspectRatio are set as requested
     if (!userImageElement.hasAttribute('clip-path')) {
-        // Only set default clip-path if it's the userImage element
-        if (userImageElement.id === 'userImage') {
+        // Only set default clip-path if it's the userImage element AND we are on large template
+        if (userImageElement.id === 'userImage' && isLargeTemplate) {
             userImageElement.setAttribute('clip-path', 'url(#imageClip)')
         }
     }
@@ -2522,15 +3975,37 @@ async function exportWeddingSticker(format: 'svg' | 'png') {
   try {
     const filename = `wedding-sticker-${new Date().toISOString().split('T')[0]}`
 
+    // Apply physical dimensions for export if they exist
+    const exportWidth = svgElement.getAttribute('data-export-width')
+    const exportHeight = svgElement.getAttribute('data-export-height')
+    const originalStyleWidth = svgElement.style.width
+    const originalStyleHeight = svgElement.style.height
+
+    if (exportWidth && exportHeight) {
+      svgElement.setAttribute('width', exportWidth)
+      svgElement.setAttribute('height', exportHeight)
+      // Remove CSS constraints that might interfere with the export canvas sizing
+      svgElement.style.width = ''
+      svgElement.style.height = ''
+    }
+
     await exportSVG(svgElement, svgImageManager.images.value, {
       filename: format === 'svg' ? `${filename}.svg` : `${filename}.png`,
       format,
       pngResolution: 300
     })
 
+    // Restore responsive display settings
+    if (exportWidth && exportHeight) {
+      svgElement.setAttribute('width', '100%')
+      svgElement.removeAttribute('height')
+      svgElement.style.width = originalStyleWidth || '100%'
+      svgElement.style.height = originalStyleHeight || 'auto'
+    }
+
     authStore.showNotification({
-      title: 'Export Successful',
-      message: `Sticker exported as ${format.toUpperCase()}`,
+      title: 'Download Successful',
+      message: `Sticker downloaded as ${format.toUpperCase()}`,
       type: 'success'
     })
   } catch (error) {
@@ -2598,53 +4073,50 @@ async function handleModalFileSelect(event: Event) {
       uploadModalProgress.value = 30
       await new Promise(resolve => setTimeout(resolve, 300))
 
-      let processedFile = file
-
-      // Remove background automatically ONLY if requested
-      if (autoRemoveBackground.value && isBackgroundRemovalSupported()) {
-        uploadModalStatusText.value = 'Removing background...'
-        uploadModalProgress.value = 50
-
-        try {
-          const result = await removeBackground(file, {
-            quality: 'high',
-            outputFormat: 'image/png',
-            maxDimensions: 2048
-          })
-
-          uploadModalProgress.value = 80
-
-          // Convert blob to File
-          processedFile = new File([result.blob], file.name.replace(/\.[^/.]+$/, '.png'), {
-            type: 'image/png',
-            lastModified: Date.now()
-          })
-
-          uploadModalStatusText.value = 'Background removed!'
-        } catch (error: any) {
-          console.warn('Background removal failed, using original image:', error)
-          uploadModalStatusText.value = 'Processing image...'
-          // Continue with original file
-        }
-      } else {
-        uploadModalStatusText.value = 'Processing image...'
-        uploadModalProgress.value = 60
-      }
-
-      // Instead of adding directly to SVG, open crop modal
-      cropImageSrc.value = URL.createObjectURL(processedFile)
-      cropImageFile.value = processedFile
-      isPreGenerationCrop.value = false
-      showCropModal.value = true
-
+      // Store file for later processing
+      pendingImageFile.value = file
+      
       uploadModalProgress.value = 100
-      uploadModalStatusText.value = 'Ready to crop'
+      uploadModalStatusText.value = 'Image uploaded!'
       uploadModalSuccess.value = true
 
-      // Close modal once crop opens
+      // Close modal
       setTimeout(() => {
         closeUploadModal()
         uploadModalProcessing.value = false
+        
+        // If preview is already shown, ask if user wants to use this image
+        if (showWeddingStickerPreview.value) {
+          awaitingBackgroundRemovalDecision.value = true // Reuse this flag or create a new one? 
+          // Actually, let's use a specific flow for this.
+          // We can reuse awaitingBackgroundRemovalDecision but the prompt is different.
+          
+          chatMessages.value.push({
+            id: Date.now(),
+            text: "I see you uploaded a new photo. Do you want to use this image on your wedding sticker?",
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            image: URL.createObjectURL(file)
+          })
+          scrollToBottom()
+          
+          // We need a way to know we are in "confirm image update" mode.
+          // Let's use a new state or piggyback on awaitingBackgroundRemovalDecision with a context check?
+          // For simplicity, let's add a new state variable: awaitingImageUpdateConfirmation
+          awaitingImageUpdateConfirmation.value = true
+          
+        } else {
+          // Normal flow (before generation)
+          // Ask user about background removal
+          awaitingBackgroundRemovalDecision.value = true
+          chatMessages.value.push({
+            id: Date.now(),
+            text: "Image received! Do you want me to remove the background?",
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+          scrollToBottom()
+        }
       }, 500)
 
     } catch (error) {
@@ -2677,6 +4149,9 @@ function handlePreGeneratedImageSelect(event: Event) {
   
   if (files && files.length > 0) {
     const file = files[0]
+    
+    // Track the image upload for AI management
+    trackImageUpload(file)
     
     // Open crop modal instead of setting directly
     cropImageSrc.value = URL.createObjectURL(file)
@@ -5276,6 +6751,51 @@ onMounted(() => {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
+/* Footer Action Buttons */
+.chat-footer-actions {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  gap: 12px;
+}
+
+.footer-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.footer-action-btn.edit-btn {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.footer-action-btn.edit-btn:hover {
+  background: #e5e7eb;
+  transform: translateY(-1px);
+}
+
+.footer-action-btn.export-btn {
+  background: #1f2937;
+  color: white;
+}
+
+.footer-action-btn.export-btn:hover {
+  background: #111827;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
 .chat-input-container {
   display: flex;
   align-items: center;
@@ -5449,6 +6969,21 @@ onMounted(() => {
     padding: 10px 12px;
   }
 
+  .chat-footer-actions {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .footer-action-btn {
+    padding: 10px 16px;
+    font-size: 0.875rem;
+  }
+
+  .footer-action-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
   .chat-input-container {
     gap: 8px;
   }
@@ -5533,12 +7068,50 @@ onMounted(() => {
   overflow: hidden;
   background: #f9fafb;
   margin: -20px -20px 0 -20px; /* Negative margin to fill container */
+  position: relative;
+}
+
+/* Chat Controls Header */
+.chat-controls-header {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  display: flex;
+  gap: 8px;
+}
+
+.chat-control-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: white;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #6b7280;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  transition: all 0.2s ease;
+}
+
+.chat-control-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.chat-control-btn.active {
+  background: #eff6ff;
+  color: #2563eb;
+  border-color: #bfdbfe;
 }
 
 .chat-history {
   flex: 1;
   overflow-y: auto;
   padding: 20px;
+  padding-top: 50px; /* Space for controls */
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -5701,65 +7274,57 @@ onMounted(() => {
 
 /* SVG Bubble in Chat */
 .message-bubble.svg-bubble {
-  padding: 0;
-  background: #f9fafb;
+  padding: 16px;
+  background: white;
   border: 1px solid #e5e7eb;
   max-width: 100%;
-  width: fit-content;
+  width: 100%;
   border-radius: 12px;
-  overflow: hidden;
-}
-
-.svg-actions-bar {
-  display: flex;
-  gap: 8px;
-  padding: 12px;
-  background: white;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.svg-action-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.svg-action-btn.edit-btn {
-  background: #f3f4f6;
-  color: #374151;
-}
-
-.svg-action-btn.edit-btn:hover {
-  background: #e5e7eb;
-}
-
-.svg-action-btn.export-btn {
-  background: #1f2937;
-  color: white;
-}
-
-.svg-action-btn.export-btn:hover {
-  background: #111827;
+  overflow: visible;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .wedding-preview-container-inline {
-  padding: 16px;
-  background: white;
   display: flex;
   justify-content: center;
   align-items: center;
+  position: relative;
+  touch-action: none; /* Enable touch gestures for dragging/pinching */
+  background: #fafafa;
+  border-radius: 8px;
 }
 
 .wedding-preview-container-inline svg {
+  width: auto !important;
+  height: auto !important;
   max-width: 100%;
-  height: auto;
+  max-height: 60vh;
+  display: block;
+  touch-action: pan-x pan-y pinch-zoom; /* Allow pan and zoom gestures */
+}
+
+/* Make SVG images draggable with visual feedback */
+.wedding-preview-container-inline svg image {
+  cursor: move;
+  cursor: grab;
+  transition: opacity 0.2s ease;
+}
+
+.wedding-preview-container-inline svg image:active {
+  cursor: grabbing;
+  opacity: 0.8;
+}
+
+/* Mobile: Optimize for touch */
+@media (max-width: 768px) {
+  .message-bubble.svg-bubble {
+    max-width: 95%;
+    padding: 12px;
+  }
+  
+  .wedding-preview-container-inline svg {
+    max-height: 400px;
+  }
 }
 
 @keyframes typing {

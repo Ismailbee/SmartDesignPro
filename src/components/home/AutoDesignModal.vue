@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="modal-fade">
-      <div v-if="isOpen" class="modal-overlay" @click="closeModal">
+      <div v-if="isOpen" class="modal-overlay" @click="closeModal" @wheel="handleWheel" @touchmove="handleTouchMove">
         <div class="modal-container" @click.stop>
           <!-- Close Button -->
           <button class="close-button" aria-label="Close menu" @click="closeModal">
@@ -153,15 +153,37 @@ const handleEscape = (e: KeyboardEvent) => {
   if (e.key === 'Escape' && props.isOpen) closeModal()
 }
 
+// Prevent wheel scrolling on the overlay
+const handleWheel = (e: WheelEvent) => {
+  if (e.target === e.currentTarget) {
+    e.preventDefault()
+  }
+}
+
+// Prevent touch scrolling on mobile
+const handleTouchMove = (e: TouchEvent) => {
+  if (e.target === e.currentTarget) {
+    e.preventDefault()
+  }
+}
+
 // Prevent body scroll when modal is open and clear search when closing
 watch(() => props.isOpen, (newValue) => {
   /* eslint-disable no-console */
   console.log('🎯 AutoDesignModal isOpen changed:', newValue)
   if (newValue) {
+    // Prevent body scroll with multiple techniques
     document.body.style.overflow = 'hidden'
+    document.body.style.position = 'fixed'
+    document.body.style.width = '100%'
+    document.documentElement.style.overflow = 'hidden'
     console.log('🚀 AutoDesignModal opened - content should be visible')
   } else {
+    // Restore body scroll
     document.body.style.overflow = ''
+    document.body.style.position = ''
+    document.body.style.width = ''
+    document.documentElement.style.overflow = ''
     // Clear search query when modal closes
     searchQuery.value = ''
     console.log('❌ AutoDesignModal closed')
@@ -172,22 +194,32 @@ watch(() => props.isOpen, (newValue) => {
 onMounted(() => document.addEventListener('keydown', handleEscape))
 onUnmounted(() => {
   document.removeEventListener('keydown', handleEscape)
-  // Ensure overflow is restored
+  // Ensure overflow is restored completely
   document.body.style.overflow = ''
+  document.body.style.position = ''
+  document.body.style.width = ''
+  document.documentElement.style.overflow = ''
 })
 </script>
 
 <style scoped>
 .modal-overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10003;
   padding: 20px;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
 }
 
 .modal-container {
@@ -203,6 +235,8 @@ onUnmounted(() => {
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   position: relative;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .close-button {

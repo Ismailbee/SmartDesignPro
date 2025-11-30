@@ -224,14 +224,63 @@
               <ion-card-content>
                 <div
                   class="drop-zone"
-                  :class="{ dragging: isDragging }"
+                  :class="{ dragging: isDragging, 'has-files': files.length > 0 }"
                   @dragover.prevent="onDragOver"
                   @dragleave="onDragLeave"
                   @drop.prevent="onDrop"
                 >
-                  <ion-icon :icon="cloudUploadOutline"></ion-icon>
-                  <p>Drag & drop files here</p>
-                  <ion-button fill="outline" color="primary" @click="openFilePicker">Choose files</ion-button>
+                  <!-- Upload Interface (shown when no files) -->
+                  <div v-if="files.length === 0" class="upload-interface">
+                    <ion-icon :icon="cloudUploadOutline"></ion-icon>
+                    <p>Drag & drop files here</p>
+                    <ion-button fill="outline" color="primary" @click="openFilePicker">Choose files</ion-button>
+                  </div>
+                  
+                  <!-- File Preview Interface (shown when files exist) -->
+                  <div v-else class="file-preview-interface">
+                    <div class="file-header">
+                      <h4>{{ files.length }} file(s) uploaded</h4>
+                      <div class="header-actions">
+                        <ion-button fill="clear" size="small" color="primary" @click="openFilePicker">
+                          <ion-icon :icon="cloudUploadOutline" slot="start"></ion-icon>
+                          Add more
+                        </ion-button>
+                      </div>
+                    </div>
+                    
+                    <div class="file-items-grid">
+                      <div 
+                        v-for="(file, index) in files" 
+                        :key="index"
+                        class="file-item-compact"
+                      >
+                        <div class="file-preview">
+                          <div v-if="filePreviews[index]?.type === 'image'" class="image-preview">
+                            <img :src="filePreviews[index].url" :alt="file.name" />
+                          </div>
+                          <div v-else class="file-icon">
+                            <ion-icon :icon="documentOutline"></ion-icon>
+                          </div>
+                        </div>
+                        <div class="file-info">
+                          <div class="file-name">{{ file.name }}</div>
+                          <div class="file-details">
+                            {{ (file.size / 1024 / 1024).toFixed(2) }} MB
+                          </div>
+                        </div>
+                        <ion-button 
+                          fill="clear" 
+                          size="small" 
+                          color="danger"
+                          @click="removeFile(index)"
+                          class="remove-btn"
+                        >
+                          <ion-icon :icon="closeOutline"></ion-icon>
+                        </ion-button>
+                      </div>
+                    </div>
+                  </div>
+                  
                   <input
                     ref="fileInput"
                     type="file"
@@ -241,7 +290,14 @@
                     @change="onFileChange"
                   />
                 </div>
-                <ion-note v-if="fileError" color="danger">{{ fileError }}</ion-note>
+                
+                <!-- Success/Error Messages -->
+                <ion-note v-if="successMessage" color="success" class="message-note">
+                  {{ successMessage }}
+                </ion-note>
+                <ion-note v-if="fileError" color="danger" class="message-note">
+                  {{ fileError }}
+                </ion-note>
               </ion-card-content>
             </ion-card>
           </ion-col>
@@ -255,31 +311,133 @@
               <ion-card-content>
                 <div v-if="isSubmitting" class="status">
                   <ion-spinner name="lines"></ion-spinner>
-                  <p>Processing your file… This can take a moment for larger documents.</p>
+                  <div class="status-content">
+                    <h3>Processing your files</h3>
+                    <p>Generating imposition... This may take a moment for larger documents.</p>
+                  </div>
                 </div>
 
-                <div v-else-if="errorMessage" class="status">
-                  <ion-icon :icon="warningOutline" color="danger"></ion-icon>
-                  <p>{{ errorMessage }}</p>
+                <div v-else-if="errorMessage" class="status error">
+                  <ion-icon :icon="warningOutline"></ion-icon>
+                  <div class="status-content">
+                    <h3>Generation Failed</h3>
+                    <p>{{ errorMessage }}</p>
+                  </div>
                 </div>
 
                 <div v-else-if="previewUrl" class="preview-container">
-                  <iframe :src="previewUrl" title="PDF Preview" class="preview-iframe"></iframe>
+                  <div class="preview-header">
+                    <h4>Generated PDF Preview</h4>
+                    <div class="preview-info">
+                      <span v-if="processingTime > 0">Processed in {{ processingTime }}ms</span>
+                      <ion-button 
+                        fill="clear" 
+                        size="small" 
+                        color="primary"
+                        @click="openPreview"
+                      >
+                        <ion-icon :icon="openOutline" slot="start"></ion-icon>
+                        Open in new tab
+                      </ion-button>
+                    </div>
+                  </div>
+                  <div class="preview-frame">
+                    <iframe :src="previewUrl" title="Generated PDF Preview" class="preview-iframe"></iframe>
+                  </div>
+                </div>
+
+                <div v-else-if="files.length > 0" class="file-preview-container">
+                  <div class="preview-header">
+                    <h4>File Preview</h4>
+                    <div class="preview-info">
+                      <span>{{ files.length }} file(s) uploaded</span>
+                      <ion-button 
+                        v-if="currentFilePreview"
+                        fill="clear" 
+                        size="small" 
+                        color="primary"
+                        @click="openCurrentFilePreview"
+                      >
+                        <ion-icon :icon="openOutline" slot="start"></ion-icon>
+                        Open in new tab
+                      </ion-button>
+                    </div>
+                  </div>
+                  
+                  <!-- File Navigation -->
+                  <div v-if="files.length > 1" class="file-navigation">
+                    <ion-button 
+                      fill="clear" 
+                      size="small"
+                      :disabled="currentFileIndex === 0"
+                      @click="previousFile"
+                    >
+                      <ion-icon :icon="chevronBackOutline"></ion-icon>
+                    </ion-button>
+                    <span class="file-counter">{{ currentFileIndex + 1 }} / {{ files.length }}</span>
+                    <ion-button 
+                      fill="clear" 
+                      size="small"
+                      :disabled="currentFileIndex === files.length - 1"
+                      @click="nextFile"
+                    >
+                      <ion-icon :icon="chevronForwardOutline"></ion-icon>
+                    </ion-button>
+                  </div>
+                  
+                  <!-- Current File Info -->
+                  <div class="current-file-info">
+                    <div class="file-name">{{ files[currentFileIndex]?.name }}</div>
+                    <div class="file-details">
+                      {{ (files[currentFileIndex]?.size / 1024 / 1024).toFixed(2) }} MB • 
+                      {{ files[currentFileIndex]?.type.split('/')[1] }}
+                    </div>
+                  </div>
+                  
+                  <!-- Preview Frame -->
+                  <div class="preview-frame">
+                    <div v-if="currentFilePreview?.type === 'image'" class="image-preview-large">
+                      <img :src="currentFilePreview.url" :alt="files[currentFileIndex]?.name" />
+                    </div>
+                    <iframe 
+                      v-else-if="currentFilePreview?.type === 'pdf'" 
+                      :src="currentFilePreview.url" 
+                      title="PDF Preview" 
+                      class="preview-iframe"
+                    ></iframe>
+                    <div v-else class="file-preview-placeholder">
+                      <ion-icon :icon="documentOutline"></ion-icon>
+                      <p>{{ files[currentFileIndex]?.type }} file</p>
+                      <p class="file-size">{{ (files[currentFileIndex]?.size / 1024 / 1024).toFixed(2) }} MB</p>
+                    </div>
+                  </div>
                 </div>
 
                 <div v-else class="empty-state">
                   <ion-icon :icon="documentOutline"></ion-icon>
-                  <h3>No output yet</h3>
-                  <p>Upload a file and generate an imposition to see the preview here.</p>
+                  <h3>No files uploaded</h3>
+                  <p>Upload files above to see the preview here, then generate an imposition.</p>
                 </div>
 
                 <div v-if="downloadUrl" class="actions">
-                  <ion-button expand="block" fill="solid" color="primary" :href="downloadUrl" download>
+                  <ion-button 
+                    expand="block" 
+                    fill="solid" 
+                    color="primary" 
+                    @click="downloadFile"
+                  >
                     <ion-icon slot="start" :icon="downloadOutline"></ion-icon>
                     Download imposed PDF
                   </ion-button>
-                  <ion-button expand="block" fill="clear" color="primary" :disabled="!previewUrl" @click="openPreview">
-                    Open in new tab
+                  <ion-button 
+                    expand="block" 
+                    fill="clear" 
+                    color="primary" 
+                    :disabled="!previewUrl" 
+                    @click="openPreview"
+                  >
+                    <ion-icon slot="start" :icon="openOutline"></ion-icon>
+                    Open imposed PDF
                   </ion-button>
                 </div>
               </ion-card-content>
@@ -332,6 +490,10 @@ import {
   copyOutline,
   optionsOutline,
   chevronDownOutline,
+  closeOutline,
+  openOutline,
+  chevronBackOutline,
+  chevronForwardOutline,
 } from 'ionicons/icons';
 
 const impositionTypes = [
@@ -370,6 +532,7 @@ const fileInput = ref(null);
 const file = ref(null); // Keep for backward compatibility
 const files = ref([]); // New: array of files
 const filePreviews = ref([]);
+const currentFileIndex = ref(0); // Current file being previewed
 const isDragging = ref(false);
 const fileError = ref('');
 const successMessage = ref('');
@@ -421,6 +584,14 @@ const duplexLabel = computed(() => {
   return labels[duplex.value] || 'Duplex';
 });
 
+// Computed property for current file preview
+const currentFilePreview = computed(() => {
+  if (files.value.length === 0 || currentFileIndex.value >= filePreviews.value.length) {
+    return null;
+  }
+  return filePreviews.value[currentFileIndex.value];
+});
+
 function createPreview(selectedFile) {
   if (selectedFile.type.startsWith('image/')) {
     return {
@@ -432,7 +603,7 @@ function createPreview(selectedFile) {
   if (selectedFile.type === 'application/pdf') {
     return {
       type: 'pdf',
-      url: '',
+      url: URL.createObjectURL(selectedFile),
     };
   }
 
@@ -443,7 +614,7 @@ function createPreview(selectedFile) {
 }
 
 function revokePreview(preview) {
-  if (preview?.type === 'image' && preview.url) {
+  if (preview?.url) {
     URL.revokeObjectURL(preview.url);
   }
 }
@@ -569,6 +740,11 @@ function addFiles(newFiles) {
   }
 
   if (validFiles.length > 0) {
+    // If this is the first upload, reset current file index
+    if (files.value.length === 0) {
+      currentFileIndex.value = 0;
+    }
+    
     validFiles.forEach((validFile) => {
       files.value.push(validFile);
       filePreviews.value.push(createPreview(validFile));
@@ -580,6 +756,39 @@ function addFiles(newFiles) {
     // Auto-detect orientation from first file if enabled
     if (autoDetectOrientation.value && files.value.length > 0) {
       detectOrientation(files.value[0]);
+    }
+  }
+}
+
+function removeFile(index) {
+  if (index >= 0 && index < files.value.length) {
+    // Revoke preview URL if it's an image
+    if (filePreviews.value[index]) {
+      revokePreview(filePreviews.value[index]);
+    }
+    
+    // Remove from arrays
+    files.value.splice(index, 1);
+    filePreviews.value.splice(index, 1);
+    
+    // Update success message
+    if (files.value.length > 0) {
+      successMessage.value = `File removed. ${files.value.length} file(s) remaining.`;
+      file.value = files.value[0]; // Update backward compatibility reference
+    } else {
+      successMessage.value = '';
+      file.value = null;
+    }
+    
+    // Clear other states if no files remain
+    if (files.value.length === 0) {
+      fileError.value = '';
+      errorMessage.value = '';
+      if (previewUrl.value) {
+        URL.revokeObjectURL(previewUrl.value);
+        previewUrl.value = '';
+      }
+      downloadUrl.value = '';
     }
   }
 }
@@ -647,16 +856,16 @@ async function submitImposition() {
 
   const formData = new FormData();
   
-    // Append file(s) based on count
-    if (files.value.length === 1) {
-      // Single file - use 'file' field for /api/imposition/process
-      formData.append('file', files.value[0]);
-    } else {
-      // Multiple files - use 'files' field for /api/imposition/merge
-      files.value.forEach((file) => {
-        formData.append('files', file);
-      });
-    }
+  // Append file(s) based on count
+  if (files.value.length === 1) {
+    // Single file - use 'file' field for /api/imposition/process
+    formData.append('file', files.value[0]);
+  } else {
+    // Multiple files - use 'files' field for /api/imposition/merge
+    files.value.forEach((file) => {
+      formData.append('files', file);
+    });
+  }
   
   formData.append('type', selectedType.value);
   formData.append('orientation', orientation.value);
@@ -680,10 +889,10 @@ async function submitImposition() {
   const start = performance.now();
 
   try {
-      // Use the appropriate endpoint based on file count
-      const blob = files.value.length === 1 
-        ? await backendApi.impose(formData)
-        : await backendApi.merge(formData);
+    // Use the appropriate endpoint based on file count
+    const blob = files.value.length === 1 
+      ? await backendApi.impose(formData)
+      : await backendApi.merge(formData);
     
     processingTime.value = Math.round(performance.now() - start);
 
@@ -694,10 +903,23 @@ async function submitImposition() {
     const objectUrl = URL.createObjectURL(blob);
     previewUrl.value = objectUrl;
     downloadUrl.value = objectUrl;
-    successMessage.value = 'Imposition complete. Preview generated below.';
+    successMessage.value = `Imposition complete in ${processingTime.value}ms. Preview generated below.`;
   } catch (error) {
     console.error('Error applying imposition:', error);
-    const message = error instanceof Error ? error.message : 'Failed to generate imposed PDF.';
+    
+    // Provide better error messages based on error type
+    let message = 'Failed to generate imposed PDF.';
+    
+    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+      message = `Backend server unavailable. Please ensure the imposition server is running on port 3001.
+      
+Error: ${error.message}`;
+    } else if (error.message.includes('HTTP')) {
+      message = `Server error: ${error.message}. Please check the server logs.`;
+    } else if (error instanceof Error) {
+      message = error.message;
+    }
+    
     errorMessage.value = message;
   } finally {
     isSubmitting.value = false;
@@ -735,6 +957,50 @@ function resetForm() {
 function openPreview() {
   if (previewUrl.value) {
     window.open(previewUrl.value, '_blank', 'noopener');
+  }
+}
+
+function downloadFile() {
+  if (downloadUrl.value) {
+    try {
+      // Create a temporary download link
+      const link = document.createElement('a');
+      link.href = downloadUrl.value;
+      link.download = `imposed-${selectedType.value}-${Date.now()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Show success message
+      successMessage.value = 'Download started successfully!';
+      setTimeout(() => {
+        if (successMessage.value === 'Download started successfully!') {
+          successMessage.value = '';
+        }
+      }, 3000);
+    } catch (error) {
+      console.error('Download failed:', error);
+      errorMessage.value = 'Download failed. Please try opening in new tab instead.';
+    }
+  }
+}
+
+// File navigation functions
+function previousFile() {
+  if (currentFileIndex.value > 0) {
+    currentFileIndex.value--;
+  }
+}
+
+function nextFile() {
+  if (currentFileIndex.value < files.value.length - 1) {
+    currentFileIndex.value++;
+  }
+}
+
+function openCurrentFilePreview() {
+  if (currentFilePreview.value?.url) {
+    window.open(currentFilePreview.value.url, '_blank', 'noopener');
   }
 }
 
@@ -1729,14 +1995,21 @@ ion-segment-button small {
 
 .status {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
-  padding: 1rem 1.25rem;
+  padding: 1.25rem;
   border-radius: 14px;
   background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(37, 99, 235, 0.04) 100%);
   color: var(--neutral-800);
   font-weight: 600;
   border-left: 4px solid var(--primary-blue);
+  min-height: 80px;
+}
+
+.status.error {
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.08) 0%, rgba(220, 38, 38, 0.04) 100%);
+  border-left-color: var(--danger-red);
+  color: var(--danger-red);
 }
 
 .status.success {
@@ -1748,19 +2021,59 @@ ion-segment-button small {
 .status ion-icon {
   font-size: 2rem;
   flex-shrink: 0;
+  margin-top: 0.25rem;
 }
 
-.status h3 {
-  margin: 0 0 0.25rem 0;
+.status-content {
+  flex: 1;
+}
+
+.status-content h3 {
+  margin: 0 0 0.5rem 0;
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--neutral-900);
 }
 
-.status p {
+.status.error .status-content h3 {
+  color: var(--danger-red);
+}
+
+.status-content p {
   margin: 0;
   font-size: 0.9rem;
   color: var(--neutral-600);
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.status.error .status-content p {
+  color: var(--neutral-700);
+}
+
+.preview-container {
+  margin-top: 1rem;
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--neutral-200);
+}
+
+.preview-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--neutral-800);
+}
+
+.preview-info {
+  font-size: 0.85rem;
+  color: var(--neutral-500);
   font-weight: 500;
 }
 
@@ -1827,13 +2140,214 @@ ion-segment-button small {
   --background-activated: var(--accent-teal);
   --border-radius: 14px;
   --box-shadow: 0 6px 20px rgba(13, 148, 136, 0.3);
-  --padding-top: 1rem;
-  --padding-bottom: 1rem;
   font-weight: 700;
-  font-size: 1.02rem;
+  height: 54px;
+  font-size: 1rem;
+  letter-spacing: 0.025em;
+}
+
+.actions ion-button[fill="clear"] {
+  --color: var(--neutral-600);
+  --color-hover: var(--primary-blue);
+  --color-activated: var(--primary-dark);
+  --border-radius: 14px;
+  font-weight: 600;
+  height: 54px;
+  font-size: 1rem;
+}
+
+.preview-container {
+  margin-top: 1rem;
+}
+
+.preview-iframe {
+  width: 100%;
+  height: 500px;
+  border: 1px solid var(--neutral-200);
+  border-radius: 12px;
+}
+
+.preview-frame {
+  background: var(--neutral-100);
+  border-radius: 12px;
+  overflow: hidden;
+  min-height: 400px;
+}
+
+/* File Preview Styles */
+.file-preview-container {
+  margin-top: 1rem;
+}
+
+.file-navigation {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: var(--neutral-50);
+  border-radius: 10px;
+}
+
+.file-counter {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--neutral-700);
+  min-width: 60px;
+  text-align: center;
+}
+
+.current-file-info {
+  padding: 1rem;
+  background: var(--neutral-50);
+  border-radius: 10px;
+  margin-bottom: 1rem;
+}
+
+.current-file-info .file-name {
+  font-weight: 600;
+  color: var(--neutral-800);
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+  word-break: break-word;
+}
+
+.current-file-info .file-details {
+  font-size: 0.85rem;
+  color: var(--neutral-500);
+}
+
+.image-preview-large {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  background: white;
+}
+
+.image-preview-large img {
+  max-width: 100%;
+  max-height: 400px;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.file-preview-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  color: var(--neutral-500);
+  background: var(--neutral-50);
+}
+
+.file-preview-placeholder ion-icon {
+  font-size: 4rem;
+  color: var(--primary-blue);
+  margin-bottom: 1rem;
+}
+
+.file-preview-placeholder p {
+  margin: 0.25rem 0;
+  font-weight: 500;
+}
+
+.file-preview-placeholder .file-size {
+  color: var(--neutral-400);
+  font-size: 0.85rem;
+}
+
+/* File List Styles */
+.file-list {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--neutral-200);
+}
+
+.file-list h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--neutral-700);
   letter-spacing: -0.01em;
-  text-transform: none;
-  transition: all 0.3s ease;
+}
+
+.file-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--neutral-50);
+  border: 1px solid var(--neutral-200);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.file-item:hover {
+  background: white;
+  border-color: var(--primary-light);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+}
+
+.file-preview {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--neutral-100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.file-icon ion-icon {
+  font-size: 24px;
+  color: var(--primary-blue);
+}
+
+.file-info {
+  flex: 1;
+  min-width: 0; /* Enable text truncation */
+}
+
+.file-name {
+  font-weight: 600;
+  color: var(--neutral-800);
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-details {
+  font-size: 0.8rem;
+  color: var(--neutral-500);
+  margin-top: 0.25rem;
+}
+
+.message-note {
+  display: block;
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-weight: 500;
+  font-size: 0.875rem;
 }
 
 .actions ion-button[fill="solid"]:hover:not([disabled]) {

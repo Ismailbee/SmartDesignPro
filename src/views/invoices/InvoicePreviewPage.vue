@@ -78,7 +78,7 @@
 
     <!-- Invoice Preview Section - always visible on all screen sizes -->
     <section 
-      class="w-full flex items-center justify-center pb-[30vh] pt-[2vh]"
+      class="w-full flex items-center justify-center pb-[35vh] pt-[8vh] md:pt-[6vh]"
     >
       <!-- Mobile wrapper - scales down on mobile, full size on desktop -->
       <div 
@@ -494,7 +494,7 @@
         v-if="showSettings"
         class="absolute left-0 right-0 bottom-0 z-50"
       >
-        <div class="bg-white dark:bg-slate-800 w-full max-h-[55vh] overflow-y-auto rounded-t-2xl border-t border-slate-200 dark:border-slate-700">
+        <div class="bg-white dark:bg-slate-800 w-full max-h-[35vh] overflow-y-auto rounded-t-2xl border-t border-slate-200 dark:border-slate-700">
           <div class="sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-3 py-2 flex items-center justify-between">
             <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -776,6 +776,7 @@ import { useRouter } from 'vue-router';
 import html2pdf from 'html2pdf.js';
 import * as htmlToImage from 'html-to-image';
 import { getAllSignatures } from '@/firebase/database';
+import { safeLocalStorage } from '@/utils/storage.utils.ts';
 
 export default defineComponent({
   name: 'InvoicePreviewPage',
@@ -1509,7 +1510,7 @@ export default defineComponent({
         };
         
         // Save to localStorage (current invoice being edited)
-        localStorage.setItem('invoicePreviewData', JSON.stringify(invoiceToSave));
+        safeLocalStorage.setItem('invoicePreviewData', JSON.stringify(invoiceToSave));
         
         // Save to Firebase (permanent storage)
         const { saveInvoice } = await import('@/firebase/database');
@@ -1657,8 +1658,8 @@ export default defineComponent({
     // Handle create new signature
     const handleCreateSignature = () => {
       // Store the return path so SignaturePage knows where to redirect after creating signature
-      localStorage.setItem('signatureReturnPath', '/invoice-preview');
-      localStorage.setItem('signatureReturnType', 'invoice');
+      safeLocalStorage.setItem('signatureReturnPath', '/invoice-preview');
+      safeLocalStorage.setItem('signatureReturnType', 'invoice');
       router.push('/signature');
     };
     

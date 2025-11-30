@@ -1364,7 +1364,8 @@ export function useWeddingStickerUpdater() {
       if (elements.dateText) {
         elements.dateText.textContent = data.date
         console.log(`📅 Date updated: "${data.date}"`)
-      } else {
+      } else if (elements.weddingNamesGroup || elements.name1Text) {
+        // Only log error if SVG seems to be loaded but element is missing
         console.error('❌ Date element not found in SVG!')
       }
     } else {
@@ -1395,7 +1396,8 @@ export function useWeddingStickerUpdater() {
         }
         
         console.log(`🏠 Courtesy updated: "${data.courtesy}" (length: ${courtesyLength})`)
-      } else {
+      } else if (elements.weddingNamesGroup || elements.name1Text) {
+        // Only log error if SVG seems to be loaded but element is missing
         console.error('❌ Courtesy element not found in SVG!')
       }
     } else {

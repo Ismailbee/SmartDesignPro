@@ -329,6 +329,12 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+
+// Memory optimization constants
+const MAX_HISTORY_SIZE = 20 // Limit history to prevent memory leaks
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB limit
+const MAX_CANVAS_DIMENSION = 2048 // 2048x2048 max
+const CLEANUP_INTERVAL = 30000 // 30 seconds
 import CanvasToolbar from './CanvasToolbar.vue'
 import FloatingPropertiesPanel from './FloatingPropertiesPanel.vue'
 import ExportPanel from './ExportPanel.vue'
@@ -338,6 +344,7 @@ import CommentSystem from './collaboration/CommentSystem.vue'
 import ActivityFeed from './collaboration/ActivityFeed.vue'
 import { useWhiteboardStore } from '@/stores/whiteboard'
 import { useCollaborationStore } from '@/stores/collaboration'
+import { safeLocalStorage } from '@/utils/storage.utils'
 import { storeToRefs } from 'pinia'
 import { exportStageToBlob, exportStageToDataURL, snapToGrid } from '@/utils/konva-helpers'
 
@@ -537,21 +544,52 @@ const closeUrlModal = () => {
 
 const handleFileSelect = async (event) => {
   const files = Array.from(event.target.files)
+  console.log(`📁 Processing ${files.length} files...`)
+  
   for (const file of files) {
-    await addImageFromFile(file)
+    try {
+      await addImageFromFile(file)
+    } catch (error) {
+      console.error('❌ Failed to add image:', file.name, error.message)
+      // Could emit an event here to show user notification
+      alert(`Failed to add ${file.name}: ${error.message}`)
+    }
   }
+  
   event.target.value = '' // Reset input
+  console.log('✅ File processing complete')
 }
 
 const addImageFromFile = (file) => {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    // Check file size limit
+    if (file.size > MAX_IMAGE_SIZE) {
+      console.error('📏 Image too large:', file.size, 'bytes. Max:', MAX_IMAGE_SIZE)
+      reject(new Error(`Image size ${Math.round(file.size / 1024 / 1024)}MB exceeds limit of ${MAX_IMAGE_SIZE / 1024 / 1024}MB`))
+      return
+    }
+    
     const reader = new FileReader()
     reader.onload = (e) => {
       const img = new Image()
       img.onload = () => {
-        // Calculate initial size (max 400px)
+        // Check dimension limits
+        if (img.width > MAX_CANVAS_DIMENSION || img.height > MAX_CANVAS_DIMENSION) {
+          console.warn('📐 Image dimensions too large, resizing from', img.width, 'x', img.height)
+        }
+        
+        // Calculate initial size (max 400px for display, but respect limits)
         const maxSize = 400
         let { width, height } = img
+        
+        // First apply dimension limits
+        if (width > MAX_CANVAS_DIMENSION || height > MAX_CANVAS_DIMENSION) {
+          const ratio = Math.min(MAX_CANVAS_DIMENSION / width, MAX_CANVAS_DIMENSION / height)
+          width *= ratio
+          height *= ratio
+        }
+        
+        // Then apply display limits
         if (width > maxSize || height > maxSize) {
           const ratio = Math.min(maxSize / width, maxSize / height)
           width *= ratio
@@ -576,10 +614,21 @@ const addImageFromFile = (file) => {
 
         store.addImage(imageObj)
         selectImage(imageObj.id, false)
+        console.log('✅ Image added:', file.name, `${width}x${height}px`)
         resolve()
       }
+      
+      img.onerror = () => {
+        reject(new Error('Failed to load image'))
+      }
+      
       img.src = e.target.result
     }
+    
+    reader.onerror = () => {
+      reject(new Error('Failed to read file'))
+    }
+    
     reader.readAsDataURL(file)
   })
 }
@@ -2728,8 +2777,16 @@ const saveToJSON = () => {
   a.click()
   URL.revokeObjectURL(url)
 
-  // Also save to localStorage
-  localStorage.setItem('whiteboard-data', json)
+  // Also save to localStorage with compression and size limits
+  const success = safeLocalStorage.setItem('whiteboard-data', json, {
+    compress: true,
+    maxSize: 5, // 5MB limit for canvas data
+    fallbackToMemory: true
+  })
+  
+  if (!success) {
+    console.warn('Whiteboard data too large to save, consider reducing complexity')
+  }
 }
 
 const loadFromJSON = () => {
@@ -2886,11 +2943,78 @@ onMounted(() => {
   })
 })
 
+// Memory cleanup functions
+const cleanupImageObjects = () => {
+  console.log('🧹 Cleaning up image objects...')
+  
+  // Revoke all blob URLs
+  images.value.forEach(img => {
+    if (img.src && img.src.startsWith('blob:')) {
+      URL.revokeObjectURL(img.src)
+    }
+  })
+  
+  // Clear canvas contexts if any exist
+  document.querySelectorAll('canvas').forEach(canvas => {
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+    }
+  })
+}
+
+const cleanupMemoryLeaks = () => {
+  console.log('🧹 WhiteboardCanvas: Memory cleanup on unmount')
+  
+  // Clean up Konva objects
+  const stageNode = stage.value?.getNode()
+  if (stageNode) {
+    stageNode.destroyChildren()
+    stageNode.destroy()
+  }
+  
+  // Clean up transformers
+  const transformerNode = transformer.value?.getNode()
+  if (transformerNode) {
+    transformerNode.destroy()
+  }
+  
+  // Clean up image objects
+  cleanupImageObjects()
+  
+  // Clear all selections
+  selectedImageIds.value = []
+  selectedTextIds.value = []
+  
+  // Clear editing state
+  resetTextEditState()
+  
+  // Force garbage collection if available
+  if (window.gc) {
+    window.gc()
+  }
+}
+
 onUnmounted(() => {
+  console.log('🗑️ WhiteboardCanvas: Component unmounting, cleaning up...')
+  
+  // Remove event listeners
   window.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('scroll', throttledRealign)
   window.removeEventListener('resize', throttledRealign)
+  
+  // Clean up stage event handlers
   detachStageEventHandlers()
+  
+  // Clear any running intervals/timeouts
+  if (realignTimeout) {
+    clearTimeout(realignTimeout)
+  }
+  
+  // Comprehensive memory cleanup
+  cleanupMemoryLeaks()
+  
+  console.log('✅ WhiteboardCanvas: Cleanup complete')
 })
 
 // Watch for image changes to update node IDs

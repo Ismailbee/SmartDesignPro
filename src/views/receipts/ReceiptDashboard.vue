@@ -113,48 +113,126 @@ const navigateToReceipt = (mode: 'receipt' | 'customer') => {
 }
 
 .dashboard-container {
-  max-width: 1000px;
+  max-width: 700px;
   margin: 0 auto;
-  padding: 1.5rem 1rem;
+  padding: 1.25rem 1rem;
+}
+
+@media (min-width: 768px) {
+  .dashboard-container {
+    max-width: 800px;
+    padding: 1.5rem 1.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .dashboard-container {
+    max-width: 850px;
+    padding: 1.75rem 1.5rem;
+  }
 }
 
 .page-title {
-  font-size: 2rem;
-  font-weight: 800;
+  font-size: 1.5rem;
+  font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 0.5rem;
   text-align: center;
 }
 
+@media (min-width: 768px) {
+  .page-title {
+    font-size: 1.75rem;
+    margin-bottom: 0.75rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-title {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+  }
+}
+
 .page-subtitle {
-  font-size: 1.1rem;
+  font-size: 0.9rem;
   color: var(--text-secondary);
   text-align: center;
-  margin-bottom: 2.5rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .page-subtitle {
+    font-size: 1rem;
+    margin-bottom: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-subtitle {
+    font-size: 1.1rem;
+    margin-bottom: 2.25rem;
+  }
 }
 
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (min-width: 768px) {
+  .cards-grid {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .cards-grid {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.75rem;
+    margin-bottom: 2.25rem;
+  }
 }
 
 .selection-card {
   position: relative;
   background: white;
-  border-radius: 16px;
-  padding: 2rem;
+  border-radius: 12px;
+  padding: 1.5rem;
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.07);
   border: 2px solid transparent;
   cursor: pointer;
   transition: all 0.3s ease;
   text-align: center;
-  min-height: 240px;
+  min-height: 180px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+}
+
+@media (min-width: 768px) {
+  .selection-card {
+    padding: 1.75rem;
+    min-height: 200px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  }
+}
+
+@media (min-width: 1024px) {
+  .selection-card {
+    padding: 2rem;
+    border-radius: 14px;
+    min-height: 220px;
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.09);
+  }
 }
 
 .selection-card:hover {
@@ -163,16 +241,40 @@ const navigateToReceipt = (mode: 'receipt' | 'customer') => {
   border-color: var(--color-primary);
 }
 
+/* Large screen hover effects */
+@media (min-width: 1024px) {
+  .selection-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+  }
+}
+
 .card-icon {
-  width: 80px;
-  height: 80px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 1.5rem;
+  margin: 0 auto 1rem;
   transition: all 0.3s ease;
+}
+
+@media (min-width: 768px) {
+  .card-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 1.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .card-icon {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 1.5rem;
+  }
 }
 
 .selection-card:hover .card-icon {
@@ -181,22 +283,65 @@ const navigateToReceipt = (mode: 'receipt' | 'customer') => {
 }
 
 .card-icon ion-icon {
-  font-size: 2.5rem;
+  font-size: 2.2rem;
   color: #d97706;
 }
 
+/* Large screen icon font scaling */
+@media (min-width: 1024px) {
+  .card-icon ion-icon {
+    font-size: 2.6rem;
+  }
+}
+
+@media (min-width: 1440px) {
+  .card-icon ion-icon {
+    font-size: 2.8rem;
+  }
+}
+
 .card-title {
-  font-size: 1.4rem;
-  font-weight: 700;
+  font-size: 1.25rem;
+  font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Large screen title scaling */
+@media (min-width: 1024px) {
+  .card-title {
+    font-size: 1.4rem;
+    margin-bottom: 0.75rem;
+  }
+}
+
+@media (min-width: 1440px) {
+  .card-title {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
 }
 
 .card-description {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--text-secondary);
-  line-height: 1.5;
+  line-height: 1.4;
   margin: 0;
+}
+
+/* Large screen description scaling */
+@media (min-width: 1024px) {
+  .card-description {
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+}
+
+@media (min-width: 1440px) {
+  .card-description {
+    font-size: 1.1rem;
+    line-height: 1.6;
+  }
 }
 
 /* Responsive Design */

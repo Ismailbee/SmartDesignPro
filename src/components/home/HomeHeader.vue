@@ -34,17 +34,17 @@
       </nav>
       <!-- User Profile (Authenticated) or Get Started Button (Not Authenticated) -->
       <div class="header-actions">
-        <ThemeToggle />
+        <ThemeToggle class="theme-toggle-btn" />
 
         <!-- Token Display (Authenticated Users Only) -->
-        <HeaderTokenDisplay v-if="authStore.isAuthenticated" />
+        <HeaderTokenDisplay v-if="authStore.isAuthenticated" class="token-display-component" />
 
         <!-- Notifications (Authenticated Users Only) -->
-        <NotificationBell v-if="authStore.isAuthenticated" />
+        <NotificationBell v-if="authStore.isAuthenticated" class="notification-component" />
 
         <!-- Get Started Button (Not Authenticated) -->
         <button v-if="!authStore.isAuthenticated" class="cta-button" @click="handleGetQuote">
-          Get Started
+          <span class="cta-text">Get Started</span>
         </button>
 
         <!-- User Profile Dropdown (Desktop Only - Authenticated Users) -->
@@ -479,6 +479,9 @@ const onAvatarSaved = async (dataUrl: string) => {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden; /* Prevent any overflow */
 }
 
 /* Logo */
@@ -762,6 +765,28 @@ const onAvatarSaved = async (dataUrl: string) => {
   min-width: fit-content;
 }
 
+/* Mobile responsive header actions */
+@media (max-width: 768px) {
+  .header-actions {
+    gap: 8px; /* Balanced gap for mobile */
+    flex-wrap: nowrap;
+    overflow: hidden;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-actions {
+    gap: 6px; /* Smaller but balanced gap for tiny screens */
+  }
+}
+
+@media (max-width: 400px) {
+  .header-actions {
+    gap: 5px; /* Minimal but consistent spacing */
+  }
+}
+
 /* Header User Profile (Desktop Only) */
 .header-user-profile {
   position: relative;
@@ -980,23 +1005,189 @@ const onAvatarSaved = async (dataUrl: string) => {
 
 @media (max-width: 768px) {
   .header-content {
-    padding: 16px 20px; /* Reduced horizontal padding on mobile */
-  }
-
-  .header-actions {
-    gap: 8px;
+    padding: 12px 16px; /* Reduced horizontal padding on mobile */
+    gap: 16px; /* Reduced gap between logo and actions */
   }
 
   .cta-button {
-    padding: 8px 16px;
-    font-size: 13px;
+    padding: 8px 12px; /* More compact button */
+    font-size: 12px;
+    white-space: nowrap; /* Prevent text wrapping */
+  }
+  
+  /* Make avatar smaller on mobile */
+  .avatar-placeholder,
+  .avatar-image {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 12px;
   }
 }
 
 /* Additional mobile adjustments for very small screens */
 @media (max-width: 480px) {
   .header-content {
-    padding: 12px 16px; /* Even more compact on tiny screens */
+    padding: 10px 12px; /* Even more compact on tiny screens */
+    gap: 12px; /* Smaller gap for tiny screens */
+  }
+  
+  .cta-button {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  
+  /* Even smaller avatar for tiny screens */
+  .avatar-placeholder,
+  .avatar-image {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 10px;
+  }
+}
+
+/* Ensure header content doesn't overflow on mobile */
+@media (max-width: 768px) {
+  .header-content {
+    max-width: 100%;
+    box-sizing: border-box;
+    position: relative;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .logo {
+    flex-shrink: 0;
+    margin-left: 50px; /* Adjusted for mobile menu button */
+    flex: 0 0 auto;
+  }
+  
+  .header-actions {
+    flex-shrink: 0;
+    min-width: auto;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    max-width: calc(100vw - 180px); /* Responsive width based on viewport */
+    overflow: visible;
+  }
+}
+
+/* Prevent header items from being cut off on small screens */
+@media (max-width: 480px) {
+  .logo {
+    margin-left: 45px !important;
+    max-width: 120px;
+  }
+  
+  .header-actions {
+    max-width: calc(100vw - 150px);
+  }
+}
+
+/* Ultra-small screens */
+@media (max-width: 360px) {
+  .logo {
+    margin-left: 40px !important;
+    font-size: 16px !important;
+  }
+  
+  .header-actions {
+    max-width: calc(100vw - 130px);
+  }
+}
+
+/* Desktop styles for header action components - consistent sizing */
+@media (min-width: 769px) {
+  .theme-toggle-btn :deep(button) {
+    width: 40px !important;
+    height: 40px !important;
+    padding: 8px !important;
+  }
+  
+  .notification-component :deep(button) {
+    width: 40px !important;
+    height: 40px !important;
+    padding: 8px !important;
+  }
+  
+  .notification-component :deep(.notification-icon) {
+    width: 24px !important;
+    height: 24px !important;
+  }
+  
+  .token-display-component :deep(.ion-chip) {
+    height: 40px !important;
+    min-height: 40px !important;
+    padding: 6px 12px !important;
+    font-size: 14px !important;
+    max-width: none !important;
+  }
+}
+
+/* Mobile styles for header action components */
+@media (max-width: 768px) {
+  /* Make theme toggle smaller on mobile */
+  .theme-toggle-btn :deep(button) {
+    width: 34px !important;
+    height: 34px !important;
+    padding: 7px !important;
+  }
+  
+  /* Make notification bell smaller on mobile */
+  .notification-component :deep(button) {
+    width: 34px !important;
+    height: 34px !important;
+    padding: 7px !important;
+  }
+  
+  .notification-component :deep(.notification-icon) {
+    width: 20px !important;
+    height: 20px !important;
+  }
+  
+  /* Balanced token display on mobile - matches other components */
+  .token-display-component :deep(.ion-chip) {
+    height: 34px !important;
+    min-height: 34px !important;
+  }
+}
+
+/* Extra small screens - maintain consistent sizing */
+@media (max-width: 400px) {
+  .theme-toggle-btn :deep(button) {
+    width: 32px !important;
+    height: 32px !important;
+    padding: 6px !important;
+  }
+  
+  .notification-component :deep(button) {
+    width: 32px !important;
+    height: 32px !important;
+    padding: 6px !important;
+  }
+  
+  .notification-component :deep(.notification-icon) {
+    width: 18px !important;
+    height: 18px !important;
+  }
+  
+  .token-display-component :deep(.ion-chip) {
+    height: 32px !important;
+    min-height: 32px !important;
+  }
+  
+  .cta-button {
+    padding: 6px 8px;
+    font-size: 10px;
+  }
+  
+  .cta-text {
+    display: none;
+  }
+  
+  .cta-button::after {
+    content: "Start";
   }
 }
 </style>

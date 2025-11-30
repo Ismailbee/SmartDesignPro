@@ -67,14 +67,7 @@ import {
 const router = useRouter()
 
 function handleBack() {
-  try {
-    if (window.history.length > 1) {
-      window.history.back()
-      return
-    }
-  } catch (e) {
-    // ignore and fallback
-  }
+  // Route specifically to home page
   router.push('/home')
 }
 
@@ -156,13 +149,28 @@ function navigateTo(type: 'invoice' | 'receipt' | 'signature') {
 }
 
 .dashboard-container {
-  max-width: 800px;
+  max-width: 700px;
   margin: 0 auto;
   padding: 1rem 0.75rem;
 }
 
+/* Responsive scaling */
+@media (min-width: 768px) {
+  .dashboard-container {
+    max-width: 800px;
+    padding: 1.25rem 1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .dashboard-container {
+    max-width: 850px;
+    padding: 1.5rem 1.25rem;
+  }
+}
+
 .page-title {
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   font-weight: 700;
   color: #1e293b;
   text-align: center;
@@ -170,24 +178,74 @@ function navigateTo(type: 'invoice' | 'receipt' | 'signature') {
   letter-spacing: -0.02em;
 }
 
+/* Responsive title scaling */
+@media (min-width: 768px) {
+  .page-title {
+    font-size: 1.375rem;
+    margin-bottom: 0.375rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-title {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+}
+
 .page-subtitle {
-  font-size: 0.8125rem;
+  font-size: 0.8rem;
   color: #64748b;
   text-align: center;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.125rem;
+}
+
+/* Responsive subtitle scaling */
+@media (min-width: 768px) {
+  .page-subtitle {
+    font-size: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-subtitle {
+    font-size: 0.9375rem;
+    margin-bottom: 1.5rem;
+  }
 }
 
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 0.875rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
   margin-bottom: 1rem;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Responsive grid scaling */
+@media (min-width: 768px) {
+  .cards-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .cards-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
 }
 
 .selection-card {
   position: relative;
   background: white;
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 1rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   border: 2px solid transparent;
@@ -196,10 +254,35 @@ function navigateTo(type: 'invoice' | 'receipt' | 'signature') {
   text-align: center;
 }
 
+/* Large screen card scaling */
+@media (min-width: 1024px) {
+  .selection-card {
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.07);
+  }
+}
+
+@media (min-width: 1440px) {
+  .selection-card {
+    padding: 1.75rem;
+    border-radius: 14px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  }
+}
+
 .selection-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   border-color: #06b6d4;
+}
+
+/* Large screen hover effects */
+@media (min-width: 1024px) {
+  .selection-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  }
 }
 
 .selection-card.active {
@@ -212,16 +295,50 @@ function navigateTo(type: 'invoice' | 'receipt' | 'signature') {
   height: 45px;
   margin: 0 auto 0.75rem;
   background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
-  border-radius: 12px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 8px rgba(6, 182, 212, 0.25);
+  box-shadow: 0 3px 6px rgba(6, 182, 212, 0.2);
+}
+
+/* Large screen icon scaling */
+@media (min-width: 1024px) {
+  .card-icon {
+    width: 55px;
+    height: 55px;
+    margin: 0 auto 1rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 8px rgba(6, 182, 212, 0.25);
+  }
+}
+
+@media (min-width: 1440px) {
+  .card-icon {
+    width: 65px;
+    height: 65px;
+    margin: 0 auto 1.25rem;
+    border-radius: 14px;
+    box-shadow: 0 5px 10px rgba(6, 182, 212, 0.3);
+  }
 }
 
 .card-icon ion-icon {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   color: white;
+}
+
+/* Large screen icon font scaling */
+@media (min-width: 1024px) {
+  .card-icon ion-icon {
+    font-size: 1.6rem;
+  }
+}
+
+@media (min-width: 1440px) {
+  .card-icon ion-icon {
+    font-size: 1.8rem;
+  }
 }
 
 .card-icon.signature {
@@ -229,17 +346,60 @@ function navigateTo(type: 'invoice' | 'receipt' | 'signature') {
   box-shadow: 0 4px 8px rgba(139, 92, 246, 0.25);
 }
 
+/* Large screen signature icon scaling */
+@media (min-width: 1024px) {
+  .card-icon.signature {
+    box-shadow: 0 6px 12px rgba(139, 92, 246, 0.3);
+  }
+}
+
+@media (min-width: 1440px) {
+  .card-icon.signature {
+    box-shadow: 0 8px 16px rgba(139, 92, 246, 0.35);
+  }
+}
+
 .card-title {
-  font-size: 1.125rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 600;
   color: #1e293b;
   margin-bottom: 0.375rem;
+}
+
+/* Large screen title scaling */
+@media (min-width: 1024px) {
+  .card-title {
+    font-size: 1.125rem;
+    margin-bottom: 0.5rem;
+  }
+}
+
+@media (min-width: 1440px) {
+  .card-title {
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+  }
 }
 
 .card-description {
   font-size: 0.75rem;
   color: #64748b;
   line-height: 1.4;
+}
+
+/* Large screen description scaling */
+@media (min-width: 1024px) {
+  .card-description {
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+}
+
+@media (min-width: 1440px) {
+  .card-description {
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
 }
 
 .card-badge {

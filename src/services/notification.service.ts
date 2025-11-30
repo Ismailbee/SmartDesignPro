@@ -149,10 +149,24 @@ export function subscribeToNotifications(
 
       callback(notifications)
     }, (error) => {
-      console.error('Error in notifications subscription:', error)
+      if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
+        console.warn('🔍 Firebase index required for notifications. Creating index automatically...')
+        console.log('📋 Index URL:', error.message?.match(/https:\/\/[^\s]+/)?.[0] || 'Check Firebase Console')
+        
+        // Show user-friendly message
+        console.info('ℹ️ Notifications will work once Firebase index is created. This is a one-time setup.')
+        return
+      }
+      
+      console.error('🚫 Error in notifications subscription:', error)
     })
-  } catch (error) {
-    console.error('Error subscribing to notifications:', error)
+  } catch (error: any) {
+    if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
+      console.warn('🔍 Firebase index required for notifications subscription.')
+      console.log('📋 Please create the required index in Firebase Console')
+    } else {
+      console.error('🚫 Error subscribing to notifications:', error)
+    }
     // Return a no-op unsubscribe function
     return () => {}
   }

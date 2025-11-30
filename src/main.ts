@@ -7,6 +7,9 @@ import './styles/wedding-fonts.css'
 import App from './App.vue'
 import { useThemeStore } from './stores/theme'
 
+// Capacitor imports
+import { App as CapacitorApp } from '@capacitor/app'
+
 // Ionic Vue imports
 import { IonicVue } from '@ionic/vue'
 import '@ionic/vue/css/core.css'

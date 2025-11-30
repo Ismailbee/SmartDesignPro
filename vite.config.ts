@@ -10,7 +10,7 @@ export default defineConfig({
     }
   },
   optimizeDeps: {
-    include: ['onnxruntime-web'],
+    include: ['onnxruntime-web', '@capacitor/app', '@capacitor/core'],
     exclude: ['@imgly/background-removal'],
     // Force optimization to avoid OneDrive sync issues
     force: true

@@ -234,6 +234,55 @@ import { defineComponent, ref, onMounted } from 'vue';
 import LogoCropper from '@/components/LogoCropper.vue';
 import { useRouter } from 'vue-router';
 
+// Safe localStorage utilities
+const safeGetLocalStorage = (key, defaultValue = null) => {
+  try {
+    if (typeof Storage === 'undefined') return defaultValue;
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : defaultValue;
+  } catch (error) {
+    console.warn(`Error reading localStorage key '${key}':`, error);
+    return defaultValue;
+  }
+};
+
+const safeSetLocalStorage = (key, data) => {
+  try {
+    if (typeof Storage === 'undefined') return false;
+    const dataString = JSON.stringify(data);
+    localStorage.setItem(key, dataString);
+    return true;
+  } catch (error) {
+    if (error.name === 'QuotaExceededError') {
+      console.warn('localStorage quota exceeded, attempting cleanup...');
+      try {
+        // Clear old invoice data
+        ['invoicePreviewData', 'generateInvoiceFormData', 'invoiceQuickSettings'].forEach(oldKey => {
+          try {
+            localStorage.removeItem(oldKey);
+          } catch (e) {
+            // Ignore individual removal errors
+          }
+        });
+        // Try again after cleanup
+        localStorage.setItem(key, dataString);
+        return true;
+      } catch (retryError) {
+        console.warn('localStorage still unavailable after cleanup, using sessionStorage fallback');
+        try {
+          sessionStorage.setItem(key, dataString);
+          return true;
+        } catch (sessionError) {
+          console.warn('Both localStorage and sessionStorage unavailable');
+        }
+      }
+    } else {
+      console.warn(`Error writing localStorage key '${key}':`, error);
+    }
+    return false;
+  }
+};
+
 export default defineComponent({
   name: 'GenerateInvoicePage',
   components: { 
@@ -258,24 +307,19 @@ export default defineComponent({
     const logoInput = ref(null);
 
     onMounted(() => {
-      const memberData = localStorage.getItem('authenticatedMember');
+      const memberData = safeGetLocalStorage('authenticatedMember');
       if (memberData) {
-        authenticatedMember.value = JSON.parse(memberData);
+        authenticatedMember.value = memberData;
       }
 
       // Load saved form data if any
-      const savedFormData = localStorage.getItem('generateInvoiceFormData');
-      if (savedFormData) {
-        try {
-          const formData = JSON.parse(savedFormData);
-          if (formData.organizationName !== undefined) organizationName.value = formData.organizationName;
-          if (formData.organizationSubName !== undefined) organizationSubName.value = formData.organizationSubName;
-          if (formData.organizationAddress !== undefined) organizationAddress.value = formData.organizationAddress;
-          if (formData.organizationPhone !== undefined) organizationPhone.value = formData.organizationPhone;
-          if (formData.logoDataUrl !== undefined) logoDataUrl.value = formData.logoDataUrl;
-        } catch (error) {
-          console.error('Error loading saved form data:', error);
-        }
+      const formData = safeGetLocalStorage('generateInvoiceFormData');
+      if (formData) {
+        if (formData.organizationName !== undefined) organizationName.value = formData.organizationName;
+        if (formData.organizationSubName !== undefined) organizationSubName.value = formData.organizationSubName;
+        if (formData.organizationAddress !== undefined) organizationAddress.value = formData.organizationAddress;
+        if (formData.organizationPhone !== undefined) organizationPhone.value = formData.organizationPhone;
+        if (formData.logoDataUrl !== undefined) logoDataUrl.value = formData.logoDataUrl;
       }
     });
 
@@ -329,7 +373,7 @@ export default defineComponent({
         logoDataUrl: logoDataUrl.value
       };
       
-      localStorage.setItem('generateInvoiceFormData', JSON.stringify(formData));
+      safeSetLocalStorage('generateInvoiceFormData', formData);
     };
 
     const handlePreviewClick = () => {
@@ -346,7 +390,7 @@ export default defineComponent({
         formMode: 'generate'
       };
       
-      localStorage.setItem('invoicePreviewData', JSON.stringify(previewData));
+      safeSetLocalStorage('invoicePreviewData', previewData);
       
       // Navigate to preview page
       router.push({ name: 'InvoicePreview' });

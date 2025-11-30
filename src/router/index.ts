@@ -235,6 +235,16 @@ const routes: RouteRecordRaw[] = [
   },
 
   {
+    path: '/invoices/saved',
+    name: 'saved-invoices',
+    component: () => import('@/views/invoices/SavedInvoicesPage.vue'),
+    meta: {
+      title: 'Saved Invoices - SmartDesignPro',
+      requiresAuth: true
+    }
+  },
+
+  {
     path: '/customer-invoice',
     name: 'customer-invoice',
     component: CustomerInvoicePage,
