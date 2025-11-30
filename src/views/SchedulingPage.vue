@@ -11,7 +11,7 @@
 
     <!-- Action Bar -->
     <div class="action-bar">
-      <div class="flex justify-between items-center px-7 py-3">
+      <div class="flex justify-between items-center px-10 py-3">
         <!-- Schedule Selection Buttons -->
         <div class="button-group">
           <!-- National Public Holidays Dropdown -->
@@ -66,88 +66,25 @@
             </transition>
           </div>
 
-          <!-- Special Events Dropdown -->
-          <div 
-            class="dropdown-container"
-            @click.stop
-            @mouseenter="openSpecificDropdown('specialEvents')"
-            @mouseleave="delayedCloseSpecificDropdown('specialEvents')"
-          >
-            <button :class="btnClasses('special-events')">
-              Special Events
+          <!-- Birthday Button -->
+          <div class="dropdown-container">
+            <button :class="btnClasses('birthday')" @click="handleBirthdayClick">
+              Birthday
             </button>
-            <transition name="fade">
-              <div v-if="dropdowns.specialEvents" class="dropdown-menu">
-                <div class="dropdown-items-container">
-                  <!-- Select All Checkbox -->
-                  <div class="dropdown-item select-all" @click="toggleSelectAllForMenu('specialEvents')">
-                    <input
-                      :checked="selectAllStates.specialEvents"
-                      type="checkbox"
-                      class="dropdown-checkbox"
-                      readonly
-                    />
-                    <span>Select All</span>
-                  </div>
-                  <!-- Menu Items -->
-                  <div v-for="item in specialEventsItems" :key="item" class="dropdown-item" @click="toggleItemForMenu('specialEvents', item)">
-                    <input
-                      :checked="selectedItems.specialEvents.includes(item)"
-                      type="checkbox"
-                      class="dropdown-checkbox"
-                      readonly
-                    />
-                    <span>{{ item }}</span>
-                  </div>
-                </div>
-                <!-- Schedule Task Button -->
-                <button class="schedule-btn" @click="scheduleDropdownTask('specialEvents')">
-                  Schedule Task
-                </button>
-              </div>
-            </transition>
           </div>
 
-          <!-- Business Advert Dropdown -->
-          <div 
-            class="dropdown-container"
-            @click.stop
-            @mouseenter="openSpecificDropdown('businessAdvert')"
-            @mouseleave="delayedCloseSpecificDropdown('businessAdvert')"
-          >
-            <button :class="btnClasses('business-advert')">
+          <!-- Congratulatory/Special Events Button -->
+          <div class="dropdown-container">
+            <button :class="btnClasses('special-events')" @click="handleSpecialEventsClick">
+              Congratulatory/Special Events
+            </button>
+          </div>
+
+          <!-- Business Advert Button -->
+          <div class="dropdown-container">
+            <button :class="btnClasses('business-advert')" @click="handleBusinessAdvertClick">
               Business Advert
             </button>
-            <transition name="fade">
-              <div v-if="dropdowns.businessAdvert" class="dropdown-menu">
-                <div class="dropdown-items-container">
-                  <!-- Select All Checkbox -->
-                  <div class="dropdown-item select-all" @click="toggleSelectAllForMenu('businessAdvert')">
-                    <input
-                      :checked="selectAllStates.businessAdvert"
-                      type="checkbox"
-                      class="dropdown-checkbox"
-                      readonly
-                    />
-                    <span>Select All</span>
-                  </div>
-                  <!-- Menu Items -->
-                  <div v-for="item in businessAdvertItems" :key="item" class="dropdown-item" @click="toggleItemForMenu('businessAdvert', item)">
-                    <input
-                      :checked="selectedItems.businessAdvert.includes(item)"
-                      type="checkbox"
-                      class="dropdown-checkbox"
-                      readonly
-                    />
-                    <span>{{ item }}</span>
-                  </div>
-                </div>
-                <!-- Schedule Task Button -->
-                <button class="schedule-btn" @click="scheduleDropdownTask('businessAdvert')">
-                  Schedule Task
-                </button>
-              </div>
-            </transition>
           </div>
 
           <!-- Weekly Task Dropdown -->
@@ -200,7 +137,7 @@
             @mouseleave="delayedCloseSpecificDropdown('monthly')"
           >
             <button :class="btnClasses('monthly')">
-              Monthly
+              Monthly Task
             </button>
             <transition name="fade">
               <div v-if="dropdowns.monthly" class="dropdown-menu">
@@ -247,43 +184,26 @@
             <transition name="fade">
               <div v-if="dropdowns.quote" class="dropdown-menu">
                 <div class="dropdown-items-container">
-                  <!-- Select All Checkbox -->
-                  <div class="dropdown-item select-all" @click="toggleSelectAllForMenu('quote')">
-                    <input
-                      :checked="selectAllStates.quote"
-                      type="checkbox"
-                      class="dropdown-checkbox"
-                      readonly
-                    />
-                    <span>Select All</span>
-                  </div>
                   <!-- Menu Items -->
-                  <div v-for="item in quoteItems" :key="item" class="dropdown-item" @click="toggleItemForMenu('quote', item)">
-                    <input
-                      :checked="selectedItems.quote.includes(item)"
-                      type="checkbox"
-                      class="dropdown-checkbox"
-                      readonly
-                    />
+                  <div v-for="item in quoteItems" :key="item" class="dropdown-item" @click="selectAndSchedule('quote', item)">
                     <span>{{ item }}</span>
                   </div>
                 </div>
-                <!-- Schedule Task Button -->
-                <button class="schedule-btn" @click="scheduleDropdownTask('quote')">
-                  Schedule Task
-                </button>
               </div>
             </transition>
           </div>
+          
+        </div>
 
-          <!-- More Dropdown (No checkboxes) -->
+        <!-- More Button (Right Side) -->
+        <div class="more-button-container">
           <div 
             class="dropdown-container"
             @click.stop
             @mouseenter="openSpecificDropdown('more')"
             @mouseleave="delayedCloseSpecificDropdown('more')"
           >
-            <button :class="btnClasses('more')">
+            <button class="more-btn-green">
               More
             </button>
             <transition name="fade">
@@ -297,7 +217,6 @@
               </div>
             </transition>
           </div>
-          
         </div>
        
       </div>
@@ -408,6 +327,29 @@
                 </div>
               </div>
             </div>
+            
+            <!-- Confirmation Modal -->
+            <div v-if="showConfirmationModal" class="modal-overlay confirmation-modal-overlay" @click.self="cancelConfirmation">
+              <div class="confirmation-modal">
+                <div class="confirmation-header">
+                  <h3>Confirm Schedule</h3>
+                  <button class="close-btn" @click="cancelConfirmation">✕</button>
+                </div>
+                <div class="confirmation-body">
+                  <div class="confirmation-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M9 12l2 2 4-4"/>
+                      <circle cx="12" cy="12" r="10"/>
+                    </svg>
+                  </div>
+                  <p class="confirmation-message">{{ confirmationMessage }}</p>
+                </div>
+                <div class="confirmation-actions">
+                  <button class="btn-cancel" @click="cancelConfirmation">Cancel</button>
+                  <button class="btn-confirm" @click="executeConfirmedAction">Yes, Schedule</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -426,54 +368,254 @@
 
             <!-- Modal Header -->
             <div class="modal-header">
-              <h2 class="modal-title">Task Description</h2>
+              <h2 class="modal-title">{{ getModalTitle() }}</h2>
             </div>
 
-            <!-- Events Banner (Horizontal Scrolling) -->
-            <div v-if="selectedHolidays.length > 0" class="events-banner">
-              <button class="scroll-arrow scroll-left" @click="scrollEventsLeft">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="15 18 9 12 15 6"></polyline>
-                </svg>
-              </button>
-              <div class="events-list-wrapper">
-                <div class="events-list" ref="eventsList">
-                  <button 
-                    v-for="(holiday, idx) in selectedHolidays" 
-                    :key="`event-${idx}`" 
-                    class="event-item"
-                    :class="{ active: activeHolidayIndices.includes(idx) }"
-                    @click="toggleHoliday(idx)"
-                  >
-                    <span class="event-name">{{ holiday.name }}</span>
-                    <span v-if="activeHolidayIndices.includes(idx)" class="checkmark">✓</span>
-                  </button>
+            <!-- Events Banner (Horizontal Scrolling) - Show for National Public Holidays, Weekly Task, and Monthly -->
+            <div v-if="(selectedHolidays.length > 0 && (!currentDropdownSelection.category || currentDropdownSelection.category === '')) || (currentDropdownSelection.category === 'weeklyTask' || currentDropdownSelection.category === 'monthly')" class="events-banner">
+              <!-- Instruction Text -->
+              <div class="events-instruction">
+                <p v-if="!currentDropdownSelection.category || currentDropdownSelection.category === ''">Click on holiday buttons below to select which ones to schedule. Selected holidays show with a ✓</p>
+                <p v-else-if="currentDropdownSelection.category === 'weeklyTask'">Click on weekly task items button(s) below to select which ones to schedule. Selected button(s) show with a ✓</p>
+                <p v-else-if="currentDropdownSelection.category === 'monthly'">Click on monthly task button(s) below to select which ones to schedule. Selected button(s) show with a ✓</p>
+                <p v-else>Selected {{ formatCategoryName(currentDropdownSelection.category).toLowerCase() }} items are shown below. Click to view details.</p>
+                <p v-if="!currentDropdownSelection.category || currentDropdownSelection.category === ''"><strong>Selected for scheduling: {{ activeHolidayIndices.length }}</strong> | <strong>Total holidays: {{ selectedHolidays.length }}</strong></p>
+                <p v-else><strong>Selected for scheduling: {{ activeDropdownIndices.length }}</strong> | <strong>Total items: {{ currentDropdownSelection.items.length }}</strong></p>
+              </div>
+              
+              <div class="events-scroll-container">
+                <button class="scroll-arrow scroll-left" @click="scrollEventsLeft">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                  </svg>
+                </button>
+                <div class="events-list-wrapper">
+                  <div class="events-list" ref="eventsList">
+                    <!-- National Public Holiday items -->
+                    <button 
+                      v-for="(holiday, idx) in selectedHolidays" 
+                      v-if="!currentDropdownSelection.category || currentDropdownSelection.category === ''"
+                      :key="`event-${idx}`" 
+                      class="event-item"
+                      :class="{ active: activeHolidayIndices.includes(idx) }"
+                      @click="toggleHoliday(idx)"
+                    >
+                      <span class="event-name">{{ holiday.name }}</span>
+                      <span v-if="activeHolidayIndices.includes(idx)" class="checkmark">✓</span>
+                    </button>
+                    
+                    <!-- Weekly Task / Monthly dropdown items -->
+                    <button 
+                      v-for="(item, idx) in currentDropdownSelection.items" 
+                      v-if="currentDropdownSelection.category === 'weeklyTask' || currentDropdownSelection.category === 'monthly'"
+                      :key="`dropdown-event-${idx}`" 
+                      class="event-item"
+                      :class="{ active: activeDropdownIndices.includes(idx) }"
+                      @click="toggleDropdownItem(idx)"
+                    >
+                      <span class="event-name">{{ item }}</span>
+                      <span v-if="activeDropdownIndices.includes(idx)" class="checkmark">✓</span>
+                    </button>
+                  </div>
+                </div>
+                <button class="scroll-arrow scroll-right" @click="scrollEventsRight">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Birthday Header Bar -->
+            <div v-if="currentDropdownSelection.category === 'birthday' || currentDropdownSelection.category === 'specialEvents' || currentDropdownSelection.category === 'businessAdvert' || currentDropdownSelection.category === 'quote'" class="birthday-header-bar">
+              <div class="header-inner-container">
+                <div class="header-section">
+                  <span class="header-label">Heading</span>
+                  <input 
+                    type="text" 
+                    class="header-input" 
+                    :placeholder="isInputFocused ? '' : placeholderText"
+                    @focus="handleInputFocus"
+                    @blur="handleInputBlur"
+                  />
+                </div>
+                
+                <div class="datetime-container">
+                  <div class="datetime-label-section" @click="handleDateClick">
+                    <span class="datetime-label">Date/Time</span>
+                  </div>
+                  <div class="datetime-value-section">
+                    <span class="datetime-value">{{ displayDateTime }}</span>
+                  </div>
                 </div>
               </div>
-              <button class="scroll-arrow scroll-right" @click="scrollEventsRight">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="9 18 15 12 9 6"></polyline>
-                </svg>
-              </button>
             </div>
 
             <div class="modal-body">
               <!-- Description Section (Button inside dashed box) -->
               <div class="description-row">
-                <div class="description-section">
+                <div class="description-section" :class="{ 'birthday-description-section': currentDropdownSelection.category === 'birthday' || currentDropdownSelection.category === 'specialEvents' || currentDropdownSelection.category === 'businessAdvert' }">
                   <label class="section-label">Description:</label>
-                  <div class="description-flex">
-                    <textarea 
-                      v-model="organizerName" 
-                      class="description-textarea" 
-                      rows="6"
-                      placeholder="E.g:  James Williams (Chairman, West Local Government)&#10;        Quote 'should be inside Quotation'&#10;        phone No: 08032-----54, 080.........&#10;        Email: lgb02@gmail.com&#10;        Facebook/Whatsaap: igb.02&#10;        Instagram: igb02_tn"
-                    ></textarea>
-                    <button class="btn-generate-quotes">Generate Quotes</button>
+                  <div v-if="currentDropdownSelection.category === 'birthday' || currentDropdownSelection.category === 'specialEvents' || currentDropdownSelection.category === 'businessAdvert'" class="birthday-grid-container">
+                    <div class="textarea-container">
+                      <textarea 
+                        v-model="organizerName" 
+                        class="description-textarea" 
+                        rows="6"
+                        placeholder="Sample:&#10;(James Williams, Chairman Finland Intercontinental)&#10;Quote &quot;wishing you many years ahead, Amen&quot;&#10;Phone No: 08032-----54&#10;Facebook/WhatsApp: jamesw_02"
+                      ></textarea>
+                      <div class="fab-group">
+                        <button class="btn-generate-quotes" @click="handleGenerateQuoteClick">
+                          <svg viewBox="0 0 24 24">
+                            <path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z" />
+                          </svg>
+                          Generate Quote
+                        </button>
+                        <button class="btn-microphone" @click="handleMicrophoneClick">
+                          <svg viewBox="0 0 24 24">
+                            <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z" />
+                            <path d="M19 10a7 7 0 0 1-14 0" />
+                            <path d="M12 17v4" />
+                            <path d="M8 21h8" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    <!-- Blue Box / Info Form - Same Position -->
+                    <div class="blue-box-container">
+                      <!-- Show form when clicked -->
+                      <div v-if="showInfoForm" class="presenter-form">
+                        <!-- Presenter (Optional) Section -->
+                        <div class="form-section">
+                          <h3 class="section-title">Information</h3>
+                          <textarea v-model="sponsorInfo.fullText" placeholder="Presented/Sponsored by:&#10;David Lius&#10;(Financial Secretary)&#10;08052------42" class="combined-input" rows="4"></textarea>
+                        </div>
+                        
+                        <!-- Presenter (Image/Logo) Section -->
+                        <div class="form-section logo-section">
+                          <div class="upload-section">
+                            <input type="file" @change="handlePresenterLogoUpload" accept="image/*" class="hidden-input" ref="logoInput" />
+                            <div v-if="!logoPreviewUrl" @click="$refs.logoInput.click()" class="upload-box-presenter">
+                              <div class="upload-icon">
+                                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                                  <polyline points="21,15 16,10 5,21"/>
+                                </svg>
+                              </div>
+                              <p class="upload-text">Upload Logo</p>
+                            </div>
+                            <div v-else class="logo-preview-container">
+                              <img :src="logoPreviewUrl" alt="Logo Preview" class="logo-preview-image" />
+                              <button @click="removePresenterLogo" class="logo-remove-btn" type="button">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="form-actions-inline">
+                          <button @click="showInfoForm = false" class="back-btn">Back</button>
+                        </div>
+                      </div>
+                      
+                      <!-- Show blue box when not editing -->
+                      <div v-else class="blue-box" @click="showInfoForm = true">
+                        <p class="blue-box-text">Do you want to be courtesy or sponsorer on this design</p>
+                        <div class="click-here-section">
+                          <div class="hand-icon">👇</div>
+                          <span class="click-here-text">click here</span>
+                        </div>
+                        <p class="blue-box-text-small">to fill in your information</p>
+                      </div>
+                    </div>
+                    <div class="upload-time-container">
+                      <!-- Picture Upload Section -->
+                      <div class="upload-section-new" :class="{ disabled: uploadedPictures.length >= 3 }">
+                        <label class="upload-label">
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            multiple
+                            class="upload-input"
+                            :disabled="uploadedPictures.length >= 3"
+                            @change="handlePictureUpload"
+                          />
+                          <div class="upload-box-new">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                              <circle cx="8.5" cy="8.5" r="1.5"/>
+                              <polyline points="21 15 16 10 5 21"/>
+                            </svg>
+                            <span class="upload-text-new">{{ uploadedPictures.length < 3 ? `Upload Pictures (${uploadedPictures.length}/3)` : 'Max 3 Pictures' }}</span>
+                          </div>
+                        </label>
+                      </div>
+                      <!-- Image Preview Section -->
+                      <div class="image-preview-section">
+                        <div class="preview-container">
+                          <div v-if="uploadedPictures.length === 0" class="preview-placeholder">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                              <circle cx="8.5" cy="8.5" r="1.5"/>
+                              <polyline points="21 15 16 10 5 21"/>
+                            </svg>
+                            <span class="preview-text">Preview ({{ uploadedPictures.length }}/3)</span>
+                          </div>
+                          <div v-else class="image-grid">
+                            <div 
+                              v-for="(picture, index) in uploadedPictures" 
+                              :key="index" 
+                              class="image-item"
+                              @click="handleImageClick(picture, index)"
+                            >
+                              <img :src="picture.url" :alt="`Picture ${index + 1}`" class="uploaded-image" />
+                              <button 
+                                class="remove-image-btn"
+                                @click.stop="handleRemoveImage(index)"
+                                aria-label="Remove image"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-else class="description-flex">
+                    <div class="textarea-container">
+                      <textarea 
+                        v-model="organizerName" 
+                        class="description-textarea" 
+                        rows="6"
+                        placeholder="Sample:&#10;(James Williams, Chairman Finland Intercontinental)&#10;Quote &quot;wishing you many years ahead, Amen&quot;&#10;Phone No: 08032-----54&#10;Facebook/WhatsApp: jamesw_02"
+                      ></textarea>
+                      <div class="fab-group">
+                        <button class="btn-generate-quotes" @click="handleGenerateQuoteClick">
+                          <svg viewBox="0 0 24 24">
+                            <path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z" />
+                          </svg>
+                          Generate Quote
+                        </button>
+                        <button class="btn-microphone" @click="handleMicrophoneClick">
+                          <svg viewBox="0 0 24 24">
+                            <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z" />
+                            <path d="M19 10a7 7 0 0 1-14 0" />
+                            <path d="M12 17v4" />
+                            <path d="M8 21h8" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                   
-                  <!-- Upload, Preview and Time Section -->
-                  <div class="upload-time-container">
+                  <!-- Upload, Preview and Time Section for non-birthday modals -->
+                  <div v-if="currentDropdownSelection.category !== 'birthday' && currentDropdownSelection.category !== 'specialEvents'" class="upload-time-container">
                 <!-- Picture Upload Section -->
                 <div class="upload-section-new" :class="{ disabled: uploadedPictures.length >= 3 }">
                   <label class="upload-label">
@@ -492,7 +634,6 @@
                         <polyline points="21 15 16 10 5 21"/>
                       </svg>
                       <span class="upload-text-new">{{ uploadedPictures.length < 3 ? `Upload Pictures (${uploadedPictures.length}/3)` : 'Max 3 Pictures' }}</span>
-                      <span class="upload-subtitle">Select multiple images to crop and upload</span>
                     </div>
                   </label>
                 </div>
@@ -590,7 +731,7 @@
                 </div>
 
                 <!-- Time Selector Section -->
-                <div class="time-selector-section-new">
+                <div v-if="currentDropdownSelection.category !== 'birthday'" class="time-selector-section-new">
                   <div class="time-display-box-new" @click="initializeTimePicker(); showCustomTimePicker = true">
                     <div class="time-display-large">
                       <span class="time-value-large">{{ selectedTime ? formatDisplayTime(selectedTime) : '8:00' }}</span>
@@ -625,17 +766,19 @@
                         <div class="time-column">
                           <div class="column-label">Hour</div>
                           <div class="time-box-container">
-                            <div class="time-numbers-list" ref="hourScroll" @scroll="handleHourScroll">
-                              <div 
-                                v-for="hour in 12" 
-                                :key="hour"
-                                class="time-number-item"
-                                :class="{ 'selected': selectedHour === String(hour).padStart(2, '0') }"
-                                :data-value="String(hour).padStart(2, '0')"
-                              >
-                                {{ String(hour).padStart(2, '0') }}
-                              </div>
+                            <button class="time-arrow time-arrow-up" @click="incrementHour" @mousedown="startContinuousIncrement('hour')" @mouseup="stopContinuous" @mouseleave="stopContinuous">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="18 15 12 9 6 15"></polyline>
+                              </svg>
+                            </button>
+                            <div class="time-display-value">
+                              {{ timePickerHour }}
                             </div>
+                            <button class="time-arrow time-arrow-down" @click="decrementHour" @mousedown="startContinuousDecrement('hour')" @mouseup="stopContinuous" @mouseleave="stopContinuous">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                              </svg>
+                            </button>
                           </div>
                         </div>
                         
@@ -645,17 +788,19 @@
                         <div class="time-column">
                           <div class="column-label">Minute</div>
                           <div class="time-box-container">
-                            <div class="time-numbers-list" ref="minuteScroll" @scroll="handleMinuteScroll">
-                              <div 
-                                v-for="minute in 60" 
-                                :key="minute - 1"
-                                class="time-number-item"
-                                :class="{ 'selected': selectedMinute === String(minute - 1).padStart(2, '0') }"
-                                :data-value="String(minute - 1).padStart(2, '0')"
-                              >
-                                {{ String(minute - 1).padStart(2, '0') }}
-                              </div>
+                            <button class="time-arrow time-arrow-up" @click="incrementMinute" @mousedown="startContinuousIncrement('minute')" @mouseup="stopContinuous" @mouseleave="stopContinuous">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="18 15 12 9 6 15"></polyline>
+                              </svg>
+                            </button>
+                            <div class="time-display-value">
+                              {{ timePickerMinute }}
                             </div>
+                            <button class="time-arrow time-arrow-down" @click="decrementMinute" @mousedown="startContinuousDecrement('minute')" @mouseup="stopContinuous" @mouseleave="stopContinuous">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                              </svg>
+                            </button>
                           </div>
                         </div>
                         
@@ -683,11 +828,11 @@
               </div>
 
               <!-- Social Media and Action Buttons Section -->
-              <div class="bottom-actions-container">
+              <div class="bottom-actions-container" :class="{ 'birthday-layout': currentDropdownSelection.category === 'birthday' || currentDropdownSelection.category === 'specialEvents' || currentDropdownSelection.category === 'businessAdvert' }">
                 <!-- Social Media Section -->
                 <div class="social-media-section">
                   <div class="social-header-new">
-                    <span>Social Media</span>
+                    <span>Select Social Media</span>
                     <button type="button" class="btn-select-all-social" @click="toggleSelectAllSocial">{{ selectAllButtonText }}</button>
                   </div>
                   <div class="social-icons">
@@ -741,12 +886,34 @@
 
                 <!-- Action Buttons -->
                 <div class="action-buttons-new">
-                  <button class="btn-schedule-selected-new" @click="scheduleTask">
-                    Schedule Selected Task
-                  </button>
-                  <button class="btn-schedule-all-new" @click="scheduleAllTasks">
-                    Schedule All Task
-                  </button>
+                  <!-- Birthday, Special Events, and Business Advert modals only show Schedule Task button -->
+                  <template v-if="currentDropdownSelection.category === 'birthday' || currentDropdownSelection.category === 'specialEvents' || currentDropdownSelection.category === 'businessAdvert'">
+                    <button 
+                      class="btn-schedule-all-new" 
+                      @click="confirmScheduleAllTasks"
+                      :disabled="!selectedTime"
+                    >
+                      Schedule Task
+                    </button>
+                  </template>
+                  
+                  <!-- All other modals show both buttons -->
+                  <template v-else>
+                    <button 
+                      class="btn-schedule-selected-new" 
+                      @click="confirmScheduleSelectedTask"
+                      :disabled="((currentDropdownSelection.category === 'weeklyTask' || currentDropdownSelection.category === 'monthly') && activeDropdownIndices.length === 0) || ((!currentDropdownSelection.category || currentDropdownSelection.category === '') && activeHolidayIndices.length === 0) || !selectedTime"
+                    >
+                      Schedule Selected Task ({{ (currentDropdownSelection.category === 'weeklyTask' || currentDropdownSelection.category === 'monthly') ? activeDropdownIndices.length : activeHolidayIndices.length }})
+                    </button>
+                    <button 
+                      class="btn-schedule-all-new" 
+                      @click="confirmScheduleAllTasks"
+                      :disabled="((currentDropdownSelection.category === 'weeklyTask' || currentDropdownSelection.category === 'monthly') ? currentDropdownSelection.items.length === 0 : selectedHolidays.length === 0) || !selectedTime"
+                    >
+                      Schedule All Tasks ({{ (currentDropdownSelection.category === 'weeklyTask' || currentDropdownSelection.category === 'monthly') ? currentDropdownSelection.items.length : selectedHolidays.length }})
+                    </button>
+                  </template>
                 </div>
               </div>
 
@@ -757,7 +924,12 @@
                     <polyline points="20 6 9 17 4 12"/>
                   </svg>
                 </div>
-                <h3 class="card-title">Task Scheduled Successfully!</h3>
+                <h3 class="card-title">
+                  {{ selectedHolidays.length > 0 ? 'Task Scheduled! Continue with remaining holidays.' : 'All Tasks Scheduled Successfully!' }}
+                </h3>
+                <p v-if="selectedHolidays.length > 0" class="card-subtitle">
+                  {{ selectedHolidays.length }} holiday(s) remaining to schedule
+                </p>
               </div>
             </div>
           </div>
@@ -775,10 +947,202 @@
     @crop="handleCropComplete"
     @close="closeCropper"
   />
+  
+  <!-- Date/Time Picker Modal -->
+  <div v-if="showDateTimePicker" class="datetime-modal-overlay" @click="closeDateTimePicker">
+    <div class="datetime-picker-modal" @click.stop>
+      <!-- Calendar View -->
+      <div v-if="pickerStep === 'date'" class="calendar-container">
+        <div class="calendar-header">
+          <h3>{{ formatSelectedDateHeader() }}</h3>
+        </div>
+        
+        <div class="calendar-nav">
+          <button @click="pickerPreviousMonth" class="nav-btn">
+            <svg viewBox="0 0 24 24">
+              <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" fill="none"/>
+            </svg>
+          </button>
+          <span class="month-year">{{ currentMonthName }} {{ pickerYear }}</span>
+          <button @click="pickerNextMonth" class="nav-btn">
+            <svg viewBox="0 0 24 24">
+              <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" fill="none"/>
+            </svg>
+          </button>
+        </div>
+        
+        <div class="calendar-grid">
+          <div class="weekday-headers">
+            <div class="weekday">Sun</div>
+            <div class="weekday">Mon</div>
+            <div class="weekday">Tue</div>
+            <div class="weekday">Wed</div>
+            <div class="weekday">Thu</div>
+            <div class="weekday">Fri</div>
+            <div class="weekday">Sat</div>
+          </div>
+          
+          <div class="calendar-days">
+            <div 
+              v-for="day in calendarPickerDays" 
+              :key="day.key"
+              :class="[
+                'calendar-day',
+                { 
+                  'other-month': day.otherMonth,
+                  'selected': day.date === selectedPickerDate && !day.otherMonth,
+                  'today': day.isToday && !day.otherMonth
+                }
+              ]"
+              @click="pickerSelectDate(day)"
+            >
+              {{ day.date }}
+            </div>
+          </div>
+        </div>
+        
+        <div class="calendar-actions">
+          <button class="cancel-btn" @click="closeDateTimePicker">Cancel</button>
+          <button 
+            class="set-btn" 
+            :disabled="!selectedPickerDate"
+            @click="proceedToTimePicker"
+          >
+            Set Date
+          </button>
+        </div>
+      </div>
+      
+      <!-- Clock View -->
+      <div v-if="pickerStep === 'time'" class="clock-container">
+        <div class="clock-header">
+          <div class="header-content">
+            <h3>Select Time</h3>
+            <div class="selected-date-display">
+              {{ formatSelectedDate() }}
+            </div>
+          </div>
+          <button class="close-btn" @click="closeDateTimePicker">
+            <svg viewBox="0 0 24 24">
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        
+        <!-- Clock Interface -->
+        <div v-if="!showTimeInput" class="clock-face">
+          <div class="clock-circle">
+            <div class="clock-center"></div>
+            
+            <!-- Keyboard Toggle positioned beside clock -->
+            <svg class="keyboard-toggle-absolute" @click="showTimeInput = true" title="Input Time" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20 5H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/>
+            </svg>
+            
+            <!-- Hour markers (shown when minute picker is not active) -->
+            <div v-if="!showMinutePicker" 
+              v-for="hour in 12" 
+              :key="hour"
+              :class="['hour-marker', { active: selectedHour === hour }]"
+              :style="getHourPosition(hour)"
+              @click="selectHour(hour)"
+            >
+              {{ hour }}
+            </div>
+            
+            <!-- Minute markers (shown when hour is selected) -->
+            <div v-if="showMinutePicker" 
+              v-for="minute in minuteMarkers" 
+              :key="minute"
+              :class="['minute-marker', { active: selectedMinute === minute }]"
+              :style="getMinutePosition(minute)"
+              @click="selectMinute(minute)"
+            >
+              {{ minute.toString().padStart(2, '0') }}
+            </div>
+            
+            <!-- Clock hands -->
+            <div v-if="!showMinutePicker"
+              class="clock-hand hour-hand"
+              :style="getHourHandRotation()"
+            ></div>
+            <div v-if="showMinutePicker"
+              class="clock-hand minute-hand"
+              :style="getMinuteHandRotation()"
+            ></div>
+          </div>
+          
+          <div class="time-display">
+            <span class="time-value">{{ formatTime() }}</span>
+            <div class="am-pm-toggle">
+              <button 
+                :class="['am-pm-btn', { active: selectedPeriod === 'AM' }]"
+                @click="selectedPeriod = 'AM'"
+              >
+                AM
+              </button>
+              <button 
+                :class="['am-pm-btn', { active: selectedPeriod === 'PM' }]"
+                @click="selectedPeriod = 'PM'"
+              >
+                PM
+              </button>
+            </div>
+          </div>
+          
+          <div class="clock-controls">
+          </div>
+          
+        </div>
+        
+        <!-- Time Input Interface -->
+        <div v-if="showTimeInput" class="time-input-interface">
+          <div class="time-input-group">
+            <input 
+              type="number" 
+              v-model.number="inputHour" 
+              min="1" 
+              max="12" 
+              class="time-input"
+              placeholder="12"
+            />
+            <span class="time-separator">:</span>
+            <input 
+              type="number" 
+              v-model.number="inputMinute" 
+              min="0" 
+              max="59" 
+              class="time-input"
+              placeholder="00"
+            />
+            <select v-model="selectedPeriod" class="period-select">
+              <option value="AM">AM</option>
+              <option value="PM">PM</option>
+            </select>
+          </div>
+          
+          <button class="clock-toggle" @click="showTimeInput = false">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/>
+              <polyline points="12,6 12,12 16,14" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            Clock View
+          </button>
+        </div>
+        
+        <!-- Clock Action Buttons - Always Visible -->
+        <div class="button-group">
+          <button class="cancel-btn" @click="smartBackNavigation">Back</button>
+          <button class="cancel-btn" @click="closeDateTimePicker">Cancel</button>
+          <button class="set-btn" @click="setDateTime">Set Time</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import LogoCropper from '../components/LogoCropper.vue'
 
 // State
@@ -787,7 +1151,7 @@ const selectedTime = ref('08:00')
 const task = ref('')
 const scheduledTask = ref(false)
 const selection = ref('holiday')
-const selectedHolidays = ref<Array<{ date: string; name: string }>>([])
+const selectedHolidays = ref<Array<{ date: string; name: string }>>([])  
 const holidayDropdownOpen = ref(false)
 const allSelected = ref(false)
 const showTaskModal = ref(false)
@@ -796,6 +1160,14 @@ const uploadedLogo = ref<string | null>(null)
 const uploadedPictures = ref<string[]>([])
 const currentPreviewIndex = ref(0)
 const currentHolidayIndex = ref<number>(0)
+
+// Sponsor Info Modal State
+const showInfoForm = ref(false)
+const sponsorInfo = ref({
+  fullText: '',
+  logo: null
+})
+const logoPreviewUrl = ref('')
 
 // Image cropping state
 const showCropper = ref(false)
@@ -809,6 +1181,31 @@ const dragStartIndex = ref(-1)
 const showImagePreview = ref(false)
 const previewImageUrl = ref('')
 const activeHolidayIndices = ref<number[]>([])
+
+// Date/Time Picker State
+const showDateTimePicker = ref(false)
+const pickerStep = ref('date') // 'date' or 'time'
+const selectedPickerDate = ref(null)
+const pickerMonth = ref(new Date().getMonth())
+const pickerYear = ref(new Date().getFullYear())
+const selectedHour = ref(12)
+const selectedMinute = ref(0)
+const selectedPeriod = ref('AM')
+const showTimeInput = ref(false)
+const showMinutePicker = ref(false)
+const inputHour = ref(12)
+const inputMinute = ref(0)
+
+// Display DateTime for the button
+const displayDateTime = ref('--/-- 00:00am')
+
+// Alternating placeholder for Happy Birthday input
+const placeholderText = ref('Happy Birthday')
+const isInputFocused = ref(false)
+const placeholderInterval = ref<number | null>(null)
+
+// Active dropdown items for Weekly Task and Monthly
+const activeDropdownIndices = ref<number[]>([])
 const organizerName = ref('')
 const timePeriod = ref<'am' | 'pm'>('am')
 const timeInput = ref<HTMLInputElement | null>(null)
@@ -847,7 +1244,7 @@ const selectAllStates = ref({
 })
 
 // Menu Items
-const specialEventsItems = ['Birthday', 'Congratulatory Msg', 'Appointment']
+const specialEventsItems = [] as string[]
 const businessAdvertItems = ['Product Launch', 'Promo', 'Business Update']
 const weeklyTaskItems = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const monthlyItems = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -856,8 +1253,18 @@ const moreItems = ['Set-up Signee', 'Document Schedule', 'Set-up Colour']
 
 // Custom Time Picker State
 const showCustomTimePicker = ref(false)
-const selectedHour = ref('08')
-const selectedMinute = ref('00')
+const showConfirmationModal = ref(false)
+const confirmationAction = ref(null)
+const confirmationMessage = ref('')
+
+// Store currently selected dropdown items for modal display
+const currentDropdownSelection = ref({
+  category: '',
+  items: [] as string[]
+})
+
+const timePickerHour = ref('08')
+const timePickerMinute = ref('00')
 const hours = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
 const minutes = [
   '00', '01', '02', '03', '04', '05', '06', '07', '08', '09',
@@ -887,8 +1294,8 @@ function initializeTimePicker() {
       timePeriod.value = 'pm'
     }
     
-    selectedHour.value = hour12.toString().padStart(2, '0')
-    selectedMinute.value = mins
+    timePickerHour.value = hour12.toString().padStart(2, '0')
+    timePickerMinute.value = mins
   }
 }
 
@@ -936,12 +1343,42 @@ function openTaskModal() {
 }
 
 function openTaskModalFromDropdown() {
+  // Clear dropdown selection for National Public Holiday
+  currentDropdownSelection.value = {
+    category: '',
+    items: []
+  }
   showTaskModal.value = true
   holidayDropdownOpen.value = false
 }
 
 function closeTaskModal() {
   showTaskModal.value = false
+}
+
+function getModalTitle(): string {
+  // If we have a dropdown category selected, check if it's a single-item selection type
+  if (currentDropdownSelection.value.category && currentDropdownSelection.value.category !== '') {
+    // For Special Events, Business Advert, Quote, and Birthday - show the specific item name
+    if ((currentDropdownSelection.value.category === 'specialEvents' || 
+         currentDropdownSelection.value.category === 'businessAdvert' || 
+         currentDropdownSelection.value.category === 'quote' ||
+         currentDropdownSelection.value.category === 'birthday') &&
+        currentDropdownSelection.value.items.length === 1) {
+      return currentDropdownSelection.value.items[0]
+    }
+    
+    // For other categories (Weekly Task, Monthly Task, etc.) - show the formatted category name
+    return formatCategoryName(currentDropdownSelection.value.category)
+  }
+  
+  // If we're dealing with National Public Holidays (no category but have holidays)
+  if (selectedHolidays.value.length > 0 && (!currentDropdownSelection.value.category || currentDropdownSelection.value.category === '')) {
+    return 'National Public Holidays'
+  }
+  
+  // Default fallback
+  return 'Task Description'
 }
 
 // New Dropdown Functions
@@ -1004,15 +1441,58 @@ function getItemsForMenu(menuName: string): string[] {
   }
 }
 
+// Function to select an item and open modal directly
+function selectAndSchedule(category: string, item: string) {
+  // Store the selected category and item for modal display
+  currentDropdownSelection.value = {
+    category: category,
+    items: [item]
+  }
+  
+  // Close the dropdown
+  dropdowns.value[category as keyof typeof dropdowns.value] = false
+  
+  // Open the task modal
+  showTaskModal.value = true
+}
+
 function scheduleDropdownTask(menuName: keyof typeof selectedItems.value) {
   const selected = selectedItems.value[menuName]
   if (selected.length > 0) {
+    // Store the selected category and items for modal display
+    currentDropdownSelection.value = {
+      category: menuName,
+      items: [...selected]
+    }
+    
+    // Reset active dropdown indices - items should start unselected
+    activeDropdownIndices.value = []
+    
     // Open the task modal with the selected items
     showTaskModal.value = true
     // Close the dropdown
     dropdowns.value[menuName as keyof typeof dropdowns.value] = false
   } else {
     alert('Please select at least one item before scheduling.')
+  }
+}
+
+function formatCategoryName(category: string): string {
+  switch (category) {
+    case 'weeklyTask':
+      return 'Weekly Task'
+    case 'monthly':
+      return 'Monthly'
+    case 'specialEvents':
+      return 'Congratulatory/Special Events'
+    case 'businessAdvert':
+      return 'Business Advert'
+    case 'quote':
+      return 'Quote'
+    case 'birthday':
+      return 'Birthday'
+    default:
+      return category.replace(/([A-Z])/g, ' $1').trim()
   }
 }
 
@@ -1031,6 +1511,75 @@ function handleMoreAction(action: string) {
   }
   // Close the dropdown
   dropdowns.value.more = false
+}
+
+function handleBirthdayClick() {
+  // Store the selected category and item for modal display
+  currentDropdownSelection.value = {
+    category: 'birthday',
+    items: ['Birthday']
+  }
+  
+  // Close all dropdowns first
+  Object.keys(dropdowns.value).forEach(key => {
+    dropdowns.value[key as keyof typeof dropdowns.value] = false
+  })
+  
+  // Close holiday dropdown if it's open
+  holidayDropdownOpen.value = false
+  
+  // Set selection to birthday
+  selection.value = 'birthday'
+  
+  // Open task modal for birthday scheduling
+  showTaskModal.value = true
+}
+
+function handleBusinessAdvertClick() {
+  // Store the selected category and item for modal display
+  currentDropdownSelection.value = {
+    category: 'businessAdvert',
+    items: ['Business Advert']
+  }
+  
+  // Close all dropdowns first
+  Object.keys(dropdowns.value).forEach(key => {
+    dropdowns.value[key as keyof typeof dropdowns.value] = false
+  })
+  
+  // Close holiday dropdown if it's open
+  holidayDropdownOpen.value = false
+  
+  // Set selection to business advert
+  selection.value = 'businessAdvert'
+  
+  // Open task modal for business advert scheduling
+  showTaskModal.value = true
+}
+
+function handleSpecialEventsClick() {
+  // Store the selected category and item for modal display
+  currentDropdownSelection.value = {
+    category: 'specialEvents',
+    items: ['Congratulatory/Special Events']
+  }
+  
+  // Close all dropdowns first
+  Object.keys(dropdowns.value).forEach(key => {
+    dropdowns.value[key as keyof typeof dropdowns.value] = false
+  })
+  
+  // Close holiday dropdown if it's open
+  holidayDropdownOpen.value = false
+  
+  // Set selection to special events
+  selection.value = 'specialEvents'
+  
+  // Restart placeholder animation with correct texts for special events
+  startPlaceholderAnimation()
+  
+  // Open task modal for special events scheduling
+  showTaskModal.value = true
 }
 
 // Hover functions for new dropdowns
@@ -1331,6 +1880,17 @@ function toggleHoliday(index: number) {
   }
 }
 
+function toggleDropdownItem(index: number) {
+  const idx = activeDropdownIndices.value.indexOf(index)
+  if (idx > -1) {
+    // Remove if already selected
+    activeDropdownIndices.value.splice(idx, 1)
+  } else {
+    // Add if not selected
+    activeDropdownIndices.value.push(index)
+  }
+}
+
 function formatDisplayTime(time: string): string {
   if (!time) return 'Select Time'
   const [hours, minutes] = time.split(':')
@@ -1376,62 +1936,108 @@ function setTimePeriod(period: 'AM' | 'PM') {
 
 function validateHour() {
   // Remove non-digits
-  selectedHour.value = selectedHour.value.replace(/\D/g, '')
+  timePickerHour.value = timePickerHour.value.replace(/\D/g, '')
   
-  if (selectedHour.value === '') return
+  if (timePickerHour.value === '') return
   
-  let value = parseInt(selectedHour.value)
+  let value = parseInt(timePickerHour.value)
   if (isNaN(value) || value < 1) {
-    selectedHour.value = '01'
+    timePickerHour.value = '01'
   } else if (value > 12) {
-    selectedHour.value = '12'
-  } else if (selectedHour.value.length === 2 || value > 1) {
-    selectedHour.value = value.toString().padStart(2, '0')
+    timePickerHour.value = '12'
+  } else if (timePickerHour.value.length === 2 || value > 1) {
+    timePickerHour.value = value.toString().padStart(2, '0')
   }
 }
 
 function validateMinute() {
   // Remove non-digits
-  selectedMinute.value = selectedMinute.value.replace(/\D/g, '')
+  timePickerMinute.value = timePickerMinute.value.replace(/\D/g, '')
   
-  if (selectedMinute.value === '') return
+  if (timePickerMinute.value === '') return
   
-  let value = parseInt(selectedMinute.value)
+  let value = parseInt(timePickerMinute.value)
   if (isNaN(value) || value < 0) {
-    selectedMinute.value = '00'
+    timePickerMinute.value = '00'
   } else if (value > 59) {
-    selectedMinute.value = '59'
-  } else if (selectedMinute.value.length === 2) {
-    selectedMinute.value = value.toString().padStart(2, '0')
+    timePickerMinute.value = '59'
+  } else if (timePickerMinute.value.length === 2) {
+    timePickerMinute.value = value.toString().padStart(2, '0')
   }
 }
 
 function incrementHour() {
-  let value = parseInt(selectedHour.value) || 12
+  let value = parseInt(timePickerHour.value) || 12
   value++
   if (value > 12) value = 1
-  selectedHour.value = value.toString().padStart(2, '0')
+  timePickerHour.value = value.toString().padStart(2, '0')
 }
 
 function decrementHour() {
-  let value = parseInt(selectedHour.value) || 12
+  let value = parseInt(timePickerHour.value) || 12
   value--
   if (value < 1) value = 12
-  selectedHour.value = value.toString().padStart(2, '0')
+  timePickerHour.value = value.toString().padStart(2, '0')
 }
 
 function incrementMinute() {
-  let value = parseInt(selectedMinute.value) || 0
+  let value = parseInt(timePickerMinute.value) || 0
   value++
   if (value > 59) value = 0
-  selectedMinute.value = value.toString().padStart(2, '0')
+  timePickerMinute.value = value.toString().padStart(2, '0')
 }
 
 function decrementMinute() {
-  let value = parseInt(selectedMinute.value) || 0
+  let value = parseInt(timePickerMinute.value) || 0
   value--
   if (value < 0) value = 59
-  selectedMinute.value = value.toString().padStart(2, '0')
+  timePickerMinute.value = value.toString().padStart(2, '0')
+}
+
+// Continuous scrolling functionality
+let continuousInterval: number | null = null
+
+function startContinuousIncrement(type: 'hour' | 'minute') {
+  // Clear any existing interval
+  if (continuousInterval) {
+    clearInterval(continuousInterval)
+  }
+  
+  // Start continuous increment after initial delay
+  continuousInterval = setTimeout(() => {
+    continuousInterval = setInterval(() => {
+      if (type === 'hour') {
+        incrementHour()
+      } else {
+        incrementMinute()
+      }
+    }, 150) // Repeat every 150ms
+  }, 500) // Initial delay of 500ms
+}
+
+function startContinuousDecrement(type: 'hour' | 'minute') {
+  // Clear any existing interval
+  if (continuousInterval) {
+    clearInterval(continuousInterval)
+  }
+  
+  // Start continuous decrement after initial delay
+  continuousInterval = setTimeout(() => {
+    continuousInterval = setInterval(() => {
+      if (type === 'hour') {
+        decrementHour()
+      } else {
+        decrementMinute()
+      }
+    }, 150) // Repeat every 150ms
+  }, 500) // Initial delay of 500ms
+}
+
+function stopContinuous() {
+  if (continuousInterval) {
+    clearInterval(continuousInterval)
+    continuousInterval = null
+  }
 }
 
 function handleHourKey(event: KeyboardEvent) {
@@ -1456,7 +2062,7 @@ function handleMinuteKey(event: KeyboardEvent) {
 
 function confirmTime() {
   const period = timePeriod.value
-  let hour = parseInt(selectedHour.value)
+  let hour = parseInt(timePickerHour.value)
   
   // Convert to 24-hour format
   if (period === 'pm' && hour !== 12) {
@@ -1466,82 +2072,8 @@ function confirmTime() {
   }
   
   const formattedHour = hour.toString().padStart(2, '0')
-  selectedTime.value = `${formattedHour}:${selectedMinute.value}`
+  selectedTime.value = `${formattedHour}:${timePickerMinute.value}`
   showCustomTimePicker.value = false
-}
-
-let hourScrollTimeout: number | null = null
-let minuteScrollTimeout: number | null = null
-let isScrollingProgrammatically = false
-
-function handleHourScroll() {
-  if (isScrollingProgrammatically) return
-  if (hourScrollTimeout) clearTimeout(hourScrollTimeout)
-  
-  hourScrollTimeout = window.setTimeout(() => {
-    const scrollContainer = hourScroll.value
-    if (!scrollContainer) return
-    
-    const items = scrollContainer.querySelectorAll('.time-number-item')
-    const containerRect = scrollContainer.getBoundingClientRect()
-    const containerCenter = containerRect.top + containerRect.height / 2
-    
-    let closestItem: HTMLElement | null = null
-    let closestDistance = Infinity
-    
-    items.forEach((item) => {
-      const itemRect = item.getBoundingClientRect()
-      const itemCenter = itemRect.top + itemRect.height / 2
-      const distance = Math.abs(containerCenter - itemCenter)
-      
-      if (distance < closestDistance) {
-        closestDistance = distance
-        closestItem = item as HTMLElement
-      }
-    })
-    
-    if (closestItem) {
-      const value = closestItem.getAttribute('data-value')
-      if (value && value !== selectedHour.value) {
-        selectedHour.value = value
-      }
-    }
-  }, 150)
-}
-
-function handleMinuteScroll() {
-  if (isScrollingProgrammatically) return
-  if (minuteScrollTimeout) clearTimeout(minuteScrollTimeout)
-  
-  minuteScrollTimeout = window.setTimeout(() => {
-    const scrollContainer = minuteScroll.value
-    if (!scrollContainer) return
-    
-    const items = scrollContainer.querySelectorAll('.time-number-item')
-    const containerRect = scrollContainer.getBoundingClientRect()
-    const containerCenter = containerRect.top + containerRect.height / 2
-    
-    let closestItem: HTMLElement | null = null
-    let closestDistance = Infinity
-    
-    items.forEach((item) => {
-      const itemRect = item.getBoundingClientRect()
-      const itemCenter = itemRect.top + itemRect.height / 2
-      const distance = Math.abs(containerCenter - itemCenter)
-      
-      if (distance < closestDistance) {
-        closestDistance = distance
-        closestItem = item as HTMLElement
-      }
-    })
-    
-    if (closestItem) {
-      const value = closestItem.getAttribute('data-value')
-      if (value && value !== selectedMinute.value) {
-        selectedMinute.value = value
-      }
-    }
-  }, 150)
 }
 
 function updateTimePeriod() {
@@ -1563,25 +2095,141 @@ function scrollEventsRight() {
   }
 }
 
-function scheduleAllTasks() {
-  if (selectedHolidays.value.length === 0 || !selectedTime.value) {
-    alert('Please select holidays and time.')
+function confirmScheduleSelectedTask() {
+  // Check if we have valid input:
+  // Either: (date + time + task) OR (holidays + time) OR (dropdown items + time)
+  const hasCalendarTask = selectedDate.value && selectedTime.value && task.value.trim()
+  const hasHolidayTask = selectedHolidays.value.length > 0 && selectedTime.value && activeHolidayIndices.value.length > 0
+  const hasDropdownTask = currentDropdownSelection.value.items.length > 0 && selectedTime.value && activeDropdownIndices.value.length > 0
+  
+  // Check for required fields first
+  if ((hasHolidayTask && activeHolidayIndices.value.length > 0) || (hasDropdownTask && activeDropdownIndices.value.length > 0)) {
+    if (!organizerName.value.trim()) {
+      alert('Please fill in the description text area before scheduling the selected task.')
+      return
+    }
+    if (selectedSocialMedia.value.length === 0) {
+      alert('Please select at least one social media platform before scheduling the selected task.')
+      return
+    }
+  }
+  
+  if (!hasCalendarTask && !hasHolidayTask && !hasDropdownTask) {
+    alert('Please select tasks and time before scheduling.')
+    return
+  }
+  
+  // Show confirmation modal
+  const taskCount = activeHolidayIndices.value.length + activeDropdownIndices.value.length
+  confirmationMessage.value = `Are you sure you want to schedule ${taskCount > 0 ? 'the selected task(s)' : 'this task'}?`
+  confirmationAction.value = 'scheduleSelected'
+  showConfirmationModal.value = true
+}
+
+function confirmScheduleAllTasks() {
+  const isDropdownMode = currentDropdownSelection.value.category === 'weeklyTask' || currentDropdownSelection.value.category === 'monthly'
+  const itemCount = isDropdownMode ? currentDropdownSelection.value.items.length : selectedHolidays.value.length
+  
+  if (itemCount === 0 || !selectedTime.value) {
+    alert(isDropdownMode ? 'Please select items and time.' : 'Please select holidays and time.')
     return
   }
 
-  selectedHolidays.value.forEach(holiday => {
-    scheduledTasks.value.push({
-      date: holiday.date,
-      time: selectedTime.value,
-      name: holiday.name,
-      source: 'holiday'
-    })
-  })
+  // Validation for description and social media
+  if (!organizerName.value.trim()) {
+    alert('Please fill in the description text area before scheduling all tasks.')
+    return
+  }
+  if (selectedSocialMedia.value.length === 0) {
+    alert('Please select at least one social media platform before scheduling all tasks.')
+    return
+  }
+  
+  // Show confirmation modal
+  confirmationMessage.value = `Are you sure you want to schedule all ${itemCount} tasks?`
+  confirmationAction.value = 'scheduleAll'
+  showConfirmationModal.value = true
+}
 
-  // Clear and close
-  selectedHolidays.value = []
+function executeConfirmedAction() {
+  if (confirmationAction.value === 'scheduleSelected') {
+    scheduleTask()
+  } else if (confirmationAction.value === 'scheduleAll') {
+    scheduleAllTasks()
+  }
+  showConfirmationModal.value = false
+  confirmationAction.value = null
+}
+
+function cancelConfirmation() {
+  showConfirmationModal.value = false
+  confirmationAction.value = null
+}
+
+function scheduleAllTasks() {
+  const isDropdownMode = currentDropdownSelection.value.category === 'weeklyTask' || currentDropdownSelection.value.category === 'monthly'
+  const itemCount = isDropdownMode ? currentDropdownSelection.value.items.length : selectedHolidays.value.length
+  
+  if (itemCount === 0 || !selectedTime.value) {
+    alert(isDropdownMode ? 'Please select items and time.' : 'Please select holidays and time.')
+    return
+  }
+
+  // Validation for description and social media
+  if (!organizerName.value.trim()) {
+    alert('Please fill in the description text area before scheduling all tasks.')
+    return
+  }
+  if (selectedSocialMedia.value.length === 0) {
+    alert('Please select at least one social media platform before scheduling all tasks.')
+    return
+  }
+
+  if (isDropdownMode) {
+    // Schedule all dropdown items
+    currentDropdownSelection.value.items.forEach(item => {
+      scheduledTasks.value.push({
+        date: selectedDate.value || new Date().toISOString().split('T')[0],
+        time: selectedTime.value,
+        name: item,
+        source: currentDropdownSelection.value.category,
+        description: organizerName.value,
+        pictures: [...uploadedPictures.value],
+        socialMedia: [...selectedSocialMedia.value]
+      })
+    })
+    
+    // Clear dropdown selection
+    currentDropdownSelection.value = { category: '', items: [] }
+    activeDropdownIndices.value = []
+  } else {
+    // Schedule all holidays
+    selectedHolidays.value.forEach(holiday => {
+      scheduledTasks.value.push({
+        date: holiday.date,
+        time: selectedTime.value,
+        name: holiday.name,
+        source: 'holiday',
+        description: organizerName.value,
+        pictures: [...uploadedPictures.value],
+        socialMedia: [...selectedSocialMedia.value]
+      })
+    })
+    
+    // Clear and close
+    selectedHolidays.value = []
+    activeHolidayIndices.value = []
+  }
+  
+  // Common cleanup for both cases
+  activeDropdownIndices.value = []
   allSelected.value = false
   scheduledTask.value = true
+  
+  // Reset form fields
+  organizerName.value = ''
+  uploadedPictures.value = []
+  selectedSocialMedia.value = []
   
   setTimeout(() => {
     closeTaskModal()
@@ -1591,11 +2239,24 @@ function scheduleAllTasks() {
 
 function scheduleTask() {
   // Check if we have valid input:
-  // Either: (date + time + task) OR (holidays + time)
+  // Either: (date + time + task) OR (holidays + time) OR (dropdown items + time)
   const hasCalendarTask = selectedDate.value && selectedTime.value && task.value.trim()
   const hasHolidayTask = selectedHolidays.value.length > 0 && selectedTime.value
+  const hasDropdownTask = currentDropdownSelection.value.items.length > 0 && selectedTime.value
   
-  if (hasCalendarTask || hasHolidayTask) {
+  // Validation for description and social media when scheduling holidays or dropdown tasks
+  if ((hasHolidayTask && activeHolidayIndices.value.length > 0) || (hasDropdownTask && activeDropdownIndices.value.length > 0)) {
+    if (!organizerName.value.trim()) {
+      alert('Please fill in the description text area before scheduling the selected task.')
+      return
+    }
+    if (selectedSocialMedia.value.length === 0) {
+      alert('Please select at least one social media platform before scheduling the selected task.')
+      return
+    }
+  }
+  
+  if (hasCalendarTask || hasHolidayTask || hasDropdownTask) {
     // Add task from calendar date or manual entry (if provided)
     if (hasCalendarTask) {
       scheduledTasks.value.push({
@@ -1606,32 +2267,86 @@ function scheduleTask() {
       })
     }
     
-    // Add selected holidays as scheduled tasks
-    if (selectedHolidays.value.length > 0 && selectedTime.value) {
-      selectedHolidays.value.forEach(holiday => {
+    // Add only ACTIVE holidays as scheduled tasks (those in activeHolidayIndices)
+    if (hasHolidayTask && activeHolidayIndices.value.length > 0) {
+      const activeHolidays = activeHolidayIndices.value.map(index => selectedHolidays.value[index])
+      
+      activeHolidays.forEach(holiday => {
         scheduledTasks.value.push({
           date: holiday.date,
           time: selectedTime.value,
           name: holiday.name,
-          source: 'holiday'
+          source: 'holiday',
+          description: organizerName.value,
+          pictures: [...uploadedPictures.value],
+          socialMedia: [...selectedSocialMedia.value]
         })
       })
-      // Clear selected holidays after scheduling
-      selectedHolidays.value = []
-      allSelected.value = false
+      
+      // Remove only the active holidays from selectedHolidays
+      const remainingHolidays = selectedHolidays.value.filter((_, index) => !activeHolidayIndices.value.includes(index))
+      selectedHolidays.value = remainingHolidays
+      
+      // Clear active indices since those holidays are now scheduled
+      activeHolidayIndices.value = []
+      activeDropdownIndices.value = []
+      
+      // Update allSelected state
+      allSelected.value = selectedHolidays.value.length === holidays.value.length
+    } else if (hasHolidayTask && activeHolidayIndices.value.length === 0) {
+      alert('Please select at least one holiday from the events list above.')
+      return
+    }
+    
+    // Add only ACTIVE dropdown items as scheduled tasks (those in activeDropdownIndices)
+    if (hasDropdownTask && activeDropdownIndices.value.length > 0) {
+      const activeDropdownItems = activeDropdownIndices.value.map(index => currentDropdownSelection.value.items[index])
+      
+      activeDropdownItems.forEach(item => {
+        scheduledTasks.value.push({
+          date: new Date().toLocaleDateString(), // Use current date or allow date selection
+          time: selectedTime.value,
+          name: item,
+          source: currentDropdownSelection.value.category,
+          description: organizerName.value,
+          pictures: [...uploadedPictures.value],
+          socialMedia: [...selectedSocialMedia.value]
+        })
+      })
+      
+      // Remove only the active dropdown items from currentDropdownSelection.items
+      const remainingItems = currentDropdownSelection.value.items.filter((_, index) => !activeDropdownIndices.value.includes(index))
+      currentDropdownSelection.value.items = remainingItems
+      
+      // Clear active indices since those items are now scheduled
+      activeDropdownIndices.value = []
+    } else if (hasDropdownTask && activeDropdownIndices.value.length === 0) {
+      alert('Please select at least one item from the dropdown list above.')
+      return
     }
     
     scheduledTask.value = true
     
-    // Reset form fields
-    task.value = ''
-    selectedTime.value = ''
-    selectedDate.value = null
-    
-    setTimeout(() => {
-      closeTaskModal()
-      scheduledTask.value = false
-    }, 1500)
+    // Only reset form fields and close modal if it's a calendar task OR if no holidays/dropdown items remain
+    if (hasCalendarTask || (selectedHolidays.value.length === 0 && currentDropdownSelection.value.items.length === 0)) {
+      // Reset form fields only when closing
+      task.value = ''
+      selectedTime.value = ''
+      selectedDate.value = null
+      organizerName.value = ''
+      uploadedPictures.value = []
+      selectedSocialMedia.value = []
+      
+      setTimeout(() => {
+        closeTaskModal()
+        scheduledTask.value = false
+      }, 1500)
+    } else {
+      // Just show success message briefly but keep modal open for remaining holidays
+      setTimeout(() => {
+        scheduledTask.value = false
+      }, 1000)
+    }
   } else {
     alert('Please select holidays and time, or fill in date, time, and task description.')
   }
@@ -1730,8 +2445,13 @@ function nextMonth() {
 // Select date
 function selectDate(day: number | null) {
   if (!day) return
-  selectedDate.value = `${currentYear.value}-${String(currentMonth.value + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
-  openTaskModal()
+  // Immediate visual feedback
+  const dateStr = `${currentYear.value}-${String(currentMonth.value + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+  selectedDate.value = dateStr
+  // Use requestAnimationFrame for smooth modal opening
+  requestAnimationFrame(() => {
+    openTaskModal()
+  })
 }
 
 function isSelected(day: number | null) {
@@ -1740,56 +2460,433 @@ function isSelected(day: number | null) {
   return y === currentYear.value && m === currentMonth.value + 1 && d === day
 }
 
+// Handle Date/Time button clicks
+function handleDateClick() {
+  console.log('Date label clicked - opening date picker...', { showDateTimePicker: showDateTimePicker.value });
+  showDateTimePicker.value = true
+  pickerStep.value = 'date'
+  console.log('After setting showDateTimePicker:', showDateTimePicker.value)
+}
+
+function handleTimeClick() {
+  console.log('Time value clicked - opening time picker...', { showDateTimePicker: showDateTimePicker.value });
+  showDateTimePicker.value = true
+  pickerStep.value = 'time'
+  console.log('After setting showDateTimePicker:', showDateTimePicker.value)
+}
+
+// Date/Time Picker Functions
+function closeDateTimePicker() {
+  showDateTimePicker.value = false
+  pickerStep.value = 'date'
+  showTimeInput.value = false
+  showMinutePicker.value = false
+}
+
+function pickerPreviousMonth() {
+  if (pickerMonth.value === 0) {
+    pickerMonth.value = 11
+    pickerYear.value--
+  } else {
+    pickerMonth.value--
+  }
+}
+
+function pickerNextMonth() {
+  if (pickerMonth.value === 11) {
+    pickerMonth.value = 0
+    pickerYear.value++
+  } else {
+    pickerMonth.value++
+  }
+}
+
+function pickerSelectDate(day) {
+  if (day.otherMonth) return
+  // Immediate visual feedback
+  selectedPickerDate.value = day.date
+  // Provide instant visual feedback
+  requestAnimationFrame(() => {
+    // Additional smooth processing if needed
+  })
+}
+
+function proceedToTimePicker() {
+  if (!selectedPickerDate.value) return
+  pickerStep.value = 'time'
+}
+
+function selectHour(hour) {
+  selectedHour.value = hour
+  inputHour.value = hour
+  // Auto-advance to minute selection after hour selection
+  showMinutePicker.value = true
+}
+
+function formatSelectedDate() {
+  if (!selectedPickerDate.value) return ''
+  const date = new Date(pickerYear.value, pickerMonth.value, selectedPickerDate.value)
+  return date.toLocaleDateString('en-US', { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  })
+}
+
+function formatSelectedDateHeader() {
+  if (!selectedPickerDate.value) return 'Select Date'
+  const date = new Date(pickerYear.value, pickerMonth.value, selectedPickerDate.value)
+  return date.toLocaleDateString('en-US', { 
+    weekday: 'short',
+    month: 'short', 
+    day: 'numeric' 
+  })
+}
+
+function formatTime() {
+  const hour = showTimeInput.value ? inputHour.value : selectedHour.value
+  const minute = showTimeInput.value ? inputMinute.value : selectedMinute.value
+  const formattedHour = hour || 12
+  const formattedMinute = minute.toString().padStart(2, '0')
+  return `${formattedHour}:${formattedMinute} ${selectedPeriod.value}`
+}
+
+function getHourPosition(hour) {
+  const angle = (hour * 30) - 90 // 30 degrees per hour, starting from top
+  const radius = 80
+  const x = Math.cos(angle * Math.PI / 180) * radius
+  const y = Math.sin(angle * Math.PI / 180) * radius
+  return {
+    transform: `translate(${x}px, ${y}px)`
+  }
+}
+
+function getHourHandRotation() {
+  if (showMinutePicker.value && selectedHour.value) {
+    // When minute picker is active, point to the selected hour
+    const angle = (selectedHour.value * 30) - 90
+    return {
+      transform: `rotate(${angle}deg)`
+    }
+  }
+  
+  const hour = showTimeInput.value ? inputHour.value : selectedHour.value
+  const angle = ((hour || 12) * 30) - 90
+  return {
+    transform: `rotate(${angle}deg)`
+  }
+}
+
+function backToCalendar() {
+  pickerStep.value = 'date'
+  showTimeInput.value = false
+}
+
+function setDateTime() {
+  const hour = showTimeInput.value ? inputHour.value : selectedHour.value
+  const minute = showTimeInput.value ? inputMinute.value : selectedMinute.value
+  
+  if (!selectedPickerDate.value || !hour) return
+  
+  // Get short month name
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const shortMonth = monthNames[pickerMonth.value]
+  
+  // Update the display value with short month format
+  const formattedDate = `${shortMonth} ${selectedPickerDate.value.toString().padStart(2, '0')}`
+  const formattedTime = `${hour}:${minute.toString().padStart(2, '0')}${selectedPeriod.value.toLowerCase()}`
+  
+  // Update the button display with selected date and time
+  displayDateTime.value = `${formattedDate} - ${formattedTime}`
+  
+  console.log('Selected DateTime:', { date: formattedDate, time: formattedTime, display: displayDateTime.value })
+  
+  closeDateTimePicker()
+}
+
+// Minute picker functions
+function selectMinute(minute) {
+  // Immediate, synchronous updates for instant response
+  selectedMinute.value = minute
+  inputMinute.value = minute
+  
+  // Optional: Force immediate DOM update for ultra-responsiveness
+  if (typeof requestAnimationFrame !== 'undefined') {
+    requestAnimationFrame(() => {
+      // This ensures the next frame renders with updated values
+    })
+  }
+}
+
+function backToHourSelection() {
+  showMinutePicker.value = false
+}
+
+function smartBackNavigation() {
+  if (showMinutePicker.value) {
+    // If on minute picker, go back to hour picker
+    backToHourSelection()
+  } else if (pickerStep.value === 'time') {
+    // If on hour picker, go back to date picker
+    backToCalendar()
+  } else {
+    // If on date picker, close the dialog
+    closeDateTimePicker()
+  }
+}
+
+function getMinutePosition(minute) {
+  const angle = (minute * 6) - 90 // 6 degrees per minute, starting from top
+  const radius = 80 // Restore original radius
+  const x = Math.cos(angle * Math.PI / 180) * radius
+  const y = Math.sin(angle * Math.PI / 180) * radius
+  return {
+    transform: `translate(${x}px, ${y}px)`
+  }
+}
+
+function getMinuteHandRotation() {
+  const minute = showTimeInput.value ? inputMinute.value : selectedMinute.value
+  const angle = (minute * 6) - 90
+  return {
+    transform: `rotate(${angle}deg)`
+  }
+}
+
+// Computed property for minute markers (0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55)
+const minuteMarkers = computed(() => {
+  return Array.from({ length: 12 }, (_, i) => i * 5)
+})
+
+// Sponsor Info Form Functions
+function submitSponsorInfo() {
+  console.log('Presenter info submitted:', sponsorInfo.value)
+  // Here you can add API call to save the presenter information
+  showInfoForm.value = false
+  // Keep the data for the design, don't reset
+  // sponsorInfo.value = { name: '', role: '', phone: '', logo: null }
+}
+
+function handlePresenterLogoUpload(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (file) {
+    sponsorInfo.value.logo = file
+    // Create preview URL
+    logoPreviewUrl.value = URL.createObjectURL(file)
+    console.log('Presenter logo uploaded:', file.name)
+  }
+}
+
+function removePresenterLogo() {
+  sponsorInfo.value.logo = null
+  if (logoPreviewUrl.value) {
+    URL.revokeObjectURL(logoPreviewUrl.value)
+    logoPreviewUrl.value = ''
+  }
+  // Reset file input using nextTick and proper ref access
+  nextTick(() => {
+    const logoInputElement = document.querySelector('input[type="file"][accept="image/*"]') as HTMLInputElement
+    if (logoInputElement) {
+      logoInputElement.value = ''
+      // Force a change event to ensure Vue reactivity
+      logoInputElement.dispatchEvent(new Event('change', { bubbles: true }))
+    }
+  })
+}
+
+// Handle Generate Quote and Microphone button clicks
+function handleGenerateQuoteClick() {
+  console.log('Generate Quote button clicked!');
+  // TODO: Implement quote generation functionality
+}
+
+function handleMicrophoneClick() {
+  console.log('Microphone button clicked!');
+  // TODO: Implement voice recording functionality
+}
+
+// Watch for input changes to sync with clock
+watch(inputHour, (newHour) => {
+  if (newHour >= 1 && newHour <= 12) {
+    selectedHour.value = newHour
+  }
+})
+
+watch(inputMinute, (newMinute) => {
+  if (newMinute >= 0 && newMinute <= 59) {
+    selectedMinute.value = newMinute
+  }
+})
+
+// Alternating placeholder functions
+function startPlaceholderAnimation() {
+  if (placeholderInterval.value) {
+    clearInterval(placeholderInterval.value)
+  }
+  
+  // Different placeholder texts based on modal category
+  let placeholderTexts
+  if (currentDropdownSelection.value.category === 'specialEvents') {
+    placeholderTexts = ['Retirement Service in honour of', 'Congratulation on your Appointment', 'Happy Convocation']
+  } else if (currentDropdownSelection.value.category === 'quote') {
+    placeholderTexts = ['Daily Words of Inspiration', 'Quote of the Day', 'Motivational Message']
+  } else {
+    placeholderTexts = ['Happy Birthday', 'am +1 today', 'Golden Jubilee, Daddy @ 60']
+  }
+  
+  // Set initial placeholder text
+  placeholderText.value = placeholderTexts[0]
+  
+  let currentIndex = 0
+  
+  placeholderInterval.value = setInterval(() => {
+    if (!isInputFocused.value) {
+      currentIndex = (currentIndex + 1) % placeholderTexts.length
+      placeholderText.value = placeholderTexts[currentIndex]
+    }
+  }, 3000)
+}
+
+function stopPlaceholderAnimation() {
+  if (placeholderInterval.value) {
+    clearInterval(placeholderInterval.value)
+    placeholderInterval.value = null
+  }
+}
+
+function handleInputFocus(event: Event) {
+  isInputFocused.value = true
+  const target = event.target as HTMLInputElement
+  target.select()
+}
+
+function handleInputBlur() {
+  isInputFocused.value = false
+}
+
 // Lifecycle hooks
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
+  startPlaceholderAnimation()
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
+  stopPlaceholderAnimation()
 })
 
 // Computed properties for advanced features
 const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
+
+// Computed properties for date/time picker
+const currentMonthName = computed(() => {
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ]
+  return months[pickerMonth.value]
+})
+
+const calendarPickerDays = computed(() => {
+  const firstDay = new Date(pickerYear.value, pickerMonth.value, 1).getDay()
+  const daysInMonth = new Date(pickerYear.value, pickerMonth.value + 1, 0).getDate()
+  const days = []
+  const today = new Date()
+  
+  // Previous month's trailing days
+  const prevMonth = pickerMonth.value === 0 ? 11 : pickerMonth.value - 1
+  const prevYear = pickerMonth.value === 0 ? pickerYear.value - 1 : pickerYear.value
+  const daysInPrevMonth = new Date(prevYear, prevMonth + 1, 0).getDate()
+  
+  for (let i = firstDay - 1; i >= 0; i--) {
+    days.push({
+      date: daysInPrevMonth - i,
+      otherMonth: true,
+      key: `prev-${daysInPrevMonth - i}`
+    })
+  }
+  
+  // Current month's days
+  for (let date = 1; date <= daysInMonth; date++) {
+    const isToday = 
+      today.getDate() === date &&
+      today.getMonth() === pickerMonth.value &&
+      today.getFullYear() === pickerYear.value
+      
+    days.push({
+      date,
+      otherMonth: false,
+      isToday,
+      key: `current-${date}`
+    })
+  }
+  
+  // Next month's leading days
+  const remainingDays = 42 - days.length
+  for (let date = 1; date <= remainingDays; date++) {
+    days.push({
+      date,
+      otherMonth: true,
+      key: `next-${date}`
+    })
+  }
+  
+  return days
+})
 </script>
 
 <style scoped>
 .scheduling-page {
   min-height: 100vh;
-  background: linear-gradient(to bottom, #f8fafc 0%, #e2e8f0 100%);
+  background: linear-gradient(to bottom, #1e3a8a 0%, #1e40af 100%);
 }
 
 /* Breadcrumb */
 .breadcrumb-wrapper {
-  background: white;
-  border-bottom: solid 1px #eee;
-  padding: 0.5rem 3rem;
+  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+  border-bottom: solid 1px #1e40af;
+  padding: 0.75rem 3rem;
+  box-shadow: 0 4px 6px rgba(59, 130, 246, 0.1);
 }
 
 .breadcrumb {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
+  gap: 0.75rem;
+  font-size: 0.9rem;
 }
 
 .breadcrumb-link {
-  color: #06b6d4;
+  color: #dbeafe;
   text-decoration: none;
-  transition: color 0.3s;
+  transition: all 0.3s ease;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 500;
 }
 
 .breadcrumb-link:hover {
-  color: #0891b2;
+  color: white;
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
 }
 
 .breadcrumb-separator {
-  color: #64748b;
+  color: #bfdbfe;
+  font-weight: 600;
+  font-size: 1rem;
 }
 
 .breadcrumb-current {
-  color: #1e293b;
+  color: white;
   font-weight: 600;
+  padding: 0.25rem 0.75rem;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  backdrop-filter: blur(10px);
 }
 
 /* Main Content */
@@ -1815,7 +2912,6 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   align-items: center;
   gap: 1rem;
   flex-wrap: wrap;
-  margin-left: 1.5rem;
 }
 
 .action-btn {
@@ -1949,6 +3045,13 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   padding: 0.5rem;
 }
 
+/* Fix More button dropdown positioning to prevent overflow */
+.more-button-container .dropdown-menu {
+  left: auto;
+  right: 0;
+  min-width: 180px;
+}
+
 .dropdown-item {
   display: flex;
   align-items: center;
@@ -2010,6 +3113,37 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
 .schedule-btn:hover {
   background: #d97706;
   transform: translateY(-1px);
+}
+
+/* More Button Container (Right Side) */
+.more-button-container {
+  margin-left: auto;
+}
+
+.more-btn-green {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+  min-width: 80px;
+  text-align: center;
+}
+
+.more-btn-green:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.more-btn-green:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
 }
 
 .more-item {
@@ -2144,9 +3278,10 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   gap: 1.5rem;
 }
 
-.calendar-card {
+/* Main Calendar Card */
+.calendar-section .calendar-card {
   background: white;
-  padding: 1.5rem;
+  padding: 0;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   min-width: 400px;
@@ -2154,72 +3289,114 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   overflow: visible;
 }
 
-.calendar-header {
+/* Main Calendar Header */
+.calendar-section .calendar-card .calendar-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.25rem;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  padding: 20px 1.5rem;
+  border-radius: 12px 12px 0 0;
+  margin-left: 0;
+  margin-right: 0;
+  margin-top: 0;
+  position: relative;
+  width: 100%;
 }
 
-.calendar-nav-btn {
+/* Main Calendar Navigation Buttons */
+.calendar-section .calendar-card .calendar-nav-btn {
   width: 2.5rem;
   height: 2.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f1f5f9;
+  background: rgba(255, 255, 255, 0.9);
   border: none;
   border-radius: 6px;
   font-size: 1.5rem;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.08s ease-out;
+  color: #1d4ed8;
+  font-weight: bold;
+  position: absolute;
+  padding: 0 0 6px 0;
+  line-height: 1;
+  text-align: center;
+  will-change: transform, background-color;
 }
 
-.calendar-nav-btn:hover {
-  background: #e2e8f0;
+.calendar-section .calendar-card .calendar-nav-btn:first-child {
+  left: 1.5rem;
 }
 
-.calendar-title {
+.calendar-section .calendar-card .calendar-nav-btn:last-child {
+  right: 1.5rem;
+}
+
+.calendar-section .calendar-card .calendar-nav-btn:hover {
+  background: white;
+  transform: scale(1.08);
+  box-shadow: 0 2px 8px rgba(29, 78, 216, 0.2);
+}
+
+/* Main Calendar Title */
+.calendar-section .calendar-card .calendar-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #1e293b;
+  color: white;
+  text-align: center;
+  width: 100%;
+  margin: 0;
 }
 
-.calendar-weekdays {
+/* Main Calendar Weekdays */
+.calendar-section .calendar-weekdays {
   display: grid;
-  grid-template-columns: repeat(7, minmax(3rem, 1fr));
+  grid-template-columns: repeat(7, 1fr);
   text-align: center;
   font-weight: 500;
   font-size: 1rem;
   color: #64748b;
   margin-bottom: 0.75rem;
+  padding: 0 1.5rem;
 }
 
-.weekday {
-  padding: 0.5rem;
-  min-width: 3rem;
+.calendar-section .weekday {
+  padding: 0.25rem 0.5rem;
+  width: 100%;
   white-space: nowrap;
-  overflow: visible;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.calendar-dates {
+/* Main Calendar Dates */
+.calendar-section .calendar-dates {
   display: grid;
-  grid-template-columns: repeat(7, minmax(3rem, 1fr));
-  gap: 0.25rem;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
   text-align: center;
+  padding: 0 1.5rem 1rem 1.5rem;
+  contain: layout style;
+  will-change: contents;
 }
 
 .calendar-day {
-  height: 2.25rem;
-  min-height: 2.25rem;
-  min-width: 3rem;
+  aspect-ratio: 1;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
-  font-size: 1rem;
-  transition: all 0.2s;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  will-change: transform, background-color, box-shadow;
 }
 
 .calendar-day.empty {
@@ -2228,21 +3405,51 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
 
 .calendar-day.clickable {
   cursor: pointer;
-  color: #1e293b;
-}
-
-.calendar-day.clickable:hover {
-  background: #fef3c7;
-}
-
-.calendar-day.selected {
-  background: #f59e0b;
-  color: white;
+  color: #374151;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   font-weight: 600;
 }
 
+.calendar-day.clickable:hover {
+  background: linear-gradient(135deg, #fef3c7 0%, #fcd34d 100%);
+  border-color: #f59e0b;
+  transform: translateY(-1px) scale(1.03);
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.25);
+  color: #92400e;
+}
+
+.calendar-day.clickable:active {
+  transform: translateY(0px) scale(1.01);
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+  transition: all 0.05s ease-out;
+}
+
+.calendar-day.clickable:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.calendar-day.selected {
+  background: #3b82f6;
+  color: white;
+  font-weight: 600;
+  border-radius: 50%;
+  transform: scale(1.1);
+  border: none;
+  transition: all 0.08s ease-out;
+}
+
+.calendar-day.selected:hover {
+  background: #2563eb;
+  transform: scale(1.12);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
 .selected-date {
-  margin-top: 1.5rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
   text-align: center;
   font-weight: 500;
   color: #1e293b;
@@ -2355,12 +3562,12 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
 
 /* Templates Section */
 .templates-section {
-  background: #fffbeb;
+  background: white;
   padding: 1.5rem;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   height: fit-content;
-  max-height: 500px;
+  max-height: 450px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2617,7 +3824,7 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   background: white;
   border-radius: 20px;
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
-  max-width: 900px;
+  max-width: 750px;
   width: 100%;
   max-height: 90vh;
   overflow: hidden;
@@ -2678,6 +3885,200 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   border-bottom: 1px solid #dee2e6;
   box-shadow: inset 0 -2px 4px rgba(0, 0, 0, 0.05);
   display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+/* Birthday Header Bar */
+.birthday-header-bar {
+  background: #1e3a8a;
+  padding: 30px 16px;
+  margin-bottom: 0.25rem;
+  height: 70px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-inner-container {
+  background: linear-gradient(to left, #1e3a8a 0%, #1e40af 100%);
+  border-radius: 12px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.header-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-label {
+  color: white;
+  font-weight: 500;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.header-input {
+  background: white;
+  border: none;
+  border-radius: 16px;
+  padding: 3px 12px;
+  font-size: 14px;
+  color: #374151;
+  min-width: 350px;
+  max-width: 450px;
+  height: 28px;
+  flex-shrink: 1;
+  outline: none;
+}
+
+.header-input::placeholder {
+  color: #9ca3af;
+  opacity: 1;
+}
+
+.header-input:focus {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+}
+
+.at-symbol {
+  color: white;
+  font-size: 18px;
+  font-weight: normal;
+  margin: 0 2px;
+}
+
+.year-section {
+  display: flex;
+  align-items: center;
+}
+
+.year-input {
+  background: white;
+  border: none;
+  border-radius: 16px;
+  padding: 3px 12px;
+  font-size: 14px;
+  color: #374151;
+  min-width: 65px;
+  max-width: 80px;
+  height: 28px;
+  text-align: center;
+  outline: none;
+}
+
+.year-input::placeholder {
+  color: #9ca3af;
+  opacity: 1;
+  text-align: center;
+}
+
+.year-input:focus {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+}
+
+.datetime-container {
+  display: flex;
+  gap: 2px;
+  margin-left: 12px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.datetime-label-section {
+  background: #ff8500;
+  border-radius: 16px 0 0 16px;
+  padding: 4px 16px;
+  display: flex;
+  align-items: center;
+  transition: all 0.08s ease-out;
+  cursor: pointer;
+  will-change: transform, filter;
+  min-width: 80px;
+}
+
+.datetime-label-section:hover {
+  transform: translateY(-0.5px) scale(1.01);
+  filter: brightness(1.08);
+  box-shadow: 0 2px 8px rgba(255, 133, 0, 0.25);
+}
+
+.datetime-label-section:active {
+  transform: translateY(0px) scale(0.98);
+  filter: brightness(0.9);
+  box-shadow: 0 2px 8px rgba(255, 133, 0, 0.4);
+}
+
+.datetime-value-section {
+  background: #6366f1;
+  border-radius: 0 16px 16px 0;
+  padding: 4px 16px;
+  display: flex;
+  align-items: center;
+  transition: all 0.08s ease-out;
+  cursor: pointer;
+  will-change: transform, filter;
+  min-width: 120px;
+}
+
+.datetime-value-section:hover {
+  transform: translateY(-0.5px) scale(1.01);
+  filter: brightness(1.08);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+}
+
+.datetime-value-section:active {
+  transform: translateY(0px) scale(0.98);
+  filter: brightness(0.9);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+}
+
+.datetime-label {
+  color: white;
+  font-weight: 500;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.datetime-value {
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.dropdown-items-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.events-instruction {
+  text-align: center;
+  margin-bottom: 0;
+  padding-top: 0.375rem;
+}
+
+.events-instruction p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.events-instruction strong {
+  color: #374151;
+  font-weight: 600;
+}
+
+.events-banner .events-scroll-container {
+  display: flex;
   align-items: center;
   gap: 1rem;
 }
@@ -2696,7 +4097,7 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   overflow-x: auto;
   overflow-y: hidden;
   scroll-behavior: smooth;
-  padding: 0.75rem 1rem 0.75rem 0.75rem;
+  padding: 0.5rem 1rem 0.5rem 0.75rem;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
 }
@@ -2745,7 +4146,7 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   color: white;
   font-size: 0.75rem;
   font-weight: 600;
-  padding: 0.5rem 1rem;
+  padding: 0.375rem 1rem;
   border: 2px solid transparent;
   border-radius: 20px;
   cursor: pointer;
@@ -2828,7 +4229,7 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
 }
 
 .modal-body {
-  padding: 1rem 2rem 2rem;
+  padding: 0.5rem 2rem 2rem;
   overflow-y: auto;
   flex: 1;
   background: #fafafa;
@@ -2889,6 +4290,126 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
 
 .form-textarea::placeholder {
   color: #9ca3af;
+}
+
+/* Confirmation Modal Styles */
+.confirmation-modal-overlay {
+  z-index: 2000;
+}
+
+.confirmation-modal {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  max-width: 400px;
+  width: 90%;
+  animation: modalSlideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.confirmation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 1.5rem 0 1.5rem;
+}
+
+.confirmation-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.confirmation-header .close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.confirmation-header .close-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.confirmation-body {
+  padding: 1rem 1.5rem;
+  text-align: center;
+}
+
+.confirmation-icon {
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem;
+}
+
+.confirmation-icon svg {
+  width: 32px;
+  height: 32px;
+  color: white;
+}
+
+.confirmation-message {
+  font-size: 1.1rem;
+  color: #374151;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.confirmation-actions {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0 1.5rem 1.5rem;
+}
+
+.btn-cancel,
+.btn-confirm {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.btn-cancel:hover {
+  background: #e5e7eb;
+}
+
+.btn-confirm {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.btn-confirm:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
 /* Upload Sections Container (3 columns) */
@@ -3025,9 +4546,9 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
 .custom-time-picker {
   position: absolute;
   top: 0;
-  left: 0;
-  right: 0;
-  height: 200px;
+  left: -0.5rem;
+  right: -0.5rem;
+  height: 165px;
   background: white;
   border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
@@ -3046,6 +4567,7 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   font-weight: 700;
   font-size: 0.85rem;
   flex-shrink: 0;
+  border-radius: 16px 16px 0 0;
 }
 
 .close-picker {
@@ -3076,9 +4598,11 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   justify-content: center;
   padding: 0.3rem 0.6rem;
   gap: 0.4rem;
-  height: 90px;
+  height: 120px;
   background: linear-gradient(to bottom, #f8f9ff 0%, #ffffff 50%);
   flex-shrink: 0;
+  overflow: hidden;
+  max-width: 100%;
 }
 
 .time-column {
@@ -3086,8 +4610,10 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   flex-direction: column;
   flex: 1;
   max-width: 70px;
-  min-width: 0;
+  min-width: 50px;
+  width: 70px;
   height: 100%;
+  overflow: hidden;
 }
 
 .period-column {
@@ -3107,7 +4633,7 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
 
 .time-box-container {
   flex: 1;
-  border: 2.5px solid #e5e7eb;
+  border: none;
   border-radius: 10px;
   background: white;
   overflow: hidden;
@@ -3115,23 +4641,57 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   display: flex;
   flex-direction: column;
   min-height: 0;
-  height: 50px;
+  height: 80px;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  position: relative;
+  padding: 0.2rem;
 }
 
-.time-numbers-list {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+.time-arrow {
+  background: #f3f4f6;
+  border: none;
+  border-radius: 6px;
   padding: 0.3rem;
-  scrollbar-width: thin;
-  scrollbar-color: #9ca3af #e5e7eb;
+  cursor: pointer;
+  transition: all 0.2s ease;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  scroll-snap-type: y proximity;
-  scroll-behavior: auto;
+  justify-content: center;
+  width: 100%;
+  height: 20px;
+  min-height: 20px;
+  flex-shrink: 0;
+}
+
+.time-arrow svg {
+  width: 12px;
+  height: 12px;
+  color: #667eea;
+}
+
+.time-arrow:hover {
+  background: #e5e7eb;
+  transform: translateY(-1px);
+}
+
+.time-arrow:active {
+  transform: translateY(0);
+  background: #d1d5db;
+}
+
+.time-display-value {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #3b5998;
+  background: #f8f9ff;
+  border-radius: 6px;
+  margin: 0.1rem 0;
+  min-height: 35px;
 }
 
 .time-numbers-list::-webkit-scrollbar {
@@ -3153,42 +4713,7 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   background: #6b7280;
 }
 
-.time-number-item {
-  padding: 0.5rem 0.2rem;
-  text-align: center;
-  font-size: 2rem;
-  font-weight: 700;
-  color: #3b5998;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  user-select: none;
-  border-radius: 5px;
-  margin-bottom: 0.1rem;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 50px;
-  scroll-snap-align: center;
-  flex-shrink: 0;
-}
 
-.time-number-item:last-child {
-  margin-bottom: 0;
-}
-
-.time-number-item:hover {
-  background: #f0f4ff;
-  color: #3b5998;
-}
-
-.time-number-item.selected {
-  background: transparent;
-  color: #3b5998;
-  font-weight: 700;
-  box-shadow: none;
-}
 
 .time-separator {
   display: flex;
@@ -3243,15 +4768,16 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
 }
 
 .time-picker-footer {
-  padding: 0.4rem 0.6rem;
+  padding: 0.15rem 0.6rem 1rem;
   border-top: 1px solid #e5e7eb;
   background: #f9fafb;
   flex-shrink: 0;
+  border-radius: 0 0 16px 16px;
 }
 
 .btn-confirm-time {
   width: 100%;
-  padding: 0.85rem;
+  padding: 0.65rem;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
@@ -3279,9 +4805,9 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   position: relative;
   z-index: 2;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 0.5rem;
+  gap: 12px;
   cursor: pointer;
 }
 
@@ -3296,7 +4822,7 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
 
 .time-value {
   display: block;
-  font-size: 62px;
+  font-size: 28px;
   font-weight: 700;
   line-height: 1;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
@@ -3307,7 +4833,7 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
 
 /* Smaller font for "Select Time" placeholder */
 .time-value.is-placeholder {
-  font-size: 32px;
+  font-size: 22px;
   padding-bottom: 6px;
 }
 
@@ -3402,24 +4928,463 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
 }
 
 .description-flex {
+  position: relative;
+  width: 100%;
+}
+
+/* Birthday modal specific layout */
+.birthday-description-layout {
   display: flex;
-  align-items: stretch; /* stretch children to same height */
   gap: 1rem;
+  align-items: flex-start;
+}
+
+.birthday-description-layout .textarea-container {
+  flex: 1;
+}
+
+.blue-box-container {
+  flex-shrink: 0;
+}
+
+.blue-box {
+  width: 140px;
+  height: 310px; /* Fixed height independent of textarea */
+  background: #3b82f6;
+  border-radius: 12px;
+  border: 1px solid #2563eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-left: 10px;
+}
+
+/* Birthday modal specific layout */
+.birthday-description-layout {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  /* Keep original width - no margin adjustment */
+}
+
+.birthday-description-layout .textarea-container {
+  flex: 1;
+  max-width: calc(100% - 140px); /* Reserve space for blue box and gap */
+}
+
+/* Birthday description section with grid positioning */
+.birthday-description-section {
+  position: relative;
+}
+
+/* Birthday grid container for proportional sizing */
+.birthday-grid-container {
+  display: grid;
+  grid-template-columns: 2fr 200px; /* Increased from 180px to 200px */
+  grid-template-rows: auto auto; /* Two rows: top for textarea/blue box, bottom for upload/preview */
+  gap: 10px;
+  align-items: start;
+}
+
+.birthday-grid-container .textarea-container {
+  grid-column: 1;
+  grid-row: 1; /* First row only */
+}
+
+.birthday-grid-container .blue-box {
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  background: #8b5cf6;
+  border-radius: 12px;
+  border: 1px solid #7c3aed;
+  margin: 0; /* Remove all margins */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 15px;
+  cursor: pointer;
+  text-align: center;
+  transition: transform .25s ease;
+}
+
+.birthday-grid-container .blue-box:hover {
+  transform: translateY(-2px);
+}
+
+.blue-box-text {
+  color: white;
+  font-size: 15px;
+  text-align: center;
+  line-height: 1.4;
+  margin: 0 0 8px 0;
+  font-weight: 400;
+}
+
+.blue-box-text-small {
+  color: white;
+  font-size: 14px;
+  text-align: center;
+  line-height: 1.3;
+  margin: 8px 0 0 0;
+  font-weight: 400;
+}
+
+.click-here-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 5px 0;
+}
+
+.click-here-text {
+  color: white;
+  font-size: 18px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 5px;
+}
+
+.hand-icon {
+  font-size: 20px;
+  animation: pointingAnimation 1.5s ease-in-out infinite;
+}
+
+@keyframes pointingAnimation {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-3px) scale(1.1);
+  }
+}
+
+/* Blue Box Container - Same Grid Position */
+.blue-box-container {
+  grid-column: 2;
+  grid-row: 1 / 3; /* Span both rows */
+  width: 200px;
+  height: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Presenter Form - Exact Same Positioning */
+.presenter-form {
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  background: #8b5cf6;
+  border-radius: 12px;
+  border: 2px dotted #7c3aed;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: Arial, sans-serif;
+  box-sizing: border-box;
+}
+
+.form-section {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 80px;
+  cursor: pointer;
+}
+
+.logo-section {
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 80px;
+  max-height: 100px;
+  display: flex;
+  flex-direction: column;
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+  margin: 0 0 4px 0;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.form-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+}
+
+.example-label {
+  font-size: 10px;
+  color: #d4965a;
+  margin: 0 0 2px 0;
+  font-weight: 500;
+}
+
+.example-text {
+  font-size: 11px;
+  color: #d4965a;
+  margin: 0 0 8px 0;
+  line-height: 1.3;
+}
+
+.combined-input {
+  width: 100%;
+  height: 80px;
+  flex: 1;
+  min-height: 80px;
+  padding: 6px;
+  font-size: 13px;
+  border: none;
+  border-radius: 8px;
+  background: white;
+  color: #333;
+  font-weight: 500;
+  margin-bottom: 2px;
+  outline: none;
+  resize: none;
+  font-family: Arial, sans-serif;
+  line-height: 1.4;
+  cursor: text;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
+}
+
+.combined-input::-webkit-scrollbar {
+  width: 6px;
+}
+
+.combined-input::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.combined-input::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.combined-input::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.6);
+}
+
+.combined-input:hover::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.5);
+}
+
+.combined-input:focus {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.upload-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  min-height: 80px;
+}
+
+.hidden-input {
+  display: none;
+}
+
+.upload-box-presenter {
+  width: 100%;
+  height: 100%;
+  min-height: 80px;
+  border: 1px dashed white;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.upload-box-presenter:hover {
+  border-color: white;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.logo-preview-container {
+  position: relative;
+  width: 100%;
+  height: 80px;
+  min-height: 80px;
+  max-height: 80px;
+  min-width: 120px;
+  border: 1px solid #10b981;
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.logo-preview-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.logo-remove-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  background: rgba(239, 68, 68, 0.9);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.logo-remove-btn:hover {
+  background: rgba(239, 68, 68, 1);
+  transform: scale(1.1);
+}
+
+.logo-remove-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.upload-icon {
+  width: 20px;
+  height: 20px;
+  color: white;
+  margin-bottom: 4px;
+  opacity: 0.9;
+}
+
+.upload-text {
+  font-size: 10px;
+  color: white;
+  margin: 0;
+  font-weight: 500;
+}
+
+.form-actions-inline {
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
+  padding-top: 4px;
+  width: 100%;
+}
+
+.back-btn,
+.save-btn {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.back-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.back-btn:hover {
+  background: linear-gradient(135deg, #e55a2b 0%, #d7831a 100%);
+  transform: translateY(-2px);
+}
+
+.save-btn {
+  background: #d4965a;
+  color: white;
+}
+
+.save-btn:hover {
+  background: #c4865a;
+}
+
+.birthday-grid-container .upload-time-container {
+  grid-column: 1; /* Only occupy the first column (under textarea) */
+  grid-row: 2; /* Second row - directly under textarea */
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Two columns for upload and preview */
+  gap: 1rem;
+  margin: 0; /* Reset margins since we're in grid now */
+  width: 100%; /* Ensure it doesn't exceed grid width */
+  max-width: 100%; /* Prevent overflow */
+  overflow: hidden; /* Hide any content that might overflow */
+  box-sizing: border-box; /* Include padding/border in width calculation */
+}
+
+/* Remove old absolute positioning styles for birthday */
+.blue-box-container-absolute {
+  display: none; /* Hide the old absolute positioned container */
+}
+
+.blue-box-container {
+  flex-shrink: 0;
+}
+
+.blue-box {
+  width: 140px;
+  height: 310px; /* Same height as description-textarea */
+  background: #3b82f6;
+  border-radius: 12px;
+  border: 1px solid #2563eb;
+  margin-left: 10px;
+}
+
+.textarea-container {
+  position: relative;
+  width: 100%;
 }
 
 .description-section {
   margin-top: -0.5rem;
   margin-bottom: 0.25rem;
-  border: 2px dashed #e5e7eb;
   border-radius: 12px;
-  padding: 0.25rem 1.5rem 0.75rem; /* tighter bottom to bring border closer */
+  padding: 0;
   background: white;
   flex: 1 1 auto;
 }
 
 .section-label {
   display: block;
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-weight: 600;
   color: #1e293b;
   margin-bottom: 0.125rem;
@@ -3428,24 +5393,44 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
 
 .description-textarea {
   width: 100%;
-  padding: 0.5rem 1rem 0.75rem; /* reduced top padding and slightly tighter bottom */
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 0.9375rem;
-  line-height: 1.35; /* reduced line spacing */
-  color: #64748b;
+  height: 160px; /* Reduced from 180px */
+  padding: 10px 12px;
+  padding-bottom: 40px; /* Space for smaller buttons */
   background: white;
-  resize: vertical;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-sizing: border-box;
+  resize: none;
+  color: #1e293b;
+  font-size: 15px;
+  outline: none;
+  line-height: 1.45;
   font-family: inherit;
   transition: all 0.3s;
-  min-height: 150px;
-  margin-bottom: 0; /* keep bottom tight to border */
+  overflow-y: auto; /* Show scroll only when content overflows */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
 }
 
-.description-flex .description-textarea {
-  flex: 1 1 auto;
-  min-width: 0;
-  margin-bottom: 0; /* keep row tight when button is beside */
+/* Hide scrollbar for WebKit browsers (Chrome, Safari) */
+.description-textarea::-webkit-scrollbar {
+  display: none;
+}
+
+/* Show scrollbar on hover for better UX */
+.description-textarea:hover {
+  scrollbar-width: thin; /* Firefox */
+  -ms-overflow-style: auto; /* Internet Explorer 10+ */
+}
+
+.description-textarea:hover::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+}
+
+.description-textarea:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 3px;
 }
 
 .description-textarea:focus {
@@ -3455,33 +5440,727 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
 }
 
 .description-textarea::placeholder {
-  color: #cbd5e1;
-  line-height: 1.35; /* match textarea line-height */
+  color: #777;
+  opacity: 0.7;
+  white-space: pre-line;
+}
+
+/* Birthday modal specific textarea - no margin needed with grid */
+.birthday-description-section .description-textarea {
+  margin-right: 0; /* Reset margin since grid handles spacing */
+}
+
+.fab-group {
+  position: absolute;
+  bottom: 12px;
+  right: 20px;
+  display: flex;
+  gap: 6px;
+  z-index: 10;
+  pointer-events: none; /* Allow clicks to pass through the container */
+}
+
+.fab-group button {
+  pointer-events: auto; /* Re-enable clicks on the buttons themselves */
 }
 
 .btn-generate-quotes {
-  height: auto; /* let flex stretch control height */
-  align-self: stretch; /* fill description-flex height */
-  min-height: 150px; /* match textarea's min-height */
-  padding: 0 1.25rem; /* vertical padding removed to avoid overflow */
-  background: #f59e0b;
+  height: 32px;
+  padding: 0 10px;
+  background: #8b5cf6;
   color: white;
   border: none;
-  border-radius: 8px;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s;
-  white-space: nowrap;
+  border-radius: 16px;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: 0 3px 10px rgba(139, 92, 246, 0.25);
+  transition: transform .25s ease, box-shadow .25s ease;
+  white-space: nowrap;
 }
 
 .btn-generate-quotes:hover {
-  background: #d97706;
+  transform: translateY(-4px);
+  box-shadow: 0 10px 24px rgba(139, 92, 246, 0.35);
+}
+
+.btn-generate-quotes:active {
+  transform: translateY(-1px) scale(0.95);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.btn-microphone {
+  height: 32px;
+  width: 32px;
+  background: #ff3b30;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 3px 10px rgba(255, 59, 48, 0.25);
+  cursor: pointer;
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+
+.btn-microphone:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 24px rgba(255, 59, 48, 0.35);
+}
+
+.btn-microphone:active {
+  transform: translateY(-1px) scale(0.95);
+  box-shadow: 0 4px 12px rgba(255, 59, 48, 0.4);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.btn-microphone svg {
+  width: 14px;
+  height: 14px;
+  stroke: #fff;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.btn-generate-quotes svg {
+  width: 12px;
+  height: 12px;
+  stroke: #fff;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Date/Time Picker Styles */
+.datetime-modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: rgba(0, 0, 0, 0.7) !important;
+  backdrop-filter: blur(4px);
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 9999 !important;
+  padding: 1rem !important;
+  will-change: opacity;
+  transform: translateZ(0);
+}
+
+.datetime-picker-modal {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+  max-width: 400px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  position: relative;
+}
+
+/* Calendar Styles */
+.calendar-container {
+  padding: 0 12px 8px 12px;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  margin-bottom: 0;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  padding: 16px 0 16px 16px;
+  border-radius: 0;
+  margin-left: -12px;
+  margin-right: -12px;
+}
+
+.calendar-header h3 {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 24px;
+  font-weight: 700;
+  text-align: left;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.close-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  color: white;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
+}
+
+.close-btn svg {
+  width: 20px;
+  height: 20px;
+  color: white;
+}
+
+.calendar-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  margin-bottom: 3px;
+}
+
+.nav-btn {  
+  background: #f1f5f9;
+  border: none;
+  padding: 8px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.08s ease-out;
+  will-change: transform, background-color;
+}
+
+.nav-btn:hover {
+  background: #e2e8f0;
+  transform: scale(1.05);
+}
+
+.nav-btn:active {
+  transform: scale(1.02);
+  transition: all 0.05s ease-out;
+}
+
+.nav-btn svg {
+  width: 16px;
+  height: 16px;
+  color: #1e293b;
+}
+
+.month-year {
+  font-weight: 600;
+  font-size: 16px;
+  color: #1e293b;
+}
+
+.calendar-grid {
+  margin-bottom: 12px;
+}
+
+.weekday-headers {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.weekday {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  padding: 6px 4px;
+}
+
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px 4px;
+}
+
+.calendar-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.08s ease-out;
+  position: relative;
+  will-change: transform, background-color;
+}
+
+.calendar-day:hover {
+  background: #e2e8f0;
+  transform: scale(1.05);
+}
+
+.calendar-day:active {
+  transform: scale(1.02);
+  transition: all 0.05s ease-out;
+}
+
+.calendar-day:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.calendar-day.other-month {
+  color: #cbd5e1;
+  cursor: default;
+}
+
+.calendar-day.other-month:hover {
+  background: none;
+  transform: none;
+}
+
+.calendar-day.other-month:active {
+  transform: none;
+}
+
+.calendar-day.selected {
+  background: #3b82f6;
+  color: white;
+  font-weight: 600;
+  border-radius: 50%;
+  transform: scale(1.1);
+  aspect-ratio: 1;
+  width: 100%;
+  height: auto;
+  transition: all 0.06s ease-out;
+}
+
+.calendar-day.selected:hover {
+  background: #2563eb;
+  transform: scale(1.15);
+}
+
+.calendar-day.today::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  background: #ef4444;
+  border-radius: 50%;
+}
+
+.calendar-day.selected.today::after {
+  background: white;
+}
+
+.calendar-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: -16px;
+}
+
+.cancel-btn, .set-btn {
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancel-btn {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+}
+
+.cancel-btn:hover {
+  background: #e2e8f0;
+}
+
+.set-btn {
+  background: #3b82f6;
+  border: 1px solid #3b82f6;
+  color: white;
+}
+
+.set-btn:hover {
+  background: #2563eb;
+}
+
+.set-btn:disabled {
+  background: #cbd5e1;
+  border-color: #cbd5e1;
+  cursor: not-allowed;
+}
+
+/* Clock Styles */
+.clock-container {
+  padding: 0 12px 8px 12px;
+}
+
+.header-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.clock-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 -12px 24px -12px;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  padding: 1rem 1.5rem;
+  border-radius: 0;
+  width: calc(100% + 24px);
+}
+
+.clock-header h3 {
+  margin: 0;
+  color: white;
+  font-size: 20px;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.selected-date-display {
+  text-align: center;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+  padding: 8px 0 0 0;
+  background: none;
+  border-radius: 0;
+  border: none;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.clock-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.clock-circle {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  border: none;
+  border-radius: 50%;
+  margin-bottom: 20px;
+  background: #f0f0f0;
+}
+
+.clock-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  background: #3b82f6;
+  border-radius: 50%;
+  z-index: 3;
+}
+
+.hour-marker {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24px;
+  height: 24px;
+  margin-left: -12px;
+  margin-top: -12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  z-index: 2;
+}
+
+.hour-marker:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.hour-marker.active {
+  background: #3b82f6;
+  color: white;
+}
+
+.clock-hand {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: 0 0;
+  background: #3b82f6;
+  border-radius: 2px;
+  z-index: 1;
+}
+
+.hour-hand {
+  width: 60px;
+  height: 2px;
+  margin-top: -1px;
+  position: relative;
+}
+
+.hour-hand.minute-picker-active {
+  width: 30px;
+}
+
+.hour-hand-arrow {
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid #3b82f6;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+}
+
+.time-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.time-value {
+  flex: 1;
+}
+
+.am-pm-toggle {
+  display: flex;
+  gap: 2px;
+}
+
+.am-pm-btn {
+  padding: 6px 14px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.am-pm-btn.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+.am-pm-btn:hover:not(.active) {
+  background: #f1f5f9;
+}
+
+.keyboard-toggle, .clock-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.keyboard-toggle-absolute {
+  position: absolute;
+  top: 50%;
+  right: -70px;
+  transform: translateY(-50%);
+  transform-origin: center center;
+  color: #64748b;
+  transition: all 0.2s ease;
+  z-index: 10;
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+}
+
+.keyboard-toggle-absolute:hover {
+  color: #3b82f6;
+  transform: translateY(-50%) scale(1.01);
+  transform-origin: center center;
+}
+
+.keyboard-toggle:hover, .clock-toggle:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+/* Override any conflicting keyboard-toggle hover styles for absolute positioned element */
+.keyboard-toggle.keyboard-toggle-absolute:hover {
+  background: transparent !important;
+  border: none !important;
+  transform: translateY(-50%) !important;
+  box-shadow: none !important;
+}
+
+.keyboard-toggle svg, .clock-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Remove the old container-based styles since we're now targeting SVG directly */
+/* Increase size for the absolute positioned keyboard icon */
+.keyboard-toggle-absolute svg {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px;
+  min-height: 28px;
+  max-width: 28px;
+  max-height: 28px;
+}
+
+/* Even more specific targeting */
+div.keyboard-toggle.keyboard-toggle-absolute svg {
+  width: 28px !important;
+  height: 28px !important;
+}
+
+/* Target the SVG specifically for hover effects */
+.keyboard-toggle-absolute svg {
+  cursor: pointer;
+}
+
+.keyboard-toggle-absolute svg:hover {
+  color: #3b82f6;
+  transform: scale(1.01);
+  transform-origin: center center;
+  transition: all 0.2s ease;
+}
+
+/* Time Input Interface */
+.time-input-interface {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 24px;
+  gap: 20px;
+}
+
+.time-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.time-input {
+  width: 60px;
+  padding: 12px 8px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 24px;
+  font-weight: 600;
+  transition: border-color 0.2s ease;
+}
+
+.time-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.time-separator {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.period-select {
+  padding: 12px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.period-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.clock-container .button-group {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 0px !important;
+}
+
+.button-group .cancel-btn,
+.button-group .set-btn {
+  margin: 0;
+  display: inline-block;
+  flex: 0 0 auto;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  border: none;
+  min-width: 80px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.button-group .cancel-btn {
+  background: #f1f5f9;
+  border: 1px solid #d1d5db;
+  color: #4b5563;
+}
+
+.button-group .cancel-btn:hover {
+  background: #e5e7eb;
+  color: #374151;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.button-group .set-btn {
+  background: #3b82f6;
+  color: white;
+  border: 1px solid #3b82f6;
+}
+
+.button-group .set-btn:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.button-group .set-btn:active {
+  transform: translateY(0);
+}
+
+.button-group .cancel-btn:active {
+  transform: translateY(0);
 }
 
 .upload-time-container {
@@ -3491,26 +6170,36 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   margin-top: 0.5rem;
   margin-bottom: 0;
   clear: both;
+  width: 100%; /* Use full available width */
+  margin-left: 0;
+}
+
+/* Birthday modal upload container - no margin needed with grid */
+.birthday-description-section .upload-time-container {
+  grid-template-columns: 1fr 1fr;
+  margin-right: 0; /* Reset margin since grid handles spacing */
 }
 
 .upload-section-new {
-  border: 2px dashed #fbbf24;
+  border: 1px dashed #fbbf24;
   border-radius: 12px;
-  padding: 1rem;
+  padding: 0.31rem;
   background: #fffbeb;
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 120px;
 }
 
 .image-preview-section {
-  border: 2px solid #10b981;
+  border: 1px solid #10b981;
   border-radius: 12px;
-  padding: 1rem;
+  padding: 0.31rem;
   background: #ecfdf5;
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 120px;
 }
 
 .preview-container {
@@ -3533,8 +6222,8 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
 }
 
 .preview-placeholder svg {
-  width: 3rem;
-  height: 3rem;
+  width: 2rem;
+  height: 2rem;
 }
 
 .preview-text {
@@ -3545,7 +6234,7 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
 
 .preview-image {
   max-width: 100%;
-  max-height: 120px;
+  max-height: 90px;
   border-radius: 8px;
   object-fit: cover;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -3890,13 +6579,15 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
+  justify-content: center;
+  gap: 0.5rem;
   cursor: pointer;
+  height: 100%;
 }
 
 .upload-box-new svg {
-  width: 3rem;
-  height: 3rem;
+  width: 2rem;
+  height: 2rem;
   color: #f59e0b;
   opacity: 0.5;
 }
@@ -3919,11 +6610,12 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   border: 2px solid #6366f1;
   border-radius: 12px;
   background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  padding: 1rem;
+  padding: 0.31rem;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
+  min-height: 120px;
 }
 
 .time-display-box-new {
@@ -3944,40 +6636,70 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   color: white;
   line-height: 1;
   letter-spacing: -0.02em;
+  margin-right: 4rem;
 }
 
 .time-period-toggle-new {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.5rem;
   position: absolute;
-  right: 2rem;
+  right: 0.8rem;
   top: 50%;
   transform: translateY(-50%);
 }
 
 .period-option-new {
-  padding: 0.5rem 1rem;
-  background: rgba(255, 255, 255, 0.2);
+  padding: 0.3rem 0.7rem;
+  background: rgba(255, 255, 255, 0.15);
   color: white;
-  border: 2px solid white;
-  border-radius: 6px;
+  border: none;
+  border-radius: 8px;
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   min-width: 50px;
   text-transform: lowercase;
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+}
+
+.period-option-new::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.6s;
 }
 
 .period-option-new:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.period-option-new:hover::before {
+  left: 100%;
+}
+
+.period-option-new:active {
+  transform: translateY(0);
+  transition: transform 0.1s;
 }
 
 .period-option-new.active {
   background: white;
   color: #6366f1;
   border-color: white;
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.3);
+  font-weight: 700;
 }
 
 .bottom-actions-container {
@@ -3988,10 +6710,10 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
 }
 
 .social-media-section {
-  border: 2px solid #f59e0b;
+  border: none;
   border-radius: 12px;
-  padding: 0.5rem 1rem 0.25rem;
-  background: #fffbeb;
+  padding: 0.5rem 1rem 0.75rem;
+  background: #f1f3f4;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -4001,21 +6723,21 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.5rem;
 }
 
 .social-header-new span {
   font-size: 1rem;
   font-weight: 600;
-  color: #f59e0b;
+  color: rgba(0, 0, 0, 0.7);
 }
 
 .btn-select-all-social {
-  padding: 0.5rem 1rem;
-  background: #f59e0b;
+  padding: 0.375rem 1rem;
+  background: #8b5cf6;
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 20px;
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
@@ -4023,7 +6745,7 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
 }
 
 .btn-select-all-social:hover {
-  background: #d97706;
+  background: #7c3aed;
   transform: translateY(-1px);
 }
 
@@ -4043,8 +6765,8 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
 }
 
 .social-icon {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: none;
   display: flex;
@@ -4059,8 +6781,8 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
 }
 
 .social-icon svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
 }
 
 .social-icon.selected {
@@ -4123,10 +6845,18 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   color: white;
 }
 
-.btn-schedule-selected-new:hover {
+.btn-schedule-selected-new:hover:not(:disabled) {
   background: #d97706;
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(245, 158, 11, 0.3);
+}
+
+.btn-schedule-selected-new:disabled {
+  background: #9ca3af;
+  color: #d1d5db;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .btn-schedule-all-new {
@@ -4134,10 +6864,50 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   color: white;
 }
 
-.btn-schedule-all-new:hover {
+.btn-schedule-all-new:hover:not(:disabled) {
   background: #059669;
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
+}
+
+.btn-schedule-all-new:disabled {
+  background: #9ca3af;
+  color: #d1d5db;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Birthday modal single button - make it taller and span both grid columns */
+/* Use class-based targeting for better browser compatibility */
+.modal-body .bottom-actions-container.birthday-layout,
+.modal-body:has(.birthday-grid-container) .bottom-actions-container {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 1.5rem !important;
+  grid-template-columns: none !important;
+  align-items: stretch !important;
+}
+
+.modal-body .bottom-actions-container.birthday-layout .action-buttons-new,
+.modal-body:has(.birthday-grid-container) .bottom-actions-container .action-buttons-new {
+  width: 50% !important;
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.modal-body .bottom-actions-container.birthday-layout .social-media-section,
+.modal-body:has(.birthday-grid-container) .bottom-actions-container .social-media-section {
+  width: 50% !important;
+  flex: 1 !important;
+}
+
+.modal-body .bottom-actions-container.birthday-layout .action-buttons-new .btn-schedule-all-new,
+.modal-body:has(.birthday-grid-container) .bottom-actions-container .action-buttons-new .btn-schedule-all-new {
+  padding: 1.25rem 1.5rem;
+  flex: 1 !important;
+  width: 100% !important;
 }
 
 /* Scheduled Task Card */
@@ -4183,6 +6953,13 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
   font-size: 1.125rem;
   font-weight: 600;
   margin: 0;
+}
+
+.card-subtitle {
+  font-size: 0.875rem;
+  font-weight: 400;
+  margin: 0.5rem 0 0 0;
+  opacity: 0.9;
 }
 
 /* Modal Transitions */
@@ -4285,4 +7062,827 @@ const hasMultipleImages = computed(() => uploadedPictures.value.length > 1)
     font-size: 1.2rem;
   }
 }
+
+/* Date/Time Picker Styles */
+.datetime-picker-modal {
+  background: white;
+  border-radius: 0;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+  max-width: 400px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  position: relative;
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Calendar Styles */
+.calendar-container {
+  padding: 0 16px 16px 16px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  margin-bottom: 0;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  padding: 24px 0 24px 20px;
+  border-radius: 0;
+  margin-left: -16px;
+  margin-right: -16px;
+}
+
+.calendar-header h3 {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 24px;
+  font-weight: 700;
+  text-align: left;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.close-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  color: white;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
+}
+
+.close-btn svg {
+  width: 20px;
+  height: 20px;
+  color: white;
+}
+
+.calendar-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  margin-bottom: 10px;
+}
+
+.nav-btn {
+  background: #f1f5f9;
+  border: none;
+  padding: 10px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-btn:hover {
+  background: #e2e8f0;
+  transform: scale(1.05);
+}
+
+.nav-btn svg {
+  width: 16px;
+  height: 16px;
+  color: #1e293b;
+}
+
+.month-year {
+  font-weight: 600;
+  font-size: 16px;
+  color: #1e293b;
+}
+
+.calendar-grid {
+  margin-bottom: 12px;
+}
+
+.weekday-headers {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.weekday {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  padding: 6px 4px;
+}
+
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px 4px;
+}
+
+.calendar-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.08s ease-out;
+  position: relative;
+  will-change: transform, background-color;
+}
+
+.calendar-day:hover {
+  background: #e2e8f0;
+  transform: scale(1.05);
+}
+
+.calendar-day:active {
+  transform: scale(1.02);
+  transition: all 0.05s ease-out;
+}
+
+.calendar-day:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.calendar-day.other-month {
+  color: #cbd5e1;
+  cursor: default;
+}
+
+.calendar-day.other-month:hover {
+  background: none;
+  transform: none;
+}
+
+.calendar-day.other-month:active {
+  transform: none;
+}
+
+.calendar-day.selected {
+  background: #3b82f6;
+  color: white;
+  font-weight: 600;
+  border-radius: 50%;
+  transform: scale(1.1);
+  aspect-ratio: 1;
+  width: 100%;
+  height: auto;
+  transition: all 0.06s ease-out;
+}
+
+.calendar-day.selected:hover {
+  background: #2563eb;
+  transform: scale(1.15);
+}
+
+.calendar-day.today::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  background: #ef4444;
+  border-radius: 50%;
+}
+
+.calendar-day.selected.today::after {
+  background: white;
+}
+
+.calendar-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: -16px;
+}
+
+.cancel-btn, .set-btn {
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.cancel-btn {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+}
+
+.cancel-btn:hover {
+  background: #e2e8f0;
+  transform: translateY(-1px);
+}
+
+.set-btn {
+  background: #3b82f6;
+  border: 1px solid #3b82f6;
+  color: white;
+}
+
+.set-btn:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+.set-btn:disabled {
+  background: #cbd5e1;
+  border-color: #cbd5e1;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Clock Styles */
+.clock-container {
+  padding: 0 24px 24px 24px;
+  animation: slideInLeft 0.3s ease-out;
+}
+
+.clock-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 -24px 24px -24px;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  padding: 1rem 1.5rem;
+  border-radius: 0;
+  width: calc(100% + 48px);
+}
+
+.clock-header h3 {
+  margin: 0;
+  color: white;
+  font-size: 20px;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.selected-date-display {
+  text-align: center;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+  padding: 8px 0 0 0;
+  background: none;
+  border-radius: 0;
+  border: none;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.clock-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.clock-circle {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  border: none;
+  border-radius: 50%;
+  margin-bottom: 20px;
+  background: #f0f0f0;
+}
+
+.clock-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  background: #3b82f6;
+  border-radius: 50%;
+  z-index: 3;
+}
+
+.hour-marker {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 32px;
+  height: 32px;
+  margin-left: -16px;
+  margin-top: -16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  z-index: 2;
+  color: #1e293b;
+}
+
+.hour-marker:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.hour-marker.active {
+  background: #3b82f6;
+  color: white;
+  transform: translate(-50%, -50%) scale(1.1);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.minute-marker {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  margin-left: -14px;
+  margin-top: -14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  /* Instant response with minimal transition for visual feedback only */
+  transition: color 0.1s ease-out, background 0.1s ease-out;
+  z-index: 2;
+  color: #1e293b;
+  transform-origin: center;
+  /* Hardware acceleration for smooth rendering */
+  will-change: transform;
+  /* Optimize for touch interactions */
+  touch-action: manipulation;
+}
+
+.minute-marker:hover {
+  color: #3b82f6;
+  /* Instant scaling with no transition delay */
+  transform: scale(1.08);
+  z-index: 3;
+}
+
+.minute-marker.active {
+  background: #8b5cf6;
+  color: white;
+  border-radius: 50%;
+  /* Instant active state */
+  transform: scale(1.03);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.25);
+  z-index: 3;
+}
+
+.clock-controls {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.back-btn:hover {
+  background: linear-gradient(135deg, #e55a2b 0%, #d7831a 100%);
+  transform: translateY(-2px);
+}
+
+.back-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.minute-hand {
+  width: 80px;
+  height: 2px;
+  background: linear-gradient(90deg, #8b5cf6 0%, #7c3aed 100%);
+  border-radius: 1px;
+}
+
+.clock-hand {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: 0 center;
+  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 3px;
+  z-index: 1;
+  /* Instant movement with hardware acceleration */
+  transition: none;
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.2);
+  /* Optimize for smooth transform operations */
+  will-change: transform;
+  /* Use GPU compositing for smoothest possible rotation */
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+.hour-hand {
+  width: 70px;
+  height: 3px;
+  margin-top: -1.5px;
+  position: relative;
+}
+
+.hour-hand.minute-picker-active {
+  width: 35px;
+}
+
+.hour-hand-arrow {
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid #3b82f6;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+}
+
+.time-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 16px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  width: 100%;
+}
+
+.time-value {
+  flex: 1;
+}
+
+.am-pm-toggle {
+  display: flex;
+  gap: 2px;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.am-pm-btn {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 600;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.am-pm-btn.active {
+  background: #3b82f6;
+  color: white;
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.am-pm-btn:hover:not(.active) {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.keyboard-toggle, .clock-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.keyboard-toggle:hover, .clock-toggle:hover {
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.keyboard-toggle svg, .clock-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Time Input Interface */
+.time-input-interface {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 24px;
+  gap: 20px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.time-input-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 24px;
+  font-weight: 600;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+}
+
+.time-input {
+  width: 70px;
+  padding: 12px 8px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  text-align: center;
+  font-size: 24px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.time-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+  transform: scale(1.02);
+}
+
+.time-separator {
+  color: #64748b;
+  font-weight: 700;
+  font-size: 28px;
+}
+
+.period-select {
+  padding: 12px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: white;
+  color: #1e293b;
+}
+
+.period-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+  transform: scale(1.02);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .datetime-picker-modal {
+    max-width: 95%;
+    margin: 0 10px;
+  }
+  
+  .calendar-container,
+  .clock-container {
+    padding: 16px;
+  }
+  
+  .clock-circle {
+    width: 180px;
+    height: 180px;
+  }
+  
+  .hour-marker {
+    width: 28px;
+    height: 28px;
+    margin-left: -14px;
+    margin-top: -14px;
+    font-size: 12px;
+  }
+  
+  .time-display {
+    font-size: 24px;
+  }
+  
+  .time-input-group {
+    padding: 12px 16px;
+    gap: 8px;
+  }
+  
+  .time-input {
+    width: 60px;
+    font-size: 20px;
+  }
+  
+  .time-separator {
+    font-size: 24px;
+  }
+}
+
+/* ===== POPUP CALENDAR - ULTRA-SMOOTH HIGH-PERFORMANCE ===== */
+/* Apply exact same styling as main calendar with enhanced performance */
+.datetime-picker-modal .calendar-days {
+  gap: 0.5rem;
+  text-align: center;
+  padding: 0 1.5rem 1rem 1.5rem;
+  contain: layout style;
+  will-change: contents;
+}
+
+.datetime-picker-modal .calendar-day {
+  aspect-ratio: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.05s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  will-change: transform, background-color, box-shadow, border-color;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  color: #374151;
+  font-weight: 600;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  contain: layout style paint;
+}
+
+.datetime-picker-modal .calendar-day:hover {
+  background: linear-gradient(135deg, #fef3c7 0%, #fcd34d 100%);
+  border-color: #f59e0b;
+  transform: translateZ(0) translateY(-1px) scale(1.03);
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.25);
+  color: #92400e;
+  transition: all 0.03s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.datetime-picker-modal .calendar-day:active {
+  transform: translateZ(0) translateY(0px) scale(1.01);
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+  transition: all 0.02s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: #78350f;
+}
+
+.datetime-picker-modal .calendar-day:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.datetime-picker-modal .calendar-day.other-month {
+  opacity: 0.4;
+  cursor: default;
+  pointer-events: none;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  transform: translateZ(0);
+}
+
+.datetime-picker-modal .calendar-day.other-month:hover {
+  background: transparent;
+  transform: translateZ(0);
+  box-shadow: none;
+}
+
+.datetime-picker-modal .calendar-day.other-month:active {
+  transform: translateZ(0);
+}
+
+.datetime-picker-modal .calendar-day.selected {
+  background: #3b82f6;
+  color: white;
+  font-weight: 600;
+  border-radius: 50%;
+  transform: translateZ(0) scale(1.1);
+  border: none;
+  transition: all 0.04s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.datetime-picker-modal .calendar-day.selected:hover {
+  background: #2563eb;
+  transform: translateZ(0) scale(1.12);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+  transition: all 0.03s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.datetime-picker-modal .calendar-day.selected:active {
+  background: #1d4ed8;
+  transform: translateZ(0) scale(1.08);
+  box-shadow: 0 3px 10px rgba(59, 130, 246, 0.35);
+  transition: all 0.02s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.datetime-picker-modal .calendar-day.today::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  background: #ef4444;
+  border-radius: 50%;
+}
+
+.datetime-picker-modal .calendar-day.selected.today::after {
+  background: white;
+}
+
+/* Enhanced hardware acceleration for ultra-smooth performance */
+.datetime-picker-modal .calendar-day,
+.datetime-picker-modal .calendar-day:before,
+.datetime-picker-modal .calendar-day:after {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  image-rendering: crisp-edges;
+}
+/* ===== END POPUP CALENDAR STYLING ===== */
 </style>
