@@ -3,7 +3,7 @@ services:
     name: smartdesignpro-payment
     env: node
     plan: free
-    buildCommand: npm install --legacy-peer-deps
+    buildCommand: cp server-package.json package.json && npm install
     startCommand: node payment-server.js
     envVars:
       - key: PAYSTACK_SECRET_KEY
