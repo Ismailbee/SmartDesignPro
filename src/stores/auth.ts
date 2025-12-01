@@ -18,7 +18,7 @@ const USER_KEY = 'user'
 
 // 🔧 DEV MODE: Set to true to bypass authentication (auto-login)
 // ⚠️ IMPORTANT: Set to false before deploying to production!
-const DEV_BYPASS_AUTH = true
+const DEV_BYPASS_AUTH = false
 
 export const useAuthStore = defineStore('auth', () => {
   // State
@@ -296,6 +296,42 @@ export const useAuthStore = defineStore('auth', () => {
       error.value = err.message
     } finally {
       clearAuth()
+      isLoading.value = false
+    }
+  }
+
+  /**
+   * Login with Google
+   */
+  async function loginWithGoogle(): Promise<void> {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      const userData = await firebaseAuth.loginWithGoogle()
+      user.value = userData
+      localStorage.setItem(USER_KEY, JSON.stringify(userData))
+
+      // Set authenticated member
+      const memberData = {
+        name: userData.name || userData.email?.split('@')[0] || 'User',
+        branch: 'Main Branch',
+        role: userData.role || 'Member'
+      }
+      localStorage.setItem('authenticatedMember', JSON.stringify(memberData))
+
+      showNotification({
+        title: 'Welcome!',
+        message: `Signed in successfully with Google`,
+        type: 'success'
+      })
+
+      closeAuthModal()
+    } catch (err: any) {
+      console.error('Google login error:', err)
+      error.value = err.message
+      throw err
+    } finally {
       isLoading.value = false
     }
   }

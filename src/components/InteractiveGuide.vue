@@ -76,15 +76,15 @@ const pointerRotation = ref(0)
 const currentStep = computed(() => props.steps[currentStepIndex.value])
 const isLastStep = computed(() => currentStepIndex.value === props.steps.length - 1)
 
-// Speech Synthesis
-const synth = window.speechSynthesis
+// Speech Synthesis - with safe initialization
+const synth = typeof window !== 'undefined' ? window.speechSynthesis : null
 let utterance: SpeechSynthesisUtterance | null = null
 
 const speak = (text: string) => {
-  if (!isVoiceEnabled.value) return
+  if (!isVoiceEnabled.value || !synth) return
   
   // Cancel any current speech
-  synth.cancel()
+  synth?.cancel()
   
   utterance = new SpeechSynthesisUtterance(text)
   utterance.rate = 0.9
@@ -92,17 +92,17 @@ const speak = (text: string) => {
   utterance.volume = 1
   
   // Try to select a good voice
-  const voices = synth.getVoices()
+  const voices = synth?.getVoices() || []
   const preferredVoice = voices.find(voice => voice.lang.includes('en') && voice.name.includes('Google')) || voices[0]
   if (preferredVoice) utterance.voice = preferredVoice
   
-  synth.speak(utterance)
+  synth?.speak(utterance)
 }
 
 const toggleVoice = () => {
   isVoiceEnabled.value = !isVoiceEnabled.value
-  if (!isVoiceEnabled.value) {
-    synth.cancel()
+  if (!isVoiceEnabled.value && synth) {
+    synth?.cancel()
   } else {
     speak(currentStep.value.message)
   }
@@ -187,14 +187,14 @@ const nextStep = () => {
 
 const skipGuide = () => {
   isActive.value = false
-  synth.cancel()
+  if (synth) synth.cancel()
   localStorage.setItem('hasSeenGuide', 'true')
   emit('skip')
 }
 
 const completeGuide = () => {
   isActive.value = false
-  synth.cancel()
+  if (synth) synth.cancel()
   localStorage.setItem('hasSeenGuide', 'true')
   emit('complete')
 }
@@ -227,7 +227,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  synth.cancel()
+  if (synth) synth.cancel()
   window.removeEventListener('resize', updatePositions)
   window.removeEventListener('scroll', updatePositions)
 })

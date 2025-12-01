@@ -3,6 +3,9 @@
  * Handles all Firebase authentication operations
  */
 
+import { Capacitor } from '@capacitor/core'
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication'
+
 import {
   auth,
   signInWithEmailAndPassword,
@@ -13,6 +16,9 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  signInWithCredential,
   type FirebaseUser,
   db,
   doc,
@@ -179,9 +185,31 @@ export async function loginWithEmail(data: LoginData): Promise<User> {
  */
 export async function loginWithGoogle(): Promise<User> {
   try {
-    const provider = new GoogleAuthProvider()
-    const userCredential = await signInWithPopup(auth, provider)
-    const firebaseUser = userCredential.user
+    let firebaseUser: FirebaseUser
+
+    if (Capacitor.isNativePlatform()) {
+      console.log('📱 Starting native Google Login...')
+      const result = await FirebaseAuthentication.signInWithGoogle()
+      const credential = GoogleAuthProvider.credential(result.credential?.idToken)
+      const userCredential = await signInWithCredential(auth, credential)
+      firebaseUser = userCredential.user
+    } else {
+      console.log('🌐 Starting web Google Login...')
+      const provider = new GoogleAuthProvider()
+      try {
+        // Try popup first
+        const userCredential = await signInWithPopup(auth, provider)
+        firebaseUser = userCredential.user
+      } catch (popupError: any) {
+        // If popup fails due to CORS, use redirect
+        if (popupError.code === 'auth/popup-blocked' || popupError.code === 'auth/popup-closed-by-user') {
+          console.log('Popup blocked, using redirect...')
+          await signInWithRedirect(auth, provider)
+          return null as any // Will complete on redirect
+        }
+        throw popupError
+      }
+    }
 
     // Check if user document exists
     const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid))
@@ -224,6 +252,56 @@ export async function loginWithGoogle(): Promise<User> {
 /**
  * Logout current user
  */
+/**
+ * Check for redirect result (Google Sign-In)
+ */
+export async function checkRedirectResult(): Promise<User | null> {
+  try {
+    const result = await getRedirectResult(auth)
+    if (result && result.user) {
+      console.log('✅ Redirect login successful')
+      const firebaseUser = result.user
+      
+      // Check if user document exists
+      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid))
+      
+      let userData
+      if (!userDoc.exists()) {
+        // Create new user document
+        userData = {
+          email: firebaseUser.email || '',
+          username: firebaseUser.email?.split('@')[0] || '',
+          name: firebaseUser.displayName || '',
+          firstName: firebaseUser.displayName?.split(' ')[0] || '',
+          lastName: firebaseUser.displayName?.split(' ').slice(1).join(' ') || '',
+          avatar: firebaseUser.photoURL || '',
+          role: 'user',
+          status: 'active',
+          emailVerified: firebaseUser.emailVerified,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          lastLoginAt: serverTimestamp()
+        }
+        await setDoc(doc(db, 'users', firebaseUser.uid), userData)
+      } else {
+        userData = userDoc.data()
+        // Update last login
+        await setDoc(
+          doc(db, 'users', firebaseUser.uid),
+          { lastLoginAt: serverTimestamp() },
+          { merge: true }
+        )
+      }
+      
+      return convertFirebaseUser(firebaseUser, userData)
+    }
+    return null
+  } catch (error: any) {
+    console.error('Redirect result error:', error)
+    return null
+  }
+}
+
 export async function logout(): Promise<void> {
   try {
     await signOut(auth)

@@ -582,6 +582,7 @@ import SmartCameraInput from './SmartCameraInput.vue'
 import SmartTextarea from './SmartTextarea.vue'
 import { IonSpinner } from '@ionic/vue'
 import { useDebounceFn } from '@vueuse/core'
+import { TextToSpeech } from '@capacitor-community/text-to-speech'
 
 const router = useRouter()
 const autoDesignStore = useAutoDesignStore()
@@ -868,6 +869,15 @@ async function generateWeddingPreview() {
           targetContainer.appendChild(clonedSVG)
           
           console.log('✅ SVG successfully cloned to chat container')
+          
+          // Attach drag/pinch handlers to images in cloned SVG
+          const imageElements = clonedSVG.querySelectorAll('image')
+          imageElements.forEach((imgEl) => {
+            const imageId = imgEl.getAttribute('data-image-id')
+            if (imageId) {
+              makeSVGImageDraggable(imgEl as SVGImageElement, imageId)
+            }
+          })
           
           // Force a layout recalculation
           void targetContainer.offsetHeight
@@ -1177,36 +1187,137 @@ function toggleVoice() {
     // Announce voice is on
     speakMessage("Voice guidance enabled. I will read my messages to you.")
   } else {
-    window.speechSynthesis.cancel()
+    // Stop any ongoing speech safely
+    try {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis?.cancel()
+      }
+      TextToSpeech.stop().catch(() => {}) // Also stop native TTS if running
+    } catch (error) {
+      // Ignore errors when stopping speech
+    }
   }
 }
 
 function speakMessage(text: string) {
-  if (!('speechSynthesis' in window)) return
+  if (!isVoiceEnabled.value) return
   
-  // Cancel any current speech
-  window.speechSynthesis.cancel()
+  // Try native Capacitor TTS first (better for mobile)
+  tryNativeTTS(text).catch(() => {
+    // Fallback to web speechSynthesis
+    tryWebSpeech(text)
+  })
+}
+
+async function tryNativeTTS(text: string) {
+  try {
+    await TextToSpeech.speak({
+      text: text,
+      lang: 'en-US',
+      rate: 0.95,
+      pitch: 1.0,
+      volume: 1.0,
+      category: 'ambient'
+    })
+  } catch (error) {
+    // Not available, will fallback to web speech
+    throw error
+  }
+}
+
+function tryWebSpeech(text: string) {
+  // Check if speechSynthesis is available
+  if (typeof window === 'undefined' || !window.speechSynthesis) {
+    console.warn('Speech synthesis not available')
+    return
+  }
   
-  const utterance = new SpeechSynthesisUtterance(text)
-  // Try to find a good voice
-  const voices = window.speechSynthesis.getVoices()
-  // Prefer a female voice or a "Google US English" voice if available
-  const preferredVoice = voices.find(v => v.name.includes('Google US English') || v.name.includes('Female')) || voices[0]
-  if (preferredVoice) utterance.voice = preferredVoice
-  
-  utterance.rate = 1.0
-  utterance.pitch = 1.0
-  
-  window.speechSynthesis.speak(utterance)
+  try {
+    // Cancel any current speech safely
+    if (window.speechSynthesis?.speaking || window.speechSynthesis?.pending) {
+      window.speechSynthesis?.cancel()
+    }
+    
+    // Small delay to ensure cancellation is processed
+    setTimeout(() => {
+      try {
+        const utterance = new SpeechSynthesisUtterance(text)
+        
+        // Get voices safely
+        const voices = window.speechSynthesis?.getVoices() || []
+        
+        // If no voices yet, try to wait for them (but don't break if not supported)
+        if (voices.length === 0) {
+          const voicesHandler = () => {
+            try {
+              const loadedVoices = window.speechSynthesis?.getVoices() || []
+              if (loadedVoices.length > 0) {
+                setVoiceAndSpeak(utterance, loadedVoices)
+              } else {
+                // Just speak with default voice
+                window.speechSynthesis?.speak(utterance)
+              }
+            } catch (err) {
+              console.warn('Voice loading error:', err)
+            }
+          }
+          
+          if (window.speechSynthesis?.addEventListener) {
+            window.speechSynthesis?.addEventListener('voiceschanged', voicesHandler, { once: true })
+            // Fallback timeout in case voiceschanged never fires
+            setTimeout(() => {
+              window.speechSynthesis?.removeEventListener('voiceschanged', voicesHandler)
+              window.speechSynthesis?.speak(utterance)
+            }, 1000)
+          } else {
+            window.speechSynthesis?.speak(utterance)
+          }
+        } else {
+          setVoiceAndSpeak(utterance, voices)
+        }
+      } catch (error) {
+        console.warn('Speech synthesis error:', error)
+      }
+    }, 100)
+  } catch (error) {
+    console.warn('Speech synthesis not available:', error)
+  }
+}
+
+function setVoiceAndSpeak(utterance: SpeechSynthesisUtterance, voices: SpeechSynthesisVoice[]) {
+  try {
+    // Prefer a clear English voice
+    const preferredVoice = voices.find(v => 
+      v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Female') || v.name.includes('Samantha'))
+    ) || voices.find(v => v.lang.startsWith('en')) || voices[0]
+    
+    if (preferredVoice) utterance.voice = preferredVoice
+    
+    utterance.rate = 0.95
+    utterance.pitch = 1.0
+    utterance.volume = 1.0
+    
+    if (window.speechSynthesis) {
+      window.speechSynthesis?.speak(utterance)
+    }
+  } catch (error) {
+    console.warn('Speech synthesis error:', error)
+  }
 }
 
 // Initialize voice on mount
 onMounted(() => {
-  // Wait for voices to load
-  if ('speechSynthesis' in window) {
-    window.speechSynthesis.onvoiceschanged = () => {
-      // Voices loaded
+  try {
+    // Wait for voices to load - but don't break if not supported
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      if (window.speechSynthesis?.onvoiceschanged !== undefined) {
+        window.speechSynthesis!.onvoiceschanged = () => {
+          // Voices loaded
+        }
+      }
     }
+  } catch (error) {
+    console.warn('Speech synthesis initialization failed:', error)
   }
 })
 
@@ -2175,11 +2286,23 @@ async function analyzeMessage(lastUserMessage: string) {
   } else {
     // If user provides info but it's incomplete or just an update
     if (showWeddingStickerPreview.value) {
-       // Assume it's an update request
-       aiResponse = "I've updated your design with the new details."
-       setTimeout(() => {
-         processDescriptionInput()
-       }, 500)
+       // Only update if user explicitly requests changes with keywords
+       const isUpdateRequest = lowerMessage.includes('change') || 
+                               lowerMessage.includes('update') || 
+                               lowerMessage.includes('modify') ||
+                               lowerMessage.includes('edit') ||
+                               lowerMessage.includes('fix') ||
+                               lowerMessage.includes('replace')
+       
+       if (isUpdateRequest) {
+         aiResponse = "I've updated your design with the new details."
+         setTimeout(() => {
+           processDescriptionInput()
+         }, 500)
+       } else {
+         // User is just chatting, don't auto-update
+         aiResponse = "Got it! If you'd like to change anything in your design, just let me know what you'd like to update."
+       }
     } else {
       // 3. Standard Missing Fields Logic - Enhanced Name Detection
       const missingFields: string[] = []

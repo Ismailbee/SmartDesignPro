@@ -385,6 +385,8 @@ import {
   toastController,
   alertController
 } from '@ionic/vue'
+import { Capacitor } from '@capacitor/core'
+import { Browser } from '@capacitor/browser'
 import { useUserStore } from '@/stores/user.store'
 import { useAuthStore } from '@/stores/auth'
 import { getSubscriptionPlans } from '@/services/subscription.service'
@@ -520,8 +522,17 @@ async function processUpgrade(plan: SubscriptionPlan) {
       name: authStore.user!.name || authStore.user!.username
     })
 
-    // Redirect to Paystack
-    window.location.href = response.authorizationUrl
+    // For mobile: Open in browser, for web: redirect
+    if (Capacitor.isNativePlatform()) {
+      // Open payment page in system browser
+      await Browser.open({ url: response.authorizationUrl })
+      
+      // Show info toast
+      showToast('Payment page opened. Complete payment to activate your plan.', 'info')
+    } else {
+      // Redirect to Paystack on web
+      window.location.href = response.authorizationUrl
+    }
   } catch (error) {
     console.error('Upgrade error:', error)
     const errorMessage = error instanceof Error ? error.message : 'Failed to process upgrade'

@@ -165,21 +165,25 @@ const hasClickedElement = ref(false)
 const currentStep = computed(() => props.steps[currentStepIndex.value])
 const isLastStep = computed(() => currentStepIndex.value === props.steps.length - 1)
 
-// Speech Synthesis
-const synth = window.speechSynthesis
+// Speech Synthesis - with safe initialization
+const synth = typeof window !== 'undefined' ? window.speechSynthesis : null
 let utterance: SpeechSynthesisUtterance | null = null
 const voicesLoaded = ref(false)
 
 // Load voices
 const loadVoices = () => {
   return new Promise<void>((resolve) => {
-    const voices = synth.getVoices()
+    if (!synth) {
+      resolve()
+      return
+    }
+    const voices = synth?.getVoices() || []
     if (voices.length > 0) {
       voicesLoaded.value = true
       resolve()
     } else {
       // Wait for voices to load
-      synth.addEventListener('voiceschanged', () => {
+      synth?.addEventListener('voiceschanged', () => {
         voicesLoaded.value = true
         resolve()
       }, { once: true })
@@ -194,10 +198,10 @@ const loadVoices = () => {
 }
 
 const speak = (text: string) => {
-  if (!isVoiceEnabled.value) return
+  if (!isVoiceEnabled.value || !synth) return
   
   // Cancel any current speech
-  synth.cancel()
+  synth?.cancel()
   
   // Strip HTML tags from text
   const cleanText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
@@ -208,7 +212,7 @@ const speak = (text: string) => {
   utterance.volume = 1
   
   // Try to select a good voice
-  const voices = synth.getVoices()
+  const voices = synth?.getVoices() || []
   if (voices.length > 0) {
     const preferredVoice = voices.find(voice => 
       voice.lang.startsWith('en') && 
@@ -221,14 +225,14 @@ const speak = (text: string) => {
     }
   }
   
-  synth.speak(utterance)
+  synth?.speak(utterance)
   console.log('🔊 Speaking:', cleanText.substring(0, 50) + '...')
 }
 
 const toggleVoice = () => {
   isVoiceEnabled.value = !isVoiceEnabled.value
-  if (!isVoiceEnabled.value) {
-    synth.cancel()
+  if (!isVoiceEnabled.value && synth) {
+    synth?.cancel()
   } else {
     speak(currentStep.value.message)
   }
@@ -309,7 +313,7 @@ const nextStep = () => {
 
 const skipGuide = () => {
   isActive.value = false
-  synth.cancel()
+  if (synth) synth.cancel()
   localStorage.setItem('hasSeenGuide', 'true')
   
   // After skipping the guide, still auto-enable help mode for first-time users
@@ -325,7 +329,7 @@ const skipGuide = () => {
 
 const completeGuide = () => {
   isActive.value = false
-  synth.cancel()
+  if (synth) synth.cancel()
   localStorage.setItem('hasSeenGuide', 'true')
   
   // After completing the guide, auto-enable help mode for first-time users
@@ -459,7 +463,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  synth.cancel()
+  if (synth) synth.cancel()
   window.removeEventListener('resize', updatePositions)
   window.removeEventListener('scroll', updatePositions)
   window.removeEventListener('click', handleElementClick, true)

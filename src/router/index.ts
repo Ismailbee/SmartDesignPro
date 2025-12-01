@@ -9,6 +9,8 @@ import { useAuthStore } from '@/stores/auth'
 // Lazy load components for better performance
 const WelcomePage = () => import('@/components/WelcomePage.vue')
 const HomePage = () => import('@/components/HomePage.vue')
+const LoginPage = () => import('@/views/LoginPage.vue')
+const RegisterPage = () => import('@/views/RegisterPage.vue')
 const DesignEditor = () => import('@/components/DesignEditor.vue')
 const UserSettings = () => import('@/views/UserSettings.vue')
 const AutoDesignPage = () => import('@/views/AutoDesignPage.vue')
@@ -87,6 +89,25 @@ const routes: RouteRecordRaw[] = [
     component: WelcomePage,
     meta: {
       title: 'Welcome - SmartDesignPro',
+      requiresAuth: false
+    }
+  },
+  {
+    path: '/login',
+    name: 'login',
+    component: LoginPage,
+    meta: {
+      title: 'Login - SmartDesignPro',
+      requiresAuth: false,
+      redirectIfAuth: true
+    }
+  },
+  {
+    path: '/register',
+    name: 'register',
+    component: RegisterPage,
+    meta: {
+      title: 'Create Account - SmartDesignPro',
       requiresAuth: false
     }
   },
@@ -730,8 +751,8 @@ router.beforeEach((to, _from, next) => {
 
   // Debug logs removed to satisfy lint rules
 
-  // If user is authenticated and trying to access welcome page, redirect to home
-  if (to.name === 'welcome' && authStore.isAuthenticated) {
+  // If user is authenticated and trying to access welcome/login page, redirect to home
+  if ((to.name === 'welcome' || to.meta.redirectIfAuth) && authStore.isAuthenticated) {
   // User authenticated, redirect to home
     next({ name: 'home' })
     return

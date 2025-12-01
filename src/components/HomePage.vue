@@ -166,7 +166,7 @@ const handleSidebarAutoDesign = () => {
   // Wait for sidebar to close, then navigate to editor
   setTimeout(() => {
     if (!authStore.isAuthenticated) {
-      authStore.openAuthModal('login')
+      router.push('/login')
     } else {
       router.push('/editor')
     }
@@ -247,13 +247,7 @@ const handleGetQuote = () => {
 const handleStartProject = () => {
   console.log('🚀 Start Your Project clicked')
   if (!authStore.isAuthenticated) {
-    authStore.openAuthModal('login')
-    const unwatch = authStore.$subscribe((_mutation: any, state: any) => {
-      if (state.user) {
-        router.push('/editor')
-        unwatch()
-      }
-    })
+    router.push('/login')
   } else {
     router.push('/editor')
   }
