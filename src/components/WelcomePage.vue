@@ -176,13 +176,13 @@ watch(() => authStore.isAuthenticated, (isAuth) => {
 })
 
 const handleLogin = () => {
-  console.log('🔐 Opening login modal...')
-  authStore.openAuthModal('login')
+  console.log('🔐 Navigating to login page...')
+  router.push('/login')
 }
 
 const handleRegister = () => {
-  console.log('📝 Opening registration modal...')
-  authStore.openAuthModal('register')
+  console.log('📝 Navigating to register page...')
+  router.push('/register')
 }
 </script>
 

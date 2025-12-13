@@ -59,6 +59,15 @@
 
     <!-- Footer -->
     <HomeFooter />
+
+    <!-- Interactive Guide -->
+    <InteractiveGuide 
+      :steps="guideSteps"
+      :show-help-button="true"
+      @complete="handleGuideComplete"
+      @skip="handleGuideSkip"
+      @help-mode-toggle="handleHelpModeToggle"
+    />
   </div>
 </template>
 
@@ -79,6 +88,7 @@ import TeamSection from '@/components/home/TeamSection.vue'
 import TestimonialsSection from '@/components/home/TestimonialsSection.vue'
 import ContactSection from '@/components/home/ContactSection.vue'
 import HomeFooter from '@/components/home/HomeFooter.vue'
+import InteractiveGuide from '@/components/InteractiveGuideEnhanced.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -86,6 +96,47 @@ const userStore = useUserStore()
 
 // Component refs
 const homeHeaderRef = ref<InstanceType<typeof HomeHeader> | null>(null)
+
+// Interactive Guide Steps
+const guideSteps = [
+  {
+    target: '.logo',
+    message: 'Welcome to SmartDesignPro! This is your home for creating amazing designs.',
+    position: 'bottom'
+  },
+  {
+    target: '.hero-actions .btn-primary',
+    message: 'Click here to start a new project immediately.',
+    position: 'right'
+  },
+  {
+    target: '#template',
+    message: 'Browse our collection of professional templates for any occasion.',
+    position: 'top'
+  },
+  {
+    target: '#services',
+    message: 'Explore our wide range of design services tailored for you.',
+    position: 'top'
+  },
+  {
+    target: '.header-actions',
+    message: 'Login or Sign up here to save your designs and access premium features.<br><br><strong>💡 Pro Tip:</strong> Press <kbd>?</kbd> key anytime to toggle Help Mode!',
+    position: 'bottom'
+  }
+]
+
+const handleGuideComplete = () => {
+  console.log('Guide completed')
+}
+
+const handleGuideSkip = () => {
+  console.log('Guide skipped')
+}
+
+const handleHelpModeToggle = (active: boolean) => {
+  console.log('Help mode:', active ? 'activated' : 'deactivated')
+}
 
 // Sidebar state
 const isSidebarOpen = ref(false)
@@ -115,7 +166,7 @@ const handleSidebarAutoDesign = () => {
   // Wait for sidebar to close, then navigate to editor
   setTimeout(() => {
     if (!authStore.isAuthenticated) {
-      authStore.openAuthModal('login')
+      router.push('/login')
     } else {
       router.push('/editor')
     }
@@ -196,13 +247,7 @@ const handleGetQuote = () => {
 const handleStartProject = () => {
   console.log('🚀 Start Your Project clicked')
   if (!authStore.isAuthenticated) {
-    authStore.openAuthModal('login')
-    const unwatch = authStore.$subscribe((_mutation: any, state: any) => {
-      if (state.user) {
-        router.push('/editor')
-        unwatch()
-      }
-    })
+    router.push('/login')
   } else {
     router.push('/editor')
   }

@@ -9,6 +9,8 @@ import { useAuthStore } from '@/stores/auth'
 // Lazy load components for better performance
 const WelcomePage = () => import('@/components/WelcomePage.vue')
 const HomePage = () => import('@/components/HomePage.vue')
+const LoginPage = () => import('@/views/LoginPage.vue')
+const RegisterPage = () => import('@/views/RegisterPage.vue')
 const DesignEditor = () => import('@/components/DesignEditor.vue')
 const UserSettings = () => import('@/views/UserSettings.vue')
 const AutoDesignPage = () => import('@/views/AutoDesignPage.vue')
@@ -44,6 +46,10 @@ const ImpositionPage = () => import('@/views/ImpositionPage.vue')
 const MockupPage = () => import('@/views/MockupPage.vue')
 const VideosPage = () => import('@/views/VideosPage.vue')
 const PrivacySettings = () => import('@/views/PrivacySettings.vue')
+const SmartTemplateDesigner = () => import('@/components/SmartTemplateDesigner.vue')
+
+// Auto Design Sub-pages
+const NamingPanel = () => import('@/components/auto-design/NamingPanel.vue')
 
 // Micro-Apps
 const ICANWrapper = () => import('@/views/ICANWrapper.vue')
@@ -89,6 +95,25 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: false
     }
   },
+  {
+    path: '/login',
+    name: 'login',
+    component: LoginPage,
+    meta: {
+      title: 'Login - SmartDesignPro',
+      requiresAuth: false,
+      redirectIfAuth: true
+    }
+  },
+  {
+    path: '/register',
+    name: 'register',
+    component: RegisterPage,
+    meta: {
+      title: 'Create Account - SmartDesignPro',
+      requiresAuth: false
+    }
+  },
 
   // ============================================================
   // Authenticated Routes
@@ -129,7 +154,17 @@ const routes: RouteRecordRaw[] = [
     component: AutoDesignPage,
     meta: {
       title: 'Auto Design - SmartDesignPro',
-      requiresAuth: true
+      requiresAuth: false  // Temporarily disabled for testing
+    }
+  },
+
+  {
+    path: '/auto-design/naming',
+    name: 'naming',
+    component: NamingPanel,
+    meta: {
+      title: 'Naming Design - SmartDesignPro',
+      requiresAuth: false  // Temporarily disabled for testing
     }
   },
 
@@ -593,6 +628,16 @@ const routes: RouteRecordRaw[] = [
     }
   },
 
+  {
+    path: '/smart-template',
+    name: 'smart-template',
+    component: SmartTemplateDesigner,
+    meta: {
+      title: 'Smart Template Designer - SmartDesignPro',
+      requiresAuth: false
+    }
+  },
+
   // ============================================================
   // Legal Routes
   // ============================================================
@@ -884,8 +929,8 @@ router.beforeEach(async (to, _from, next) => {
 
   // Debug logs removed to satisfy lint rules
 
-  // If user is authenticated and trying to access welcome page, redirect to home
-  if (to.name === 'welcome' && authStore.isAuthenticated) {
+  // If user is authenticated and trying to access welcome/login page, redirect to home
+  if ((to.name === 'welcome' || to.meta.redirectIfAuth) && authStore.isAuthenticated) {
   // User authenticated, redirect to home
     next({ name: 'home' })
     return
@@ -893,6 +938,7 @@ router.beforeEach(async (to, _from, next) => {
 
   // Check if route requires authentication
   if (to.meta.requiresAuth) {
+    // Allow navigation if user is authenticated OR in dev bypass mode
     if (!authStore.isAuthenticated) {
   // Route requires auth, redirect to welcome page
       // Store intended route for redirect after login

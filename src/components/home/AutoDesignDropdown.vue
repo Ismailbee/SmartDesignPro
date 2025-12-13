@@ -75,11 +75,15 @@ const toggleDropdown = () => {
 }
 
 const selectCategory = (category: string) => {
-  console.log('Selected category:', category)
+  console.log('🎯 Selected category:', category)
+  const formattedCategory = category.toLowerCase().replace(/\s+/g, '-').replace(/\//g, '-')
+  console.log('🔀 Formatted category:', formattedCategory)
+  console.log('🚀 Navigating to:', `/auto-design?category=${formattedCategory}`)
+  
   // Navigate to Auto Design page with the selected category
   router.push({
     path: '/auto-design',
-    query: { category: category.toLowerCase().replace(/\s+/g, '-').replace(/\//g, '-') }
+    query: { category: formattedCategory }
   })
   isOpen.value = false
 }

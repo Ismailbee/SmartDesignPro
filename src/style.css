@@ -104,3 +104,23 @@ body.sidebar-scroll-lock .sidebar-content {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   display: none;
 }
+
+/* Force light mode styles for inputs to prevent dark mode issues */
+input, textarea, select {
+  background-color: #ffffff !important;
+  color: #1a202c !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Ionic Input Overrides for consistency */
+ion-input {
+  --background: #ffffff !important;
+  --color: #1a202c !important;
+  --placeholder-color: #a0aec0 !important;
+}
+
+ion-item {
+  --background: #ffffff !important;
+  --color: #1a202c !important;
+}
+

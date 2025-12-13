@@ -38,6 +38,9 @@ export interface WeddingStickerData {
 }
 
 export function useWeddingStickerUpdater() {
+  // Cache for the decorative SVG content to prevent redundant fetches
+  let cachedNameSVG: string | null = null
+
   /**
    * Extract the first word from description to use as blessing text
    * The first word should replace the default blessing text
@@ -240,7 +243,7 @@ export function useWeddingStickerUpdater() {
     const eventPattern = /on\s+your\s+([^.,\n()[\]]+)/i
     const match = description.match(eventPattern)
 
-    if (match && match[1]) {
+    if (match && match[1] && match[1].trim().length > 0) {
       const fullEvent = match[1].trim().toUpperCase()
 
       // Split into event type and ceremony if it contains multiple words
@@ -558,12 +561,15 @@ export function useWeddingStickerUpdater() {
    * - "courtesy: [any text]" - Example: "courtesy: the family", "courtesy: Rahman Family"
    * - "coutesy: [any text]" - Common misspelling
    * - "cut-cee: [any text]" - Example: "cut-cee: anything", "cut-cee: the organizers"
-   * Returns the extracted text as-is (preserves original capitalization and spacing)
+   * Returns the extracted text and the prefix used
    */
-  const extractCourtesy = (description: string): string | null => {
-    // Helper function to capitalize first letter of each word
+  const extractCourtesy = (description: string): { text: string; prefix: string } | null => {
+    // Helper function to capitalize first letter of each word and remove parentheses
     const capitalizeWords = (text: string): string => {
-      return text.split(' ').map(word => {
+      // Remove parentheses from the text
+      const cleanedText = text.replace(/[()]/g, '')
+      
+      return cleanedText.split(' ').map(word => {
         if (word.length === 0) return word
         return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
       }).join(' ')
@@ -577,7 +583,7 @@ export function useWeddingStickerUpdater() {
     if (courtesyMatch && courtesyMatch[1]) {
       const courtesyText = courtesyMatch[1].trim()
       // Capitalize first letter of each word
-      return capitalizeWords(courtesyText)
+      return { text: capitalizeWords(courtesyText), prefix: 'Courtesy:' }
     }
 
     // Pattern 2: "coutesy:" (common misspelling) followed by ANY text
@@ -587,7 +593,7 @@ export function useWeddingStickerUpdater() {
     if (misspelledMatch && misspelledMatch[1]) {
       const courtesyText = misspelledMatch[1].trim()
       // Capitalize first letter of each word
-      return capitalizeWords(courtesyText)
+      return { text: capitalizeWords(courtesyText), prefix: 'Courtesy:' }
     }
 
     // Pattern 3: "cut-cee:" followed by ANY text (case-insensitive)
@@ -597,7 +603,7 @@ export function useWeddingStickerUpdater() {
     if (cutCeeMatch && cutCeeMatch[1]) {
       const courtesyText = cutCeeMatch[1].trim()
       // Capitalize first letter of each word
-      return capitalizeWords(courtesyText)
+      return { text: capitalizeWords(courtesyText), prefix: 'CUT-CEE:' }
     }
 
     return null
@@ -609,7 +615,8 @@ export function useWeddingStickerUpdater() {
    * Examples: "(Sarah Ahmed) 5th March 2025 Rahman Family"
    */
   const extractCourtesyAfterDate = (description: string): string | null => {
-    return extractCourtesy(description)
+    const result = extractCourtesy(description)
+    return result ? result.text : null
   }
 
   /**
@@ -628,6 +635,11 @@ export function useWeddingStickerUpdater() {
    * @returns Promise with SVG content as string, or null if loading fails
    */
   const loadAndPopulateNameSVG = async (): Promise<string | null> => {
+    // Return cached content if available
+    if (cachedNameSVG) {
+      return cachedNameSVG
+    }
+
     const svgPath = '/svg/weddingStiker/weddingTwoNames/name02.svg'
 
     try {
@@ -656,6 +668,10 @@ export function useWeddingStickerUpdater() {
       console.log('✅ Successfully loaded name SVG file')
       console.log('   Content length:', svgContent.length, 'characters')
       console.log('   First 100 chars:', svgContent.substring(0, 100))
+
+      // Cache the loaded SVG content
+      cachedNameSVG = svgContent
+      console.log('💾 Cached SVG content for future use')
 
       return svgContent
     } catch (error) {
@@ -689,6 +705,14 @@ export function useWeddingStickerUpdater() {
     // Adjust x and y positions based on character length
     const name1Length = formattedName1.length
     const name2Length = formattedName2.length
+
+    // Extract first name lengths (before space/surname) for font scaling and positioning
+    const firstName1 = formattedName1.split(' ')[0]
+    const firstName2 = formattedName2.split(' ')[0]
+    const firstName1Length = firstName1.length
+    const firstName2Length = firstName2.length
+    
+    const hasLongName = firstName1Length >= 8 || firstName2Length >= 8
     
     // Check if first name is 4-6 letters AND second name is 7 letters or more
     // OR if first name is 3 letters AND second name is 4+ letters
@@ -735,50 +759,61 @@ export function useWeddingStickerUpdater() {
     const shouldShiftSeparatorFor6And8 = name1Length === 6 && name2Length === 8
     const separatorExtraShiftFor6And8 = shouldShiftSeparatorFor6And8 ? 15 : 0  // Move & right by 15 units
     
+    // NEW: Check if first name is 4 letters AND second name is 7+ letters - move & right after initial shift
+    const shouldShiftSeparatorFor4And7Plus = name1Length === 4 && name2Length >= 7
+    const separatorExtraShiftFor4And7Plus = shouldShiftSeparatorFor4And7Plus ? 100 : 0  // Move & right by additional 100 units
+    
+    // NEW: Check if first name is 7 letters AND second name is 10 letters - apply same & position as other shifting logic
+    const shouldShiftSeparatorFor7And10 = name1Length === 7 && name2Length === 10
+    
     // First name position - adjust left if very long name, or right if 7 + 9+ condition, or right if 4 + 7+ condition, or right if 6-8 + 10+ condition, or right if 6 + 9+ condition, or left if 6 + 7 condition
-    const name1XPosition = String(-30 - leftShift + name1RightShift + name1ExtraRightShift + name1AndSeparatorExtraShift + name1RightShiftFor6And7Plus + name1LeftShiftFor6And7)
-    const name1YPosition = '90'  // Moved down by 10 units (from 80 to 90)
+    const name1XPosition = String(-50 - leftShift + name1RightShift + name1ExtraRightShift + name1AndSeparatorExtraShift + name1RightShiftFor6And7Plus + name1LeftShiftFor6And7)
+    const name1YPosition = '85'  // Matched to template (was 90)
 
     // Determine separator x position based on conditions:
     // - If first name is 4 letters AND second name is 7+ letters: x="155"
     // - If first name is 3 letters AND second name is 4+ letters: x="155" (same as 4 + 7)
     // - If first name is 3 letters AND second name is 8+ letters: x="155"
     // - If first name is 5-6 letters AND second name is 7 letters: x="260" (same as 6 + 8+)
+    // - If first name is 7 letters AND second name is 10 letters: use shift position (same as other shift logic)
     // - Otherwise if shift triggered: x="260"
-    // - Default (no shift): x="-50.3"
-    let separatorXPosition = '-50.3'  // Default position
-    if (shouldShiftPositions) {
+    // - Default (no shift): x="-70.3"
+    let separatorXPosition = '-70.3'  // Default position matched to template
+    if (shouldShiftPositions || shouldShiftSeparatorFor7And10) {
       if ((name1Length === 4 && name2Length >= 7) || (name1Length === 3 && name2Length >= 4)) {
-        separatorXPosition = String(155 - leftShift + separatorAndName2RightShift + separatorExtraRightShift + name1AndSeparatorExtraShift + separatorExtraShiftFor6And8 + separatorRightShiftFor6And7)  // 4-letter first name with 7+ second name, or 3-letter first name with 4+
+        separatorXPosition = String(135 - leftShift + separatorAndName2RightShift + separatorExtraRightShift + name1AndSeparatorExtraShift + separatorExtraShiftFor6And8 + separatorRightShiftFor6And7 + separatorExtraShiftFor4And7Plus)  // 4-letter first name with 7+ second name, or 3-letter first name with 4+
       } else if ((name1Length >= 5 && name1Length <= 6 && name2Length === 7)) {
-        separatorXPosition = String(260 - leftShift + separatorAndName2RightShift + separatorExtraRightShift + name1AndSeparatorExtraShift + separatorExtraShiftFor6And8 + separatorRightShiftFor6And7)  // 5-6 letter first name with 7-letter second name (same as 6 + 8+)
+        separatorXPosition = String(240 - leftShift + separatorAndName2RightShift + separatorExtraRightShift + name1AndSeparatorExtraShift + separatorExtraShiftFor6And8 + separatorRightShiftFor6And7 + separatorExtraShiftFor4And7Plus)  // 5-6 letter first name with 7-letter second name (same as 6 + 8+)
       } else {
-        separatorXPosition = String(260 - leftShift + separatorAndName2RightShift + separatorExtraRightShift + name1AndSeparatorExtraShift + separatorExtraShiftFor6And8 + separatorRightShiftFor6And7)  // Other shift conditions
+        separatorXPosition = String(240 - leftShift + separatorAndName2RightShift + separatorExtraRightShift + name1AndSeparatorExtraShift + separatorExtraShiftFor6And8 + separatorRightShiftFor6And7 + separatorExtraShiftFor4And7Plus)  // Other shift conditions including 7 + 10
       }
     } else {
-      separatorXPosition = String(-50.3 - leftShift + separatorAndName2RightShift + separatorExtraRightShift + name1AndSeparatorExtraShift)  // Apply left shift to default position too
+      separatorXPosition = String(-70.3 - leftShift + separatorAndName2RightShift + separatorExtraRightShift + name1AndSeparatorExtraShift + separatorExtraShiftFor4And7Plus)  // Apply left shift to default position too
     }
     
-    const separatorYPosition = shouldShiftPositions ? '90' : '160.4'  // Moved down by 10 units (from 80 to 90, from 150.4 to 160.4)
+    const separatorYPosition = (shouldShiftPositions || shouldShiftSeparatorFor7And10) ? '85' : '160.4'  // Moved to 85 if shifted (same as name1)
     
     // Additional shift for second name if first name is 4-6 letters AND second name is 8+ letters
     const shouldShiftName2Left = name1Length >= 4 && name1Length <= 6 && name2Length >= 8
     const name2ExtraShift = shouldShiftName2Left ? 10 : 0  // Extra 10 units left for second name
     
-    const name2XPosition = shouldShiftPositions ? String(-50.3 - leftShift - name2ExtraShift + separatorAndName2RightShift) : String(30.23 - leftShift - name2ExtraShift + separatorAndName2RightShift)
-    const name2YPosition = '158'  // Moved down by 10 units (from 148 to 158)
+    const name2XPosition = shouldShiftPositions ? String(-70.3 - leftShift - name2ExtraShift + separatorAndName2RightShift) : String(10.23 - leftShift - name2ExtraShift + separatorAndName2RightShift)
+    const name2YPosition = hasLongName ? '150' : '160'  // Move up to 150 if font is reduced (long names), otherwise 160
 
     // Font size adjustment logic:
-    // - If first name is 4 letters AND second name is 4-5 letters: increase font size by 15 points (85px)
-    // - If both names are exactly 4 letters: increase font size by 15 points (85px)
-    // - If either name has 8+ letters: reduce font size by 3 points (67px)
-    // - Otherwise: keep base font size (70px)
-    const bothNames4Letters = name1Length === 4 && name2Length === 4
-    const name1Is4AndName2Is4to5 = name1Length === 4 && name2Length >= 4 && name2Length <= 5
-    const hasLongName = name1Length >= 8 || name2Length >= 8
-    const baseFontSize = 70
-    const increasedFontSize = baseFontSize + 15  // 85px
-    const reducedFontSize = baseFontSize - 3  // 67px
+    // - Use ONLY first name length (not full name with surname) for font scaling
+    // - If first name is 4 letters AND second first name is 4-5 letters: increase font size by 15 points
+    // - If either FIRST NAME has 8+ letters: reduce font size by 15 points
+    // - Otherwise: keep base font size (84.15px)
+    
+    // (firstName1, firstName2, lengths, and hasLongName are already defined above)
+    
+    const bothNames4Letters = firstName1Length === 4 && firstName2Length === 4
+    const name1Is4AndName2Is4to5 = firstName1Length === 4 && firstName2Length >= 4 && firstName2Length <= 5
+    // const hasLongName = firstName1Length >= 8 || firstName2Length >= 8 (defined above)
+    const baseFontSize = 84.15
+    const increasedFontSize = baseFontSize + 15
+    const reducedFontSize = baseFontSize - 15  // Increased reduction from 10px to 15px for more noticeable effect
     
     let fontSize = baseFontSize
     if (name1Is4AndName2Is4to5) {
@@ -787,7 +822,13 @@ export function useWeddingStickerUpdater() {
       fontSize = reducedFontSize
     }
 
-    console.log(`📏 First name length: ${name1Length} characters, Second name length: ${name2Length} characters`)
+    console.log(`📏 Full name1: "${formattedName1}" (${name1Length} chars), Full name2: "${formattedName2}" (${name2Length} chars)`)
+    console.log(`📏 First name only: "${firstName1}" (${firstName1Length} chars), "${firstName2}" (${firstName2Length} chars)`)
+    console.log(`🔍 Font size conditions:`)
+    console.log(`   - bothNames4Letters: ${bothNames4Letters}`)
+    console.log(`   - name1Is4AndName2Is4to5: ${name1Is4AndName2Is4to5}`)
+    console.log(`   - hasLongName (8+ letters): ${hasLongName} (${firstName1Length >= 8 ? 'First name ≥8' : ''}${firstName1Length >= 8 && firstName2Length >= 8 ? ' AND ' : ''}${firstName2Length >= 8 ? 'Second name ≥8' : ''})`)
+    console.log(`   - Final font size: ${fontSize}px ${fontSize < 84.15 ? '(REDUCED)' : fontSize > 84.15 ? '(INCREASED)' : '(DEFAULT)'}`)
     console.log(`↔️ Very long name (10+): ${hasVeryLongName ? 'YES - All elements shifted left by 30 units' : 'NO'}`)
     console.log(`↔️ Name1 right shift (7 + 9+): ${shouldShiftName1Right ? 'YES - First name shifted right by 10 units' : 'NO'}`)
     console.log(`↔️ Name1 extra right shift (4 + 7+): ${shouldShiftName1RightAfterSeparator ? 'YES - First name shifted right by 15 units after & shift' : 'NO'}`)
@@ -795,19 +836,24 @@ export function useWeddingStickerUpdater() {
     console.log(`↔️ Name1 right shift (6 + 9+): ${shouldShiftName1RightFor6And7Plus ? 'YES - First name shifted right by 20 units' : 'NO'}`)
     console.log(`↔️ Special shift (6 + 7 only): ${shouldShiftFor6And7 ? 'YES - First name shifted left by 15 units, & shifted right by 20 units' : 'NO'}`)
     console.log(`↔️ Separator right shift (6 + 8 only): ${shouldShiftSeparatorFor6And8 ? 'YES - & shifted right by 15 units, first name returns to default' : 'NO'}`)
-    console.log(`↔️ Name2 extra shift (4-6 + 8+): ${shouldShiftName2Left ? 'YES - Second name shifted left by extra 10 units' : 'NO'}`)
-    console.log(`↔️ Separator & Name2 right shift (7+ & 4-5 OR 10+ & 5-7): ${shouldShiftSeparatorAndName2Right ? 'YES - & and second name shifted right by 90 units' : 'NO'}`)
-    console.log(`↔️ Separator right shift (6 letters starting with M & 8+): ${shouldShiftSeparatorForM ? 'YES - & shifted right by 30 units' : 'NO'}`)
-    console.log(`📍 Position shift: ${shouldShiftPositions ? `YES - & moves to x=${separatorXPosition} y=80, name2 x moves to & x-position` : 'NO - using default positions'}`)
+    console.log(`↔️ Separator extra right shift (4 + 7+): ${shouldShiftSeparatorFor4And7Plus ? 'YES - & shifted right by additional 100 units after initial positioning' : 'NO'}`)
     console.log(`📍 Setting position for name1-first: x=${name1XPosition}, y=${name1YPosition}`)
     console.log(`📍 Setting position for separator: x=${separatorXPosition}, y=${separatorYPosition}`)
     console.log(`📍 Setting position for name2-first: x=${name2XPosition}, y=${name2YPosition}`)
-    console.log(`📐 Font size adjustment: ${name1Is4AndName2Is4to5 ? `Increased to ${fontSize}px (first name is 4 letters and second name is 4-5 letters)` : hasLongName ? `Reduced to ${fontSize}px (8+ letters detected)` : `Keeping ${fontSize}px (base size)`}`)
+    console.log(`📐 Font size adjustment: ${name1Is4AndName2Is4to5 ? `Increased to ${fontSize}px (FIRST names are 4 and 4-5 letters)` : hasLongName ? `Reduced to ${fontSize}px (FIRST name has 8+ letters)` : `Keeping ${fontSize}px (base size)`}`)
+
+    // Check if both names are 10+ characters to apply Swiss font
+    const bothNamesLong = firstName1Length >= 10 && firstName2Length >= 10
+    const fontFamily = bothNamesLong ? 'Arial, Helvetica, sans-serif' : undefined
+    
+    if (bothNamesLong) {
+      console.log(`📝 FONT FAMILY CHANGE: Both names are 10+ characters - switching to Swiss/Arial font`)
+    }
 
     // Replace the hardcoded names in the SVG
-    // Line 9: <text id="name1-first" x="-20" y="80" class="fil0 fnt0">Muhammad</text>
-    // Line 10: <text id="name2-first" x="40.23" y="148" class="fil0 fnt0">Hauwawu</text>
-    // Line 11: <text id="name-separator" x="-40.3" y="160.4" class="fil1 fnt0">&amp;</text>
+    // Line 9: <text id="name1-first" x="-20" y="80" class="name-fil0 name-fnt0">Muhammad</text>
+    // Line 10: <text id="name2-first" x="40.23" y="148" class="name-fil0 name-fnt0">Hauwawu</text>
+    // Line 11: <text id="name-separator" x="-40.3" y="160.4" class="name-fil1 name-fnt0">&amp;</text>
     let modifiedSVG = svgContent
       .replace(/>Muhammad</g, `>${formattedName1}<`)
       .replace(/>Hauwawu</g, `>${formattedName2}<`)
@@ -837,29 +883,75 @@ export function useWeddingStickerUpdater() {
         `$1${separatorYPosition}$2`
       )
 
-    // Apply font size adjustment if needed (both for increase and reduction)
-    // Modify the .fnt0 style definition to use the calculated font size
-    if (name1Is4AndName2Is4to5 || hasLongName) {
-      // More flexible regex to match various whitespace patterns
-      const beforeReplace = modifiedSVG.match(/font-size:\s*\d+px/g)
-      console.log(`🔍 Before font-size replacement:`, beforeReplace)
-      
-      modifiedSVG = modifiedSVG.replace(
-        /font-size:\s*70px/g,
-        `font-size: ${fontSize}px`
-      )
-      
-      
-      // Also add letter-spacing for tighter text when font is reduced (only for long names)
-      if (hasLongName) {
-        modifiedSVG = modifiedSVG.replace(
-          /font-family: 'Cinzel Decorative', serif; }/g,
-          `font-family: 'Cinzel Decorative', serif; letter-spacing: -1px; }`
+    // Apply font family change for long names (name elements only, not separator)
+    if (fontFamily) {
+      modifiedSVG = modifiedSVG
+        .replace(
+          /(<text id="name1-first"[^>]*)(>)/g,
+          `$1 style="font-family: ${fontFamily}"$2`
         )
-      }
+        .replace(
+          /(<text id="name2-first"[^>]*)(>)/g,
+          `$1 style="font-family: ${fontFamily}"$2`
+        )
+    }
 
-      const afterReplace = modifiedSVG.match(/font-size:\s*\d+px/g)
-      console.log(`✏️ Font size adjusted to ${fontSize}px for all name elements (name1, "&", name2)${hasLongName ? ' with letter-spacing: -1px' : ''}`)
+    // Apply font size adjustment ALWAYS to ensure consistent sizing
+    // Modify the .name-fnt0 style definition to use the calculated font size
+    // More flexible regex to match various whitespace patterns
+    const beforeReplace = modifiedSVG.match(/font-size:\s*\d+(\.\d+)?px/g)
+    console.log(`🔍 Before font-size replacement:`, beforeReplace)
+    
+    if (fontSize !== 84.15) {
+      console.log(`🔧 APPLYING FONT SIZE CHANGE: ${fontSize}px (original: 84.15px) - Change: ${fontSize > 84.15 ? 'INCREASE' : 'DECREASE'} by ${Math.abs(fontSize - 84.15)}px`)
+    } else {
+      console.log(`ℹ️ Font size remains at default: ${fontSize}px`)
+    }
+    
+    modifiedSVG = modifiedSVG.replace(
+      /font-size:\s*84\.15px/g,
+      `font-size: ${fontSize}px`
+    )
+    
+    // Also try to replace any font-size="84.15px" attributes (direct attributes)
+    modifiedSVG = modifiedSVG.replace(
+      /font-size="84\.15px"/g,
+      `font-size="${fontSize}px"`
+    )
+    
+    // Additional replacement for any other font size patterns without px
+    modifiedSVG = modifiedSVG.replace(
+      /font-size:\s*84\.15(?!px)/g,
+      `font-size: ${fontSize}`
+    )
+    
+    // Ensure we also replace any remaining 84.15 font sizes in the .name-fnt0 class specifically
+    modifiedSVG = modifiedSVG.replace(
+      /(\.name-fnt0\s*{[^}]*font-size:\s*)84\.15(px;)/g,
+      `$1${fontSize}$2`
+    )
+    
+    // Also add letter-spacing for tighter text when font is reduced (only for long names)
+    if (hasLongName) {
+      modifiedSVG = modifiedSVG.replace(
+        /font-family: 'Cinzel Decorative', serif; }/g,
+        `font-family: 'Cinzel Decorative', serif; letter-spacing: -1px; }`
+      )
+    }
+
+    const afterReplace = modifiedSVG.match(/font-size:\s*\d+(\.\d+)?px/g)
+    console.log(`🔍 After font-size replacement:`, afterReplace)
+    
+    // Validate that font size replacement worked
+    const expectedPattern = `font-size: ${fontSize}px`
+    const fontReplaceWorked = modifiedSVG.includes(expectedPattern)
+    console.log(`✏️ Font size adjusted to ${fontSize}px for all name elements (name1, "&", name2)${hasLongName ? ' with letter-spacing: -1px' : ''}`)
+    console.log(`🔍 Font replacement validation: ${fontReplaceWorked ? '✅ SUCCESS' : '❌ FAILED'} - Looking for: "${expectedPattern}"`)
+    
+    if (!fontReplaceWorked) {
+      console.log('❌ Font size replacement failed - checking what patterns exist:')
+      const allFontSizes = modifiedSVG.match(/font-size[^;]+/g)
+      console.log('Found font-size patterns:', allFontSizes)
     }
 
     console.log('✅ Names replaced successfully')
@@ -918,15 +1010,22 @@ export function useWeddingStickerUpdater() {
       }
 
       // STEP 2: Find the main group element containing the names and decorative elements
-      // In name02.svg, this is the outer <g> element with transform
+      // In name02.svg, this is the outer <g> element
       const svgRoot = svgDoc.documentElement
-      const mainGroup = svgRoot.querySelector('g[transform]')
+      // Try to find a group with transform first (legacy support)
+      let mainGroup = svgRoot.querySelector('g[transform]')
+      
+      // If not found, just take the first group (for updated name02.svg without transform)
+      if (!mainGroup) {
+        mainGroup = svgRoot.querySelector('g')
+      }
+      
       if (!mainGroup) {
         console.error('❌ Could not find main group in loaded SVG')
-        console.error('   Looking for <g> element with transform attribute')
+        console.error('   Looking for <g> element')
         return
       }
-      console.log('✅ Found main group with transform:', mainGroup.getAttribute('transform'))
+      console.log('✅ Found main group')
 
       // STEP 3: Clear existing content in the target element
       // Remove all old text-based name elements
@@ -972,8 +1071,9 @@ export function useWeddingStickerUpdater() {
   /**
    * Update SVG text elements based on description
    */
-  const updateStickerText = (description: string, elements: WeddingStickerElements): WeddingStickerData => {
-    const data: WeddingStickerData = {
+  const updateStickerText = async (description: string, elements: WeddingStickerElements): Promise<WeddingStickerData> => {
+    // Default data used ONLY when description is empty
+    const defaultData: WeddingStickerData = {
       blessing: 'Alhamdulillahi',
       occasion: 'ON YOUR',
       eventType: 'WEDDING',
@@ -985,12 +1085,68 @@ export function useWeddingStickerUpdater() {
     }
 
     if (!description || description.trim() === '') {
-      return data
+      return defaultData
     }
 
+    // If description is provided, start with empty data for user-replaceable fields
+    // This ensures that if a user doesn't type a date, the default date is NOT shown
+    const data: WeddingStickerData = {
+      blessing: 'Alhamdulillahi', // Keep default blessing/occasion/event unless overridden
+      occasion: 'ON YOUR',
+      eventType: 'WEDDING',
+      ceremony: 'CEREMONY',
+      name1: '', // Clear names
+      name2: '',
+      date: '',  // Clear date
+      courtesy: '' // Clear courtesy
+    }
+    
+    // Clear elements initially (they will be repopulated if found)
+    if (elements.name1Text) elements.name1Text.textContent = ''
+    if (elements.name2Text) elements.name2Text.textContent = ''
+    if (elements.name1First) elements.name1First.textContent = ''
+    if (elements.name2First) elements.name2First.textContent = ''
+    if (elements.dateText) elements.dateText.textContent = ''
+    if (elements.courtesyText) elements.courtesyText.textContent = ''
+
+    // Helper to clean description for header extraction (remove brackets, courtesy, date)
+    const getCleanHeader = (text: string): string => {
+      let clean = text
+      // Remove content in brackets (names)
+      clean = clean.replace(/[\(\[][^\)\]]*[\)\]]/g, '')
+      // Remove courtesy
+      clean = clean.replace(/courtesy:\s*[^\n]+(?:\s*$|\.|\n)/ig, '')
+      clean = clean.replace(/cut-cee:\s*[^\n]+(?:\s*$|\.|\n)/ig, '')
+      
+      // Remove date patterns to prevent date from being treated as header text
+      // Pattern 1: "on [date]"
+      clean = clean.replace(/\bon\s+(\d{1,2}(?:st|nd|rd|th)?\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[,.]?\s*\d{4})/ig, '')
+      // Pattern 2: Date with ordinal suffix
+      clean = clean.replace(/(\d{1,2}(?:st|nd|rd|th)\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[,.]?\s*\d{4})/ig, '')
+      // Pattern 3: Month Day, Year
+      clean = clean.replace(/((?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}[,.]?\s*\d{4})/ig, '')
+      // Pattern 4: Numeric date
+      clean = clean.replace(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/g, '')
+      // Pattern 5: Date without year
+      clean = clean.replace(/(\d{1,2}(?:st|nd|rd|th)?\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec))/ig, '')
+      
+      return clean.trim()
+    }
+
+    const cleanHeader = getCleanHeader(description)
+    const hasCustomHeader = cleanHeader.length > 0
+
     // 1. Extract first word as blessing text
-    // The first word typed replaces the blessing text automatically
-    const firstWord = extractFirstWord(description)
+    // Use clean header to avoid picking up "(Name" as blessing
+    let firstWord = null
+    if (hasCustomHeader) {
+       firstWord = cleanHeader.split(/\s+/)[0]
+       // Capitalize
+       if (firstWord) {
+         firstWord = firstWord.charAt(0).toUpperCase() + firstWord.slice(1)
+       }
+    }
+
     if (firstWord) {
       data.blessing = firstWord
 
@@ -1008,6 +1164,7 @@ export function useWeddingStickerUpdater() {
       data.ceremony = eventTypeData.ceremony || 'CEREMONY'
 
       if (elements.occasionText) {
+        elements.occasionText.removeAttribute('display')
         elements.occasionText.textContent = data.occasion
       }
       if (elements.eventTypeText) {
@@ -1052,23 +1209,59 @@ export function useWeddingStickerUpdater() {
         }
       }
     } else {
-      // No event type pattern found - reset to defaults and ensure ceremony is visible
-      if (elements.occasionText) {
-        elements.occasionText.textContent = data.occasion
-      }
-      if (elements.eventTypeText) {
-        elements.eventTypeText.textContent = data.eventType
-        elements.eventTypeText.removeAttribute('font-family')
-      }
-      if (elements.ceremonyText) {
-        // Reset ceremony text to visible with default content
-        elements.ceremonyText.removeAttribute('display')
-        elements.ceremonyText.textContent = data.ceremony
-        console.log(`🔄 Reset ceremony text to default: "${data.ceremony}"`)
-      }
-      // Reset blessing font to original
-      if (elements.blessingText && data.blessing) {
-        elements.blessingText.removeAttribute('font-family')
+      // No event type pattern found
+      
+      if (hasCustomHeader) {
+        // User typed something else -> Use it to replace default text
+        
+        // Blessing is already set to firstWord.
+        // We need to put the REST of the text into eventType (or somewhere).
+        
+        // Remove first word from cleanHeader
+        const firstWordLength = cleanHeader.split(/\s+/)[0].length
+        const remainingText = cleanHeader.substring(firstWordLength).trim()
+        
+        // Hide occasion ("ON YOUR")
+        if (elements.occasionText) {
+          elements.occasionText.setAttribute('display', 'none')
+        }
+        
+        // Set event type to remaining text
+        if (elements.eventTypeText) {
+          elements.eventTypeText.textContent = remainingText
+          elements.eventTypeText.removeAttribute('font-family') // Reset font
+        }
+        
+        // Hide ceremony ("CEREMONY")
+        if (elements.ceremonyText) {
+          elements.ceremonyText.setAttribute('display', 'none')
+        }
+        
+        // Reset blessing font to original
+        if (elements.blessingText && data.blessing) {
+          elements.blessingText.removeAttribute('font-family')
+        }
+        
+      } else {
+        // No custom header (e.g. only names typed) -> Keep defaults
+        if (elements.occasionText) {
+          elements.occasionText.removeAttribute('display')
+          elements.occasionText.textContent = data.occasion
+        }
+        if (elements.eventTypeText) {
+          elements.eventTypeText.textContent = data.eventType
+          elements.eventTypeText.removeAttribute('font-family')
+        }
+        if (elements.ceremonyText) {
+          // Reset ceremony text to visible with default content
+          elements.ceremonyText.removeAttribute('display')
+          elements.ceremonyText.textContent = data.ceremony
+          console.log(`🔄 Reset ceremony text to default: "${data.ceremony}"`)
+        }
+        // Reset blessing font to original
+        if (elements.blessingText && data.blessing) {
+          elements.blessingText.removeAttribute('font-family')
+        }
       }
     }
 
@@ -1094,31 +1287,47 @@ export function useWeddingStickerUpdater() {
     if (hasSeparator && name1First && name2First) {
       console.log('🎨 Two names with separator detected - loading decorative SVG')
 
-      // Load and populate the external name SVG asynchronously
-      loadAndPopulateNameSVG()
-        .then(svgContent => {
-          if (svgContent) {
-            // Replace hardcoded names with user-provided names
-            const modifiedSVG = replaceNamesInSVG(svgContent, name1First, name2First)
+      try {
+        // Load and populate the external name SVG asynchronously
+        const svgContent = await loadAndPopulateNameSVG()
+        
+        if (svgContent) {
+          // Replace hardcoded names with user-provided names
+          const modifiedSVG = replaceNamesInSVG(svgContent, name1First, name2First)
 
-            // Inject the modified SVG into the template
-            injectNameSVGIntoTemplate(modifiedSVG, elements.weddingNamesGroup)
+          // Inject the modified SVG into the template
+          injectNameSVGIntoTemplate(modifiedSVG, elements.weddingNamesGroup)
 
-            console.log('✅ Decorative SVG successfully loaded and injected')
-            console.log('   Position: transform="translate(270, 950) scale(3)"')
-            console.log('   Font: Cinzel Decorative Bold (preserved from external SVG)')
-          } else {
-            console.error('❌ Failed to load decorative SVG')
-            console.error('💡 Check if file exists at: public/svg/weddingStiker/weddingTwoNames/name02.svg')
-          }
-        })
-        .catch(error => {
-          console.error('❌ Error in SVG replacement system:', error)
-        })
+          console.log('✅ Decorative SVG successfully loaded and injected')
+          console.log('   Position: transform="translate(270, 950) scale(3)"')
+          console.log('   Font: Cinzel Decorative Bold (preserved from external SVG)')
+        } else {
+          console.error('❌ Failed to load decorative SVG')
+          console.error('💡 Check if file exists at: public/svg/weddingStiker/weddingTwoNames/name02.svg')
+        }
+      } catch (error) {
+        console.error('❌ Error in SVG replacement system:', error)
+      }
     } else {
       console.log('📝 Single name or no separator detected - SVG rendering skipped')
       console.log('💡 To use decorative SVG, enter two names with "&" or "and" separator')
       console.log('   Example: (Hauwa & Abdullahi)')
+      
+      // If we are NOT using the decorative SVG, we need to make sure the weddingNamesGroup
+      // is reset to its default state (simple text elements) if it was previously replaced
+      // However, since we can't easily "reset" to the original template state without reloading,
+      // we'll rely on the fact that the text elements might still be there if they weren't overwritten.
+      // But wait, injectNameSVGIntoTemplate CLEARS the group.
+      // So if the user types brackets (loads SVG) then deletes brackets (simple text),
+      // the group is empty! We need to handle this.
+      
+      // Check if the group has been modified by our injection
+      if (elements.weddingNamesGroup && elements.weddingNamesGroup.hasAttribute('data-decorative-svg-loaded')) {
+         // Ideally we should reload the template here, but that's expensive.
+         // For now, we'll just try to update the text elements if they exist.
+         // If they don't exist (because they were cleared), the user might need to reload or we need a way to restore them.
+         console.warn('⚠️ Warning: Wedding names group was previously replaced with decorative SVG. Simple text updates might not work until reload.')
+      }
     }
 
     // Update full name elements (backward compatibility for old template elements)
@@ -1127,11 +1336,19 @@ export function useWeddingStickerUpdater() {
       if (elements.name1Text) {
         elements.name1Text.textContent = data.name1
       }
+      // Also update name1First if available (for new template structure)
+      if (elements.name1First) {
+        elements.name1First.textContent = toTitleCase(name1)
+      }
     }
     if (name2) {
       data.name2 = name2
       if (elements.name2Text) {
         elements.name2Text.textContent = data.name2
+      }
+      // Also update name2First if available (for new template structure)
+      if (elements.name2First) {
+        elements.name2First.textContent = toTitleCase(name2)
       }
     }
 
@@ -1139,14 +1356,16 @@ export function useWeddingStickerUpdater() {
     console.log('🔍 Attempting to extract date from description:', description)
     const extractedDate = extractDate(description)
     console.log('🔍 Extracted date result:', extractedDate)
-    console.log('🔍 Date element found:', elements.dateText)
+    console.log('🔍 Date element found:', !!elements.dateText)
+    console.log('🔍 Date element details:', elements.dateText ? `id="${elements.dateText.id}" content="${elements.dateText.textContent}"` : 'null')
     if (extractedDate) {
       // extractDate already includes "on" prefix
       data.date = extractedDate
       if (elements.dateText) {
         elements.dateText.textContent = data.date
         console.log(`📅 Date updated: "${data.date}"`)
-      } else {
+      } else if (elements.weddingNamesGroup || elements.name1Text) {
+        // Only log error if SVG seems to be loaded but element is missing
         console.error('❌ Date element not found in SVG!')
       }
     } else {
@@ -1154,9 +1373,13 @@ export function useWeddingStickerUpdater() {
     }
 
     // 5. Extract courtesy/family name with enhanced pattern matching
-    const extractedCourtesy = extractCourtesy(description)
-    if (extractedCourtesy) {
-      data.courtesy = `CUT-CEE: ${extractedCourtesy}`
+    console.log('🔍 Attempting to extract courtesy from description:', description)
+    const extractedCourtesyData = extractCourtesy(description)
+    console.log('🔍 Extracted courtesy result:', extractedCourtesyData)
+    console.log('🔍 Courtesy element found:', !!elements.courtesyText)
+    console.log('🔍 Courtesy element details:', elements.courtesyText ? `id="${elements.courtesyText.id}" content="${elements.courtesyText.textContent}"` : 'null')
+    if (extractedCourtesyData) {
+      data.courtesy = `${extractedCourtesyData.prefix} ${extractedCourtesyData.text}`
       if (elements.courtesyText) {
         elements.courtesyText.textContent = data.courtesy
         
@@ -1173,7 +1396,12 @@ export function useWeddingStickerUpdater() {
         }
         
         console.log(`🏠 Courtesy updated: "${data.courtesy}" (length: ${courtesyLength})`)
+      } else if (elements.weddingNamesGroup || elements.name1Text) {
+        // Only log error if SVG seems to be loaded but element is missing
+        console.error('❌ Courtesy element not found in SVG!')
       }
+    } else {
+      console.log('⚠️ No courtesy extracted from description')
     }
 
     return data

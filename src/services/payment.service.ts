@@ -3,6 +3,8 @@
  * Handles Paystack integration and payment operations
  */
 
+import { Capacitor } from '@capacitor/core'
+import { Browser } from '@capacitor/browser'
 import type {
   InitializePaymentRequest,
   InitializePaymentResponse,
@@ -83,30 +85,42 @@ export async function getPaymentHistory(
 }
 
 /**
- * Open Paystack payment popup
+ * Open Paystack payment popup (Web) or redirect to payment page (Mobile)
  */
-export function openPaystackPopup(config: PaymentConfig): void {
-  // @ts-ignore - Paystack is loaded via script tag
-  if (typeof PaystackPop === 'undefined') {
-    throw new Error('Paystack library not loaded')
-  }
+export async function openPaystackPopup(config: PaymentConfig): Promise<void> {
+  const isNative = Capacitor.isNativePlatform()
 
-  // @ts-ignore
-  const handler = PaystackPop.setup({
-    key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY,
-    email: config.email,
-    amount: config.amount * 100, // Convert to kobo
-    ref: config.reference,
-    metadata: config.metadata,
-    onClose: () => {
-      config.onCancel()
-    },
-    callback: (response: any) => {
-      config.onSuccess(response)
+  if (isNative) {
+    // Mobile: Open Paystack payment page in system browser
+    const paystackUrl = `https://checkout.paystack.com/${config.reference}`
+    await Browser.open({ url: paystackUrl })
+    
+    // Note: Payment verification needs to be handled via webhook or manual check
+    console.log('Payment opened in browser. Reference:', config.reference)
+  } else {
+    // Web: Use Paystack popup
+    // @ts-ignore - Paystack is loaded via script tag
+    if (typeof PaystackPop === 'undefined') {
+      throw new Error('Paystack library not loaded. Please refresh the page.')
     }
-  })
 
-  handler.openIframe()
+    // @ts-ignore
+    const handler = PaystackPop.setup({
+      key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY,
+      email: config.email,
+      amount: config.amount * 100, // Convert to kobo
+      ref: config.reference,
+      metadata: config.metadata,
+      onClose: () => {
+        config.onCancel()
+      },
+      callback: (response: any) => {
+        config.onSuccess(response)
+      }
+    })
+
+    handler.openIframe()
+  }
 }
 
 /**

@@ -29,7 +29,12 @@ export default defineConfig({
       include: [/node_modules/]
     },
     rollupOptions: {
-      external: []
+      external: [],
+      output: {
+        manualChunks: {
+          'onnxruntime': ['onnxruntime-web']
+        }
+      }
     },
     // Ensure WASM files are copied to dist
     assetsDir: 'assets',

@@ -443,7 +443,8 @@ const scrollToSection = async (sectionId: string) => {
 }
 
 const handleGetQuote = () => {
-  emit('getQuote')
+  // Navigate to login page instead of modal
+  router.push('/login')
 }
 
 // Get user initials from name/username/email

@@ -87,6 +87,9 @@ export {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  signInWithCredential,
   type User as FirebaseUser
 } from 'firebase/auth'
 
