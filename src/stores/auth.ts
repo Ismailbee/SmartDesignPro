@@ -16,6 +16,10 @@ import * as firebaseAuth from '@/services/firebase-auth'
 
 const USER_KEY = 'user'
 
+// 🔧 DEV MODE: Set to true to bypass authentication (auto-login)
+// ⚠️ IMPORTANT: Set to false before deploying to production!
+const DEV_BYPASS_AUTH = true
+
 export const useAuthStore = defineStore('auth', () => {
   // State
   const user = ref<User | null>(null)
@@ -54,6 +58,41 @@ export const useAuthStore = defineStore('auth', () => {
   function initAuth() {
     console.log('🔧 Initializing auth...')
 
+    // 🔧 DEV MODE: Auto-login bypass
+    if (DEV_BYPASS_AUTH) {
+      console.log('🚀 DEV MODE: Authentication bypassed - auto-login enabled')
+      console.log('⚠️ Remember to set DEV_BYPASS_AUTH = false before production!')
+      
+      const devUser: User = {
+        id: 'dev-user-123',
+        email: 'developer@test.com',
+        username: 'developer',
+        name: 'Dev User',
+        firstName: 'Dev',
+        lastName: 'User',
+        role: 'admin', // Admin role for full access
+        status: 'active',
+        emailVerified: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+      
+      user.value = devUser
+      localStorage.setItem(USER_KEY, JSON.stringify(devUser))
+      
+      // Set authenticated member
+      const memberData = {
+        name: 'Dev User',
+        branch: 'Main Branch',
+        role: 'Admin'
+      }
+      localStorage.setItem('authenticatedMember', JSON.stringify(memberData))
+      
+      console.log('✅ Auto-logged in as:', devUser.email)
+      return
+    }
+
+    // Normal Firebase auth flow
     // Set up Firebase auth state listener
     firebaseAuth.onAuthChange((firebaseUser) => {
       console.log('🔔 Firebase auth state changed:', firebaseUser ? 'User logged in' : 'User logged out')

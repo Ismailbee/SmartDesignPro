@@ -346,14 +346,35 @@ async function start() {
   }
 }
 
+// Memory cleanup function
+const cleanupMemory = () => {
+  if (global.gc) {
+    global.gc()
+    console.log('🧹 Background Removal Server: Memory cleanup executed')
+  }
+  
+  const memUsage = process.memoryUsage()
+  console.log('📊 BG Removal Memory:', {
+    rss: Math.round(memUsage.rss / 1024 / 1024) + ' MB',
+    heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024) + ' MB'
+  })
+}
+
+// Set up memory monitoring (every 5 minutes)
+const memoryInterval = setInterval(cleanupMemory, 5 * 60 * 1000)
+
 // Handle graceful shutdown
 process.on('SIGTERM', () => {
   console.log('👋 SIGTERM received, shutting down gracefully...')
+  clearInterval(memoryInterval)
+  cleanupMemory()
   process.exit(0)
 })
 
 process.on('SIGINT', () => {
   console.log('👋 SIGINT received, shutting down gracefully...')
+  clearInterval(memoryInterval)
+  cleanupMemory()
   process.exit(0)
 })
 

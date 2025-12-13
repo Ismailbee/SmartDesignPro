@@ -524,6 +524,7 @@ import {
   saveMemberActivity,
   getAllSignatures
 } from '@/firebase/database';
+import { safeLocalStorage } from '@/utils/storage.utils.ts';
 
 export default defineComponent({
   name: 'MeblinkInvoice',
@@ -1156,7 +1157,7 @@ export default defineComponent({
           formMode: formMode.value
         };
         
-        localStorage.setItem('invoiceFormData', JSON.stringify(formData));
+        safeLocalStorage.setItem('invoiceFormData', JSON.stringify(formData));
       },
       { deep: true }
     );
@@ -1418,7 +1419,7 @@ export default defineComponent({
         activities.splice(50);
       }
       
-      localStorage.setItem('memberActivities', JSON.stringify(activities));
+      safeLocalStorage.setItem('memberActivities', JSON.stringify(activities));
     };
 
     const handlePreviewClick = () => {
@@ -1445,7 +1446,7 @@ export default defineComponent({
         sumOf2: sumOf2.value
       };
       
-      localStorage.setItem('invoicePreviewData', JSON.stringify(previewData));
+      safeLocalStorage.setItem('invoicePreviewData', JSON.stringify(previewData));
       
       // Also save complete form data for when user navigates back
       const formData = {
@@ -1468,7 +1469,7 @@ export default defineComponent({
         formMode: formMode.value
       };
       
-      localStorage.setItem('invoiceFormData', JSON.stringify(formData));
+      safeLocalStorage.setItem('invoiceFormData', JSON.stringify(formData));
       
       // Navigate to preview page
       router.push({ name: 'InvoicePreview' });
@@ -1493,7 +1494,7 @@ export default defineComponent({
             timestamp: new Date().toISOString(),
             details: 'Logged out from Invoice page'
           });
-          localStorage.setItem('memberActivities', JSON.stringify(activities));
+          safeLocalStorage.setItem('memberActivities', JSON.stringify(activities));
         }
         
         router.push({ name: 'Dashboard', query: { branch: authenticatedMember.value?.branch || '' } });
@@ -1789,8 +1790,8 @@ export default defineComponent({
     // Navigate to signature page
     const handleCreateSignature = () => {
       // Store the return path so SignaturePage knows where to redirect after creating signature
-      localStorage.setItem('signatureReturnPath', '/invoice');
-      localStorage.setItem('signatureReturnType', 'invoice');
+      safeLocalStorage.setItem('signatureReturnPath', '/invoice');
+      safeLocalStorage.setItem('signatureReturnType', 'invoice');
       router.push('/signature');
     };
 

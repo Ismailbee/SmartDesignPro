@@ -410,6 +410,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notification'
 import LogoCropper from '@/components/LogoCropper.vue'
 import type { UserSettings, ProfileUpdateData } from '@/types/auth'
+import { safeLocalStorage } from '@/utils/storage.utils.ts'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -526,7 +527,7 @@ async function saveProfile() {
 async function saveSettings() {
   isSaving.value = true
   try {
-    localStorage.setItem('userSettings', JSON.stringify(settings))
+    safeLocalStorage.setItem('userSettings', JSON.stringify(settings))
     await new Promise(resolve => setTimeout(resolve, 500))
     
     authStore.showNotification({

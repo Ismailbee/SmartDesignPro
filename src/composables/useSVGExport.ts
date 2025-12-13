@@ -39,6 +39,41 @@ export function useSVGExport() {
 
     // Add each image as an <image> element
     sortedImages.forEach(img => {
+      // Check if there's a placeholder/userImage element to update first
+      const userImageElement = clonedSVG.querySelector('#userImage') || clonedSVG.querySelector('#placeholder-image')
+      
+      if (userImageElement) {
+        // Update existing element instead of creating new one
+        userImageElement.setAttribute('x', img.x.toString())
+        userImageElement.setAttribute('y', img.y.toString())
+        userImageElement.setAttribute('width', img.width.toString())
+        userImageElement.setAttribute('height', img.height.toString())
+        userImageElement.setAttribute('opacity', (img.opacity / 100).toString())
+        userImageElement.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', img.dataUrl)
+        userImageElement.setAttribute('href', img.dataUrl)
+        
+        // Apply rotation if needed
+        if (img.rotation !== 0) {
+          const centerX = img.x + img.width / 2
+          const centerY = img.y + img.height / 2
+          userImageElement.setAttribute('transform', `rotate(${img.rotation} ${centerX} ${centerY})`)
+        } else {
+          userImageElement.removeAttribute('transform')
+        }
+        
+        // Ensure clip-path and preserveAspectRatio are set
+        if (userImageElement.id === 'userImage') {
+             if (!userImageElement.hasAttribute('clip-path')) {
+                userImageElement.setAttribute('clip-path', 'url(#imageClip)')
+             }
+             if (!userImageElement.hasAttribute('preserveAspectRatio')) {
+                userImageElement.setAttribute('preserveAspectRatio', 'xMinYMin slice')
+             }
+        }
+        
+        return // Skip creating new element
+      }
+
       const imageElement = document.createElementNS('http://www.w3.org/2000/svg', 'image')
       
       // Set attributes
@@ -66,6 +101,40 @@ export function useSVGExport() {
     })
 
     return clonedSVG
+  }
+
+  /**
+   * Ensure fonts are embedded in SVG
+   */
+  function ensureFontsEmbedded(svgElement: SVGSVGElement): void {
+    // Check if fonts are already embedded
+    const existingStyle = svgElement.querySelector('defs style')
+    if (existingStyle && existingStyle.textContent?.includes('@import')) {
+      // Fonts already embedded
+      return
+    }
+
+    // Add font imports to defs
+    let defs = svgElement.querySelector('defs')
+    if (!defs) {
+      defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs')
+      svgElement.insertBefore(defs, svgElement.firstChild)
+    }
+
+    const styleElement = document.createElementNS('http://www.w3.org/2000/svg', 'style')
+    styleElement.setAttribute('type', 'text/css')
+    styleElement.textContent = `
+      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Lato:wght@400;700&display=swap');
+      
+      text {
+        font-family: 'Lato', 'Arial', 'Helvetica', sans-serif;
+      }
+      
+      .serif-font {
+        font-family: 'Playfair Display', 'Times New Roman', 'Georgia', serif;
+      }
+    `
+    defs.insertBefore(styleElement, defs.firstChild)
   }
 
   /**
@@ -117,6 +186,9 @@ export function useSVGExport() {
         exportSVG = embedImagesInSVG(exportSVG, images)
       }
 
+      // Ensure fonts are embedded
+      ensureFontsEmbedded(exportSVG)
+
       // Serialize to string
       const svgString = serializeSVG(exportSVG)
 
@@ -147,6 +219,9 @@ export function useSVGExport() {
       if (config.includeImages && images.length > 0) {
         exportSVG = embedImagesInSVG(exportSVG, images)
       }
+
+      // Ensure fonts are embedded
+      ensureFontsEmbedded(exportSVG)
 
       // Get SVG dimensions
       const viewBox = exportSVG.getAttribute('viewBox')?.split(' ').map(Number) || [0, 0, 800, 600]

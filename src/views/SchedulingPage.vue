@@ -2841,7 +2841,7 @@ const calendarPickerDays = computed(() => {
 <style scoped>
 .scheduling-page {
   min-height: 100vh;
-  background: linear-gradient(to bottom, #1e3a8a 0%, #1e40af 100%);
+  background: linear-gradient(to bottom, #f8fafc 0%, #e2e8f0 100%);
 }
 
 /* Breadcrumb */

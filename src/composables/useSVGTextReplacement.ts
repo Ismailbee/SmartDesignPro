@@ -189,7 +189,35 @@ export function useSVGTextReplacement() {
 
       // Copy all child elements from the fetched SVG into the group
       Array.from(fetchedSvg.children).forEach(child => {
+        // If it's a style element, we need to be careful about global scope pollution
+        if (child.tagName.toLowerCase() === 'style') {
+          // Rename classes in the style content to avoid conflicts
+          // Specifically looking for .fnt0 which conflicts with name02.svg
+          let styleContent = child.textContent || ''
+          if (styleContent.includes('.fnt0')) {
+            console.log('⚠️ Found conflicting .fnt0 class in title SVG style - renaming to .title-fnt0')
+            styleContent = styleContent.replace(/\.fnt0/g, '.title-fnt0')
+            child.textContent = styleContent
+          }
+        }
+        
         const clonedChild = child.cloneNode(true)
+        
+        // If we renamed the class in the style, we need to update usages in the elements
+        if (child.tagName.toLowerCase() !== 'style') {
+          // Recursively update class attributes in cloned elements
+          const updateClasses = (el: Element) => {
+            if (el.hasAttribute('class')) {
+              const cls = el.getAttribute('class') || ''
+              if (cls.includes('fnt0')) {
+                el.setAttribute('class', cls.replace('fnt0', 'title-fnt0'))
+              }
+            }
+            Array.from(el.children).forEach(updateClasses)
+          }
+          updateClasses(clonedChild as Element)
+        }
+        
         groupElement.appendChild(clonedChild)
       })
       

@@ -408,7 +408,7 @@ app.get('/health', (req, res) => {
 })
 
 // Start server
-const PORT = 3003
+const PORT = 3002
 server.listen(PORT, () => {
   console.log(`🚀 Auto Design Server running on http://localhost:${PORT}`)
   console.log(`📁 Uploads directory: ${uploadsDir}`)

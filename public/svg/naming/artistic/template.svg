@@ -1,0 +1,61 @@
+<svg width="800" height="600" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .bg { fill: #f5e6d3; }
+    .text-primary { fill: #4a3728; font-family: 'Great Day Personal Use'; font-size: 68; }
+    .text-secondary { fill: #d4a574; font-family: 'Georgia'; font-weight: bold; }
+    .text-accent { fill: #4a3728; font-family: 'Georgia'; font-style: italic; }
+  </style>
+  
+  <!-- Background -->
+  <rect id="background" width="800" height="600" class="bg"/>
+  
+  <!-- Decorative frame -->
+  <path d="M 50 50 L 750 50 L 750 550 L 50 550 Z" fill="none" stroke="#d4a574" stroke-width="2" stroke-dasharray="10,5"/>
+  <path d="M 60 60 Q 400 40 740 60 Q 760 400 740 540 Q 400 560 60 540 Q 40 400 60 60" fill="none" stroke="#4a3728" stroke-width="1" opacity="0.5"/>
+  
+  <!-- Main content -->
+  <g id="content">
+    <!-- Blessing text -->
+    <text id="blessing-text" x="400" y="100" font-size="48" text-anchor="middle" class="text-primary" font-family="'Great Day Personal Use'">
+      Blessed Union
+    </text>
+    
+    <!-- Occasion text -->
+    <text id="occasion-text" x="400" y="160" font-size="32" text-anchor="middle" class="text-secondary">
+      celebrating
+    </text>
+    
+    <!-- Event type text -->
+    <text id="event-type-text" x="400" y="230" font-size="56" text-anchor="middle" class="text-primary" font-family="'Great Day Personal Use'">
+      Marriage
+    </text>
+    
+    <!-- Ceremony text -->
+    <text id="ceremony-text" x="400" y="290" font-size="40" text-anchor="middle" class="text-secondary">
+      and Ceremony
+    </text>
+    
+    <!-- Names group -->
+    <g id="wedding-names-group" transform="translate(400, 350)">
+      <text id="name1-first" x="-50" y="0" font-size="68" text-anchor="middle" class="text-primary" font-family="'Great Day Personal Use'">
+        John
+      </text>
+      <text id="name-separator" x="0" y="8" font-size="68" text-anchor="middle" class="text-secondary">
+        &
+      </text>
+      <text id="name2-first" x="50" y="0" font-size="68" text-anchor="middle" class="text-primary" font-family="'Great Day Personal Use'">
+        Sarah
+      </text>
+    </g>
+    
+    <!-- Date text -->
+    <text id="date-text" x="400" y="510" font-size="24" text-anchor="middle" class="text-accent">
+      15th April, 2025
+    </text>
+    
+    <!-- Courtesy text -->
+    <text id="courtesy-text" x="400" y="560" font-size="18" text-anchor="middle" class="text-secondary">
+      With blessings from Smith Family
+    </text>
+  </g>
+</svg>

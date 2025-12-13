@@ -1,7 +1,12 @@
  <template>
   <div class="auto-design-page min-h-screen bg-gray-50 dark:bg-gray-900">
+
+    
     <!-- Show Sticker Template Panel if category is sticker -->
     <StickerTemplatePanel v-if="selectedCategory === 'sticker'" />
+
+    <!-- Show Naming Panel if category is naming -->
+    <NamingPanel v-else-if="selectedCategory === 'naming'" />
 
     <!-- Show default Auto Design interface for other categories -->
     <template v-else>
@@ -545,6 +550,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAutoDesignStore } from '@/stores/autoDesign'
 import { useAuthStore } from '@/stores/auth'
 import StickerTemplatePanel from '@/components/auto-design/StickerTemplatePanel.vue'
+import NamingPanel from '@/components/auto-design/NamingPanel.vue'
 import LogoUploader from '@/components/auto-design/LogoUploader.vue'
 import ImageUploader from '@/components/auto-design/ImageUploader.vue'
 import BackgroundSelectionPopup from '@/components/auto-design/BackgroundSelectionPopup.vue'
@@ -634,14 +640,22 @@ const currentProject = computed(() => autoDesignStore.currentProject)
 onMounted(() => {
   // Get category from URL query parameter
   const category = route.query.category as string
+  console.log('🎯 AutoDesignPage mounted with category from URL:', category)
+  console.log('📋 Full route query:', route.query)
+  
   if (category) {
     selectedCategory.value = category
     autoDesignStore.setCategory(category)
+    console.log('✅ Category set to:', category)
   } else {
     // Default category if none specified
     selectedCategory.value = 'business-card'
     autoDesignStore.setCategory('business-card')
+    console.log('⚠️ No category specified, defaulting to business-card')
   }
+  
+  console.log('🎨 Final selectedCategory value:', selectedCategory.value)
+  console.log('📌 Will show StickerTemplatePanel?', selectedCategory.value === 'sticker')
 
   // Initialize Socket.io connection
   autoDesignStore.initializeSocket()

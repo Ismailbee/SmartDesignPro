@@ -113,128 +113,125 @@ const navigateToReceipt = (mode: 'receipt' | 'customer') => {
 }
 
 .dashboard-container {
-  max-width: 1000px;
+  max-width: 700px;
   margin: 0 auto;
-  padding: 1.5rem 1rem;
+  padding: 1.25rem 1rem;
 }
 
-/* Large screen container scaling */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .dashboard-container {
-    max-width: 1400px;
-    padding: 2.5rem 2rem;
+    max-width: 800px;
+    padding: 1.5rem 1.25rem;
   }
 }
 
-@media (min-width: 1440px) {
+@media (min-width: 1024px) {
   .dashboard-container {
-    max-width: 1600px;
-    padding: 3rem 2.5rem;
+    max-width: 850px;
+    padding: 1.75rem 1.5rem;
   }
 }
 
 .page-title {
-  font-size: 2rem;
-  font-weight: 800;
+  font-size: 1.5rem;
+  font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 0.5rem;
   text-align: center;
 }
 
-/* Large screen title scaling */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .page-title {
-    font-size: 2.75rem;
+    font-size: 1.75rem;
     margin-bottom: 0.75rem;
   }
 }
 
-@media (min-width: 1440px) {
+@media (min-width: 1024px) {
   .page-title {
-    font-size: 3.25rem;
+    font-size: 2rem;
     margin-bottom: 1rem;
   }
 }
 
 .page-subtitle {
-  font-size: 1.1rem;
+  font-size: 0.9rem;
   color: var(--text-secondary);
   text-align: center;
-  margin-bottom: 2.5rem;
+  margin-bottom: 1.5rem;
 }
 
-/* Large screen subtitle scaling */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .page-subtitle {
-    font-size: 1.4rem;
-    margin-bottom: 3rem;
+    font-size: 1rem;
+    margin-bottom: 2rem;
   }
 }
 
-@media (min-width: 1440px) {
+@media (min-width: 1024px) {
   .page-subtitle {
-    font-size: 1.6rem;
-    margin-bottom: 3.5rem;
+    font-size: 1.1rem;
+    margin-bottom: 2.25rem;
   }
 }
 
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-/* Large screen grid scaling */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .cards-grid {
-    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-    gap: 2.5rem;
-    margin-bottom: 3rem;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
   }
 }
 
-@media (min-width: 1440px) {
+@media (min-width: 1024px) {
   .cards-grid {
-    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
-    gap: 3rem;
-    margin-bottom: 3.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.75rem;
+    margin-bottom: 2.25rem;
   }
 }
 
 .selection-card {
   position: relative;
   background: white;
-  border-radius: 16px;
-  padding: 2rem;
+  border-radius: 12px;
+  padding: 1.5rem;
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.07);
   border: 2px solid transparent;
   cursor: pointer;
   transition: all 0.3s ease;
   text-align: center;
-  min-height: 240px;
+  min-height: 180px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
 }
 
-/* Large screen card scaling */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .selection-card {
-    padding: 3rem;
-    border-radius: 20px;
-    min-height: 320px;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+    padding: 1.75rem;
+    min-height: 200px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
   }
 }
 
-@media (min-width: 1440px) {
+@media (min-width: 1024px) {
   .selection-card {
-    padding: 3.5rem;
-    border-radius: 24px;
-    min-height: 380px;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+    padding: 2rem;
+    border-radius: 14px;
+    min-height: 220px;
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.09);
   }
 }
 
@@ -253,31 +250,30 @@ const navigateToReceipt = (mode: 'receipt' | 'customer') => {
 }
 
 .card-icon {
-  width: 80px;
-  height: 80px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 1.5rem;
+  margin: 0 auto 1rem;
   transition: all 0.3s ease;
 }
 
-/* Large screen icon scaling */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .card-icon {
-    width: 110px;
-    height: 110px;
-    margin: 0 auto 2rem;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 1.25rem;
   }
 }
 
-@media (min-width: 1440px) {
+@media (min-width: 1024px) {
   .card-icon {
-    width: 130px;
-    height: 130px;
-    margin: 0 auto 2.5rem;
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 1.5rem;
   }
 }
 
@@ -287,64 +283,64 @@ const navigateToReceipt = (mode: 'receipt' | 'customer') => {
 }
 
 .card-icon ion-icon {
-  font-size: 2.5rem;
+  font-size: 2.2rem;
   color: #d97706;
 }
 
 /* Large screen icon font scaling */
 @media (min-width: 1024px) {
   .card-icon ion-icon {
-    font-size: 3.5rem;
+    font-size: 2.6rem;
   }
 }
 
 @media (min-width: 1440px) {
   .card-icon ion-icon {
-    font-size: 4rem;
+    font-size: 2.8rem;
   }
 }
 
 .card-title {
-  font-size: 1.4rem;
-  font-weight: 700;
+  font-size: 1.25rem;
+  font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
 /* Large screen title scaling */
 @media (min-width: 1024px) {
   .card-title {
-    font-size: 1.8rem;
-    margin-bottom: 1rem;
+    font-size: 1.4rem;
+    margin-bottom: 0.75rem;
   }
 }
 
 @media (min-width: 1440px) {
   .card-title {
-    font-size: 2.1rem;
-    margin-bottom: 1.25rem;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
   }
 }
 
 .card-description {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--text-secondary);
-  line-height: 1.5;
+  line-height: 1.4;
   margin: 0;
 }
 
 /* Large screen description scaling */
 @media (min-width: 1024px) {
   .card-description {
-    font-size: 1.2rem;
-    line-height: 1.6;
+    font-size: 1rem;
+    line-height: 1.5;
   }
 }
 
 @media (min-width: 1440px) {
   .card-description {
-    font-size: 1.35rem;
-    line-height: 1.7;
+    font-size: 1.1rem;
+    line-height: 1.6;
   }
 }
 
