@@ -197,15 +197,15 @@ const routes: RouteRecordRaw[] = [
         props: (route) => ({ branch: route.query.branch || '' })
       },
       {
-        path: 'invoice',
-        name: 'ican-app-invoice',
-        component: () => import('@/views/micro-apps/Ican/src/pages/InvoicePage.vue'),
-        props: (route) => ({ branch: route.query.branch || '' })
-      },
-      {
         path: 'receipt',
         name: 'ican-app-receipt',
         component: () => import('@/views/micro-apps/Ican/src/pages/ReceiptIcan/IcanReceipt.vue'),
+        props: (route) => ({ branch: route.query.branch || '' })
+      },
+      {
+        path: 'invoice-ican',
+        name: 'ican-app-invoice-ican',
+        component: () => import('@/views/micro-apps/Ican/src/pages/InvoiceIcan/IcanInvoice.vue'),
         props: (route) => ({ branch: route.query.branch || '' })
       },
       {
@@ -263,7 +263,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'saved-invoices',
         name: 'ican-app-saved-invoices',
-        component: () => import('@/views/micro-apps/Ican/src/pages/SavedIcanInvoicesPage.vue'),
+        component: () => import('@/views/micro-apps/Ican/src/pages/InvoiceIcan/SavedIcanInvoicesPage.vue'),
         props: (route) => ({ branch: route.query.branch || '' })
       },
       {

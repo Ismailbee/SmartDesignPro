@@ -48,6 +48,7 @@ export interface ICANUser {
   role: 'user' | 'admin' | 'manager'
   createdAt: Date
   lastLogin?: Date
+  loginCount?: number
   isActive: boolean
   passwordResetBy?: string
   passwordResetAt?: Date
@@ -272,16 +273,19 @@ export const ICANUserService = {
         throw new Error('Member password required')
       }
       
-      // Update last login
+      // Update last login and increment login count
+      const currentLoginCount = (user.loginCount || 0) + 1
       await updateDoc(userDoc.ref, {
-        lastLogin: serverTimestamp()
+        lastLogin: serverTimestamp(),
+        loginCount: increment(1)
       })
       
       return {
         id: userDoc.id,
         ...user,
         createdAt: (user.createdAt as any)?.toDate?.() || new Date(),
-        lastLogin: new Date()
+        lastLogin: new Date(),
+        loginCount: currentLoginCount
       }
     } catch (error) {
       console.error('Error authenticating user:', error)
