@@ -45,13 +45,36 @@ onErrorCaptured((err: Error, instance: any, info: string) => {
 })
 
 function handleReset() {
-  hasError.value = false
-  errorMessage.value = ''
-  errorDetails.value = ''
+  try {
+    hasError.value = false
+    errorMessage.value = ''
+    errorDetails.value = ''
+  } catch (error) {
+    console.error('Error during reset:', error)
+    // Force reload if reset fails
+    try {
+      window.location.reload()
+    } catch (reloadError) {
+      console.error('Error during fallback reload:', reloadError)
+    }
+  }
 }
 
 function handleReload() {
-  window.location.reload()
+  try {
+    window.location.reload()
+  } catch (error) {
+    console.error('Error during reload:', error)
+    try {
+      // Fallback if location.reload() fails
+      window.location.href = window.location.href
+    } catch (fallbackError) {
+      console.error('Fallback reload also failed:', fallbackError)
+      // Last resort - try to redirect to current path
+      const currentPath = window.location.pathname + window.location.search
+      window.location.href = currentPath
+    }
+  }
 }
 </script>
 

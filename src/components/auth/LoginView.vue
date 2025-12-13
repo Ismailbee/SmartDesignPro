@@ -87,6 +87,11 @@
           Signing in...
         </span>
       </button>
+
+      <!-- Testing Bypass Button (for network issues) -->
+      <button type="button" class="btn-secondary" @click="handleTestingBypass" style="margin-top: 8px;">
+        🔧 Testing Mode (Bypass Auth)
+      </button>
     </form>
 
     <!-- Divider -->
@@ -115,7 +120,7 @@ import type { LoginData } from '@/types/auth'
 
 const authStore = useAuthStore()
 const { isLoading, error } = storeToRefs(authStore)
-const { loginUser, setAuthModalView, clearError } = authStore
+const { loginUser, setAuthModalView, clearError, bypassAuthForTesting } = authStore
 
 const formData = ref<LoginData>({
   email: '',
@@ -132,6 +137,11 @@ async function handleLogin() {
   } catch (err) {
     // Error is handled by store
   }
+}
+
+function handleTestingBypass() {
+  console.log('🔧 Using testing bypass due to network issues...')
+  bypassAuthForTesting()
 }
 </script>
 

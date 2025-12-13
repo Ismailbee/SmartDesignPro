@@ -527,7 +527,13 @@ export default defineComponent({
 
     // Cleanup on unmount
     onBeforeUnmount(() => {
-      window.removeEventListener('resize', calculateMobileScale);
+      try {
+        window.removeEventListener('resize', calculateMobileScale);
+        // Note: handleVisibilityChange is scoped to onMounted and will be cleaned up automatically
+      } catch (error) {
+        console.warn('Error during cleanup:', error);
+        // Continue cleanup even if some operations fail
+      }
     });
 
     // Editable organization details (Users can now change these)

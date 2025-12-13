@@ -7,6 +7,16 @@ import './styles/wedding-fonts.css'
 import App from './App.vue'
 import { useThemeStore } from './stores/theme'
 
+// Development console filter
+if (import.meta.env.DEV) {
+  import('./utils/console-filter').then(module => {
+    module.default.enable();
+  });
+  
+  // Aggressive browser warning suppression
+  import('./utils/browser-warning-suppressor');
+}
+
 // Capacitor imports
 import { App as CapacitorApp } from '@capacitor/app'
 
@@ -124,6 +134,14 @@ app.component('font-awesome-icon', FontAwesomeIcon)
 // Use Pinia and Router
 app.use(pinia)
 app.use(router)
+
+// Initialize authentication immediately
+import { useAuthStore } from '@/stores/auth'
+const authStore = useAuthStore()
+// Force initialization if not already started
+if (!authStore.authInitialized) {
+  authStore.initAuth()
+}
 
 // Initialize theme
 const themeStore = useThemeStore()

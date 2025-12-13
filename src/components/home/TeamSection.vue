@@ -11,10 +11,13 @@
       <div class="team-grid">
         <!-- Team Member 1 -->
         <div class="team-card">
-          <div class="team-avatar">
-            <img src="https://i.pravatar.cc/150?img=1" alt="Sarah Chen" />
+          <div class="team-profile-icon">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z" fill="#64748b"/>
+              <path d="M12 14C7.58172 14 4 17.5817 4 22H20C20 17.5817 16.4183 14 12 14Z" fill="#64748b"/>
+            </svg>
           </div>
-          <h3 class="team-name">Sarah Chen</h3>
+          <h3 class="team-name">Mohammed Abdulsalam</h3>
           <p class="team-role">Creative Director</p>
           <p class="team-bio">
             Leading creative vision with 10+ years in brand design
@@ -28,10 +31,13 @@
 
         <!-- Team Member 2 -->
         <div class="team-card">
-          <div class="team-avatar">
-            <img src="https://i.pravatar.cc/150?img=13" alt="Marcus Rodriguez" />
+          <div class="team-profile-icon">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z" fill="#64748b"/>
+              <path d="M12 14C7.58172 14 4 17.5817 4 22H20C20 17.5817 16.4183 14 12 14Z" fill="#64748b"/>
+            </svg>
           </div>
-          <h3 class="team-name">Marcus Rodriguez</h3>
+          <h3 class="team-name">Ismail Abdulrauf</h3>
           <p class="team-role">Senior UI/UX Designer</p>
           <p class="team-bio">
             Crafting intuitive digital experiences for global brands
@@ -46,9 +52,9 @@
         <!-- Team Member 3 -->
         <div class="team-card">
           <div class="team-avatar">
-            <img src="https://i.pravatar.cc/150?img=5" alt="Emily Watson" />
+            <img src="/images/suleiman-picz.jpg" alt="Suleiman Abdullahi" />
           </div>
-          <h3 class="team-name">Emily Watson</h3>
+          <h3 class="team-name">Suleiman Abdullahi</h3>
           <p class="team-role">Brand Designer</p>
           <p class="team-bio">
             Specializing in visual identity and brand storytelling
@@ -62,10 +68,13 @@
 
         <!-- Team Member 4 -->
         <div class="team-card">
-          <div class="team-avatar">
-            <img src="https://i.pravatar.cc/150?img=12" alt="David Kim" />
+          <div class="team-profile-icon">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z" fill="#64748b"/>
+              <path d="M12 14C7.58172 14 4 17.5817 4 22H20C20 17.5817 16.4183 14 12 14Z" fill="#64748b"/>
+            </svg>
           </div>
-          <h3 class="team-name">David Kim</h3>
+          <h3 class="team-name">----------</h3>
           <p class="team-role">Web Developer</p>
           <p class="team-bio">
             Full-stack developer bringing designs to life
@@ -79,10 +88,13 @@
 
         <!-- Team Member 5 -->
         <div class="team-card">
-          <div class="team-avatar">
-            <img src="https://i.pravatar.cc/150?img=9" alt="Lisa Thompson" />
+          <div class="team-profile-icon">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z" fill="#64748b"/>
+              <path d="M12 14C7.58172 14 4 17.5817 4 22H20C20 17.5817 16.4183 14 12 14Z" fill="#64748b"/>
+            </svg>
           </div>
-          <h3 class="team-name">Lisa Thompson</h3>
+          <h3 class="team-name">----------</h3>
           <p class="team-role">Digital Strategist</p>
           <p class="team-bio">
             Data-driven marketing strategies that deliver results
@@ -96,10 +108,13 @@
 
         <!-- Team Member 6 -->
         <div class="team-card">
-          <div class="team-avatar">
-            <img src="https://i.pravatar.cc/150?img=14" alt="Alex Johnson" />
+          <div class="team-profile-icon">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z" fill="#64748b"/>
+              <path d="M12 14C7.58172 14 4 17.5817 4 22H20C20 17.5817 16.4183 14 12 14Z" fill="#64748b"/>
+            </svg>
           </div>
-          <h3 class="team-name">Alex Johnson</h3>
+          <h3 class="team-name">----------</h3>
           <p class="team-role">Motion Designer</p>
           <p class="team-bio">
             Creating engaging animations and interactive experiences
@@ -182,6 +197,22 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.team-profile-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+  border-radius: 50%;
+  border: 2px solid #e2e8f0;
+}
+
+.team-profile-icon svg {
+  opacity: 0.6;
 }
 
 .team-name {

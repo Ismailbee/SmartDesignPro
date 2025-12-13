@@ -148,8 +148,19 @@ import { onMounted, watch } from 'vue'
 const authStore = useAuthStore()
 const router = useRouter()
 
-// If user is already authenticated, redirect to home
-onMounted(() => {
+// Wait for auth initialization, then check if user is authenticated
+onMounted(async () => {
+  // Wait for auth to initialize
+  if (!authStore.authInitialized) {
+    let attempts = 0
+    const maxAttempts = 50 // 5 seconds max wait
+    while (!authStore.authInitialized && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 100))
+      attempts++
+    }
+  }
+  
+  // After auth is initialized, check if user is authenticated
   if (authStore.isAuthenticated) {
     console.log('✅ User already authenticated, redirecting to home...')
     router.push('/home')
@@ -158,7 +169,7 @@ onMounted(() => {
 
 // Watch for authentication changes and redirect
 watch(() => authStore.isAuthenticated, (isAuth) => {
-  if (isAuth) {
+  if (isAuth && authStore.authInitialized) {
     console.log('✅ User authenticated, redirecting to home from welcome page...')
     router.push('/home')
   }

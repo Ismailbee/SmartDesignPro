@@ -201,6 +201,29 @@
   cursor: not-allowed;
 }
 
+.btn-secondary {
+  width: 100%;
+  padding: 12px 24px;
+  background: #e2e8f0;
+  color: #4a5568;
+  border: 1px solid #cbd5e0;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-secondary:hover {
+  background: #f7fafc;
+  border-color: #a0aec0;
+  transform: translateY(-1px);
+}
+
 .loading-spinner {
   display: flex;
   align-items: center;

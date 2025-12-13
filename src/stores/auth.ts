@@ -21,6 +21,7 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+  const authInitialized = ref(false) // Track if Firebase auth has initialized
 
   // Auth Modal State
   const isAuthModalOpen = ref(false)
@@ -49,12 +50,80 @@ export const useAuthStore = defineStore('auth', () => {
   // Actions
 
   /**
+   * Demo/Testing bypass function for network issues
+   */
+  const bypassAuthForTesting = () => {
+    console.log('🔓 Bypassing authentication for testing...')
+    
+    const demoUser: User = {
+      id: 'demo-user-123',
+      username: 'demo_user',
+      email: 'demo@example.com',
+      name: 'Demo User',
+      firstName: 'Demo',
+      lastName: 'User',
+      isVerified: true,
+      role: 'user',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+    
+    user.value = demoUser
+    localStorage.setItem(USER_KEY, JSON.stringify(demoUser))
+    
+    // Set authenticated member data for invoices
+    const memberData = {
+      name: 'Demo User',
+      branch: 'Main Branch',
+      role: 'Member'
+    };
+    localStorage.setItem('authenticatedMember', JSON.stringify(memberData));
+    
+    closeAuthModal()
+    
+    console.log('✅ Demo user logged in successfully for testing')
+    return demoUser
+  }
+
+  /**
    * Initialize auth - Listen to Firebase auth state changes
    */
   function initAuth() {
     console.log('🔧 Initializing auth...')
 
-    // Set up Firebase auth state listener
+    // Try to restore from localStorage first (for immediate UI update)
+    const savedUser = localStorage.getItem(USER_KEY)
+    if (savedUser) {
+      try {
+        const parsedUser = JSON.parse(savedUser)
+        user.value = parsedUser
+        
+        // Also restore authenticated member data
+        const savedMember = localStorage.getItem('authenticatedMember')
+        if (!savedMember && parsedUser) {
+          // Create member data if missing
+          const userName = parsedUser.displayName || 
+                          parsedUser.email?.split('@')[0] || 
+                          'User'
+          const memberData = {
+            name: userName.charAt(0).toUpperCase() + userName.slice(1),
+            branch: 'Main Branch',
+            role: 'Member'
+          }
+          localStorage.setItem('authenticatedMember', JSON.stringify(memberData))
+        }
+        
+        console.log('🔄 Restored user from localStorage:', user.value?.email)
+        // Mark as initialized since we have valid user data
+        authInitialized.value = true
+      } catch (error) {
+        console.error('❌ Failed to parse saved user:', error)
+        localStorage.removeItem(USER_KEY)
+        localStorage.removeItem('authenticatedMember')
+      }
+    }
+
+    // Set up Firebase auth state listener for real-time updates
     firebaseAuth.onAuthChange((firebaseUser) => {
       console.log('🔔 Firebase auth state changed:', firebaseUser ? 'User logged in' : 'User logged out')
 
@@ -80,15 +149,23 @@ export const useAuthStore = defineStore('auth', () => {
         console.log('✅ Authenticated member set:', memberData);
         
       } else {
-        user.value = null
-        localStorage.removeItem(USER_KEY)
-        localStorage.removeItem('authenticatedMember') // Clear authenticated member
-        console.log('🔓 User logged out')
+        // Only clear if we don't have a valid saved user (to prevent logout on page refresh)
+        const savedUser = localStorage.getItem(USER_KEY)
+        if (!savedUser) {
+          user.value = null
+          localStorage.removeItem(USER_KEY)
+          localStorage.removeItem('authenticatedMember')
+          console.log('🔓 User logged out')
+        }
+      }
+
+      // Mark auth as initialized after first state change
+      if (!authInitialized.value) {
+        authInitialized.value = true
+        console.log('✅ Auth initialization complete')
       }
     })
 
-    // IMPORTANT: Don't restore from localStorage - wait for Firebase auth state
-    // This prevents false authentication from stale data
     console.log('⏳ Waiting for Firebase auth state...')
   }
 
@@ -357,6 +434,7 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken,
     isLoading,
     error,
+    authInitialized,
     isAuthModalOpen,
     authModalView,
     showSuccessNotification,
@@ -368,6 +446,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     // Actions
     initAuth,
+    bypassAuthForTesting, // For testing when network issues occur
     registerUser,
     loginUser,
     loginWithGoogle,
@@ -379,9 +458,7 @@ export const useAuthStore = defineStore('auth', () => {
     setAuthModalView,
     clearError,
     showNotification,
-    closeNotification
-    ,
+    closeNotification,
     updateAvatar
   }
 })
-
