@@ -650,7 +650,6 @@ export default defineComponent({
         // Continue cleanup even if some operations fail
       }
     });
-    });
 
     // A5 landscape dimensions in inches (width x height)
     const a5Width = '8.27in';

@@ -170,7 +170,6 @@ async function handleGoogleSignIn() {
     // Error is handled by store
   }
 }
-}
 </script>
 
 <style scoped>

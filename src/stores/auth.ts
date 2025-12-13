@@ -325,40 +325,6 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
-   * Login with Google
-   */
-  async function loginWithGoogle() {
-    isLoading.value = true
-    error.value = null
-
-    try {
-      const firebaseUser = await firebaseAuth.loginWithGoogle()
-      user.value = firebaseUser
-      localStorage.setItem(USER_KEY, JSON.stringify(firebaseUser))
-      closeAuthModal()
-
-      // Show success notification
-      const userName = firebaseUser.name || firebaseUser.username || firebaseUser.email.split('@')[0]
-      showNotification({
-        title: 'Welcome!',
-        message: `You have successfully logged in as ${userName}`,
-        type: 'success'
-      })
-
-      // Redirect to home page
-      console.log('🔄 Redirecting to home page...')
-      setTimeout(() => {
-        window.location.href = '/home'
-      }, 500)
-    } catch (err: any) {
-      error.value = err.message
-      throw err
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  /**
    * Logout user
    */
   async function logoutUser(): Promise<void> {
