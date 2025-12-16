@@ -209,12 +209,6 @@ const routes: RouteRecordRaw[] = [
         props: (route) => ({ branch: route.query.branch || '' })
       },
       {
-        path: 'member-login',
-        name: 'ican-app-member-login',
-        component: () => import('@/views/micro-apps/Ican/src/pages/MemberLoginPage.vue'),
-        props: (route) => ({ branch: route.query.branch || '' })
-      },
-      {
         path: 'member-management',
         name: 'ican-app-member-management',
         component: () => import('@/views/micro-apps/Ican/src/pages/MemberManagementPage.vue'),
