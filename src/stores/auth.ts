@@ -21,7 +21,7 @@ const USER_KEY = 'user'
 
 // 🔧 DEV MODE: Set to true to bypass authentication (auto-login)
 // ⚠️ IMPORTANT: Set to false before deploying to production!
-const DEV_BYPASS_AUTH = false
+const DEV_BYPASS_AUTH = true
 
 // 📱 OFFLINE MODE: Automatically enabled when Firebase is disabled or on mobile
 const USE_OFFLINE_MODE = !FEATURES.FIREBASE_AUTH_ENABLED || isNativePlatform()
@@ -585,11 +585,7 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken,
     isLoading,
     error,
-<<<<<<< HEAD
     isAuthReady,
-=======
-    authInitialized,
->>>>>>> 385ce130cc3ea9644a824a6388134682193d8f17
     isAuthModalOpen,
     authModalView,
     showSuccessNotification,
@@ -616,14 +612,10 @@ export const useAuthStore = defineStore('auth', () => {
     clearError,
     showNotification,
     closeNotification,
-<<<<<<< HEAD
     updateAvatar,
     // Account linking
     hasPasswordProvider,
     hasGoogleProvider,
     linkEmailPassword
-=======
-    updateAvatar
->>>>>>> 385ce130cc3ea9644a824a6388134682193d8f17
   }
 })

@@ -39,7 +39,6 @@
             <span class="dot"></span>
           </button>
           <div v-if="showMenu" class="preview-menu-dropdown">
-            <button @click="handleAction('generate')" class="menu-option">🔄 Generate More</button>
             <button @click="handleAction('edit')" class="menu-option">✏️ Edit</button>
             <button @click="handleAction('download')" class="menu-option">⬇️ Download</button>
           </div>
@@ -97,35 +96,33 @@
       </div>
     </div>
 
-    <!-- Generating Preview Indicator -->
-    <div v-if="isGeneratingPreview" class="chat-message ai">
-      <div class="message-bubble generating-preview">
-        <div class="generating-content">
-          <div class="generating-spinner-premium">
-            <div class="spinner-ring-outer"></div>
-            <div class="spinner-ring-middle"></div>
-            <div class="spinner-ring-inner"></div>
-            <div class="spinner-core">
-              <svg class="core-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-            </div>
-            <div class="spinner-particles">
-              <span></span><span></span><span></span><span></span><span></span><span></span>
-            </div>
-          </div>
-          <div class="generating-text">
-            <p class="generating-title">{{ generatingMessage }}</p>
-            <p class="generating-subtitle">Please wait...</p>
-          </div>
+    <!-- Generating Preview Indicator - OUTSIDE the bubble -->
+    <div v-if="isGeneratingPreview" class="generating-indicator-container">
+      <div class="generating-indicator">
+        <div class="generating-spinner-simple">
+          <svg class="spinner-icon" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.25"/>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+          </svg>
         </div>
+        <span class="generating-label">{{ generatingMessage }}</span>
       </div>
+    </div>
+    
+    <!-- Generate New Button - OUTSIDE below all messages when preview exists -->
+    <div v-if="hasPreview && !isGeneratingPreview" class="generate-new-container">
+      <button @click="handleAction('generate-new')" class="generate-new-btn">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        Generate New
+      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
 
 // Types
 export interface ChatMessage {
@@ -177,6 +174,9 @@ const emit = defineEmits<{
 const chatHistoryContainer = ref<HTMLDivElement | null>(null)
 const previewContainers = ref<HTMLDivElement[] | HTMLDivElement | null>(null)
 const showMenu = ref(false)
+
+// Computed - check if there's a preview message
+const hasPreview = computed(() => props.messages.some(m => m.type === 'preview'))
 
 // Toggle menu
 function toggleMenu() {
@@ -518,126 +518,91 @@ defineExpose({
   background: #f5f5f5;
 }
 
-/* SVG bubble for preview */
-.message-bubble.svg-bubble {
-  position: relative;
-  padding: 8px;
-  background: white;
-  border: 1px solid #e0e0e0;
-}
-
-/* Generating preview */
-.message-bubble.generating-preview {
-  background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
-  padding: 20px;
-}
-
-.generating-content {
+/* Generate New Button - Outside, simple & professional */
+.generate-new-container {
   display: flex;
-  flex-direction: column;
+  justify-content: center;
+  padding: 16px 0;
+  margin-top: 8px;
+}
+
+.generate-new-btn {
+  display: inline-flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #fff;
+  color: #555;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-/* Premium spinner style */
-.generating-spinner-premium {
-  position: relative;
-  width: 60px;
-  height: 60px;
+.generate-new-btn:hover {
+  background: #f8f9fa;
+  border-color: #667eea;
+  color: #667eea;
 }
 
-.spinner-ring-outer,
-.spinner-ring-middle,
-.spinner-ring-inner {
-  position: absolute;
-  border-radius: 50%;
-  border: 2px solid transparent;
+.generate-new-btn:active {
+  background: #f0f0f0;
 }
 
-.spinner-ring-outer {
-  inset: 0;
-  border-top-color: #667eea;
-  animation: spin 1.5s linear infinite;
+.generate-new-btn .btn-icon {
+  width: 16px;
+  height: 16px;
 }
 
-.spinner-ring-middle {
-  inset: 6px;
-  border-right-color: #764ba2;
-  animation: spin 1.2s linear infinite reverse;
+/* Generating Indicator - Simple inline style */
+.generating-indicator-container {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0;
 }
 
-.spinner-ring-inner {
-  inset: 12px;
-  border-bottom-color: #f093fb;
+.generating-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  background: #f8f9ff;
+  border: 1px solid #e8ecff;
+  border-radius: 8px;
+}
+
+.generating-spinner-simple {
+  width: 20px;
+  height: 20px;
+}
+
+.generating-spinner-simple .spinner-icon {
+  width: 100%;
+  height: 100%;
+  color: #667eea;
   animation: spin 1s linear infinite;
 }
 
-.spinner-core {
-  position: absolute;
-  inset: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: white;
-  border-radius: 50%;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.core-icon {
-  width: 16px;
-  height: 16px;
-  color: #e91e63;
-  animation: pulse 1s ease-in-out infinite;
+.generating-label {
+  font-size: 0.875rem;
+  color: #555;
+  font-weight: 500;
 }
 
 @keyframes spin {
   100% { transform: rotate(360deg); }
 }
 
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-}
-
-.spinner-particles span {
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  background: #667eea;
-  border-radius: 50%;
-  animation: particle 1.5s linear infinite;
-}
-
-.spinner-particles span:nth-child(1) { top: 0; left: 50%; animation-delay: 0s; }
-.spinner-particles span:nth-child(2) { top: 15%; right: 15%; animation-delay: 0.25s; }
-.spinner-particles span:nth-child(3) { top: 50%; right: 0; animation-delay: 0.5s; }
-.spinner-particles span:nth-child(4) { bottom: 15%; right: 15%; animation-delay: 0.75s; }
-.spinner-particles span:nth-child(5) { bottom: 0; left: 50%; animation-delay: 1s; }
-.spinner-particles span:nth-child(6) { bottom: 15%; left: 15%; animation-delay: 1.25s; }
-
-@keyframes particle {
-  0%, 100% { opacity: 0.3; transform: scale(0.8); }
-  50% { opacity: 1; transform: scale(1.2); }
-}
-
-.generating-text {
-  text-align: center;
-}
-
-.generating-title {
-  font-weight: 600;
-  color: #333;
-  margin: 0;
-}
-
-.generating-subtitle {
-  font-size: 0.85rem;
-  color: #888;
-  margin: 4px 0 0;
+/* SVG bubble for preview */
+.message-bubble.svg-bubble {
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
 /* SVG bubble for preview */
 .message-bubble.svg-bubble {
+  position: relative;
   padding: 8px;
   background: white;
   border: 1px solid #e0e0e0;

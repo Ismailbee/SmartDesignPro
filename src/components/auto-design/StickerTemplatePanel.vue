@@ -407,22 +407,46 @@ async function renderSvgToPng(svgUrl: string, width: number, height: number, col
     const svgElement = svgDoc.querySelector('svg')
     
     if (svgElement) {
-      // Update fill colors in styles
+      // Update fill colors in styles (CSS within SVG)
       const styles = svgElement.querySelectorAll('style')
       styles.forEach(style => {
         if (style.textContent) {
           style.textContent = style.textContent
-            .replace(/fill:\s*#[0-9A-Fa-f]{3,6}/g, `fill:${color}`)
-            .replace(/fill:\s*rgb\([^)]+\)/g, `fill:${color}`)
+            .replace(/fill:\s*#[0-9A-Fa-f]{3,8}/gi, `fill:${color}`)
+            .replace(/fill:\s*rgb\([^)]+\)/gi, `fill:${color}`)
+            .replace(/fill:\s*rgba\([^)]+\)/gi, `fill:${color}`)
         }
       })
       
-      // Update fill attributes on elements
+      // Update fill attributes on ALL elements with fill attribute
       const fillElements = svgElement.querySelectorAll('[fill]')
       fillElements.forEach(el => {
         const currentFill = el.getAttribute('fill')
+        // Replace any color (hex, rgb, named) except 'none' and gradients
         if (currentFill && currentFill !== 'none' && !currentFill.startsWith('url(')) {
           el.setAttribute('fill', color)
+        }
+      })
+      
+      // Also update any inline style fill colors
+      const styledElements = svgElement.querySelectorAll('[style]')
+      styledElements.forEach(el => {
+        const style = el.getAttribute('style')
+        if (style && style.includes('fill')) {
+          const newStyle = style
+            .replace(/fill:\s*#[0-9A-Fa-f]{3,8}/gi, `fill:${color}`)
+            .replace(/fill:\s*rgb\([^)]+\)/gi, `fill:${color}`)
+            .replace(/fill:\s*rgba\([^)]+\)/gi, `fill:${color}`)
+          el.setAttribute('style', newStyle)
+        }
+      })
+      
+      // Handle g (group) elements that may have fill
+      const gElements = svgElement.querySelectorAll('g[fill]')
+      gElements.forEach(g => {
+        const currentFill = g.getAttribute('fill')
+        if (currentFill && currentFill !== 'none' && !currentFill.startsWith('url(')) {
+          g.setAttribute('fill', color)
         }
       })
       
@@ -1085,10 +1109,120 @@ async function handleGenerateMore() {
   }
 }
 
+// Handle generate new - creates a NEW design BELOW the existing one (keeps previous designs)
+async function handleGenerateNew() {
+  // Show generating state with professional loading
+  isGeneratingPreview.value = true
+  generatingMessage.value = 'Creating new design...'
+  
+  // Apply a new random background
+  const newBackground = getRandomBackground()
+  if (newBackground) {
+    // Simulate professional generation delay for better UX
+    await new Promise(resolve => setTimeout(resolve, 800))
+    
+    // Update generating message
+    generatingMessage.value = 'Applying new style...'
+    
+    // Apply the new background to the master SVG
+    await applyNewBackground(newBackground)
+    
+    // Another short delay for polish
+    await new Promise(resolve => setTimeout(resolve, 400))
+    generatingMessage.value = 'Finalizing design...'
+    
+    // Wait for DOM to update
+    await nextTick()
+    await nextTick()
+    
+    // Hide generating state before adding preview
+    isGeneratingPreview.value = false
+    
+    // ADD A NEW PREVIEW MESSAGE BELOW (don't update existing ones)
+    // This keeps previous designs visible and adds the new one below
+    chatMessages.value.push({
+      id: Date.now(),
+      text: '',
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      type: 'preview'
+    })
+    
+    // Add a brief message about the new design
+    chatMessages.value.push({
+      id: Date.now() + 1,
+      text: "Here's another design for you! 🎨",
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    })
+    
+    // Wait for the new preview container to be created
+    await nextTick()
+    await nextTick()
+    
+    // Small delay for container to fully render
+    await new Promise(resolve => setTimeout(resolve, 200))
+    
+    // Clone the master SVG to ONLY the new (last) preview container
+    if (weddingPreviewContainer.value) {
+      const masterSvg = weddingPreviewContainer.value.querySelector('svg')
+      if (masterSvg) {
+        const previewContainers = Array.isArray(chatPreviewContainer.value) 
+          ? chatPreviewContainer.value 
+          : (chatPreviewContainer.value ? [chatPreviewContainer.value] : [])
+        
+        // Get the LAST container (the newly added one)
+        const newContainer = previewContainers[previewContainers.length - 1]
+        
+        if (newContainer) {
+          // Remove any loading placeholder
+          const loadingPlaceholder = newContainer.querySelector('.preview-loading-placeholder')
+          if (loadingPlaceholder) loadingPlaceholder.remove()
+          
+          // Clone the master SVG
+          const clonedSvg = masterSvg.cloneNode(true) as SVGSVGElement
+          
+          // Get viewBox to calculate aspect ratio
+          const viewBox = clonedSvg.getAttribute('viewBox')
+          if (viewBox) {
+            const parts = viewBox.split(/\s+|,/)
+            if (parts.length >= 4) {
+              const vbWidth = parseFloat(parts[2])
+              const vbHeight = parseFloat(parts[3])
+              const aspectRatio = vbWidth / vbHeight
+              newContainer.style.aspectRatio = String(aspectRatio)
+            }
+          }
+          
+          // Style the cloned SVG
+          clonedSvg.style.display = 'block'
+          clonedSvg.style.width = '100%'
+          clonedSvg.style.maxWidth = '100%'
+          clonedSvg.style.height = 'auto'
+          clonedSvg.removeAttribute('width')
+          clonedSvg.removeAttribute('height')
+          
+          // Append to container
+          newContainer.appendChild(clonedSvg)
+          console.log('✅ New design added below existing one')
+        }
+      }
+    }
+  } else {
+    // No new background available
+    isGeneratingPreview.value = false
+  }
+  
+  // Scroll to see the new result
+  scrollToBottom()
+}
+
 // Handle preview menu actions (from 3-dot menu on preview)
 function handlePreviewMenuAction(action: string) {
   if (action === 'generate') {
     handleGenerateMore()
+  } else if (action === 'generate-new') {
+    handleGenerateNew()
   } else if (action === 'edit') {
     openEditModal()
   } else if (action === 'download') {

@@ -97,18 +97,6 @@ async function bootstrap() {
   app.use(pinia)
   app.use(router)
 
-// Initialize authentication immediately
-import { useAuthStore } from '@/stores/auth'
-const authStore = useAuthStore()
-// Force initialization if not already started
-if (!authStore.authInitialized) {
-  authStore.initAuth()
-}
-
-// Initialize theme
-const themeStore = useThemeStore()
-themeStore.initTheme()
-
   // Initialize theme with a timeout & error handling
   const themeStore = useThemeStore()
   try {
