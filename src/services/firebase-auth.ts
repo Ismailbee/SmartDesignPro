@@ -15,10 +15,13 @@ import {
   updateProfile,
   onAuthStateChanged,
   GoogleAuthProvider,
+  EmailAuthProvider,
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
   signInWithCredential,
+  linkWithCredential,
+  fetchSignInMethodsForEmail,
   type FirebaseUser,
   db,
   doc,
@@ -70,7 +73,7 @@ export async function registerWithEmail(data: RegisterData): Promise<User> {
       displayName
     })
 
-    // Create user document in Firestore
+    // Create user document in Firestore with FREE STARTER TOKENS
     const userData = {
       email: data.email,
       username: data.username || '',
@@ -80,6 +83,9 @@ export async function registerWithEmail(data: RegisterData): Promise<User> {
       role: 'user',
       status: 'active',
       emailVerified: false,
+      tokens: 100, // FREE starting tokens for new users!
+      plan: 'Basic',
+      totalDesignsGenerated: 0,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       lastLoginAt: serverTimestamp()
@@ -123,7 +129,7 @@ export async function loginWithEmail(data: LoginData): Promise<User> {
 
       console.log('📄 User document exists:', userDoc.exists())
 
-      // If user document doesn't exist, create it
+      // If user document doesn't exist, create it with FREE STARTER TOKENS
       if (!userDoc.exists()) {
         console.log('📝 Creating user document in Firestore...')
         userData = {
@@ -136,13 +142,16 @@ export async function loginWithEmail(data: LoginData): Promise<User> {
           role: 'user',
           status: 'active',
           emailVerified: firebaseUser.emailVerified,
+          tokens: 100, // FREE starting tokens for new users!
+          plan: 'Basic',
+          totalDesignsGenerated: 0,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           lastLoginAt: serverTimestamp()
         }
 
         await setDoc(doc(db, 'users', firebaseUser.uid), userData)
-        console.log('✅ User document created')
+        console.log('✅ User document created with 100 FREE tokens')
       } else {
         // Update last login
         await setDoc(
@@ -216,7 +225,7 @@ export async function loginWithGoogle(): Promise<User> {
     
     let userData
     if (!userDoc.exists()) {
-      // Create new user document
+      // Create new user document with FREE STARTER TOKENS
       userData = {
         email: firebaseUser.email || '',
         username: firebaseUser.email?.split('@')[0] || '',
@@ -227,6 +236,9 @@ export async function loginWithGoogle(): Promise<User> {
         role: 'user',
         status: 'active',
         emailVerified: firebaseUser.emailVerified,
+        tokens: 100, // FREE starting tokens for new users!
+        plan: 'Basic',
+        totalDesignsGenerated: 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         lastLoginAt: serverTimestamp()
@@ -482,6 +494,101 @@ export async function updateUserData(userId: string, data: any): Promise<void> {
   } catch (error) {
     console.error('Error updating user data:', error)
     throw error
+  }
+}
+
+/**
+ * Get linked authentication providers for current user
+ * @returns Array of provider IDs (e.g., ['google.com', 'password'])
+ */
+export async function getLinkedProviders(): Promise<string[]> {
+  const currentUser = auth.currentUser
+  if (!currentUser) {
+    return []
+  }
+  return currentUser.providerData.map(provider => provider.providerId)
+}
+
+/**
+ * Check if email/password is linked to the current account
+ */
+export async function hasPasswordProvider(): Promise<boolean> {
+  const providers = await getLinkedProviders()
+  return providers.includes('password')
+}
+
+/**
+ * Check if Google is linked to the current account
+ */
+export async function hasGoogleProvider(): Promise<boolean> {
+  const providers = await getLinkedProviders()
+  return providers.includes('google.com')
+}
+
+/**
+ * Link email/password to existing account (for Google users who want to add password login)
+ * @param password - The new password to set for email/password login
+ */
+export async function linkEmailPassword(password: string): Promise<void> {
+  const currentUser = auth.currentUser
+
+  if (!currentUser) {
+    throw new Error('No user is currently logged in')
+  }
+
+  if (!currentUser.email) {
+    throw new Error('Current user does not have an email address')
+  }
+
+  // Check if password is already linked
+  const hasPassword = await hasPasswordProvider()
+  if (hasPassword) {
+    throw new Error('Email/password authentication is already linked to this account')
+  }
+
+  // Validate password
+  if (password.length < 6) {
+    throw new Error('Password must be at least 6 characters long')
+  }
+
+  try {
+    // Create email/password credential
+    const credential = EmailAuthProvider.credential(currentUser.email, password)
+
+    // Link the credential to the current user
+    await linkWithCredential(currentUser, credential)
+
+    console.log('✅ Email/password linked successfully')
+  } catch (error: any) {
+    console.error('❌ Error linking email/password:', error)
+
+    // Handle specific error codes
+    if (error.code === 'auth/requires-recent-login') {
+      throw new Error('For security, please log out and log back in with Google, then try again')
+    } else if (error.code === 'auth/email-already-in-use') {
+      throw new Error('This email is already linked to another account')
+    } else if (error.code === 'auth/weak-password') {
+      throw new Error('Password is too weak. Please use a stronger password')
+    } else if (error.code === 'auth/provider-already-linked') {
+      throw new Error('Email/password is already linked to this account')
+    }
+
+    throw error
+  }
+}
+
+/**
+ * Get sign-in methods available for an email
+ * @param email - Email to check
+ * @returns Array of sign-in methods
+ */
+export async function getSignInMethodsForEmail(email: string): Promise<string[]> {
+  try {
+    const methods = await fetchSignInMethodsForEmail(auth, email)
+    return methods
+  } catch (error) {
+    console.error('Error fetching sign-in methods:', error)
+    return []
   }
 }
 

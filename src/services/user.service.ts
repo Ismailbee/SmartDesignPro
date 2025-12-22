@@ -22,7 +22,7 @@ export async function getUser(userId: string, email?: string, name?: string): Pr
 
       const url = `${API_BASE_URL}/api/users/${userId}${params.toString() ? '?' + params.toString() : ''}`
       const response = await fetch(url, {
-        signal: AbortSignal.timeout(5000) // 5 second timeout
+        signal: AbortSignal.timeout(15000) // 15 second timeout for Firestore
       })
 
       if (!response.ok) {

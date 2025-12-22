@@ -3,15 +3,17 @@
  * Main routing setup for the application
  */
 
-import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHistory, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { Capacitor } from '@capacitor/core'
+
+// Use hash history on native platforms (Capacitor) for file:// protocol support
+const isNative = Capacitor.isNativePlatform()
 
 // Lazy load components for better performance
-const WelcomePage = () => import('@/components/WelcomePage.vue')
 const HomePage = () => import('@/components/HomePage.vue')
 const LoginPage = () => import('@/views/LoginPage.vue')
 const RegisterPage = () => import('@/views/RegisterPage.vue')
-const DesignEditor = () => import('@/components/DesignEditor.vue')
 const UserSettings = () => import('@/views/UserSettings.vue')
 const AutoDesignPage = () => import('@/views/AutoDesignPage.vue')
 const InvoiceReceiptPage = () => import('@/views/invoices/InvoiceReceiptPage.vue')
@@ -47,9 +49,7 @@ const MockupPage = () => import('@/views/MockupPage.vue')
 const VideosPage = () => import('@/views/VideosPage.vue')
 const PrivacySettings = () => import('@/views/PrivacySettings.vue')
 const SmartTemplateDesigner = () => import('@/components/SmartTemplateDesigner.vue')
-
-// Auto Design Sub-pages
-const NamingPanel = () => import('@/components/auto-design/NamingPanel.vue')
+const FabricEditorProPage = () => import('@/views/FabricEditorProPage.vue')
 
 // Help & Support Pages
 const HelpCenterPage = () => import('@/views/HelpCenterPage.vue')
@@ -85,12 +85,7 @@ const routes: RouteRecordRaw[] = [
   // ============================================================
   {
     path: '/',
-    name: 'welcome',
-    component: WelcomePage,
-    meta: {
-      title: 'Welcome - SmartDesignPro',
-      requiresAuth: false
-    }
+    redirect: '/home'
   },
   {
     path: '/login',
@@ -126,16 +121,6 @@ const routes: RouteRecordRaw[] = [
   },
 
   {
-    path: '/editor',
-    name: 'editor',
-    component: DesignEditor,
-    meta: {
-      title: 'Editor - SmartDesignPro',
-      requiresAuth: true
-    }
-  },
-
-  {
     path: '/settings',
     name: 'settings',
     component: UserSettings,
@@ -155,13 +140,14 @@ const routes: RouteRecordRaw[] = [
     }
   },
 
+  // Fabric Editor Pro (Canva-like UI with Voice Commands)
   {
-    path: '/auto-design/naming',
-    name: 'naming',
-    component: NamingPanel,
+    path: '/editor-pro',
+    name: 'editor-pro',
+    component: FabricEditorProPage,
     meta: {
-      title: 'Naming Design - SmartDesignPro',
-      requiresAuth: false  // Temporarily disabled for testing
+      title: 'Design Editor Pro - SmartDesignPro',
+      requiresAuth: false  // Public for testing
     }
   },
 
@@ -727,9 +713,10 @@ const routes: RouteRecordRaw[] = [
 
 /**
  * Create router instance
+ * Use hash history on native platforms for file:// protocol support
  */
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: isNative ? createWebHashHistory() : createWebHistory(import.meta.env.BASE_URL),
   routes,
   scrollBehavior(to, from, savedPosition) {
     if (savedPosition) {
@@ -751,8 +738,8 @@ router.beforeEach((to, _from, next) => {
 
   // Debug logs removed to satisfy lint rules
 
-  // If user is authenticated and trying to access welcome/login page, redirect to home
-  if ((to.name === 'welcome' || to.meta.redirectIfAuth) && authStore.isAuthenticated) {
+  // If user is authenticated and trying to access login page, redirect to home
+  if (to.meta.redirectIfAuth && authStore.isAuthenticated) {
   // User authenticated, redirect to home
     next({ name: 'home' })
     return
@@ -762,12 +749,12 @@ router.beforeEach((to, _from, next) => {
   if (to.meta.requiresAuth) {
     // Allow navigation if user is authenticated OR in dev bypass mode
     if (!authStore.isAuthenticated) {
-  // Route requires auth, redirect to welcome page
+  // Route requires auth, redirect to login page
       // Store intended route for redirect after login
       sessionStorage.setItem('intendedRoute', to.fullPath)
 
-      // Redirect to welcome page
-      next({ name: 'welcome' })
+      // Redirect to login page
+      next({ name: 'login' })
       return
     }
   }
@@ -777,7 +764,7 @@ router.beforeEach((to, _from, next) => {
     if (!authStore.isAuthenticated) {
   // Admin route requires auth
       sessionStorage.setItem('intendedRoute', to.fullPath)
-      next({ name: 'welcome' })
+      next({ name: 'login' })
       return
     }
 

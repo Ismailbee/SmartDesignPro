@@ -24,20 +24,18 @@
         <div class="hero-section">
           <div class="hero-content">
             <!-- Current Plan Badge -->
-            <div class="plan-status-badge" :class="`plan-${userStore.user.plan.toLowerCase()}`">
-              <span class="plan-icon">{{ getPlanIcon(userStore.user.plan) }}</span>
-              <span class="plan-text">{{ userStore.user.plan }} Plan</span>
-              <span v-if="userStore.user.plan !== 'Basic'" class="plan-expiry">
+          <div class="plan-status-badge" :class="`plan-${userStore.user?.plan?.toLowerCase() || 'free'}`">
+            <span class="plan-icon">{{ getPlanIcon(userStore.user?.plan || 'Basic') }}</span>
+            <span class="plan-text">{{ userStore.user?.plan || 'Free' }} Plan</span>
+            <span v-if="userStore.user?.plan && userStore.user.plan !== 'Basic'" class="plan-expiry">
                 {{ userStore.daysUntilExpiry }} days left
-              </span>
-            </div>
-
-            <!-- Token Balance Display -->
+            </span>
+          </div>            <!-- Token Balance Display -->
             <div class="token-balance-hero">
               <div class="token-balance-label">Available Tokens</div>
               <div class="token-balance-display">
                 <span class="token-icon-large">💎</span>
-                <span class="token-count-large">{{ userStore.user.tokens.toLocaleString() }}</span>
+                <span class="token-count-large">{{ userStore.user?.tokens ? userStore.user.tokens.toLocaleString() : '0' }}</span>
               </div>
               <div class="token-balance-subtext">
                 Used in {{ userStore.user.totalDesignsGenerated }} designs
@@ -277,8 +275,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { Capacitor } from '@capacitor/core'
+import { App } from '@capacitor/app'
 import {
   IonPage,
   IonHeader,
@@ -333,6 +333,19 @@ const customTokenAmount = ref<number>(100)
 const customAmountError = ref<string | null>(null)
 const MIN_CUSTOM_TOKENS = 100
 
+// Pending payment state for mobile payments
+const pendingPayment = ref<{
+  reference: string
+  tokens: number
+  type: 'token_purchase' | 'plan_upgrade'
+  plan?: 'Premium' | 'Pro'
+  planId?: string
+  freeTokens?: number
+} | null>(null)
+
+// App state listener for mobile payment verification
+let appStateListener: any = null
+
 // Data
 const tokenPackages = TOKEN_PACKAGES
 const planConfigs = PLAN_CONFIGS
@@ -349,7 +362,107 @@ const isCustomAmountValid = computed(() => {
 // Lifecycle
 onMounted(async () => {
   await loadUserData()
+  
+  // Set up app state listener for mobile payments
+  if (Capacitor.isNativePlatform()) {
+    setupAppStateListener()
+  }
 })
+
+// Clean up listener on unmount
+onUnmounted(() => {
+  if (appStateListener) {
+    appStateListener.remove()
+    appStateListener = null
+  }
+})
+
+// Setup app state listener for mobile payment verification
+async function setupAppStateListener() {
+  try {
+    appStateListener = await App.addListener('appStateChange', async ({ isActive }) => {
+      console.log('📱 App state changed, isActive:', isActive)
+      
+      // When app becomes active and there's a pending payment
+      if (isActive && pendingPayment.value) {
+        console.log('📱 App resumed with pending payment:', pendingPayment.value)
+        await handlePendingPaymentVerification()
+      } else if (isActive) {
+        // Even without pending payment, refresh user data when app resumes
+        // This handles cases where payment was completed but reference was lost
+        console.log('📱 App resumed, refreshing user data...')
+        await loadUserData()
+      }
+    })
+    console.log('📱 App state listener set up successfully')
+  } catch (err) {
+    console.error('Failed to setup app state listener:', err)
+  }
+}
+
+// Handle pending payment verification when app resumes
+async function handlePendingPaymentVerification() {
+  if (!pendingPayment.value) return
+  
+  const payment = pendingPayment.value
+  
+  try {
+    const toast = await toastController.create({
+      message: 'Verifying your payment...',
+      duration: 2000,
+      position: 'top'
+    })
+    await toast.present()
+    
+    // Verify the payment
+    const result = await verifyPayment(payment.reference)
+    console.log('📱 Payment verification result:', result)
+    
+    if (result.status === 'success') {
+      if (payment.type === 'token_purchase') {
+        // Update local token count
+        userStore.updateTokens(payment.tokens)
+        
+        const successToast = await toastController.create({
+          message: `✅ ${payment.tokens} tokens added to your account!`,
+          duration: 3000,
+          position: 'top',
+          color: 'success'
+        })
+        await successToast.present()
+      } else if (payment.type === 'plan_upgrade' && payment.plan) {
+        // Update plan
+        const expiryDate = new Date()
+        expiryDate.setMonth(expiryDate.getMonth() + 2)
+        userStore.upgradePlan(payment.plan, expiryDate.toISOString(), payment.freeTokens || 0)
+        
+        const successToast = await toastController.create({
+          message: `🎉 Welcome to ${payment.plan}! ${payment.freeTokens || 0} tokens added.`,
+          duration: 3000,
+          position: 'top',
+          color: 'success'
+        })
+        await successToast.present()
+      }
+    } else {
+      // Payment not successful yet or failed
+      const infoToast = await toastController.create({
+        message: 'Payment status: ' + (result.status || 'pending'),
+        duration: 2000,
+        position: 'top',
+        color: 'warning'
+      })
+      await infoToast.present()
+    }
+  } catch (err: any) {
+    console.error('Payment verification error:', err)
+    // Don't show error toast, just refresh data
+  } finally {
+    // Clear pending payment and refresh user data
+    pendingPayment.value = null
+    await loadUserData()
+  }
+}
 
 // Methods
 function goBack() {
@@ -473,14 +586,17 @@ async function handleTokenPurchase(pkg: TokenPackage) {
     })
     await toast.present()
 
-    await purchaseTokens(
+    // For mobile, store pending payment info before opening browser
+    const isNative = Capacitor.isNativePlatform()
+    
+    const reference = await purchaseTokens(
       userStore.user.id,
       userStore.user.email,
       userStore.user.name,
       pkg.amount,
       pkg.tokens,
       async (response) => {
-        // Payment successful
+        // Payment successful callback (works on web, not on mobile)
         const successToast = await toastController.create({
           message: 'Payment successful! Verifying...',
           duration: 2000,
@@ -511,7 +627,8 @@ async function handleTokenPurchase(pkg: TokenPackage) {
         }
       },
       async () => {
-        // Payment cancelled
+        // Payment cancelled callback (works on web, not on mobile)
+        pendingPayment.value = null
         const cancelToast = await toastController.create({
           message: 'Payment cancelled. No charges were made.',
           duration: 2000,
@@ -521,7 +638,27 @@ async function handleTokenPurchase(pkg: TokenPackage) {
         await cancelToast.present()
       }
     )
+    
+    // Store pending payment for mobile verification when app resumes
+    if (isNative && reference) {
+      console.log('📱 Storing pending payment for mobile:', { reference, tokens: pkg.tokens })
+      pendingPayment.value = {
+        reference,
+        tokens: pkg.tokens,
+        type: 'token_purchase'
+      }
+      
+      // Show instruction for mobile users
+      const mobileToast = await toastController.create({
+        message: 'Complete payment in browser. Your tokens will be added when you return.',
+        duration: 4000,
+        position: 'top',
+        color: 'primary'
+      })
+      await mobileToast.present()
+    }
   } catch (err: any) {
+    pendingPayment.value = null
     const errorToast = await toastController.create({
       message: err.message || 'Failed to process payment',
       duration: 3000,
@@ -534,6 +671,9 @@ async function handleTokenPurchase(pkg: TokenPackage) {
 
 async function handlePlanUpgrade(plan: PlanConfig) {
   if (!userStore.user || plan.name === 'Basic' || userStore.user.plan === plan.name) return
+
+  // For mobile, track if we're on native platform
+  const isNative = Capacitor.isNativePlatform()
 
   // Show confirmation modal
   const alert = await alertController.create({
@@ -557,7 +697,7 @@ async function handlePlanUpgrade(plan: PlanConfig) {
         text: 'Confirm Upgrade',
         handler: async () => {
           try {
-            await upgradePlan(
+            const reference = await upgradePlan(
               userStore.user!.id,
               userStore.user!.email,
               userStore.user!.name,
@@ -565,7 +705,7 @@ async function handlePlanUpgrade(plan: PlanConfig) {
               plan.planId,
               plan.price,
               async (response) => {
-                // Payment successful
+                // Payment successful callback (works on web, not on mobile)
                 const successToast = await toastController.create({
                   message: 'Payment successful! Verifying...',
                   duration: 2000,
@@ -598,7 +738,8 @@ async function handlePlanUpgrade(plan: PlanConfig) {
                 }
               },
               async () => {
-                // Payment cancelled
+                // Payment cancelled callback (works on web, not on mobile)
+                pendingPayment.value = null
                 const cancelToast = await toastController.create({
                   message: 'Upgrade cancelled. No charges were made.',
                   duration: 2000,
@@ -608,7 +749,30 @@ async function handlePlanUpgrade(plan: PlanConfig) {
                 await cancelToast.present()
               }
             )
+            
+            // Store pending payment for mobile verification when app resumes
+            if (isNative && reference) {
+              console.log('📱 Storing pending plan upgrade for mobile:', { reference, plan: plan.name })
+              pendingPayment.value = {
+                reference,
+                tokens: plan.freeTokens,
+                type: 'plan_upgrade',
+                plan: plan.name as 'Premium' | 'Pro',
+                planId: plan.planId,
+                freeTokens: plan.freeTokens
+              }
+              
+              // Show instruction for mobile users
+              const mobileToast = await toastController.create({
+                message: 'Complete payment in browser. Your plan will be upgraded when you return.',
+                duration: 4000,
+                position: 'top',
+                color: 'primary'
+              })
+              await mobileToast.present()
+            }
           } catch (err: any) {
+            pendingPayment.value = null
             const errorToast = await toastController.create({
               message: err.message || 'Failed to process upgrade',
               duration: 3000,
@@ -638,16 +802,18 @@ async function handlePlanUpgrade(plan: PlanConfig) {
 .tokens-header {
   --ion-background: #ffffff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --min-height: 80px;
 }
 
 .tokens-toolbar {
   --ion-padding-start: 0;
   --ion-padding-end: 0;
+  --min-height: 80px;
 }
 
 .tokens-title {
   font-weight: 600;
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   letter-spacing: -0.5px;
 }
 

@@ -98,7 +98,7 @@ const userStore = useUserStore()
 const homeHeaderRef = ref<InstanceType<typeof HomeHeader> | null>(null)
 
 // Interactive Guide Steps
-const guideSteps = [
+const guideSteps: Array<{ target: string; message: string; position: 'top' | 'bottom' | 'left' | 'right' }> = [
   {
     target: '.logo',
     message: 'Welcome to SmartDesignPro! This is your home for creating amazing designs.',
@@ -163,12 +163,12 @@ const handleSidebarNavigation = (section: string) => {
 
 const handleSidebarAutoDesign = () => {
   closeSidebar()
-  // Wait for sidebar to close, then navigate to editor
+  // Wait for sidebar to close, then navigate to editor-pro
   setTimeout(() => {
     if (!authStore.isAuthenticated) {
       router.push('/login')
     } else {
-      router.push('/editor')
+      router.push('/editor-pro')
     }
   }, 300)
 }
@@ -210,12 +210,12 @@ const handleSidebarLogout = async () => {
 
 // Refresh user data when page loads (to get latest plan/tokens)
 onMounted(async () => {
-  if (authStore.isAuthenticated && authStore.user?.uid) {
+  if (authStore.isAuthenticated && authStore.user?.id) {
     try {
       await userStore.fetchUser(
-        authStore.user.uid,
+        authStore.user.id,
         authStore.user.email,
-        authStore.user.displayName || authStore.user.name
+        authStore.user.name || authStore.user.username
       )
       console.log('✅ User data refreshed on HomePage')
     } catch (error) {
@@ -249,7 +249,7 @@ const handleStartProject = () => {
   if (!authStore.isAuthenticated) {
     router.push('/login')
   } else {
-    router.push('/editor')
+    router.push('/editor-pro')
   }
 }
 

@@ -75,9 +75,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { storeToRefs } from 'pinia';
 import { 
   IonPage, 
   IonContent, 
@@ -98,6 +99,28 @@ import {
 
 const router = useRouter();
 const authStore = useAuthStore();
+const { isAuthenticated } = storeToRefs(authStore);
+
+// Redirect if already authenticated
+const checkAuth = () => {
+  if (isAuthenticated.value) {
+    console.log('User already authenticated, redirecting to home...');
+    router.replace('/home');
+  }
+};
+
+// Check on mount
+onMounted(() => {
+  checkAuth();
+});
+
+// Watch for auth state changes
+watch(isAuthenticated, (newValue) => {
+  if (newValue) {
+    console.log('User became authenticated, redirecting to home...');
+    router.replace('/home');
+  }
+});
 
 const email = ref('');
 const password = ref('');

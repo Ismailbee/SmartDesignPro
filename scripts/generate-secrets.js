@@ -11,8 +11,8 @@
 
 import crypto from 'crypto'
 
-console.log('\n🔐 SECURE SECRET GENERATOR\n')
-console.log('=' .repeat(80))
+console.log('\ne🔐 SECURE SECRET GENERATOR\n')
+console.log('=' .rpeat(80))
 console.log('\nGenerate these secrets for your .env file:\n')
 
 // Generate JWT secrets
@@ -27,7 +27,7 @@ console.log('REFRESH_TOKEN_SECRET=' + refreshTokenSecret)
 console.log('SESSION_SECRET=' + sessionSecret)
 
 console.log('\n' + '=' .repeat(80))
-console.log('\n⚠️  IMPORTANT SECURITY NOTES:\n')
+console.log('\n⚠️  IMPORTANT SECU   RITY NOTES:\n')
 console.log('1. ✅ Copy these values to your .env file')
 console.log('2. ✅ Use DIFFERENT secrets for development, staging, and production')
 console.log('3. ✅ Never commit .env files to version control')

@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2996.9 1685.75" preserveAspectRatio="xMidYMid meet">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2996.9 1685.75" preserveAspectRatio="xMidYMid meet">
   
   <defs>
     <style type="text/css">
@@ -12,6 +12,17 @@
         font-family: 'Playfair Display', 'Times New Roman', 'Georgia', serif;
       }
     </style>
+    
+    <!-- Gradient for wave layer -->
+    <linearGradient id="g1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFCC29;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF9900;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- Clip path for image - Full-height rectangular box -->
+    <clipPath id="imageClip">
+      <rect x="1400" y="0" width="1580" height="1685.75" rx="0" ry="0"/>
+    </clipPath>
   </defs>
   
   <!-- Background -->
@@ -23,41 +34,25 @@
   <path fill="#507C95" d="M0 539.04c926.95 695.49 1904.9-177.45 2996.89 529.68v617.04H0z"/>
   <path fill="#104C6E" d="M0 616.09c926.95 695.48 1904.9-254.49 2996.89 452.63v617.04H0z"/>
 
-    <!-- Gradient for wave layer -->
-    <linearGradient id="g1" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#FFCC29;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#FF9900;stop-opacity:1" />
-    </linearGradient>
-
-    <!-- Clip path for image - Full-height rectangular box (no curves) -->
-    <clipPath id="imageClip">
-      <rect x="1400" y="35" width="1580" height="1650.75" rx="0" ry="0"/>
-    </clipPath>
-
-    <!-- Alternative: Circle clip path (uncomment to use) -->
-    <!-- <clipPath id="image-clip-circle">
-      <circle cx="2325" cy="1227" r="1225"/>
-    </clipPath> -->
-
-  <!-- Placeholder image with clip path applied -->
-  <image id="userImage" x="1400" y="35" width="1580" height="1650.75" 
+  <!-- User image with clip path applied - starts from top of clip area -->
+  <image id="userImage" x="1400" y="0" width="1580" height="1685.75" 
          opacity="1" 
          href="" 
          clip-path="url(#imageClip)"
-         preserveAspectRatio="xMidYMid meet"/>
+         preserveAspectRatio="xMidYMid slice"/>
 
   <!-- Editable text elements with IDs -->
-  <text id="blessing-text" class="serif-font" x="850.45" y="280" text-anchor="middle" font-size="197.68" fill="#000">Alhamdulillahi</text>
-  <text id="occasion-text" x="850.45" y="350" text-anchor="middle" font-size="53.92" font-weight="bold" fill="#000">ON YOUR</text>
-  <text id="event-type-text" class="serif-font" x="850.45" y="520" text-anchor="middle" font-size="224.86" font-weight="bold" fill="#104C6E">WEDDING</text>
-  <text id="ceremony-text" x="850.45" y="650" text-anchor="middle" font-size="153.56" font-weight="bold" fill="red">CEREMONY</text>
+  <text id="blessing-text" class="serif-font" x="850.45" y="380" text-anchor="middle" font-size="160" fill="#000">Alhamdulillahi</text>
+  <text id="occasion-text" x="850.45" y="450" text-anchor="middle" font-size="45" font-weight="bold" fill="#000">ON YOUR</text>
+  <text id="event-type-text" class="serif-font" x="850.45" y="600" text-anchor="middle" font-size="180" font-weight="bold" fill="#104C6E">WEDDING</text>
+  <text id="ceremony-text" x="850.45" y="720" text-anchor="middle" font-size="130" font-weight="bold" fill="red">CEREMONY</text>
   
-  <!-- New Wedding Names - Clean version positioned where the old names were -->
+  <!-- New Wedding Names - Clean version positioned below the image -->
   <g id="wedding-names-group" transform="translate(400, 900) scale(2.5)">
-    <text id="name1-first" x="-50" y="85" fill="#FEFEFE" font-size="84.15" font-weight="bold">Muhammad</text>
-    <text id="name2-first" x="10.23" y="160" fill="#FEFEFE" font-size="84.15" font-weight="bold">Hauwawu</text>
-    <text id="name-separator" x="-70.3" y="160.4" fill="#FFF212" font-size="84.15" font-weight="bold">&amp;</text>
+    <text id="name1-first" x="-50" y="85" fill="#000000" font-size="84.15" font-weight="bold">Muhammad</text>
+    <text id="name2-first" x="10.23" y="160" fill="#000000" font-size="84.15" font-weight="bold">Hauwawu</text>
+    <text id="name-separator" x="-70.3" y="160.4" fill="#B8860B" font-size="84.15" font-weight="bold">&amp;</text>
   </g>
-  <text id="date-text" x="800.45" y="1480" text-anchor="middle" font-size="100" font-weight="bold" fill="#FFFF00">8th March, 2025</text>
-  <text id="courtesy-text" x="800.45" y="1600" text-anchor="middle" font-size="100" font-weight="bold" fill="#FFFFFF">Courtesy: Maijama'a Famiy</text>
+  <text id="date-text" x="800.45" y="1550" text-anchor="middle" font-size="100" font-weight="bold" fill="#000000">8th March, 2025</text>
+  <text id="courtesy-text" x="800.45" y="1720" text-anchor="middle" font-size="90" font-weight="bold" fill="#333333">Courtesy: Maijama'a Famiy</text>
 </svg>

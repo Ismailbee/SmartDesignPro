@@ -1,299 +1,55 @@
 /**
  * Export Utility Functions
- * Client-side export helpers using Konva
+ * Client-side export helpers for canvas/image export
  */
 
-import type Konva from 'konva'
 import type { ExportOptions, ExportFormat } from '@/types/export'
 import { RESOLUTION_PRESETS } from '@/types/export'
 
 /**
- * Export stage to blob
- */
-export async function exportStageToBlob(
-  stage: Konva.Stage,
-  options: ExportOptions
-): Promise<Blob> {
-  const { format, quality = 0.9, transparent = false } = options
-
-  // Get dimensions
-  const { width, height } = getExportDimensions(stage, options)
-
-  // Get mime type
-  const mimeType = getMimeType(format)
-
-  // Configure export options
-  const exportConfig: any = {
-    mimeType,
-    pixelRatio: getPixelRatio(options),
-    width,
-    height,
-  }
-
-  // Add quality for JPEG
-  if (format === 'jpeg') {
-    exportConfig.quality = quality
-  }
-
-  // Handle background
-  if (!transparent && options.background === 'solid' && options.backgroundColor) {
-    // Create temporary background
-    const originalBg = stage.findOne('#background-rect') as Konva.Rect | undefined
-    if (originalBg) {
-      const originalFill = originalBg.fill()
-      originalBg.fill(options.backgroundColor)
-
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        stage.toBlob({
-          ...exportConfig,
-          callback: (blob) => {
-            if (blob) resolve(blob)
-            else reject(new Error('Failed to create blob'))
-          },
-        })
-      })
-
-      // Restore original background
-      originalBg.fill(originalFill)
-      return blob
-    }
-  }
-
-  // Standard export
-  return new Promise<Blob>((resolve, reject) => {
-    stage.toBlob({
-      ...exportConfig,
-      callback: (blob) => {
-        if (blob) resolve(blob)
-        else reject(new Error('Failed to create blob'))
-      },
-    })
-  })
-}
-
-/**
- * Export stage to data URL
- */
-export function exportStageToDataURL(
-  stage: Konva.Stage,
-  options: ExportOptions
-): string {
-  const { format, quality = 0.9 } = options
-
-  // Get dimensions
-  const { width, height } = getExportDimensions(stage, options)
-
-  // Get mime type
-  const mimeType = getMimeType(format)
-
-  // Configure export options
-  const exportConfig: any = {
-    mimeType,
-    pixelRatio: getPixelRatio(options),
-    width,
-    height,
-  }
-
-  // Add quality for JPEG
-  if (format === 'jpeg') {
-    exportConfig.quality = quality
-  }
-
-  return stage.toDataURL(exportConfig)
-}
-
-/**
- * Export stage to SVG
- */
-export function exportStageToSVG(stage: Konva.Stage): string {
-  // Get stage dimensions
-  const width = stage.width()
-  const height = stage.height()
-
-  // Create SVG header
-  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n`
-
-  // Get all layers
-  const layers = stage.getLayers()
-
-  layers.forEach((layer) => {
-    svg += convertLayerToSVG(layer)
-  })
-
-  svg += '</svg>'
-
-  return svg
-}
-
-/**
- * Convert Konva layer to SVG
- */
-function convertLayerToSVG(layer: Konva.Layer): string {
-  let svg = '<g>\n'
-
-  const children = layer.getChildren()
-
-  children.forEach((node) => {
-    svg += convertNodeToSVG(node)
-  })
-
-  svg += '</g>\n'
-
-  return svg
-}
-
-/**
- * Convert Konva node to SVG element
- */
-function convertNodeToSVG(node: Konva.Node): string {
-  const className = node.getClassName()
-
-  switch (className) {
-    case 'Rect':
-      return convertRectToSVG(node as Konva.Rect)
-    case 'Circle':
-      return convertCircleToSVG(node as Konva.Circle)
-    case 'Text':
-      return convertTextToSVG(node as Konva.Text)
-    case 'Image':
-      return convertImageToSVG(node as Konva.Image)
-    case 'Line':
-      return convertLineToSVG(node as Konva.Line)
-    default:
-      return ''
-  }
-}
-
-/**
- * Convert Rect to SVG
- */
-function convertRectToSVG(rect: Konva.Rect): string {
-  const x = rect.x()
-  const y = rect.y()
-  const width = rect.width()
-  const height = rect.height()
-  const fill = rect.fill() || 'none'
-  const stroke = rect.stroke() || 'none'
-  const strokeWidth = rect.strokeWidth() || 0
-
-  return `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />\n`
-}
-
-/**
- * Convert Circle to SVG
- */
-function convertCircleToSVG(circle: Konva.Circle): string {
-  const cx = circle.x()
-  const cy = circle.y()
-  const r = circle.radius()
-  const fill = circle.fill() || 'none'
-  const stroke = circle.stroke() || 'none'
-  const strokeWidth = circle.strokeWidth() || 0
-
-  return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />\n`
-}
-
-/**
- * Convert Text to SVG
- */
-function convertTextToSVG(text: Konva.Text): string {
-  const x = text.x()
-  const y = text.y()
-  const content = text.text()
-  const fontSize = text.fontSize()
-  const fontFamily = text.fontFamily()
-  const fill = text.fill() || '#000000'
-
-  return `<text x="${x}" y="${y + fontSize}" font-size="${fontSize}" font-family="${fontFamily}" fill="${fill}">${escapeXml(content)}</text>\n`
-}
-
-/**
- * Convert Image to SVG
- */
-function convertImageToSVG(image: Konva.Image): string {
-  const x = image.x()
-  const y = image.y()
-  const width = image.width()
-  const height = image.height()
-  const img = image.image() as HTMLImageElement
-
-  if (!img || !img.src) return ''
-
-  return `<image x="${x}" y="${y}" width="${width}" height="${height}" href="${img.src}" />\n`
-}
-
-/**
- * Convert Line to SVG
- */
-function convertLineToSVG(line: Konva.Line): string {
-  const points = line.points()
-  const stroke = line.stroke() || '#000000'
-  const strokeWidth = line.strokeWidth() || 1
-
-  if (points.length < 2) return ''
-
-  let pathData = `M ${points[0]} ${points[1]}`
-  for (let i = 2; i < points.length; i += 2) {
-    pathData += ` L ${points[i]} ${points[i + 1]}`
-  }
-
-  return `<path d="${pathData}" stroke="${stroke}" stroke-width="${strokeWidth}" fill="none" />\n`
-}
-
-/**
- * Escape XML special characters
- */
-function escapeXml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;')
-}
-
-/**
  * Get export dimensions based on options
  */
-function getExportDimensions(
-  stage: Konva.Stage,
+export function getExportDimensions(
+  baseWidth: number,
+  baseHeight: number,
   options: ExportOptions
 ): { width: number; height: number } {
-  if (options.resolution === 'custom' && options.customWidth && options.customHeight) {
-    return {
-      width: options.customWidth,
-      height: options.customHeight,
-    }
+  if (options.customWidth && options.customHeight) {
+    return { width: options.customWidth, height: options.customHeight }
   }
 
-  const preset = RESOLUTION_PRESETS[options.resolution]
-  return {
-    width: preset.width,
-    height: preset.height,
+  if (options.preset && RESOLUTION_PRESETS[options.preset]) {
+    const preset = RESOLUTION_PRESETS[options.preset]
+    return { width: preset.width, height: preset.height }
   }
+
+  return { width: baseWidth, height: baseHeight }
 }
 
 /**
- * Get pixel ratio based on DPI
+ * Get pixel ratio for export
  */
-function getPixelRatio(options: ExportOptions): number {
-  if (options.dpi) {
-    return options.dpi / 72 // 72 DPI is the base
+export function getPixelRatio(options: ExportOptions): number {
+  if (options.pixelRatio) {
+    return options.pixelRatio
   }
 
-  const preset = RESOLUTION_PRESETS[options.resolution]
-  return preset.dpi / 72
+  if (options.preset && RESOLUTION_PRESETS[options.preset]) {
+    return RESOLUTION_PRESETS[options.preset].pixelRatio
+  }
+
+  return 1
 }
 
 /**
- * Get MIME type for format
+ * Get mime type for format
  */
-function getMimeType(format: ExportFormat): string {
+export function getMimeType(format: ExportFormat): string {
   switch (format) {
-    case 'jpeg':
-      return 'image/jpeg'
     case 'png':
       return 'image/png'
+    case 'jpeg':
+      return 'image/jpeg'
     case 'svg':
       return 'image/svg+xml'
     case 'pdf':
@@ -314,6 +70,18 @@ export function downloadBlob(blob: Blob, fileName: string): void {
   document.body.appendChild(a)
   a.click()
   URL.revokeObjectURL(url)
+  document.body.removeChild(a)
+}
+
+/**
+ * Download data URL as file
+ */
+export function downloadDataURL(dataURL: string, fileName: string): void {
+  const a = document.createElement('a')
+  a.href = dataURL
+  a.download = fileName
+  document.body.appendChild(a)
+  a.click()
   document.body.removeChild(a)
 }
 
@@ -369,5 +137,78 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+}
+
+/**
+ * Convert canvas to blob
+ */
+export function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  format: ExportFormat = 'png',
+  quality: number = 0.9
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const mimeType = getMimeType(format)
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob)
+        else reject(new Error('Failed to create blob'))
+      },
+      mimeType,
+      quality
+    )
+  })
+}
+
+/**
+ * Convert canvas to data URL
+ */
+export function canvasToDataURL(
+  canvas: HTMLCanvasElement,
+  format: ExportFormat = 'png',
+  quality: number = 0.9
+): string {
+  const mimeType = getMimeType(format)
+  return canvas.toDataURL(mimeType, quality)
+}
+
+/**
+ * Export Fabric.js canvas to blob
+ */
+export async function exportFabricToBlob(
+  canvas: any, // fabric.Canvas
+  format: ExportFormat = 'png',
+  quality: number = 0.9,
+  multiplier: number = 1
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const dataURL = canvas.toDataURL({
+      format: format === 'jpeg' ? 'jpeg' : 'png',
+      quality,
+      multiplier
+    })
+    
+    // Convert data URL to blob
+    fetch(dataURL)
+      .then(res => res.blob())
+      .then(resolve)
+      .catch(reject)
+  })
+}
+
+/**
+ * Export Fabric.js canvas to data URL
+ */
+export function exportFabricToDataURL(
+  canvas: any, // fabric.Canvas
+  format: ExportFormat = 'png',
+  quality: number = 0.9,
+  multiplier: number = 1
+): string {
+  return canvas.toDataURL({
+    format: format === 'jpeg' ? 'jpeg' : 'png',
+    quality,
+    multiplier
+  })
 }
 

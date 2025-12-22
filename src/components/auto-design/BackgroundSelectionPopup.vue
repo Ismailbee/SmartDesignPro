@@ -150,7 +150,7 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const tabs = [
   { id: 'default', label: 'Default' },
   { id: 'custom', label: 'Custom Upload' },
-  { id: 'online', label: 'Online Library' }
+  { id: 'online', label: 'Local Library' }
 ]
 
 const defaultBackgrounds = [
@@ -164,11 +164,14 @@ const defaultBackgrounds = [
   { id: 8, value: 'linear-gradient(135deg, #30cfd0 0%, #330867 100%)', name: 'Ocean' }
 ]
 
+// Local backgrounds from the /svg/background folder - works offline and on mobile
 const onlineBackgrounds = ref([
-  { id: 1, name: 'Abstract 1', url: 'https://images.unsplash.com/photo-1557672172-298e090bd0f1?w=400' },
-  { id: 2, name: 'Abstract 2', url: 'https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=400' },
-  { id: 3, name: 'Geometric', url: 'https://images.unsplash.com/photo-1557682224-5b8590cd9ec5?w=400' },
-  { id: 4, name: 'Colorful', url: 'https://images.unsplash.com/photo-1557682268-e3955ed5d83f?w=400' }
+  { id: 1, name: 'Beige Green Elegant Islamic', url: '/svg/background/Beige Green and Black Elegant Islamic Presentation.svg' },
+  { id: 2, name: 'Black White Modern Islamic', url: '/svg/background/Black White Modern Islamic Project Presentation.png' },
+  { id: 3, name: 'Deep Green', url: '/svg/background/Deep Green bg-1.png' },
+  { id: 4, name: 'Red Gold Islamic 1', url: '/svg/background/Red and Gold Simple Elegant Islamic Background Poster.png' },
+  { id: 6, name: 'Red Gold Islamic 2', url: '/svg/background/Red and Gold Simple Elegant Islamic Background Poster (2).png' },
+  { id: 7, name: 'Red Gold Islamic 3', url: '/svg/background/Red and Gold Simple Elegant Islamic Background Poster (3).png' }
 ])
 
 const filteredOnlineBackgrounds = computed(() => {

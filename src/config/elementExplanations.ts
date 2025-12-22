@@ -204,6 +204,108 @@ export const elementExplanations: Record<string, ElementExplanation> = {
       'Templates are fully customizable',
       'Save your favorites'
     ]
+  },
+
+  // AI Chat Input
+  'ai-chat-input': {
+    title: '💬 AI Design Assistant',
+    description: 'Chat with our AI to create your design! Just tell it what you want and watch the magic happen.',
+    example: 'John & Mary, June 20 2025, courtesy: The Williams Family',
+    tips: [
+      'Tell me the couple names - e.g., "John and Mary"',
+      'Include the wedding date in any format',
+      'Add courtesy info - who the sticker is from',
+      'Ask me anything about your design!',
+      'Say "redo" or "start over" to begin fresh'
+    ]
+  },
+
+  // Preview Panel
+  'preview-panel': {
+    title: '👁️ Design Preview',
+    description: 'This is where your sticker design appears. You can see changes in real-time!',
+    tips: [
+      'The preview updates automatically',
+      'Click and drag images to reposition',
+      'Use pinch gestures to zoom on mobile',
+      'The final export will be high quality'
+    ]
+  },
+
+  // Voice Control Button
+  'voice-control-btn': {
+    title: '🎤 Voice Input',
+    description: 'Speak to the AI instead of typing! Click to enable voice input.',
+    tips: [
+      'Speak clearly and naturally',
+      'Works best in quiet environments',
+      'Say the names, date, and courtesy info',
+      'Click again to stop recording'
+    ]
+  },
+
+  // Undo/Redo Buttons
+  'undo-btn': {
+    title: '↩️ Undo',
+    description: 'Undo your last change. Keep clicking to go further back in history.',
+    tips: [
+      'Keyboard shortcut: Ctrl+Z (Cmd+Z on Mac)',
+      'Works for all design changes',
+      'Limited history - save often!'
+    ]
+  },
+
+  'redo-btn': {
+    title: '↪️ Redo',
+    description: 'Redo a change you undid. Bring back your previous work.',
+    tips: [
+      'Keyboard shortcut: Ctrl+Y or Ctrl+Shift+Z',
+      'Only available after using Undo'
+    ]
+  },
+
+  // Clear/Reset Button
+  'clear-btn': {
+    title: '🗑️ Clear Design',
+    description: 'Start fresh! This removes all content from your current design.',
+    tips: [
+      'Cannot be undone!',
+      'Save your work first if needed',
+      'Use for starting a completely new design'
+    ]
+  },
+
+  // Auto Design Button
+  'auto-design-btn': {
+    title: '✨ Auto Design',
+    description: 'Let AI create a beautiful design for you automatically based on your input.',
+    tips: [
+      'Fill in your description first',
+      'Works best with complete information',
+      'You can customize the result afterwards'
+    ]
+  },
+
+  // Sticker Gallery
+  'sticker-gallery': {
+    title: '🖼️ Sticker Gallery',
+    description: 'Browse pre-designed stickers you can customize.',
+    tips: [
+      'Click to select a sticker',
+      'Each sticker can be fully customized',
+      'New designs are added regularly'
+    ]
+  },
+
+  // Print Settings
+  'print-settings': {
+    title: '🖨️ Print Settings',
+    description: 'Configure print options for your design.',
+    tips: [
+      'Choose 300 DPI for professional printing',
+      'Select correct paper size',
+      'Use CMYK color mode for print shops'
+    ]
   }
 }
 
@@ -265,11 +367,47 @@ export function getExplanationForElement(element: HTMLElement): ElementExplanati
     return elementExplanations['image-drop-zone']
   }
 
+  if (classList.some(c => c.includes('ai-chat-input') || c.includes('chat-input'))) {
+    return elementExplanations['ai-chat-input']
+  }
+
+  if (classList.some(c => c.includes('preview-panel') || c.includes('sticker-preview'))) {
+    return elementExplanations['preview-panel']
+  }
+
+  if (classList.some(c => c.includes('voice-control') || c.includes('voice-btn'))) {
+    return elementExplanations['voice-control-btn']
+  }
+
+  if (classList.some(c => c.includes('undo-btn'))) {
+    return elementExplanations['undo-btn']
+  }
+
+  if (classList.some(c => c.includes('redo-btn'))) {
+    return elementExplanations['redo-btn']
+  }
+
+  if (classList.some(c => c.includes('clear-btn') || c.includes('reset-btn'))) {
+    return elementExplanations['clear-btn']
+  }
+
+  if (classList.some(c => c.includes('auto-design-btn'))) {
+    return elementExplanations['auto-design-btn']
+  }
+
+  if (classList.some(c => c.includes('sticker-gallery'))) {
+    return elementExplanations['sticker-gallery']
+  }
+
+  if (classList.some(c => c.includes('print-settings'))) {
+    return elementExplanations['print-settings']
+  }
+
   // Check parent elements
   const parent = element.parentElement
   if (parent) {
     const parentClasses = Array.from(parent.classList)
-    
+
     if (parentClasses.some(c => c.includes('background-removal-toggle'))) {
       return elementExplanations['background-removal-toggle']
     }

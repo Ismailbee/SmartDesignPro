@@ -52,22 +52,39 @@ let db: Firestore
 let storage: FirebaseStorage
 
 try {
+  console.log('🔧 Initializing Firebase...')
   app = initializeApp(firebaseConfig)
+  console.log('✅ Firebase app initialized')
+
   auth = getAuth(app)
-  
+  console.log('✅ Firebase auth initialized')
+
   // Initialize Firestore with persistent cache (new API replaces enableMultiTabIndexedDbPersistence)
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager()
+  try {
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
     })
-  })
-  
+    console.log('✅ Firestore initialized with persistent cache')
+  } catch (firestoreError) {
+    console.warn('⚠️ Firestore persistent cache failed, using in-memory cache:', firestoreError)
+    // Fallback to in-memory cache
+    db = initializeFirestore(app, {})
+    console.log('✅ Firestore initialized with in-memory cache')
+  }
+
   storage = getStorage(app)
+  console.log('✅ Firebase storage initialized')
 
   console.log('✅ Firebase initialized successfully')
   console.log('📊 Project ID:', firebaseConfig.projectId)
 } catch (error) {
   console.error('❌ Firebase initialization error:', error)
+  console.error('Error details:', {
+    message: error instanceof Error ? error.message : String(error),
+    stack: error instanceof Error ? error.stack : undefined
+  })
   throw error
 }
 
@@ -86,10 +103,13 @@ export {
   updatePassword,
   onAuthStateChanged,
   GoogleAuthProvider,
+  EmailAuthProvider,
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
   signInWithCredential,
+  linkWithCredential,
+  fetchSignInMethodsForEmail,
   type User as FirebaseUser
 } from 'firebase/auth'
 

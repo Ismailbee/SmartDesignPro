@@ -53,7 +53,6 @@ const categories = [
   'Calendar',
   'Flyer',
   'Flex/Banner',
-  'Jotter',
   'Branding',
   'Table Calendar',
   'Roll-up Stand',

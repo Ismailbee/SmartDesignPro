@@ -1,10 +1,11 @@
 /**
  * Authentication Store
  * Now using Firebase Authentication
+ * Supports offline mode for mobile apps
  */
 
 import { defineStore } from 'pinia'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import type {
   User,
   RegisterData,
@@ -13,6 +14,8 @@ import type {
   AuthModalView
 } from '@/types/auth'
 import * as firebaseAuth from '@/services/firebase-auth'
+import { FEATURES, OFFLINE_USER, isNativePlatform } from '@/config/environment'
+// import router from '@/router' - Removed to avoid circular dependency
 
 const USER_KEY = 'user'
 
@@ -20,11 +23,17 @@ const USER_KEY = 'user'
 // ⚠️ IMPORTANT: Set to false before deploying to production!
 const DEV_BYPASS_AUTH = false
 
+// 📱 OFFLINE MODE: Automatically enabled when Firebase is disabled or on mobile
+const USE_OFFLINE_MODE = !FEATURES.FIREBASE_AUTH_ENABLED || isNativePlatform()
+
 export const useAuthStore = defineStore('auth', () => {
   // State
   const user = ref<User | null>(null)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+
+  // Auth ready state - true once Firebase auth has resolved initial state
+  const isAuthReady = ref(false)
 
   // Auth Modal State
   const isAuthModalOpen = ref(false)
@@ -37,6 +46,9 @@ export const useAuthStore = defineStore('auth', () => {
     message: '',
     type: 'success' as 'success' | 'error' | 'info'
   })
+
+  // Password Reset State
+  const resetToken = ref<string | null>(null)
 
   // Computed
   const isAuthenticated = computed(() => !!user.value)
@@ -58,11 +70,48 @@ export const useAuthStore = defineStore('auth', () => {
   function initAuth() {
     console.log('🔧 Initializing auth...')
 
+    // 📱 OFFLINE MODE: Auto-login for mobile/offline use
+    if (USE_OFFLINE_MODE) {
+      console.log('📱 OFFLINE MODE: Running without Firebase authentication')
+      console.log('📱 Platform:', isNativePlatform() ? 'Native (Mobile)' : 'Web')
+
+      const offlineUser: User = {
+        id: OFFLINE_USER.id,
+        email: OFFLINE_USER.email,
+        username: 'user',
+        name: OFFLINE_USER.displayName,
+        firstName: 'User',
+        lastName: '',
+        role: 'user',
+        status: 'active',
+        emailVerified: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+
+      user.value = offlineUser
+      localStorage.setItem(USER_KEY, JSON.stringify(offlineUser))
+
+      // Set authenticated member
+      const memberData = {
+        name: OFFLINE_USER.displayName,
+        branch: 'Local',
+        role: 'User'
+      }
+      localStorage.setItem('authenticatedMember', JSON.stringify(memberData))
+
+      // Mark auth as ready
+      isAuthReady.value = true
+
+      console.log('✅ Offline mode active - user:', offlineUser.email)
+      return
+    }
+
     // 🔧 DEV MODE: Auto-login bypass
     if (DEV_BYPASS_AUTH) {
       console.log('🚀 DEV MODE: Authentication bypassed - auto-login enabled')
       console.log('⚠️ Remember to set DEV_BYPASS_AUTH = false before production!')
-      
+
       const devUser: User = {
         id: 'dev-user-123',
         email: 'developer@test.com',
@@ -76,10 +125,10 @@ export const useAuthStore = defineStore('auth', () => {
         createdAt: new Date(),
         updatedAt: new Date()
       }
-      
+
       user.value = devUser
       localStorage.setItem(USER_KEY, JSON.stringify(devUser))
-      
+
       // Set authenticated member
       const memberData = {
         name: 'Dev User',
@@ -87,48 +136,66 @@ export const useAuthStore = defineStore('auth', () => {
         role: 'Admin'
       }
       localStorage.setItem('authenticatedMember', JSON.stringify(memberData))
-      
+
+      // Mark auth as ready in dev mode
+      isAuthReady.value = true
+
       console.log('✅ Auto-logged in as:', devUser.email)
       return
     }
 
     // Normal Firebase auth flow
     // Set up Firebase auth state listener
+    let authCallbackFired = false
+
     firebaseAuth.onAuthChange((firebaseUser) => {
       console.log('🔔 Firebase auth state changed:', firebaseUser ? 'User logged in' : 'User logged out')
+      authCallbackFired = true
 
       if (firebaseUser) {
         user.value = firebaseUser
         localStorage.setItem(USER_KEY, JSON.stringify(firebaseUser))
         console.log('✅ User authenticated:', firebaseUser.email)
-        
+
         // Set authenticated member for Invoice/Receipt/Signature pages
         // Extract name from email or display name
-        const userName = firebaseUser.displayName || 
-                        firebaseUser.email?.split('@')[0] || 
+        const userName = firebaseUser.displayName ||
+                        firebaseUser.email?.split('@')[0] ||
                         'User';
-        
+
         // TODO: In future, fetch branch and role from user profile database
         const memberData = {
           name: userName.charAt(0).toUpperCase() + userName.slice(1), // Capitalize first letter
           branch: 'Main Branch', // Default branch - should be fetched from database
           role: 'Member' // Default role - should be fetched from database
         };
-        
+
         localStorage.setItem('authenticatedMember', JSON.stringify(memberData));
         console.log('✅ Authenticated member set:', memberData);
-        
+
       } else {
         user.value = null
         localStorage.removeItem(USER_KEY)
         localStorage.removeItem('authenticatedMember') // Clear authenticated member
         console.log('🔓 User logged out')
       }
+
+      // Mark auth as ready after first state change
+      isAuthReady.value = true
     })
 
     // IMPORTANT: Don't restore from localStorage - wait for Firebase auth state
     // This prevents false authentication from stale data
     console.log('⏳ Waiting for Firebase auth state...')
+
+    // Fallback timeout: If Firebase doesn't respond within 3 seconds, mark auth as ready anyway
+    // This prevents the splash screen from getting stuck
+    setTimeout(() => {
+      if (!authCallbackFired) {
+        console.warn('⚠️ Firebase auth callback did not fire within 3 seconds, marking auth as ready')
+        isAuthReady.value = true
+      }
+    }, 3000)
   }
 
   /**
@@ -172,21 +239,12 @@ export const useAuthStore = defineStore('auth', () => {
       // Close modal first
       closeAuthModal()
 
-      // Show success notification
-      const userName = firebaseUser.name || firebaseUser.username || firebaseUser.email.split('@')[0]
-      showNotification({
-        title: 'Account created!',
-        message: `Welcome ${userName}! Your account has been created successfully.`,
-        type: 'success'
-      })
-
       console.log('✅ Auth store: Registration complete')
 
-      // Redirect to home page after successful registration
+      // Redirect to home page after successful registration (using Vue Router)
       console.log('🔄 Redirecting to home page...')
-      setTimeout(() => {
-        window.location.href = '/home'
-      }, 500)
+      const router = (await import('@/router')).default
+      await router.replace('/home')
     } catch (err: any) {
       console.error('❌ Auth store: Registration failed:', err)
       error.value = err.message
@@ -214,67 +272,23 @@ export const useAuthStore = defineStore('auth', () => {
       // Close modal first
       closeAuthModal()
 
-      // Show success notification
-      const userName = firebaseUser.name || firebaseUser.username || firebaseUser.email.split('@')[0]
-      showNotification({
-        title: 'Welcome back!',
-        message: `You have successfully logged in as ${userName}`,
-        type: 'success'
-      })
-
       console.log('✅ Auth store: Login complete')
 
-      // Check if there's an intended route to redirect to
+      // Check if there's an intended route to redirect to (using Vue Router)
       const intendedRoute = sessionStorage.getItem('intendedRoute')
+      const router = (await import('@/router')).default
+      
       if (intendedRoute) {
         console.log('🔄 Redirecting to intended route:', intendedRoute)
         sessionStorage.removeItem('intendedRoute')
-        setTimeout(() => {
-          window.location.href = intendedRoute
-        }, 500)
+        await router.replace(intendedRoute)
       } else {
         // Redirect to home page after successful login
         console.log('🔄 Redirecting to home page...')
-        setTimeout(() => {
-          window.location.href = '/home'
-        }, 500)
+        await router.replace('/home')
       }
     } catch (err: any) {
       console.error('❌ Auth store: Login failed:', err)
-      error.value = err.message
-      throw err
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  /**
-   * Login with Google
-   */
-  async function loginWithGoogle() {
-    isLoading.value = true
-    error.value = null
-
-    try {
-      const firebaseUser = await firebaseAuth.loginWithGoogle()
-      user.value = firebaseUser
-      localStorage.setItem(USER_KEY, JSON.stringify(firebaseUser))
-      closeAuthModal()
-
-      // Show success notification
-      const userName = firebaseUser.name || firebaseUser.username || firebaseUser.email.split('@')[0]
-      showNotification({
-        title: 'Welcome!',
-        message: `You have successfully logged in as ${userName}`,
-        type: 'success'
-      })
-
-      // Redirect to home page
-      console.log('🔄 Redirecting to home page...')
-      setTimeout(() => {
-        window.location.href = '/home'
-      }, 500)
-    } catch (err: any) {
       error.value = err.message
       throw err
     } finally {
@@ -291,17 +305,29 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       await firebaseAuth.logout()
+      console.log('✅ Logged out successfully')
     } catch (err: any) {
       console.error('Logout error:', err)
       error.value = err.message
     } finally {
       clearAuth()
       isLoading.value = false
+
+      // Redirect to login page after logout
+      try {
+        const router = (await import('@/router')).default
+        console.log('🔄 Redirecting to login page...')
+        await router.replace('/login')
+      } catch (navErr) {
+        console.error('Navigation error after logout:', navErr)
+        // Fallback: use window.location
+        window.location.href = '/login'
+      }
     }
   }
 
   /**
-   * Login with Google
+   * Login with Google - Single, unified implementation
    */
   async function loginWithGoogle(): Promise<void> {
     isLoading.value = true
@@ -320,13 +346,12 @@ export const useAuthStore = defineStore('auth', () => {
       }
       localStorage.setItem('authenticatedMember', JSON.stringify(memberData))
 
-      showNotification({
-        title: 'Welcome!',
-        message: `Signed in successfully with Google`,
-        type: 'success'
-      })
-
       closeAuthModal()
+
+      // Redirect to home using Vue Router (faster than full page reload)
+      console.log('🔄 Redirecting to home page...')
+      const router = (await import('@/router')).default
+      await router.replace('/home')
     } catch (err: any) {
       console.error('Google login error:', err)
       error.value = err.message
@@ -368,6 +393,26 @@ export const useAuthStore = defineStore('auth', () => {
       await firebaseAuth.resetPassword(data.email)
       // Firebase sends email automatically
       return undefined
+    } catch (err: any) {
+      error.value = err.message
+      throw err
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  /**
+   * Confirm password reset (placeholder - Firebase handles this via email link)
+   */
+  async function confirmPasswordReset(data: { token: string; newPassword: string }): Promise<void> {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      // Firebase handles password reset via email link, not token
+      // This is a placeholder for compatibility with the UI
+      console.log('Password reset confirmation requested with token:', data.token)
+      throw new Error('Password reset is handled via email link. Please check your email.')
     } catch (err: any) {
       error.value = err.message
       throw err
@@ -423,8 +468,71 @@ export const useAuthStore = defineStore('auth', () => {
     showSuccessNotification.value = false
   }
 
+  /**
+   * Check if user has password provider linked
+   */
+  async function hasPasswordProvider(): Promise<boolean> {
+    try {
+      return await firebaseAuth.hasPasswordProvider()
+    } catch (err) {
+      console.error('Error checking password provider:', err)
+      return false
+    }
+  }
+
+  /**
+   * Check if user has Google provider linked
+   */
+  async function hasGoogleProvider(): Promise<boolean> {
+    try {
+      return await firebaseAuth.hasGoogleProvider()
+    } catch (err) {
+      console.error('Error checking Google provider:', err)
+      return false
+    }
+  }
+
+  /**
+   * Link email/password to existing Google account
+   */
+  async function linkEmailPassword(password: string): Promise<boolean> {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      await firebaseAuth.linkEmailPassword(password)
+      showNotification({
+        title: 'Success! 🎉',
+        message: 'Password has been added to your account. You can now login with email/password.',
+        type: 'success'
+      })
+      return true
+    } catch (err: any) {
+      error.value = err.message || 'Failed to link password'
+      showNotification({
+        title: 'Error',
+        message: error.value || 'Failed to link password',
+        type: 'error'
+      })
+      return false
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   // Initialize on store creation
-  initAuth()
+  console.log('🔧 Auth store created, initializing auth...')
+  // Use setTimeout to defer initialization slightly to ensure other plugins are ready
+  setTimeout(() => {
+    try {
+      initAuth()
+      console.log('✅ Auth initialization started')
+    } catch (err) {
+      console.error('❌ Failed to initialize auth:', err)
+      // Mark auth as ready anyway to prevent splash screen from getting stuck
+      isAuthReady.value = true
+    }
+  }, 0)
 
   return {
     // State
@@ -432,10 +540,12 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken,
     isLoading,
     error,
+    isAuthReady,
     isAuthModalOpen,
     authModalView,
     showSuccessNotification,
     successNotificationData,
+    resetToken,
 
     // Computed
     isAuthenticated,
@@ -449,14 +559,18 @@ export const useAuthStore = defineStore('auth', () => {
     logoutUser,
     forceLogout,
     requestPasswordReset,
+    confirmPasswordReset,
     openAuthModal,
     closeAuthModal,
     setAuthModalView,
     clearError,
     showNotification,
-    closeNotification
-    ,
-    updateAvatar
+    closeNotification,
+    updateAvatar,
+    // Account linking
+    hasPasswordProvider,
+    hasGoogleProvider,
+    linkEmailPassword
   }
 })
 

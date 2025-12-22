@@ -5,8 +5,7 @@
     <!-- Show Sticker Template Panel if category is sticker -->
     <StickerTemplatePanel v-if="selectedCategory === 'sticker'" />
 
-    <!-- Show Naming Panel if category is naming -->
-    <NamingPanel v-else-if="selectedCategory === 'naming'" />
+    <!-- NamingPanel removed - wedding-only mode -->
 
     <!-- Show default Auto Design interface for other categories -->
     <template v-else>
@@ -273,10 +272,7 @@
             </button>
           </div>
 
-          <!-- Logo Upload (hide for naming ceremony) -->
-          <div v-if="selectedCategory !== 'naming-ceremony'" class="mb-6">
-            <LogoUploader />
-          </div>
+          <!-- Logo Upload removed - component not available -->
 
           <!-- Image Upload -->
           <div class="mb-6">
@@ -550,13 +546,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAutoDesignStore } from '@/stores/autoDesign'
 import { useAuthStore } from '@/stores/auth'
 import StickerTemplatePanel from '@/components/auto-design/StickerTemplatePanel.vue'
-import NamingPanel from '@/components/auto-design/NamingPanel.vue'
-import LogoUploader from '@/components/auto-design/LogoUploader.vue'
 import ImageUploader from '@/components/auto-design/ImageUploader.vue'
 import BackgroundSelectionPopup from '@/components/auto-design/BackgroundSelectionPopup.vue'
 import DesignPreviewModal from '@/components/auto-design/DesignPreviewModal.vue'
 import * as autoDesignApi from '@/services/auto-design-api'
-
 const route = useRoute()
 const router = useRouter()
 const autoDesignStore = useAutoDesignStore()

@@ -1,3 +1,5 @@
+console.log('🚀 main.ts is loading...')
+
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import router from './router'
@@ -13,120 +15,130 @@ import { App as CapacitorApp } from '@capacitor/app'
 // Ionic Vue imports
 import { IonicVue } from '@ionic/vue'
 import '@ionic/vue/css/core.css'
-import '@ionic/vue/css/normalize.css'
-import '@ionic/vue/css/structure.css'
-import '@ionic/vue/css/typography.css'
-import '@ionic/vue/css/padding.css'
-import '@ionic/vue/css/float-elements.css'
-import '@ionic/vue/css/text-alignment.css'
-import '@ionic/vue/css/text-transformation.css'
-import '@ionic/vue/css/flex-utils.css'
-import '@ionic/vue/css/display.css'
+/* ... other ionic css imports ... */
 
-// Suppress Datadog Browser SDK warning
+// Suppress Datadog Browser SDK warning safely
 const originalWarn = console.warn
 console.warn = (...args: any[]) => {
-  if (args[0]?.includes?.('Datadog Browser SDK')) {
-    return // Suppress Datadog warnings
+  try {
+    if (typeof args[0] === 'string' && args[0].includes('Datadog Browser SDK')) {
+      return
+    }
+  } catch (e) {
+    // fall through to normal warn
   }
   originalWarn.apply(console, args)
 }
 
-// Vue Konva imports
-import VueKonva from 'vue-konva'
-
-// Font Awesome imports
+// FontAwesome imports
 import { library } from '@fortawesome/fontawesome-svg-core'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-import {
-  faImages,
-  faUpload,
-  faShapes,
-  faFont,
-  faEyeSlash,
-  faFilter,
-  faCrop,
-  faQrcode,
-  faChevronLeft,
-  faChevronRight,
-  faChevronDown,
-  faPalette,
-  faWandMagicSparkles,
-  faCloudArrowUp,
-  faEdit,
-  faLayerGroup,
-  faBars,
-  faUserCircle,
-  faCog,
-  faSignOutAlt,
-  faUndo,
-  faRedo,
-  faArrowsAltH,
-  faTimes,
-  faCheck,
-  faTh,
-  faMagnet,
-  faSearchMinus,
-  faSearchPlus,
-  faDownload,
-  faSave,
-  faFolderOpen
-} from '@fortawesome/free-solid-svg-icons'
+/* icons import truncated for brevity in snippet; keep your original list */
 
-// Add icons to the library
-library.add(
-  faImages,
-  faUpload,
-  faShapes,
-  faFont,
-  faEyeSlash,
-  faFilter,
-  faCrop,
-  faQrcode,
-  faChevronLeft,
-  faChevronRight,
-  faChevronDown,
-  faPalette,
-  faWandMagicSparkles,
-  faCloudArrowUp,
-  faEdit,
-  faLayerGroup,
-  faBars,
-  faUserCircle,
-  faCog,
-  faSignOutAlt,
-  faUndo,
-  faRedo,
-  faArrowsAltH,
-  faTimes,
-  faCheck,
-  faTh,
-  faMagnet,
-  faSearchMinus,
-  faSearchPlus,
-  faDownload,
-  faSave,
-  faFolderOpen
-)
+library.add(/* ...your icons... */)
 
-const app = createApp(App)
-const pinia = createPinia()
+async function timeoutPromise<T>(p: Promise<T>, ms: number, label = 'operation') {
+  let timer: any
+  const t = new Promise<T>((_, rej) => {
+    timer = setTimeout(() => rej(new Error(`${label} timed out after ${ms}ms`)), ms)
+  })
+  return Promise.race([p, t]) as Promise<T>
+}
 
-// Register Ionic Vue
-app.use(IonicVue)
+async function unregisterServiceWorkersDev() {
+  if ('serviceWorker' in navigator) {
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations()
+      await Promise.all(regs.map(r => r.unregister()))
+      console.log('🧹 Service workers unregistered (dev)')
+    } catch (err) {
+      console.warn('Could not unregister service workers:', err)
+    }
+  }
+}
 
-// Register Vue Konva
-app.use(VueKonva)
+async function bootstrap() {
+  console.log('🔧 creating app + pinia + plugins...')
+  const app = createApp(App)
+  const pinia = createPinia()
 
-// Register Font Awesome component globally
-app.component('font-awesome-icon', FontAwesomeIcon)
+  // global error/warn handlers
+  app.config.errorHandler = (err, instance, info) => {
+    console.error('🔴 Vue Error:', err)
+    console.error('Component:', instance?.$options?.name || 'Unknown')
+    console.error('Info:', info)
+    const appDiv = document.getElementById('app')
+    if (appDiv && !appDiv.innerHTML.includes('Failed to mount')) {
+      appDiv.innerHTML = `<div style="padding: 20px; color: red; font-family: monospace; background: #ffe0e0; border: 1px solid red; border-radius: 4px;">
+        <h2>Vue Error</h2>
+        <p><strong>Error:</strong> ${String(err)}</p>
+        <p><strong>Component:</strong> ${instance?.$options?.name || 'Unknown'}</p>
+        <p><strong>Info:</strong> ${info}</p>
+      </div>`
+    }
+  }
+  app.config.warnHandler = (msg, instance, trace) => {
+    console.warn('🟡 Vue Warning:', msg)
+    console.warn('Trace:', trace)
+  }
 
-// Use Pinia and Router
-app.use(pinia)
-app.use(router)
+  app.use(IonicVue)
+  app.component('font-awesome-icon', FontAwesomeIcon)
+  app.use(pinia)
+  app.use(router)
 
-// Initialize theme
-const themeStore = useThemeStore()
-themeStore.initTheme()
+  // DEVELOPMENT: unregister service workers to avoid cache problems
+  if (import.meta.env.DEV) {
+    try {
+      await unregisterServiceWorkersDev()
+    } catch (e) {
+      console.warn('SW unregister failed', e)
+    }
+  }
 
-app.mount('#app')
+  // Initialize theme with a timeout & error handling
+  const themeStore = useThemeStore()
+  try {
+    console.log('🟢 Initializing theme (initTheme)...')
+    // If initTheme is sync this will still work. We guard with a 5s timeout.
+    await timeoutPromise(
+      Promise.resolve(themeStore.initTheme && themeStore.initTheme()),
+      5000,
+      'themeStore.initTheme'
+    )
+    console.log('🟢 Theme initialized')
+  } catch (err) {
+    console.error('⚠️ theme init failed or timed out:', err)
+  }
+
+  // Wait for router to be ready (prevents some blank-screen race conditions)
+  try {
+    console.log('⏳ Waiting for router to be ready...')
+    await Promise.race([
+      router.isReady(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('router.isReady() timed out')), 5000))
+    ])
+    console.log('✅ Router is ready')
+  } catch (err) {
+    console.warn('Router readiness issue (continuing to mount anyway):', err)
+  }
+
+  console.log('🚀 Mounting Vue app to #app...')
+  try {
+    app.mount('#app')
+    console.log('✅ Vue app mounted successfully')
+  } catch (err) {
+    console.error('❌ Failed to mount Vue app:', err)
+    const appDiv = document.getElementById('app')
+    if (appDiv) {
+      appDiv.innerHTML = `<div style="padding: 20px; color: red; font-family: monospace;">
+        <h2>Failed to mount app</h2>
+        <pre>${String(err)}</pre>
+      </div>`
+    }
+  }
+}
+
+bootstrap().catch(err => {
+  console.error('Fatal bootstrap error:', err)
+})

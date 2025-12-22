@@ -13,6 +13,15 @@
       <p class="auth-subtitle">Sign in to access your design studio</p>
     </div>
 
+    <!-- Auth Initializing Message -->
+    <div v-if="!isAuthReady" class="auth-initializing">
+      <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <span>Connecting to authentication service...</span>
+    </div>
+
     <!-- Error Message -->
     <div v-if="error" class="auth-error">
       <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -79,12 +88,12 @@
       </div>
 
       <!-- Submit Button -->
-      <button type="submit" class="btn-primary" :disabled="isLoading">
+      <button type="submit" class="btn-primary" :disabled="isFormDisabled">
         <span v-if="!isLoading">
           <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
-          Sign In
+          {{ isAuthReady ? 'Sign In' : 'Please wait...' }}
         </span>
         <span v-else class="loading-spinner">
           <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
@@ -102,7 +111,7 @@
     </div>
 
     <!-- Google Sign In -->
-    <button type="button" class="btn-google" @click="handleGoogleSignIn" :disabled="isLoading">
+    <button type="button" class="btn-google" @click="handleGoogleSignIn" :disabled="isFormDisabled">
       <svg class="google-icon" viewBox="0 0 24 24">
         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
         <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -125,14 +134,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import type { LoginData } from '@/types/auth'
 
 
 const authStore = useAuthStore()
-const { isLoading, error } = storeToRefs(authStore)
+const { isLoading, error, isAuthReady } = storeToRefs(authStore)
 const { loginUser, setAuthModalView, clearError } = authStore
 
 const formData = ref<LoginData>({
@@ -143,7 +152,16 @@ const formData = ref<LoginData>({
 
 const showPassword = ref(false)
 
+// Disable form while auth is initializing or during loading
+const isFormDisabled = computed(() => !isAuthReady.value || isLoading.value)
+
 async function handleLogin() {
+  // Prevent login if auth not ready
+  if (!isAuthReady.value) {
+    console.warn('⚠️ Cannot login: Firebase auth not ready yet')
+    return
+  }
+
   clearError()
   try {
     await loginUser(formData.value)
@@ -153,6 +171,12 @@ async function handleLogin() {
 }
 
 async function handleGoogleSignIn() {
+  // Prevent login if auth not ready
+  if (!isAuthReady.value) {
+    console.warn('⚠️ Cannot login: Firebase auth not ready yet')
+    return
+  }
+
   clearError()
   try {
     await authStore.loginWithGoogle()
