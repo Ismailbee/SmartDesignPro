@@ -9,6 +9,16 @@ import './styles/wedding-fonts.css'
 import App from './App.vue'
 import { useThemeStore } from './stores/theme'
 
+// Development console filter
+if (import.meta.env.DEV) {
+  import('./utils/console-filter').then(module => {
+    module.default.enable();
+  });
+  
+  // Aggressive browser warning suppression
+  import('./utils/browser-warning-suppressor');
+}
+
 // Capacitor imports
 import { App as CapacitorApp } from '@capacitor/app'
 
@@ -87,14 +97,17 @@ async function bootstrap() {
   app.use(pinia)
   app.use(router)
 
-  // DEVELOPMENT: unregister service workers to avoid cache problems
-  if (import.meta.env.DEV) {
-    try {
-      await unregisterServiceWorkersDev()
-    } catch (e) {
-      console.warn('SW unregister failed', e)
-    }
-  }
+// Initialize authentication immediately
+import { useAuthStore } from '@/stores/auth'
+const authStore = useAuthStore()
+// Force initialization if not already started
+if (!authStore.authInitialized) {
+  authStore.initAuth()
+}
+
+// Initialize theme
+const themeStore = useThemeStore()
+themeStore.initTheme()
 
   // Initialize theme with a timeout & error handling
   const themeStore = useThemeStore()

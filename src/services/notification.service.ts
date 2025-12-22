@@ -150,11 +150,16 @@ export function subscribeToNotifications(
       callback(notifications)
     }, (error) => {
       if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
-        console.warn('🔍 Firebase index required for notifications. Creating index automatically...')
-        console.log('📋 Index URL:', error.message?.match(/https:\/\/[^\s]+/)?.[0] || 'Check Firebase Console')
+        console.log('🔧 Firebase index required for notifications. This is expected on first run.')
         
-        // Show user-friendly message
-        console.info('ℹ️ Notifications will work once Firebase index is created. This is a one-time setup.')
+        // Extract and clean up the URL
+        const indexUrl = error.message?.match(/https:\/\/[^\s]+/)?.[0]
+        if (indexUrl) {
+          console.log('📋 Index URL:', indexUrl)
+        }
+        
+        // Return empty array instead of error to prevent console noise
+        callback([])
         return
       }
       

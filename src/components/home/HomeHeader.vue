@@ -89,6 +89,7 @@
       :is-open="isMoreMenuOpen"
       @close="closeMoreMenu"
       @navigate="handleMoreMenuNavigate"
+      @microApp="handleMicroAppNavigate"
     />
     
     <!-- Auto Design Modal -->
@@ -233,6 +234,55 @@ const handleMoreMenuNavigate = (action: string) => {
       break
     default:
   }
+}
+
+// Handle Micro-App navigation
+const handleMicroAppNavigate = (appName: string) => {
+  switch (appName) {
+    case 'ican':
+      // Check if user has special access before navigation
+      if (checkSpecialAccess()) {
+        router.push('/ican')
+      } else {
+        showAccessDeniedAlert('ICAN Portal')
+      }
+      break
+    case 'branch':
+      // Future branch management app
+      console.log('Branch Manager - Coming Soon')
+      break
+    case 'analytics':
+      // Future analytics hub
+      console.log('Analytics Hub - Coming Soon')
+      break
+    default:
+      console.log(`Unknown micro-app: ${appName}`)
+  }
+}
+
+// Check if user has special access for micro-apps
+const checkSpecialAccess = (): boolean => {
+  const userRole = authStore.user?.role || 'user'
+  const hasSpecialAccess = userRole === 'admin' || 
+                          userRole === 'moderator' || 
+                          userRole === 'special' ||
+                          (authStore.user as any)?.hasICANAccess === true
+
+  // Development bypass
+  const isDevelopment = import.meta.env.DEV
+  const allowDevBypass = import.meta.env.VITE_ALLOW_MICROAPP_BYPASS === 'true'
+  
+  if (isDevelopment && allowDevBypass) {
+    return true
+  }
+  
+  return hasSpecialAccess
+}
+
+// Show access denied alert
+const showAccessDeniedAlert = (appName: string) => {
+  // You can implement a modal here or use the existing notification system
+  alert(`Access to ${appName} requires special permissions. Please contact your administrator.`)
 }
 
 // Smooth scroll to section

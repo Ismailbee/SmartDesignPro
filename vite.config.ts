@@ -17,8 +17,17 @@ export default defineConfig({
     }
   },
   optimizeDeps: {
-    include: ['onnxruntime-web', '@capacitor/app', '@capacitor/core'],
-    exclude: ['@imgly/background-removal'],
+    include: [
+      'onnxruntime-web', 
+      '@capacitor/app', 
+      '@capacitor/core',
+      'vue-konva',
+      'konva',
+      'ionicons/icons'
+    ],
+    exclude: [
+      '@imgly/background-removal'
+    ],
     // Force optimization to avoid OneDrive sync issues
     force: true
   },

@@ -51,6 +51,9 @@ const PrivacySettings = () => import('@/views/PrivacySettings.vue')
 const SmartTemplateDesigner = () => import('@/components/SmartTemplateDesigner.vue')
 const FabricEditorProPage = () => import('@/views/FabricEditorProPage.vue')
 
+// Micro-Apps
+const ICANWrapper = () => import('@/views/ICANWrapper.vue')
+
 // Help & Support Pages
 const HelpCenterPage = () => import('@/views/HelpCenterPage.vue')
 const SupportPage = () => import('@/views/SupportPage.vue')
@@ -149,6 +152,164 @@ const routes: RouteRecordRaw[] = [
       title: 'Design Editor Pro - SmartDesignPro',
       requiresAuth: false  // Public for testing
     }
+  },
+
+  // ============================================================
+  // Direct ICAN App Routes (bypasses wrapper)
+  // ============================================================
+  {
+    path: '/ican-app',
+    name: 'ican-app',
+    meta: {
+      title: 'ICAN Application - SmartDesignPro',
+      requiresAuth: true,
+      requiresSpecialAccess: true
+    },
+    children: [
+      {
+        path: '',
+        name: 'ican-app-splash',
+        component: () => import('@/views/micro-apps/Ican/src/pages/SplashScreen.vue')
+      },
+      {
+        path: 'home',
+        name: 'ican-app-home',
+        component: () => import('@/views/micro-apps/Ican/src/pages/HomePage.vue')
+      },
+      {
+        path: 'dashboard',
+        name: 'ican-app-dashboard',
+        component: () => import('@/views/micro-apps/Ican/src/pages/DashboardPage.vue'),
+        props: (route) => ({ branch: route.query.branch || '' })
+      },
+      {
+        path: 'receipt',
+        name: 'ican-app-receipt',
+        component: () => import('@/views/micro-apps/Ican/src/pages/ReceiptIcan/IcanReceipt.vue'),
+        props: (route) => ({ branch: route.query.branch || '' })
+      },
+      {
+        path: 'invoice-ican',
+        name: 'ican-app-invoice-ican',
+        component: () => import('@/views/micro-apps/Ican/src/pages/InvoiceIcan/IcanInvoice.vue'),
+        props: (route) => ({ branch: route.query.branch || '' })
+      },
+      {
+        path: 'member-management',
+        name: 'ican-app-member-management',
+        component: () => import('@/views/micro-apps/Ican/src/pages/MemberManagementPage.vue'),
+        props: (route) => ({ branch: route.query.branch || '' })
+      },
+      {
+        path: 'settings',
+        name: 'ican-app-settings',
+        component: () => import('@/views/micro-apps/Ican/src/pages/SettingsPage.vue'),
+        props: (route) => ({ branch: route.query.branch || '' })
+      },
+      {
+        path: 'reports',
+        name: 'ican-app-reports',
+        component: () => import('@/views/micro-apps/Ican/src/pages/ReportsAnalyticsPage.vue'),
+        props: (route) => ({ branch: route.query.branch || '' })
+      },
+      {
+        path: 'signature',
+        name: 'ican-app-signature',
+        component: () => import('@/views/micro-apps/Ican/src/pages/SignaturePage.vue'),
+        props: (route) => ({ branch: route.query.branch || '' })
+      },
+      {
+        path: 'stats',
+        name: 'ican-app-stats',
+        component: () => import('@/views/micro-apps/Ican/src/pages/StatsPage.vue')
+      },
+      {
+        path: 'signup',
+        name: 'ican-app-signup',
+        component: () => import('@/views/micro-apps/Ican/src/pages/SignUp.vue')
+      },
+      {
+        path: 'invoice-quickfill',
+        name: 'ican-app-invoice-quickfill',
+        component: () => import('@/views/micro-apps/Ican/src/pages/InvoiceIcan/IcanInvoice.vue'),
+        props: (route) => ({ branch: route.query.branch || '' })
+      },
+      {
+        path: 'invoice-preview',
+        name: 'ican-app-invoice-preview',
+        component: () => import('@/views/micro-apps/Ican/src/pages/InvoiceIcan/PreviewIcanInvoice.vue'),
+        props: (route) => ({ branch: route.query.branch || '' })
+      },
+      {
+        path: 'saved-invoices',
+        name: 'ican-app-saved-invoices',
+        component: () => import('@/views/micro-apps/Ican/src/pages/InvoiceIcan/SavedIcanInvoicesPage.vue'),
+        props: (route) => ({ branch: route.query.branch || '' })
+      },
+      {
+        path: 'saved-receipts',
+        name: 'ican-app-saved-receipts',
+        component: () => import('@/views/micro-apps/Ican/src/pages/ReceiptIcan/SavedIcanReceiptsPage.vue'),
+        props: (route) => ({ branch: route.query.branch || '' })
+      },
+      {
+        path: 'receipt-preview',
+        name: 'ican-app-receipt-preview',
+        component: () => import('@/views/micro-apps/Ican/src/pages/ReceiptIcan/PreviewIcanReceipt.vue'),
+        props: (route) => ({ branch: route.query.branch || '' })
+      }
+    ]
+  },
+
+  // ============================================================
+  // Micro-Apps Routes (Wrapper-based)
+  // ============================================================
+  {
+    path: '/ican',
+    name: 'ican-portal',
+    component: ICANWrapper,
+    meta: {
+      title: 'ICAN Portal - SmartDesignPro',
+      requiresAuth: true,
+      requiresSpecialAccess: true // Custom meta for special permission check
+    },
+    children: [
+      {
+        path: '',
+        name: 'ican-redirect',
+        redirect: '/ican/home'
+      },
+      {
+        path: 'home',
+        name: 'ican-home',
+        component: () => import('@/views/micro-apps/ican/components/ICANHome.vue')
+      },
+      {
+        path: 'dashboard',
+        name: 'ican-dashboard',
+        component: () => import('@/views/micro-apps/ican/components/ICANDashboard.vue')
+      },
+      {
+        path: 'invoice',
+        name: 'ican-invoice',
+        component: () => import('@/views/micro-apps/ican/components/ICANInvoice.vue')
+      },
+      {
+        path: 'receipt',
+        name: 'ican-receipt',
+        component: () => import('@/views/micro-apps/ican/components/ICANReceipt.vue')
+      },
+      {
+        path: 'member-login',
+        name: 'ican-member-login',
+        component: () => import('@/views/micro-apps/ican/components/ICANMemberLogin.vue')
+      },
+      {
+        path: 'settings',
+        name: 'ican-settings',
+        component: () => import('@/views/micro-apps/ican/components/ICANSettings.vue')
+      }
+    ]
   },
 
   {
@@ -730,11 +891,22 @@ const router = createRouter({
 /**
  * Navigation Guards
  */
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore()
 
   // Update document title
   document.title = (to.meta.title as string) || 'SmartDesignPro'
+
+  // Wait for auth initialization before making routing decisions
+  if (!authStore.authInitialized) {
+    // Wait for Firebase auth to initialize
+    let attempts = 0
+    const maxAttempts = 50 // 5 seconds max wait
+    while (!authStore.authInitialized && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 100))
+      attempts++
+    }
+  }
 
   // Debug logs removed to satisfy lint rules
 
@@ -786,6 +958,39 @@ router.beforeEach((to, _from, next) => {
   // Access denied: Admin privileges required
   // User role: ' + userRole
       next({ name: 'home' })
+      return
+    }
+  }
+
+  // Check if route requires special access (for micro-apps like ICAN)
+  if (to.meta.requiresSpecialAccess) {
+    if (!authStore.isAuthenticated) {
+      // Special access requires authentication
+      sessionStorage.setItem('intendedRoute', to.fullPath)
+      next({ name: 'welcome' })
+      return
+    }
+
+    // Check if user has special access permission
+    const userRole = authStore.user?.role || 'user'
+    const hasSpecialAccess = userRole === 'admin' || 
+                            userRole === 'moderator' || 
+                            userRole === 'special' ||
+                            (authStore.user as any)?.hasICANAccess === true
+
+    const isDevelopment = import.meta.env.DEV
+    const allowDevBypass = isDevelopment && import.meta.env.VITE_ALLOW_MICROAPP_BYPASS === 'true'
+
+    if (allowDevBypass) {
+      // DEV MODE: Micro-app access bypass enabled
+      next()
+      return
+    }
+
+    if (!hasSpecialAccess) {
+      // Redirect to home with access denied message
+      // Could show a modal here explaining how to get access
+      next({ name: 'home', query: { error: 'special_access_required' } })
       return
     }
   }

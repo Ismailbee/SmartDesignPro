@@ -32,7 +32,11 @@ class SafeStorage {
       }
       
       this.storage.setItem(key, finalValue);
-      console.log(`✅ Stored ${key} (${this.getItemSize(finalValue)} bytes)`);
+      const size = this.getItemSize(finalValue);
+      // Only log larger operations to reduce console noise
+      if (size > 50000) {
+        console.log(`✅ Stored ${key} (${size} bytes)`);
+      }
       return true;
       
     } catch (error: any) {
@@ -74,7 +78,10 @@ class SafeStorage {
       }
       return value;
     } catch (error) {
-      console.warn(`📦 Failed to get ${key} from storage, checking memory fallback`);
+      // Only log missing critical data to reduce console noise
+      if (key.includes('authenticated') || key.includes('user') || key.includes('token')) {
+        console.warn(`📦 Failed to get ${key} from storage, checking memory fallback`);
+      }
       return this.memoryFallback.get(key) || null;
     }
   }

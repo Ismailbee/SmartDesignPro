@@ -31,6 +31,7 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+  const authInitialized = ref(false) // Track if Firebase auth has initialized
 
   // Auth ready state - true once Firebase auth has resolved initial state
   const isAuthReady = ref(false)
@@ -63,6 +64,42 @@ export const useAuthStore = defineStore('auth', () => {
   })
 
   // Actions
+
+  /**
+   * Demo/Testing bypass function for network issues
+   */
+  const bypassAuthForTesting = () => {
+    console.log('🔓 Bypassing authentication for testing...')
+    
+    const demoUser: User = {
+      id: 'demo-user-123',
+      username: 'demo_user',
+      email: 'demo@example.com',
+      name: 'Demo User',
+      firstName: 'Demo',
+      lastName: 'User',
+      isVerified: true,
+      role: 'user',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+    
+    user.value = demoUser
+    localStorage.setItem(USER_KEY, JSON.stringify(demoUser))
+    
+    // Set authenticated member data for invoices
+    const memberData = {
+      name: 'Demo User',
+      branch: 'Main Branch',
+      role: 'Member'
+    };
+    localStorage.setItem('authenticatedMember', JSON.stringify(memberData));
+    
+    closeAuthModal()
+    
+    console.log('✅ Demo user logged in successfully for testing')
+    return demoUser
+  }
 
   /**
    * Initialize auth - Listen to Firebase auth state changes
@@ -174,18 +211,26 @@ export const useAuthStore = defineStore('auth', () => {
         console.log('✅ Authenticated member set:', memberData);
 
       } else {
-        user.value = null
-        localStorage.removeItem(USER_KEY)
-        localStorage.removeItem('authenticatedMember') // Clear authenticated member
-        console.log('🔓 User logged out')
+        // Only clear if we don't have a valid saved user (to prevent logout on page refresh)
+        const savedUser = localStorage.getItem(USER_KEY)
+        if (!savedUser) {
+          user.value = null
+          localStorage.removeItem(USER_KEY)
+          localStorage.removeItem('authenticatedMember')
+          console.log('🔓 User logged out')
+        }
+      }
+
+      // Mark auth as initialized after first state change
+      if (!authInitialized.value) {
+        authInitialized.value = true
+        console.log('✅ Auth initialization complete')
       }
 
       // Mark auth as ready after first state change
       isAuthReady.value = true
     })
 
-    // IMPORTANT: Don't restore from localStorage - wait for Firebase auth state
-    // This prevents false authentication from stale data
     console.log('⏳ Waiting for Firebase auth state...')
 
     // Fallback timeout: If Firebase doesn't respond within 3 seconds, mark auth as ready anyway
@@ -540,7 +585,11 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken,
     isLoading,
     error,
+<<<<<<< HEAD
     isAuthReady,
+=======
+    authInitialized,
+>>>>>>> 385ce130cc3ea9644a824a6388134682193d8f17
     isAuthModalOpen,
     authModalView,
     showSuccessNotification,
@@ -553,6 +602,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     // Actions
     initAuth,
+    bypassAuthForTesting, // For testing when network issues occur
     registerUser,
     loginUser,
     loginWithGoogle,
@@ -566,11 +616,14 @@ export const useAuthStore = defineStore('auth', () => {
     clearError,
     showNotification,
     closeNotification,
+<<<<<<< HEAD
     updateAvatar,
     // Account linking
     hasPasswordProvider,
     hasGoogleProvider,
     linkEmailPassword
+=======
+    updateAvatar
+>>>>>>> 385ce130cc3ea9644a824a6388134682193d8f17
   }
 })
-

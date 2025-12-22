@@ -26,6 +26,68 @@
 
             <!-- Modal Content Grid -->
             <div class="modal-content">
+              <!-- Micro-Apps Section -->
+              <div class="menu-section">
+                <div class="section-header">
+                  <div class="section-icon-wrapper micro-apps">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="3" width="7" height="7" rx="1"/>
+                      <rect x="14" y="3" width="7" height="7" rx="1"/>
+                      <rect x="14" y="14" width="7" height="7" rx="1"/>
+                      <rect x="3" y="14" width="7" height="7" rx="1"/>
+                    </svg>
+                  </div>
+                  <h3 class="section-title">Branch Applications</h3>
+                </div>
+                <div class="menu-grid">
+                  <button class="menu-card micro-app-card" @click="handleMicroAppClick('ican')">
+                    <div class="card-icon ican">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    </div>
+                    <div class="card-content">
+                      <h4 class="card-title">ICAN Portal</h4>
+                      <p class="card-desc">Access ICAN management system</p>
+                    </div>
+                    <div class="card-badge premium">Secure</div>
+                    <svg class="card-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+
+                  <button class="menu-card micro-app-card coming-soon" disabled>
+                    <div class="card-icon branch">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                        <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+                        <path d="M9 14l2 2 4-4"/>
+                      </svg>
+                    </div>
+                    <div class="card-content">
+                      <h4 class="card-title">Branch Manager</h4>
+                      <p class="card-desc">Coming soon...</p>
+                    </div>
+                    <div class="card-badge coming">Soon</div>
+                  </button>
+
+                  <button class="menu-card micro-app-card coming-soon" disabled>
+                    <div class="card-icon analytics">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 3v18h18"/>
+                        <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/>
+                      </svg>
+                    </div>
+                    <div class="card-content">
+                      <h4 class="card-title">Analytics Hub</h4>
+                      <p class="card-desc">Coming soon...</p>
+                    </div>
+                    <div class="card-badge coming">Soon</div>
+                  </button>
+                </div>
+              </div>
+              
               <!-- Account & Rewards Section -->
               <div class="menu-section">
                 <div class="section-header">
@@ -251,6 +313,9 @@
 
 <script setup lang="ts">
 import { watch, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 const props = defineProps<{
   isOpen: boolean
@@ -259,6 +324,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
   navigate: [action: string]
+  microApp: [appName: string]
 }>()
 
 const closeModal = () => {
@@ -268,6 +334,26 @@ const closeModal = () => {
 const handleMenuClick = (action: string) => {
   emit('navigate', action)
   closeModal()
+}
+
+const handleMicroAppClick = (appName: string) => {
+  console.log('Micro-app clicked:', appName);
+  
+  // Close the modal first
+  closeModal();
+  
+  // Navigate to the micro-app
+  if (appName === 'ican') {
+    // Direct access to ICAN HomePage (bypassing wrapper)
+    router.push('/ican-app'); // This will load HomePage.vue directly
+    // Alternative: router.push('/ican/home'); // Wrapper-based access
+  } else if (appName === 'branch-manager') {
+    // Future implementation
+    console.log('Branch Manager micro-app coming soon');
+  } else if (appName === 'analytics-hub') {
+    // Future implementation
+    console.log('Analytics Hub micro-app coming soon');
+  }
 }
 
 // Handle Escape key
@@ -763,6 +849,70 @@ onUnmounted(() => {
 
 .modal-container::-webkit-scrollbar-thumb:hover {
   display: none;
+}
+
+/* Micro-App Section Styles */
+.section-icon-wrapper.micro-apps {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.micro-app-card {
+  position: relative;
+  border: 2px solid transparent;
+  background: linear-gradient(white, white) padding-box, 
+              linear-gradient(135deg, #667eea, #764ba2) border-box;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.micro-app-card:hover:not(.coming-soon) {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 40px rgba(102, 126, 234, 0.15);
+}
+
+.micro-app-card.coming-soon {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: linear-gradient(white, white) padding-box, 
+              linear-gradient(135deg, #e5e7eb, #d1d5db) border-box;
+}
+
+.card-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.card-badge.premium {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.card-badge.coming {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: white;
+}
+
+.card-icon.ican {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.card-icon.branch {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.card-icon.analytics {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
 }
 
 /* Responsive Design */

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Signature Test</title>
+</head>
+<body>
+    <h1>Signature Storage Test</h1>
+    <button onclick="testSaveSignature()">Test Save Signature</button>
+    <button onclick="checkSignatures()">Check Stored Signatures</button>
+    <button onclick="clearSignatures()">Clear All Signatures</button>
+    <pre id="output"></pre>
+    
+    <script>
+        function log(message) {
+            const output = document.getElementById('output');
+            output.textContent += message + '\n';
+            console.log(message);
+        }
+        
+        function clearOutput() {
+            document.getElementById('output').textContent = '';
+        }
+        
+        function testSaveSignature() {
+            clearOutput();
+            log('Testing signature save...');
+            
+            const branch = 'Main Branch';
+            const storageKey = `signatures_${branch}`;
+            
+            // Get existing signatures
+            const existingSignatures = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            log(`Current signature count: ${existingSignatures.length}`);
+            
+            // Create test signature
+            const newSignature = {
+                name: `Test Signature ${Date.now()}`,
+                dataURL: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+                id: `SIG-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                createdAt: new Date().toISOString(),
+                branch: branch,
+                isPrimary: existingSignatures.length === 0
+            };
+            
+            // Add to array
+            existingSignatures.push(newSignature);
+            
+            // Save to localStorage
+            localStorage.setItem(storageKey, JSON.stringify(existingSignatures));
+            
+            log(`✅ Saved signature: ${newSignature.name}`);
+            log(`New signature count: ${existingSignatures.length}`);
+            log(`Signature ID: ${newSignature.id}`);
+        }
+        
+        function checkSignatures() {
+            clearOutput();
+            log('Checking stored signatures...');
+            
+            const branch = 'Main Branch';
+            const storageKey = `signatures_${branch}`;
+            const signatures = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            
+            log(`Total signatures found: ${signatures.length}`);
+            log('');
+            
+            signatures.forEach((sig, index) => {
+                log(`${index + 1}. ${sig.name}`);
+                log(`   ID: ${sig.id}`);
+                log(`   Created: ${sig.createdAt}`);
+                log(`   Primary: ${sig.isPrimary || false}`);
+                log(`   DataURL length: ${sig.dataURL ? sig.dataURL.length : 0}`);
+                log('');
+            });
+            
+            if (signatures.length === 0) {
+                log('No signatures found!');
+            }
+        }
+        
+        function clearSignatures() {
+            clearOutput();
+            const branch = 'Main Branch';
+            const storageKey = `signatures_${branch}`;
+            localStorage.removeItem(storageKey);
+            log('✅ All signatures cleared!');
+        }
+        
+        // Check signatures on page load
+        window.onload = checkSignatures;
+    </script>
+</body>
+</html>

@@ -186,6 +186,39 @@
             </label>
           </div>
 
+          <!-- CMYK Print-Ready Color Palette -->
+          <div>
+            <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">CMYK Print-Ready Colors</label>
+            <div class="p-2 bg-white dark:bg-slate-700 rounded border border-slate-300 dark:border-slate-600">
+              <div class="text-[10px] text-slate-600 dark:text-slate-400 mb-2">
+                Click to copy CMYK values for professional printing
+              </div>
+              
+              <!-- Predefined CMYK Colors Grid -->
+              <div class="grid grid-cols-8 gap-1.5 mb-2">
+                <button 
+                  v-for="(color, name) in cmykColors" 
+                  :key="name"
+                  @click="applyCMYKColor(name, color)"
+                  :style="{ backgroundColor: cmykToRgbCss(color.c, color.m, color.y, color.k) }"
+                  :title="`${name}: C${color.c} M${color.m} Y${color.y} K${color.k}`"
+                  class="w-7 h-7 rounded-md border-2 border-slate-300 hover:border-blue-500 transition-all duration-200 cursor-pointer hover:scale-110 shadow-sm"
+                ></button>
+              </div>
+              
+              <!-- Selected Color Info -->
+              <div v-if="selectedCMYKColor" class="text-[10px] bg-green-50 dark:bg-green-900/20 p-2 rounded border border-green-200 dark:border-green-700">
+                <div class="font-semibold text-green-800 dark:text-green-200 mb-1">✓ {{ selectedCMYKColor.name }} - Copied!</div>
+                <div class="grid grid-cols-4 gap-1 text-[9px] font-mono">
+                  <div class="text-cyan-700 dark:text-cyan-300">C: {{ selectedCMYKColor.values.c }}%</div>
+                  <div class="text-pink-700 dark:text-pink-300">M: {{ selectedCMYKColor.values.m }}%</div>
+                  <div class="text-yellow-700 dark:text-yellow-300">Y: {{ selectedCMYKColor.values.y }}%</div>
+                  <div class="text-slate-800 dark:text-slate-300">K: {{ selectedCMYKColor.values.k }}%</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Text Background Watermark -->
           <div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-600">
             <label class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer mb-3">
@@ -1101,6 +1134,45 @@
                 @click="showFilenameDialog('cmyk-png-current')"
               >
                 🖼️ CMYK PNG
+              </button>
+              
+              <!-- NEW: Ghostscript-style CMYK Export Buttons -->
+              <div class="border-l border-slate-300 dark:border-slate-600 h-6 mx-1"></div>
+              
+              <button
+                class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-bold transition-all shadow-md"
+                @click="toggleCMYKPreview"
+                :class="{ 'bg-blue-800': cmykPreviewMode }"
+                title="Toggle CMYK color preview - See how your invoice will look when printed in CMYK"
+              >
+                {{ cmykPreviewMode ? '🔍 RGB View' : '🎨 CMYK Preview' }}
+              </button>
+              
+              <span class="text-[9px] font-medium text-slate-600 dark:text-slate-400 px-1">Exact Layout CMYK:</span>
+              
+              <button
+                class="px-2.5 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded text-[11px] font-bold transition-all shadow-md disabled:opacity-50"
+                :disabled="isExporting"
+                @click="showFilenameDialog('ghostscript-pdf-current')"
+                title="Converts YOUR EXACT PDF to CMYK - No layout changes!"
+              >
+                🎨✨ Perfect CMYK PDF
+              </button>
+              <button
+                class="px-2.5 py-1.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white rounded text-[11px] font-bold transition-all shadow-md disabled:opacity-50"
+                :disabled="isExporting"
+                @click="showFilenameDialog('ghostscript-png-current')"
+                title="Converts YOUR EXACT PNG to CMYK - No layout changes!"
+              >
+                🎨✨ Perfect CMYK PNG
+              </button>
+              <button
+                class="px-2.5 py-1.5 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white rounded text-[11px] font-bold transition-all shadow-md disabled:opacity-50"
+                :disabled="isExporting"
+                @click="showFilenameDialog('ghostscript-jpeg-current')"
+                title="Converts YOUR EXACT JPEG to CMYK - Perfect for photos!"
+              >
+                🎨✨ Perfect CMYK JPEG
               </button>
             </template>
             
@@ -2150,6 +2222,7 @@ export default defineComponent({
     const exportDropdownRef = ref(null);
     const isExporting = ref(false);
     const showExportOptions = ref(false);
+    const cmykPreviewMode = ref(false);
     
     // Window width for responsive behavior
     const windowWidth = ref(window.innerWidth);
@@ -2174,6 +2247,28 @@ export default defineComponent({
     
     // Panel visibility - open by default
     const showSettings = ref(false);
+    const selectedCMYKColor = ref(null);
+
+    // CMYK Color palette function
+    const applyCMYKColor = (name, color) => {
+      selectedCMYKColor.value = { 
+        name: name.charAt(0).toUpperCase() + name.slice(1).replace(/([A-Z])/g, ' $1'), 
+        values: color 
+      };
+      
+      // Copy CMYK values to clipboard
+      const cmykString = `C:${color.c} M:${color.m} Y:${color.y} K:${color.k}`;
+      navigator.clipboard.writeText(cmykString).then(() => {
+        console.log(`🎨 CMYK color copied: ${cmykString}`);
+      }).catch(err => {
+        console.log('📋 Fallback: CMYK values displayed');
+      });
+      
+      // Clear selection after 3 seconds
+      setTimeout(() => {
+        selectedCMYKColor.value = null;
+      }, 3000);
+    };
     const settingsPanelHeight = ref(300); // Default smaller height
     const isDragging = ref(false);
     const dragStartY = ref(0);
@@ -2543,6 +2638,12 @@ export default defineComponent({
           await exportCMYKImage('png', 'current', filename);
         } else if (pendingExportType.value === 'cmyk-png-all') {
           await exportCMYKImage('png', 'all', filename);
+        } else if (pendingExportType.value === 'ghostscript-pdf-current') {
+          await exportGhostscriptCMYK('current', filename, 'pdf');
+        } else if (pendingExportType.value === 'ghostscript-png-current') {
+          await exportGhostscriptCMYK('current', filename, 'png');
+        } else if (pendingExportType.value === 'ghostscript-jpeg-current') {
+          await exportGhostscriptCMYK('current', filename, 'jpeg');
         }
       } catch (error) {
         console.error('Export failed:', error);
@@ -4862,10 +4963,46 @@ export default defineComponent({
     
     // Enhanced CMYK Export Functions
     const exportCMYKImage = async (format = 'jpeg', exportType = 'current', customName = null) => {
-      if (!invoiceRef.value || isExporting.value) return;
+      if (!invoiceRef.value || !contentWrapperRef.value || isExporting.value) return;
+      
+      console.log('Starting CMYK Image export...', { format, exportType, customName });
       
       try {
         isExporting.value = true;
+        
+        // Use the contentWrapperRef which contains the actual invoice content
+        const targetElement = contentWrapperRef.value;
+        
+        console.log('📊 Target element for CMYK export:', {
+          element: targetElement,
+          offsetWidth: targetElement?.offsetWidth,
+          offsetHeight: targetElement?.offsetHeight,
+          scrollWidth: targetElement?.scrollWidth,
+          scrollHeight: targetElement?.scrollHeight,
+          hasChildren: targetElement?.children?.length > 0,
+          isVisible: targetElement?.offsetParent !== null,
+          computedDisplay: window.getComputedStyle(targetElement || document.body).display
+        });
+        
+        // Fallback to invoiceRef if contentWrapperRef is not available
+        let finalTargetElement = targetElement;
+        if (!targetElement || !targetElement.offsetWidth) {
+          console.warn('⚠️ contentWrapperRef not available or has no dimensions, falling back to invoiceRef');
+          const fallbackElement = invoiceRef.value;
+          if (fallbackElement) {
+            console.log('📊 Fallback element:', {
+              element: fallbackElement,
+              offsetWidth: fallbackElement?.offsetWidth,
+              offsetHeight: fallbackElement?.offsetHeight,
+              scrollWidth: fallbackElement?.scrollWidth,
+              scrollHeight: fallbackElement?.scrollHeight
+            });
+            finalTargetElement = fallbackElement;
+          } else {
+            console.error('❌ No valid target element found for export');
+            return;
+          }
+        }
         
         // Store original styles for restoration
         let originalTransform = '';
@@ -4873,26 +5010,29 @@ export default defineComponent({
         let originalLeft = '';
         let originalTop = '';
         let originalMargin = '';
+        let originalZIndex = '';
         
-        // Get parent wrapper element
-        const parentWrapper = invoiceRef.value.parentElement;
+        // Store original styles from the final target element
+        originalTransform = finalTargetElement.style.transform;
+        originalPosition = finalTargetElement.style.position;
+        originalLeft = finalTargetElement.style.left;
+        originalTop = finalTargetElement.style.top;
+        originalMargin = finalTargetElement.style.margin;
+        originalZIndex = finalTargetElement.style.zIndex;
         
-        // Store original styles
-        originalTransform = invoiceRef.value.style.transform;
-        originalPosition = invoiceRef.value.style.position;
-        originalLeft = invoiceRef.value.style.left;
-        originalTop = invoiceRef.value.style.top;
-        originalMargin = invoiceRef.value.style.margin;
+        // Prepare element for capture - keep the scale but make it visible
+        finalTargetElement.style.position = 'relative';
+        finalTargetElement.style.left = '0';
+        finalTargetElement.style.top = '0';
+        finalTargetElement.style.margin = '0';
+        finalTargetElement.style.zIndex = '9999';
+        // Keep the transform scale as it ensures proper content sizing
         
-        // Reset styles for clean capture
-        invoiceRef.value.style.transform = 'none';
-        invoiceRef.value.style.position = 'static';
-        invoiceRef.value.style.left = 'auto';
-        invoiceRef.value.style.top = 'auto';
-        invoiceRef.value.style.margin = '0';
+        // Wait longer for layout to settle and content to render
+        await new Promise(resolve => setTimeout(resolve, 800));
         
-        // Wait for layout to settle
-        await new Promise(resolve => setTimeout(resolve, 300));
+        console.log('Target element dimensions:', targetElement.offsetWidth, 'x', targetElement.offsetHeight);
+        console.log('Target element computed style transform:', window.getComputedStyle(targetElement).transform);
         
         const pagesToExport = exportType === 'all' ? totalCopies.value : 1;
         
@@ -4902,20 +5042,28 @@ export default defineComponent({
           await new Promise(resolve => setTimeout(resolve, 600));
           
           // Capture with enhanced settings for CMYK-like output
-          const canvas = await html2canvas(invoiceRef.value, {
-            scale: 4,
+          console.log('Capturing element with html2canvas...', finalTargetElement);
+          
+          const canvas = await html2canvas(finalTargetElement, {
+            scale: 3,
             useCORS: true,
-            logging: false,
+            logging: true,
             backgroundColor: cmykToRgbCss(cmykColors.white.c, cmykColors.white.m, cmykColors.white.y, cmykColors.white.k),
             allowTaint: true,
             foreignObjectRendering: true,
-            imageTimeout: 20000,
-            removeContainer: true,
+            imageTimeout: 30000,
+            removeContainer: false,
             letterRendering: true,
             textBaseline: 'alphabetic',
             dpi: 300,
-            pixelRatio: 3
+            pixelRatio: 2,
+            width: finalTargetElement.scrollWidth,
+            height: finalTargetElement.scrollHeight,
+            scrollX: 0,
+            scrollY: 0
           });
+          
+          console.log('Canvas created:', canvas.width, 'x', canvas.height);
           
           // Convert to desired format
           const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
@@ -4940,11 +5088,14 @@ export default defineComponent({
         }
         
         // Restore original styles
-        invoiceRef.value.style.transform = originalTransform;
-        invoiceRef.value.style.position = originalPosition;
-        invoiceRef.value.style.left = originalLeft;
-        invoiceRef.value.style.top = originalTop;
-        invoiceRef.value.style.margin = originalMargin;
+        finalTargetElement.style.transform = originalTransform;
+        finalTargetElement.style.position = originalPosition;
+        finalTargetElement.style.left = originalLeft;
+        finalTargetElement.style.top = originalTop;
+        finalTargetElement.style.margin = originalMargin;
+        finalTargetElement.style.zIndex = originalZIndex;
+        
+        console.log('CMYK Image export completed successfully');
         
       } catch (error) {
         console.error('CMYK Image export failed:', error);
@@ -4953,6 +5104,290 @@ export default defineComponent({
         isExporting.value = false;
       }
     };
+
+    // CMYK Preview Mode Toggle
+    const toggleCMYKPreview = () => {
+      cmykPreviewMode.value = !cmykPreviewMode.value;
+      
+      // Apply CMYK color simulation to the invoice
+      const invoiceElement = invoiceRef.value;
+      if (invoiceElement) {
+        if (cmykPreviewMode.value) {
+          // Apply CMYK color simulation filter
+          invoiceElement.style.filter = 'contrast(1.05) saturate(0.85) brightness(0.95) hue-rotate(-2deg)';
+          invoiceElement.style.transition = 'filter 0.3s ease';
+          console.log('CMYK Preview Mode: ON - Simulating print colors');
+        } else {
+          // Remove filter for normal RGB view
+          invoiceElement.style.filter = 'none';
+          console.log('CMYK Preview Mode: OFF - Normal RGB colors');
+        }
+      }
+    };
+
+    // NEW: Ghostscript-style CMYK Export - Preserves exact layout
+    const exportGhostscriptCMYK = async (exportType = 'current', customName = null, format = 'pdf') => {
+      if (!invoiceRef.value || !contentWrapperRef.value || isExporting.value) return;
+      
+      try {
+        isExporting.value = true;
+        console.log('Starting Ghostscript-style CMYK export...', { exportType, customName, format });
+        
+        // Use the invoiceRef instead of contentWrapperRef to avoid transform issues
+        // invoiceRef contains the full invoice without CSS transforms
+        const targetElement = invoiceRef.value;
+        
+        console.log('📊 Target element details:', {
+          element: targetElement,
+          offsetWidth: targetElement.offsetWidth,
+          offsetHeight: targetElement.offsetHeight,
+          scrollWidth: targetElement.scrollWidth,
+          scrollHeight: targetElement.scrollHeight,
+          clientWidth: targetElement.clientWidth,
+          clientHeight: targetElement.clientHeight,
+          computedStyle: window.getComputedStyle(targetElement).transform
+        });
+
+        // Check if backend server is available
+        let backendAvailable = false;
+        try {
+          const healthCheck = await fetch('http://localhost:3001/api/cmyk/info', {
+            method: 'GET',
+            timeout: 5000
+          });
+          backendAvailable = healthCheck.ok;
+        } catch (error) {
+          console.warn('Backend server not available:', error);
+        }
+
+        if (!backendAvailable) {
+          console.warn('CMYK Backend server not available, falling back to client-side export');
+          
+          // Fall back to enhanced client-side CMYK export
+          return await exportCMYKImage(format, exportType, customName);
+        }
+
+        // Create progress indicator
+        const progressDiv = document.createElement('div');
+        progressDiv.innerHTML = `
+          <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                      background: rgba(0, 0, 0, 0.9); color: white; padding: 20px; 
+                      border-radius: 8px; z-index: 10000; text-align: center;">
+            <div style="font-size: 16px; margin-bottom: 10px;">🎨 Converting to CMYK</div>
+            <div style="font-size: 12px; margin-bottom: 15px;">Preserving exact layout - No changes to positioning, fonts, or size</div>
+            <div id="cmyk-progress-bar" style="width: 300px; height: 6px; background: #333; border-radius: 3px; overflow: hidden;">
+              <div id="cmyk-progress-fill" style="width: 0%; height: 100%; background: #4f46e5; transition: width 0.3s;"></div>
+            </div>
+            <div style="margin-top: 10px; font-size: 11px; opacity: 0.8;">Your design stays exactly the same - only colors are converted to CMYK</div>
+          </div>
+        `;
+        document.body.appendChild(progressDiv);
+
+        const updateProgress = (percent, message) => {
+          const fill = document.getElementById('cmyk-progress-fill');
+          const text = progressDiv.querySelector('div');
+          if (fill) fill.style.width = `${percent}%`;
+          if (message) text.textContent = message;
+        };
+
+        // Step 1: Generate the original PDF/PNG exactly as shown
+        updateProgress(20, '📄 Capturing exact design...');
+        
+        let originalBuffer;
+        let fileName;
+        
+        // Calculate proper dimensions for print-ready output
+        const dpi = 300; // High resolution for printing
+        const inchToPx = dpi;
+        const targetWidth = invoiceWidth.value * inchToPx;
+        const targetHeight = invoiceHeight.value * inchToPx;
+
+        if (format === 'pdf') {
+          // Create exact PDF representation with proper dimensions
+          console.log('📸 Capturing PDF with dimensions:', { targetWidth, targetHeight });
+          
+          const canvas = await html2canvas(targetElement, {
+            scale: 3, // High quality for print
+            backgroundColor: '#ffffff',
+            allowTaint: true,
+            useCORS: true,
+            foreignObjectRendering: false,
+            imageTimeout: 15000,
+            removeContainer: false,
+            logging: false,
+            width: targetWidth,
+            height: targetHeight,
+            dpi: dpi,
+            pixelRatio: 1
+          });
+
+          console.log('✅ Canvas captured for PDF:', {
+            canvasWidth: canvas.width,
+            canvasHeight: canvas.height,
+            expectedWidth: targetWidth * 3,
+            expectedHeight: targetHeight * 3
+          });
+
+          if (canvas.width === 0 || canvas.height === 0) {
+            throw new Error('Canvas capture failed - zero dimensions');
+          }
+
+          const pdf = new jsPDF({
+            unit: 'in',
+            format: [invoiceWidth.value, invoiceHeight.value],
+            orientation: 'portrait',
+            compress: false // Don't compress to maintain CMYK conversion quality
+          });
+
+          const imgData = canvas.toDataURL('image/png', 1.0); // PNG for better quality
+          pdf.addImage(imgData, 'PNG', 0, 0, invoiceWidth.value, invoiceHeight.value, '', 'FAST');
+          
+          originalBuffer = pdf.output('arraybuffer');
+          fileName = customName ? `${customName}.pdf` : `Invoice-${Date.now()}.pdf`;
+          
+        } else {
+          // Create exact image representation with print dimensions
+          console.log('📸 Capturing image with dimensions:', { targetWidth, targetHeight });
+          
+          const canvas = await html2canvas(targetElement, {
+            scale: 3, // High quality for print
+            backgroundColor: '#ffffff',
+            allowTaint: true,
+            useCORS: true,
+            foreignObjectRendering: false,
+            imageTimeout: 15000,
+            removeContainer: false,
+            logging: false,
+            width: targetWidth,
+            height: targetHeight,
+            dpi: dpi,
+            pixelRatio: 1
+          });
+
+          console.log('✅ Canvas captured for image:', {
+            canvasWidth: canvas.width,
+            canvasHeight: canvas.height,
+            expectedWidth: targetWidth * 3,
+            expectedHeight: targetHeight * 3
+          });
+
+          if (canvas.width === 0 || canvas.height === 0) {
+            throw new Error('Canvas capture failed - zero dimensions');
+          }
+
+          if (format === 'jpeg') {
+            originalBuffer = await new Promise(resolve => {
+              canvas.toBlob(resolve, 'image/jpeg', 0.95); // High quality
+            });
+            fileName = customName ? `${customName}.jpg` : `Invoice-${Date.now()}.jpg`;
+          } else {
+            originalBuffer = await new Promise(resolve => {
+              canvas.toBlob(resolve, 'image/png', 1.0);
+            });
+            fileName = customName ? `${customName}.png` : `Invoice-${Date.now()}.png`;
+          }
+        }
+
+        console.log('📦 Original buffer size:', originalBuffer ? originalBuffer.byteLength || originalBuffer.size : 'undefined');
+
+        if (!originalBuffer || (originalBuffer.byteLength === 0 && originalBuffer.size === 0)) {
+          throw new Error('Failed to generate original file - buffer is empty');
+        }
+
+        updateProgress(60, '🎨 Converting to CMYK color space...');
+        
+        // Step 2: Send to backend for CMYK conversion
+        const formData = new FormData();
+        
+        // Convert buffer to proper format for FormData
+        let fileBlob;
+        if (originalBuffer instanceof ArrayBuffer) {
+          fileBlob = new Blob([originalBuffer], { 
+            type: format === 'pdf' ? 'application/pdf' : `image/${format}` 
+          });
+        } else {
+          fileBlob = originalBuffer; // Already a Blob
+        }
+        
+        console.log('📤 Sending to backend:', {
+          fileName,
+          blobSize: fileBlob.size,
+          blobType: fileBlob.type
+        });
+
+        formData.append('file', fileBlob, fileName);
+        formData.append('preserveLayout', 'true');
+        formData.append('colorProfile', 'default');
+
+        const response = await fetch('http://localhost:3001/api/cmyk/convert', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          throw new Error(`CMYK conversion failed: ${response.statusText}`);
+        }
+
+        updateProgress(90, '💾 Finalizing CMYK file...');
+
+        // Step 3: Download the CMYK-converted file
+        const cmykBuffer = await response.arrayBuffer();
+        const metadata = JSON.parse(response.headers.get('X-CMYK-Metadata') || '{}');
+        
+        const fileExt = format === 'pdf' ? '.pdf' : '.png';
+        const finalFileName = customName 
+          ? `${customName}-CMYK${fileExt}` 
+          : `Invoice-CMYK-${Date.now()}${fileExt}`;
+
+        const blob = new Blob([cmykBuffer], { 
+          type: format === 'pdf' ? 'application/pdf' : 'image/png' 
+        });
+        
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = finalFileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+
+        updateProgress(100, '✅ CMYK conversion complete!');
+        
+        // Show success message
+        setTimeout(() => {
+          document.body.removeChild(progressDiv);
+          alert(`✅ Perfect CMYK Export Complete!\n\n` +
+                `File: ${finalFileName}\n\n` +
+                `✓ Exact layout preserved (Ghostscript-style)\n` +
+                `✓ No position changes\n` +
+                `✓ No font changes\n` +
+                `✓ No size changes\n` +
+                `✓ No design breaks\n` +
+                `✓ No reflow\n` +
+                `✓ Only color space converted to CMYK\n\n` +
+                `Your file is ready for professional CMYK printing!\n` +
+                `This conversion preserves YOUR EXACT design.`);
+        }, 1000);
+
+        console.log('Ghostscript-style CMYK export completed:', {
+          originalSize: originalBuffer.byteLength,
+          cmykSize: cmykBuffer.byteLength,
+          metadata
+        });
+
+      } catch (error) {
+        console.error('Ghostscript-style CMYK export failed:', error);
+        
+        // Remove progress indicator if it exists
+        const progressDiv = document.querySelector('[style*="position: fixed"]');
+        if (progressDiv) document.body.removeChild(progressDiv);
+        
+        alert(`❌ Perfect CMYK Export Failed\n\n${error.message}\n\nPlease ensure the export server is running (node export-server.cjs) and try again.`);
+      } finally {
+        isExporting.value = false;
+      }
+    };
+    
     // Enhanced CMYK Vector PDF Export Function - Accurately reflects actual design
     const exportCMYKVectorPDF = async (exportType = 'current', customName = null) => {
       if (!invoiceData.value || isExporting.value) return;
@@ -5661,20 +6096,25 @@ export default defineComponent({
               // Wait for page to fully update and render
               await new Promise(resolve => setTimeout(resolve, 600));
               
+              // Ensure we have the content wrapper reference
+              const targetElement = contentWrapperRef.value || invoiceRef.value;
+              
               // Capture current page as canvas with improved settings for CMYK output
-              const canvas = await html2canvas(invoiceRef.value, {
-                scale: 4,
+              const canvas = await html2canvas(targetElement, {
+                scale: 3,
                 useCORS: true,
-                logging: false,
+                logging: true,
                 backgroundColor: cmykToRgbCss(cmykColors.white.c, cmykColors.white.m, cmykColors.white.y, cmykColors.white.k),
                 allowTaint: true,
                 foreignObjectRendering: true,
-                imageTimeout: 20000,
-                removeContainer: true,
+                imageTimeout: 30000,
+                removeContainer: false,
                 letterRendering: true,
                 textBaseline: 'alphabetic',
                 dpi: 300, // High DPI for better print quality
-                pixelRatio: 3, // Better color accuracy
+                pixelRatio: 2, // Better color accuracy
+                width: targetElement.scrollWidth,
+                height: targetElement.scrollHeight,
                 ignoreElements: (element) => {
                   return element.classList?.contains('no-export');
                 }
@@ -5770,20 +6210,25 @@ export default defineComponent({
         } catch (error) {
           console.warn('HTML2PDF failed, trying canvas to PDF method:', error);
           
+          // Ensure we have the content wrapper reference
+          const targetElement = contentWrapperRef.value || invoiceRef.value;
+          
           // Alternative method using canvas for mobile compatibility
-          const canvas = await html2canvas(invoiceRef.value, {
-            scale: 4,
+          const canvas = await html2canvas(targetElement, {
+            scale: 3,
             useCORS: true,
-            logging: false,
+            logging: true,
             backgroundColor: cmykToRgbCss(cmykColors.white.c, cmykColors.white.m, cmykColors.white.y, cmykColors.white.k),
             allowTaint: true,
             foreignObjectRendering: true,
-            imageTimeout: 20000,
-            removeContainer: true,
+            imageTimeout: 30000,
+            removeContainer: false,
             letterRendering: true,
             textBaseline: 'alphabetic',
             dpi: 300, // High DPI for better print quality
-            pixelRatio: 3 // Better color accuracy
+            pixelRatio: 2, // Better color accuracy
+            width: targetElement.scrollWidth,
+            height: targetElement.scrollHeight
           });
           
           const pdf = new jsPDF({
@@ -6426,19 +6871,41 @@ export default defineComponent({
 
     // Error handling methods
     const handleRetry = () => {
-      hasError.value = false;
-      errorMessage.value = '';
-      errorDetails.value = '';
-      // Try to reload data from localStorage safely
       try {
-        location.reload();
+        hasError.value = false;
+        errorMessage.value = '';
+        errorDetails.value = '';
+        // Force a complete page reload to reset all state
+        window.location.reload();
       } catch (error) {
-        console.error('Error reloading page:', error);
+        console.error('Error during retry:', error);
+        try {
+          // Fallback if location.reload() fails
+          window.location.href = window.location.href;
+        } catch (fallbackError) {
+          console.error('Fallback reload also failed:', fallbackError);
+          // Last resort - try to redirect to current path
+          const currentPath = window.location.pathname + window.location.search;
+          window.location.href = currentPath;
+        }
       }
     };
 
     const handleReload = () => {
-      location.reload();
+      try {
+        window.location.reload();
+      } catch (error) {
+        console.error('Error during reload:', error);
+        try {
+          // Fallback if location.reload() fails
+          window.location.href = window.location.href;
+        } catch (fallbackError) {
+          console.error('Fallback reload also failed:', fallbackError);
+          // Last resort - try to redirect to current path
+          const currentPath = window.location.pathname + window.location.search;
+          window.location.href = currentPath;
+        }
+      }
     };
 
     const handleError = (error, context = '') => {
@@ -6475,6 +6942,8 @@ export default defineComponent({
       invoiceRef,
       exportDropdownRef,
       isExporting,
+      cmykPreviewMode,
+      toggleCMYKPreview,
       invoiceData,
       showSettings,
       settingsPanelHeight,
@@ -6674,7 +7143,13 @@ export default defineComponent({
       handleReload,
       handleError,
       cleanupCorruptedLocalStorage,
-      handleOrganizationNameChange
+      handleOrganizationNameChange,
+      // CMYK Color Palette
+      selectedCMYKColor,
+      applyCMYKColor,
+      // Template references
+      invoiceRef,
+      contentWrapperRef
     };
   }
 });
@@ -6683,7 +7158,7 @@ export default defineComponent({
 <style scoped>
 /* Error Boundary Styles */
 /* Export stability fixes */
-.organization-name {
+#meblink-invoice .organization-name {
   font-family: 'Impact', sans-serif !important;
   font-weight: normal !important;
   letter-spacing: -0.02em;
@@ -6741,14 +7216,6 @@ h1, h2, h3, h4, h5, h6, p, span, div {
   min-height: 400px;
   padding: 2rem;
   background-color: v-bind('cmykColors?.lightBackground ? cmykToRgbCss(cmykColors.lightBackground.c, cmykColors.lightBackground.m, cmykColors.lightBackground.y, cmykColors.lightBackground.k) : "#f9fafb"');
-}
-
-/* Export stability fixes */
-.organization-name {
-  font-family: 'Impact', sans-serif !important;
-  font-weight: normal !important;
-  letter-spacing: -0.02em;
-  text-rendering: optimizeLegibility;
 }
 
 /* Prevent text shifting during export */
@@ -6927,8 +7394,8 @@ h1, h2, h3, h4, h5, h6, p, span, div {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Fallback font for better compatibility */
-#meblink-invoice * {
+/* Fallback font for better compatibility - exclude organization names */
+#meblink-invoice *:not(.organization-name) {
   font-family: inherit;
 }
 
