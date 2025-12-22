@@ -112,18 +112,31 @@ export const ICANBranchService = {
    */
   async getAllBranches(): Promise<ICANBranch[]> {
     try {
-      const branchesRef = collection(db, COLLECTIONS.BRANCHES)
-      const snapshot = await getDocs(query(branchesRef, orderBy('name')))
+      console.log('🔍 [ICAN] Loading branches from Firebase...')
+      console.log('🔥 [ICAN] Database instance:', !!db)
+      console.log('📊 [ICAN] Collection name:', COLLECTIONS.BRANCHES)
       
-      return snapshot.docs.map(doc => ({
+      const branchesRef = collection(db, COLLECTIONS.BRANCHES)
+      console.log('📋 [ICAN] Collection reference created')
+      
+      const snapshot = await getDocs(query(branchesRef, orderBy('name')))
+      console.log('✅ [ICAN] Query successful, documents found:', snapshot.size)
+      
+      const branches = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         createdAt: (doc.data().createdAt as any)?.toDate?.() || new Date(),
         updatedAt: (doc.data().updatedAt as any)?.toDate?.() || new Date(),
       } as ICANBranch))
+      
+      console.log('📦 [ICAN] Processed branches:', branches.length, branches)
+      return branches
     } catch (error) {
-      console.error('Error fetching branches:', error)
-      throw new Error('Failed to fetch branches')
+      console.error('💥 [ICAN] Error fetching branches:', error)
+      console.error('💥 [ICAN] Error code:', error.code)
+      console.error('💥 [ICAN] Error message:', error.message)
+      console.error('💥 [ICAN] Full error:', JSON.stringify(error, null, 2))
+      throw new Error(`Firebase connection failed: ${error.message || error}`)
     }
   },
 
@@ -152,19 +165,38 @@ export const ICANBranchService = {
    */
   async verifyBranchCredentials(name: string, password: string): Promise<ICANBranch | null> {
     try {
+      console.log('🔍 Firebase Debug: Verifying credentials for:', { name, timestamp: new Date().toISOString() });
+      
       const branchesRef = collection(db, COLLECTIONS.BRANCHES)
       const q = query(branchesRef, where('name', '==', name))
+      
+      console.log('🔍 Firebase Debug: Executing Firestore query...');
       const snapshot = await getDocs(q)
       
+      console.log('🔍 Firebase Debug: Query result:', { 
+        isEmpty: snapshot.empty, 
+        size: snapshot.size,
+        docs: snapshot.docs.length 
+      });
+      
       if (snapshot.empty) {
+        console.log('🔍 Firebase Debug: No branch found with name:', name);
         return null
       }
       
       const branchDoc = snapshot.docs[0]
       const branch = branchDoc.data() as ICANBranch
       
+      console.log('🔍 Firebase Debug: Branch found:', { 
+        id: branchDoc.id, 
+        name: branch.name,
+        hasPassword: !!branch.password,
+        passwordMatch: branch.password === password
+      });
+      
       // In a real app, you'd hash passwords
       if (branch.password === password) {
+        console.log('🔍 Firebase Debug: Password verification SUCCESS');
         return {
           id: branchDoc.id,
           ...branch,
@@ -173,10 +205,46 @@ export const ICANBranchService = {
         }
       }
       
+      console.log('🔍 Firebase Debug: Password verification FAILED');
       return null
     } catch (error) {
-      console.error('Error verifying branch credentials:', error)
+      console.error('🔍 Firebase Debug: Error verifying branch credentials:', error)
+      console.error('🔍 Firebase Debug: Error details:', {
+        message: error.message,
+        code: error.code,
+        name: error.name
+      });
       throw new Error('Failed to verify credentials')
+    }
+  },
+
+  /**
+   * Test Firebase connectivity and list available branches
+   */
+  async testFirebaseConnection(): Promise<{ connected: boolean; branches: string[]; error?: string }> {
+    try {
+      console.log('🔍 Testing Firebase connection...');
+      const branchesRef = collection(db, COLLECTIONS.BRANCHES)
+      const snapshot = await getDocs(branchesRef)
+      
+      const branches = snapshot.docs.map(doc => doc.data().name).sort();
+      
+      console.log('🔍 Firebase connection test successful!', { 
+        branchCount: branches.length, 
+        branches: branches.slice(0, 5) // Show first 5 for debugging
+      });
+      
+      return {
+        connected: true,
+        branches
+      };
+    } catch (error) {
+      console.error('🔍 Firebase connection test failed:', error);
+      return {
+        connected: false,
+        branches: [],
+        error: error.message
+      };
     }
   },
 

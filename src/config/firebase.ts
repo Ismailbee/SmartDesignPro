@@ -55,6 +55,18 @@ try {
   app = initializeApp(firebaseConfig)
   auth = getAuth(app)
   
+  // Set Firebase Auth persistence to LOCAL (persists across app restarts)
+  // This is CRITICAL for APK - browserLocalPersistence persists even after app closes
+  import('firebase/auth').then(({ browserLocalPersistence, setPersistence }) => {
+    setPersistence(auth, browserLocalPersistence)
+      .then(() => {
+        console.log('✅ Firebase Auth persistence set to LOCAL (APK-compatible)')
+      })
+      .catch((error) => {
+        console.error('❌ Failed to set auth persistence:', error)
+      })
+  })
+  
   // Initialize Firestore with persistent cache (new API replaces enableMultiTabIndexedDbPersistence)
   db = initializeFirestore(app, {
     localCache: persistentLocalCache({
@@ -90,6 +102,8 @@ export {
   signInWithRedirect,
   getRedirectResult,
   signInWithCredential,
+  browserLocalPersistence,
+  setPersistence,
   type User as FirebaseUser
 } from 'firebase/auth'
 
