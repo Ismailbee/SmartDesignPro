@@ -128,10 +128,14 @@ async function renderNamingCeremony(inputs, files, outputPath) {
       if (img.path && fs.existsSync(img.path)) {
         fullImagePath = img.path
       } else if (img.url) {
-        // If url is local upload path like "http://localhost:3003/uploads/xxx.jpg"
-        const imagePath = img.url.replace('http://localhost:3003/uploads/', '')
-        const candidate = path.join(__dirname, 'auto-design-uploads', imagePath)
-        if (fs.existsSync(candidate)) fullImagePath = candidate
+        // If url contains a local uploads path like "http(s)://<host>/uploads/xxx.jpg"
+        const marker = '/uploads/'
+        const idx = img.url.indexOf(marker)
+        if (idx !== -1) {
+          const imagePath = img.url.slice(idx + marker.length)
+          const candidate = path.join(__dirname, 'auto-design-uploads', imagePath)
+          if (fs.existsSync(candidate)) fullImagePath = candidate
+        }
       }
     }
 

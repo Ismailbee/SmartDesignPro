@@ -124,7 +124,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 interface Props {
   modelValue: boolean
@@ -164,15 +164,35 @@ const defaultBackgrounds = [
   { id: 8, value: 'linear-gradient(135deg, #30cfd0 0%, #330867 100%)', name: 'Ocean' }
 ]
 
+type BackgroundManifestItem = {
+  id: string
+  name: string
+  category?: string
+  file: string
+}
+
 // Local backgrounds from the /svg/background folder - works offline and on mobile
-const onlineBackgrounds = ref([
-  { id: 1, name: 'Beige Green Elegant Islamic', url: '/svg/background/Beige Green and Black Elegant Islamic Presentation.svg' },
-  { id: 2, name: 'Black White Modern Islamic', url: '/svg/background/Black White Modern Islamic Project Presentation.png' },
-  { id: 3, name: 'Deep Green', url: '/svg/background/Deep Green bg-1.png' },
-  { id: 4, name: 'Red Gold Islamic 1', url: '/svg/background/Red and Gold Simple Elegant Islamic Background Poster.png' },
-  { id: 6, name: 'Red Gold Islamic 2', url: '/svg/background/Red and Gold Simple Elegant Islamic Background Poster (2).png' },
-  { id: 7, name: 'Red Gold Islamic 3', url: '/svg/background/Red and Gold Simple Elegant Islamic Background Poster (3).png' }
-])
+const onlineBackgrounds = ref<Array<{ id: string; name: string; url: string }>>([])
+
+async function loadBackgroundManifest() {
+  try {
+    const res = await fetch('/svg/background/backgrounds.json', { cache: 'no-store' })
+    if (!res.ok) throw new Error(`Failed to load backgrounds.json (${res.status})`)
+    const items = (await res.json()) as BackgroundManifestItem[]
+    onlineBackgrounds.value = (items || []).map((it) => ({
+      id: it.id,
+      name: it.name,
+      url: encodeURI(`/svg/background/${it.file}`)
+    }))
+  } catch (e) {
+    console.warn('⚠️ Could not load /svg/background/backgrounds.json. Falling back to empty library.', e)
+    onlineBackgrounds.value = []
+  }
+}
+
+onMounted(() => {
+  loadBackgroundManifest()
+})
 
 const filteredOnlineBackgrounds = computed(() => {
   if (!searchQuery.value) return onlineBackgrounds.value

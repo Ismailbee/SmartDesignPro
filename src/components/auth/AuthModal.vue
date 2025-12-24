@@ -28,13 +28,14 @@
 </template>
 
 <script setup lang="ts">
-import { watch, onUnmounted } from 'vue'
+import { watch, onUnmounted, defineAsyncComponent } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
-import LoginView from './LoginView.vue'
-import RegisterView from './RegisterView.vue'
-import ForgotPasswordView from './ForgotPasswordView.vue'
-import ResetPasswordView from './ResetPasswordView.vue'
+
+const LoginView = defineAsyncComponent(() => import('./LoginView.vue'))
+const RegisterView = defineAsyncComponent(() => import('./RegisterView.vue'))
+const ForgotPasswordView = defineAsyncComponent(() => import('./ForgotPasswordView.vue'))
+const ResetPasswordView = defineAsyncComponent(() => import('./ResetPasswordView.vue'))
 
 const authStore = useAuthStore()
 const { isAuthModalOpen, authModalView } = storeToRefs(authStore)

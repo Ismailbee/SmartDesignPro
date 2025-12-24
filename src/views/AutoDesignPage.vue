@@ -3,7 +3,19 @@
 
     
     <!-- Show Sticker Template Panel if category is sticker -->
-    <StickerTemplatePanel v-if="selectedCategory === 'sticker'" />
+    <Suspense v-if="selectedCategory === 'sticker'">
+      <template #default>
+        <StickerTemplatePanel />
+      </template>
+      <template #fallback>
+        <div class="flex items-center justify-center min-h-screen">
+          <div class="text-center">
+            <div class="w-16 h-16 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"></div>
+            <p class="text-gray-600 text-lg">Loading designer...</p>
+          </div>
+        </div>
+      </template>
+    </Suspense>
 
     <!-- NamingPanel removed - wedding-only mode -->
 
@@ -541,14 +553,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAutoDesignStore } from '@/stores/autoDesign'
 import { useAuthStore } from '@/stores/auth'
-import StickerTemplatePanel from '@/components/auto-design/StickerTemplatePanel.vue'
-import ImageUploader from '@/components/auto-design/ImageUploader.vue'
-import BackgroundSelectionPopup from '@/components/auto-design/BackgroundSelectionPopup.vue'
-import DesignPreviewModal from '@/components/auto-design/DesignPreviewModal.vue'
+
+// Lazy load heavy components for faster initial page load
+const StickerTemplatePanel = defineAsyncComponent({
+  loader: () => import('@/components/auto-design/StickerTemplatePanel.vue'),
+  loadingComponent: {
+    template: `<div class="flex items-center justify-center min-h-screen">
+      <div class="text-center">
+        <div class="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"></div>
+        <p class="text-gray-600">Loading designer...</p>
+      </div>
+    </div>`
+  },
+  delay: 100
+})
+
+const ImageUploader = defineAsyncComponent(() => import('@/components/auto-design/ImageUploader.vue'))
+const BackgroundSelectionPopup = defineAsyncComponent(() => import('@/components/auto-design/BackgroundSelectionPopup.vue'))
+const DesignPreviewModal = defineAsyncComponent(() => import('@/components/auto-design/DesignPreviewModal.vue'))
 import * as autoDesignApi from '@/services/auto-design-api'
 const route = useRoute()
 const router = useRouter()
@@ -652,6 +678,12 @@ onMounted(() => {
 
   // Initialize Socket.io connection
   autoDesignStore.initializeSocket()
+})
+
+// Cleanup on unmount for faster navigation
+onBeforeUnmount(() => {
+  // Disconnect socket
+  autoDesignStore.disconnectSocket?.()
 })
 
 function handleBackgroundSelect(type: string, value: string) {

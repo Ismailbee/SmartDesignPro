@@ -13,6 +13,8 @@ import { dirname } from 'path'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
+const PORT = Number(process.env.AUTO_DESIGN_PORT || 3002)
+
 const app = express()
 const server = createServer(app)
 const io = new Server(server, {
@@ -108,9 +110,10 @@ async function simulateDesignGeneration(projectId, userId) {
   // Update project status
   project.status = 'completed'
   project.progress = 100
-  project.design.previewUrl = `http://localhost:3003/uploads/preview-${projectId}.png`
-  project.design.fullUrl = `http://localhost:3003/uploads/full-${projectId}.png`
-  project.design.pdfUrl = `http://localhost:3003/uploads/design-${projectId}.pdf`
+  const publicBaseUrl = process.env.AUTO_DESIGN_PUBLIC_URL || `http://localhost:${PORT}`
+  project.design.previewUrl = `${publicBaseUrl}/uploads/preview-${projectId}.png`
+  project.design.fullUrl = `${publicBaseUrl}/uploads/full-${projectId}.png`
+  project.design.pdfUrl = `${publicBaseUrl}/uploads/design-${projectId}.pdf`
   project.updatedAt = new Date()
 
   // Emit completion
@@ -131,7 +134,8 @@ app.post('/api/auto-design/upload', upload.single('file'), (req, res) => {
       return res.status(400).json({ success: false, message: 'No file uploaded' })
     }
 
-    const fileUrl = `http://localhost:3003/uploads/${req.file.filename}`
+    const publicBaseUrl = process.env.AUTO_DESIGN_PUBLIC_URL || `http://localhost:${PORT}`
+    const fileUrl = `${publicBaseUrl}/uploads/${req.file.filename}`
     
     res.json({
       success: true,
@@ -279,7 +283,6 @@ app.get('/health', (req, res) => {
 })
 
 // Start server
-const PORT = 3003
 server.listen(PORT, () => {
   console.log(`🚀 Auto Design Server running on http://localhost:${PORT}`)
   console.log(`📁 Uploads directory: ${uploadsDir}`)

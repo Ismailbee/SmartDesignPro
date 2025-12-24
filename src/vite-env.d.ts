@@ -6,6 +6,16 @@ declare module '*.vue' {
   export default component
 }
 
+interface ImportMetaEnv {
+  readonly VITE_AUTO_DESIGN_API_URL?: string
+  readonly VITE_AUTO_DESIGN_SOCKET_URL?: string
+  readonly VITE_AUTH_API_URL?: string
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv
+}
+
 // Web Speech API Types for Voice Commands
 interface SpeechRecognitionEvent extends Event {
   resultIndex: number

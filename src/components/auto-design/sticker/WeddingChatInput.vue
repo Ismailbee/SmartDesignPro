@@ -1,287 +1,313 @@
 <template>
-  <div class="ai-chat-footer">
-    <!-- Chat Input Container -->
-    <div class="chat-input-container">
-      <button 
-        @click="showUploadOptions = !showUploadOptions" 
-        class="chat-add-btn" 
-        :class="{ 'active': showUploadOptions }"
-      >
-        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
-      </button>
-      
-      <div class="chat-input-wrapper">
-        <input 
-          v-model="inputText"
-          @keydown.enter="handleEnterKey"
-          @paste="handlePaste"
-          @input="$emit('update:modelValue', inputText)"
-          type="text" 
-          :placeholder="isRecording ? '🎤 Listening... Speak now!' : (showPreview ? 'Ask me anything or make changes...' : 'What can I help with?')"
-          class="chat-input"
-          :class="{ 'recording': isRecording }"
-        />
+  <div class="chat-input-area">
+    <div class="input-container" :class="{ 'listening': isListening }">
+      <!-- Attachment -->
+      <div class="attachment-wrapper">
+        <button @click="toggleUpload" class="input-btn attachment-btn" :class="{ active: showUploadMenu }">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+        <Transition name="popup">
+          <div v-if="showUploadMenu" class="upload-menu">
+            <button @click="handleUpload('gallery')" class="upload-option">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+              </svg>
+              <span>Gallery</span>
+            </button>
+            <button @click="handleUpload('camera')" class="upload-option">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
+              </svg>
+              <span>Camera</span>
+            </button>
+          </div>
+        </Transition>
       </div>
 
+      <!-- Input -->
+      <input
+        ref="inputRef"
+        v-model="inputText"
+        @keydown.enter.prevent="handleSend"
+        type="text"
+        :placeholder="placeholder"
+        class="text-input"
+      />
+
+      <!-- Voice -->
       <button 
-        @click="$emit('toggle-voice')" 
-        class="chat-voice-btn" 
-        :class="{ 'recording': isRecording, 'pulse': isRecording }"
+        v-if="isSupported"
+        @click="toggleVoice"
+        class="input-btn voice-btn"
+        :class="{ recording: isListening }"
       >
-        <svg v-if="!isRecording" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
-        </svg>
-        <svg v-else class="w-6 h-6 recording-icon" fill="currentColor" viewBox="0 0 24 24">
-          <rect x="6" y="6" width="12" height="12" rx="2" />
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
         </svg>
       </button>
 
-      <button 
-        @click="$emit('send')" 
-        class="chat-send-btn" 
-        :disabled="!inputText.trim()"
-      >
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="transform: rotate(0deg); margin-left: 2px;">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+      <!-- Send -->
+      <button @click="handleSend" class="input-btn send-btn" :disabled="!canSend" :class="{ active: canSend }">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
         </svg>
       </button>
     </div>
 
-    <!-- Upload Options Popup -->
-    <div v-if="showUploadOptions" class="upload-options-popup">
-      <button @click="handleUploadClick" class="upload-option-btn">
-        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-        </svg>
-        <span>Upload Picture</span>
-      </button>
-    </div>
+    <div v-if="voiceError" class="voice-error">{{ voiceError }}</div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, computed, onUnmounted, watch } from 'vue'
 
 // Props
 const props = defineProps<{
   modelValue: string
-  showPreview: boolean
-  isRecording: boolean
+  showPreview?: boolean
 }>()
 
 // Emits
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
   (e: 'send'): void
-  (e: 'toggle-voice'): void
-  (e: 'upload'): void
-  (e: 'paste', event: ClipboardEvent): void
+  (e: 'upload', type: string): void
 }>()
 
-// Local state
+// Refs
+const inputRef = ref<HTMLInputElement | null>(null)
 const inputText = ref(props.modelValue)
-const showUploadOptions = ref(false)
+const showUploadMenu = ref(false)
+let speechRecognition: any = null
 
-// Sync with parent
-watch(() => props.modelValue, (newVal) => {
-  inputText.value = newVal
+// Voice state
+const isListening = ref(false)
+const voiceError = ref<string | null>(null)
+const isSupported = typeof window !== 'undefined' && 
+  ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)
+
+// Computed
+const canSend = computed(() => inputText.value.trim().length > 0)
+
+const placeholder = computed(() => {
+  if (props.showPreview) return 'Make changes to your design...'
+  return 'Describe your wedding sticker...'
 })
 
-watch(inputText, (newVal) => {
-  emit('update:modelValue', newVal)
-})
+// Start Voice
+function startVoice() {
+  if (!isSupported) {
+    voiceError.value = 'Speech not supported'
+    setTimeout(() => voiceError.value = null, 3000)
+    return
+  }
 
-// Handlers
-function handleEnterKey(e: KeyboardEvent) {
-  if (!e.shiftKey && inputText.value.trim()) {
-    e.preventDefault()
-    emit('send')
+  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+  speechRecognition = new SpeechRecognition()
+  speechRecognition.continuous = false
+  speechRecognition.interimResults = true
+  speechRecognition.lang = 'en-US'
+
+  speechRecognition.onstart = () => {
+    isListening.value = true
+    voiceError.value = null
+  }
+
+  speechRecognition.onresult = (event: any) => {
+    let transcript = ''
+    for (let i = 0; i < event.results.length; i++) {
+      transcript += event.results[i][0].transcript
+    }
+    inputText.value = transcript
+    emit('update:modelValue', transcript)
+  }
+
+  speechRecognition.onerror = (event: any) => {
+    isListening.value = false
+    if (event.error === 'no-speech') {
+      voiceError.value = 'No speech detected'
+    } else if (event.error === 'not-allowed') {
+      voiceError.value = 'Microphone access denied'
+    } else {
+      voiceError.value = 'Voice error'
+    }
+    setTimeout(() => voiceError.value = null, 3000)
+  }
+
+  speechRecognition.onend = () => {
+    isListening.value = false
+  }
+
+  speechRecognition.start()
+}
+
+// Stop Voice
+function stopVoice() {
+  if (speechRecognition) {
+    speechRecognition.stop()
+    speechRecognition = null
+  }
+  isListening.value = false
+}
+
+// Toggle Voice
+function toggleVoice() {
+  if (isListening.value) {
+    stopVoice()
+  } else {
+    startVoice()
   }
 }
 
-function handlePaste(e: ClipboardEvent) {
-  emit('paste', e)
+// Send
+function handleSend() {
+  if (!canSend.value) return
+  emit('send')
+  inputText.value = ''
 }
 
-function handleUploadClick() {
-  showUploadOptions.value = false
-  emit('upload')
+// Upload
+function toggleUpload() {
+  showUploadMenu.value = !showUploadMenu.value
 }
+
+function handleUpload(type: string) {
+  showUploadMenu.value = false
+  emit('upload', type)
+}
+
+// Sync
+watch(() => props.modelValue, (val) => {
+  if (val !== inputText.value) inputText.value = val
+})
+
+watch(inputText, (val) => {
+  emit('update:modelValue', val)
+})
+
+// Cleanup
+onUnmounted(() => {
+  stopVoice()
+})
+
+// Expose for external use
+const voiceInput = { isSupported, isListening, error: voiceError }
+defineExpose({ focus: () => inputRef.value?.focus(), voiceInput })
 </script>
 
 <style scoped>
-.ai-chat-footer {
+.chat-input-area {
   position: sticky;
   bottom: 0;
-  background: white;
-  border-top: 1px solid #e8e8e8;
-  padding: 12px 16px;
-  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  z-index: 10;
   flex-shrink: 0;
-  max-width: 600px;
-  margin: 0 auto;
-  width: 100%;
-  box-sizing: border-box;
+  background: var(--bg-primary, white);
+  border-top: 1px solid var(--border-primary);
+  padding: 12px 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
 
-.chat-input-container {
+.input-container {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #f5f5f5;
-  border-radius: 25px;
-  padding: 4px 8px;
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 28px;
 }
 
-.chat-add-btn {
+.input-container:focus-within { border-color: var(--color-primary); }
+.input-container.listening { border-color: #ef4444; }
+
+.attachment-wrapper { position: relative; }
+
+.input-btn {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: transparent;
   border: none;
-  color: #666;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
-.chat-add-btn:hover {
-  background: #e8e8e8;
-}
+.input-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.attachment-btn.active { background: var(--color-primary); color: white; transform: rotate(45deg); }
 
-.chat-add-btn.active {
-  background: #667eea;
-  color: white;
-  transform: rotate(45deg);
-}
-
-.chat-input-wrapper {
-  flex: 1;
-}
-
-.chat-input {
-  width: 100%;
-  padding: 10px 0;
-  border: none;
-  background: transparent;
-  font-size: 0.95rem;
-  outline: none;
-}
-
-.chat-input::placeholder {
-  color: #999;
-}
-
-.chat-input.recording {
-  color: #e53935;
-}
-
-.chat-input.recording::placeholder {
-  color: #e53935;
-}
-
-.chat-voice-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: transparent;
-  border: none;
-  color: #666;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.chat-voice-btn:hover {
-  background: #e8e8e8;
-}
-
-.chat-voice-btn.recording {
-  background: #ffebee;
-  color: #e53935;
-}
-
-.chat-voice-btn.pulse {
-  animation: voicePulse 1.5s ease-in-out infinite;
-}
-
-@keyframes voicePulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.4); }
-  50% { box-shadow: 0 0 0 10px rgba(229, 57, 53, 0); }
-}
-
-.recording-icon {
-  color: #e53935;
-}
-
-.chat-send-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.chat-send-btn:hover:not(:disabled) {
-  transform: scale(1.05);
-}
-
-.chat-send-btn:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-}
-
-/* Upload options popup */
-.upload-options-popup {
+.upload-menu {
   position: absolute;
-  bottom: 100%;
-  left: 16px;
-  margin-bottom: 8px;
-  background: white;
+  bottom: calc(100% + 8px);
+  left: 0;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  padding: 8px;
-  z-index: 10;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  min-width: 150px;
+  z-index: 100;
 }
 
-.upload-option-btn {
+.upload-option {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
-  padding: 12px 16px;
+  padding: 12px 14px;
+  background: none;
   border: none;
-  background: transparent;
-  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
   cursor: pointer;
-  transition: background 0.2s ease;
-  font-size: 0.95rem;
-  color: #333;
 }
 
-.upload-option-btn:hover {
-  background: #f5f5f5;
+.upload-option:hover { background: var(--bg-hover); }
+
+.text-input {
+  flex: 1;
+  padding: 8px;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 1rem;
+  color: var(--text-primary);
+  min-width: 0;
 }
 
-.upload-option-btn svg {
-  color: #667eea;
+.text-input::placeholder { color: var(--text-tertiary); }
+
+.voice-btn.recording {
+  background: #ef4444;
+  color: white;
+  animation: blink 0.8s ease-in-out infinite;
 }
 
-/* Icon sizes */
-.w-5 { width: 1.25rem; }
-.h-5 { height: 1.25rem; }
-.w-6 { width: 1.5rem; }
-.h-6 { height: 1.5rem; }
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.send-btn { background: var(--bg-tertiary); color: var(--text-tertiary); }
+.send-btn.active { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+.send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.voice-error {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  text-align: center;
+  background: rgba(239,68,68,0.1);
+  color: #ef4444;
+}
+
+.popup-enter-active, .popup-leave-active { transition: all 0.2s; }
+.popup-enter-from, .popup-leave-to { opacity: 0; transform: translateY(10px); }
 </style>

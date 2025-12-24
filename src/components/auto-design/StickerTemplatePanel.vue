@@ -82,6 +82,14 @@
           @action="handleMessageAction"
           @menu-action="handlePreviewMenuAction"
         />
+
+        <!-- Chat Input -->
+        <WeddingChatInput
+          v-model="chatInputText"
+          :show-preview="showWeddingStickerPreview"
+          @send="handleGenerateFromChat"
+          @upload="triggerImageUpload"
+        />
       </div>
 
       <!-- Hidden Wedding Preview Container (for SVG manipulation) -->
@@ -233,29 +241,35 @@
       @close="closeEditModal"
     />
   </div>
-
-  <!-- AI Chat Area - Footer - Using extracted WeddingChatInput component -->
-  <WeddingChatInput
-    v-if="selectedCategory === 'wedding'"
-    v-model="chatInputText"
-    :show-preview="showWeddingStickerPreview"
-    :is-recording="isRecording"
-    @send="handleGenerateFromChat"
-    @toggle-voice="toggleVoiceInput"
-    @upload="triggerImageUpload"
-    @paste="handlePaste"
-  />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, nextTick, watch, defineAsyncComponent } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch, defineAsyncComponent } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAutoDesignStore } from '@/stores/autoDesign'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user.store'
 import { FEATURES } from '@/config/environment'
-import { Vue3Lottie } from 'vue3-lottie'
+import { IonSpinner } from '@ionic/vue'
+import { useDebounceFn, useThrottleFn } from '@vueuse/core'
+
+// Lazy load heavy animation library
+const Vue3Lottie = defineAsyncComponent(() => 
+  import('vue3-lottie').then(m => m.Vue3Lottie)
+)
+
+// Lazy load Capacitor TTS - only when needed
+let TextToSpeech: any = null
+const loadTextToSpeech = async () => {
+  if (!TextToSpeech) {
+    const module = await import('@capacitor-community/text-to-speech')
+    TextToSpeech = module.TextToSpeech
+  }
+  return TextToSpeech
+}
+
+// Import composables (needed immediately for setup)
 import { useWeddingStickerUpdater } from '@/composables/useWeddingStickerUpdater'
 import { useSVGImageManager } from '@/composables/useSVGImageManager'
 import { useSVGExport } from '@/composables/useSVGExport'
@@ -264,32 +278,28 @@ import { useSVGTextReplacement } from '@/composables/useSVGTextReplacement'
 import { useBackgroundRemoval } from '@/composables/useBackgroundRemoval'
 import { useImageRetouch } from '@/composables/useImageRetouch'
 import { SvgLayoutManager } from '@/services/svg-layout.service'
-// Graduation template and Konva removed - wedding only with SVG
+import { getBackgroundRefsCached } from '@/services/background-catalog.service'
+
 // Lazy load heavy components for better performance
 const ImageCropModal = defineAsyncComponent(() => import('@/components/ImageCropModal.vue'))
-import SmartCameraInput from './SmartCameraInput.vue'
-import SmartTextarea from './SmartTextarea.vue'
-import { IonSpinner } from '@ionic/vue'
-import { useDebounceFn, useThrottleFn } from '@vueuse/core'
-import { TextToSpeech } from '@capacitor-community/text-to-speech'
+const SmartCameraInput = defineAsyncComponent(() => import('./SmartCameraInput.vue'))
+const SmartTextarea = defineAsyncComponent(() => import('./SmartTextarea.vue'))
 
-// Import extracted sticker components
-import {
-  PanelHeader,
-  CategorySelector,
-  WeddingChatMessages,
-  WeddingChatInput,
-  ImageControls,
-  UploadModal,
-  EditDescriptionModal,
-  HelpModal,
-  GeneratingPreview,
-  ExportButtons,
-  SvgPreview,
-  type ChatMessage,
-  type Category,
-  type ExtractedInfo
-} from './sticker'
+// Lazy load sticker sub-components
+const PanelHeader = defineAsyncComponent(() => import('./sticker/PanelHeader.vue'))
+const CategorySelector = defineAsyncComponent(() => import('./sticker/CategorySelector.vue'))
+const WeddingChatMessages = defineAsyncComponent(() => import('./sticker/WeddingChatMessages.vue'))
+const WeddingChatInput = defineAsyncComponent(() => import('./sticker/WeddingChatInput.vue'))
+const ImageControls = defineAsyncComponent(() => import('./sticker/ImageControls.vue'))
+const UploadModal = defineAsyncComponent(() => import('./sticker/UploadModal.vue'))
+const EditDescriptionModal = defineAsyncComponent(() => import('./sticker/EditDescriptionModal.vue'))
+const HelpModal = defineAsyncComponent(() => import('./sticker/HelpModal.vue'))
+const GeneratingPreview = defineAsyncComponent(() => import('./sticker/GeneratingPreview.vue'))
+const ExportButtons = defineAsyncComponent(() => import('./sticker/ExportButtons.vue'))
+const SvgPreview = defineAsyncComponent(() => import('./sticker/SvgPreview.vue'))
+
+// Import types only (no runtime cost)
+import type { ChatMessage, Category, ExtractedInfo } from './sticker'
 
 // Import extracted composables
 import { useTextExtraction } from '@/composables/useTextExtraction'
@@ -519,12 +529,16 @@ async function replaceTitleWithImage(svgElement: SVGSVGElement, config: TitleIma
     console.log('🗑️ Removed existing title replacement')
   }
   
-  // Remove original text elements
+  // Hide original text elements (do NOT remove; removal makes custom headings impossible later)
   config.targetElementIds.forEach(id => {
-    const element = svgElement.querySelector(`#${id}`)
+    const element = svgElement.querySelector(`#${id}`) as SVGGraphicsElement | null
     if (element) {
-      console.log(`🗑️ Removing original text: #${id}`)
-      element.remove()
+      if (!element.hasAttribute('data-orig-display')) {
+        element.setAttribute('data-orig-display', element.getAttribute('display') ?? '')
+      }
+      element.setAttribute('display', 'none')
+      element.setAttribute('data-title-hidden', 'true')
+      console.log(`🙈 Hiding original title text: #${id}`)
     }
   })
   
@@ -586,6 +600,32 @@ async function replaceTitleWithImage(svgElement: SVGSVGElement, config: TitleIma
     }
     console.log('⚠️ Fallback: Using SVG URL directly')
   }
+}
+
+function restoreTitleTextElements(svgElement: SVGSVGElement, targetElementIds: string[]) {
+  // Remove any existing title replacement image
+  const existingReplacement = svgElement.querySelector('#wedding-title-replacement')
+  if (existingReplacement) {
+    existingReplacement.remove()
+    console.log('🗑️ Removed title replacement (restoring text heading)')
+  }
+
+  // Restore original title text elements visibility
+  targetElementIds.forEach(id => {
+    const element = svgElement.querySelector(`#${id}`) as SVGGraphicsElement | null
+    if (!element) return
+
+    const origDisplay = element.getAttribute('data-orig-display')
+    if (origDisplay === null) {
+      element.removeAttribute('display')
+    } else if (origDisplay === '') {
+      element.removeAttribute('display')
+    } else {
+      element.setAttribute('display', origDisplay)
+    }
+
+    element.removeAttribute('data-title-hidden')
+  })
 }
 
 /**
@@ -833,8 +873,6 @@ const svgImageManager = useSVGImageManager({
   defaultHeight: 400
 })
 
-const { exportSVG } = useSVGExport()
-
 // Retouch state
 const isRetouching = ref(false)
 
@@ -846,6 +884,9 @@ const showUploadOptions = ref(false)
 
 // SVG Text Replacement (for Nikkah graphics)
 const { handleReplacement, resetReplacement, restoreOriginalElements, replacementState } = useSVGTextReplacement()
+
+// SVG Export
+const { exportSVG } = useSVGExport()
 
 // Background Removal
 const {
@@ -869,7 +910,8 @@ const chatPreviewContainer = computed(() => {
 // Computed property to get chatHistoryContainer from the component
 const chatHistoryContainer = computed(() => {
   if (!weddingChatMessagesRef.value) return null
-  return weddingChatMessagesRef.value.chatHistoryContainer
+  // WeddingChatMessages exposes `chatContainer`
+  return weddingChatMessagesRef.value.chatContainer
 })
 const imageFileInput = ref<HTMLInputElement | null>(null)
 let svgElements: ReturnType<typeof getSVGElements> | null = null
@@ -934,7 +976,7 @@ function formatMessageText(text: string): string {
 }
 
 // Handle action button clicks in messages
-function handleMessageAction(action: { type: string; label: string; route?: string }) {
+function handleMessageAction(action: { type: string; label?: string; route?: string }) {
   switch (action.type) {
     case 'login':
       // Navigate to login page (same as "Get Started" button on home page)
@@ -1075,7 +1117,7 @@ function closeEditModal() {
   processDescriptionInput()
 }
 
-// Handle generate more - regenerate with new random background
+// Handle generate more - regenerate with new random background and update all previews
 async function handleGenerateMore() {
   // Add a message to chat
   chatMessages.value.push({
@@ -1085,31 +1127,45 @@ async function handleGenerateMore() {
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   })
   
+  // Show loading state
+  isGeneratingPreview.value = true
+  generatingMessage.value = 'Creating a fresh design...'
+  
   // Apply a new random background
   const newBackground = getRandomBackground()
   if (newBackground) {
-    chatMessages.value.push({
-      id: Date.now() + 1,
-      text: "Creating a fresh new design for you... ✨",
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isLoading: true
-    })
+    await new Promise(resolve => setTimeout(resolve, 500))
+    generatingMessage.value = 'Applying new style...'
     
     await applyNewBackground(newBackground)
     
-    // Update the loading message
-    const loadingMsg = chatMessages.value.find(m => m.isLoading)
-    if (loadingMsg) {
-      loadingMsg.isLoading = false
-      loadingMsg.text = "Here's a new design variation! 🎨 Like this one better?"
-    }
+    await new Promise(resolve => setTimeout(resolve, 300))
+    generatingMessage.value = 'Updating preview...'
+    
+    // Wait for DOM to update
+    await nextTick()
+    await nextTick()
+    
+    // Update all existing preview containers
+    updateChatPreviewSVG()
+    
+    // Hide loading and add confirmation message
+    isGeneratingPreview.value = false
+    
+    chatMessages.value.push({
+      id: Date.now() + 1,
+      text: "Here's a new design variation! 🎨 Like this one better?",
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    })
     
     scrollToBottom()
+  } else {
+    isGeneratingPreview.value = false
   }
 }
 
-// Handle generate new - creates a NEW design BELOW the existing one (keeps previous designs)
+// Handle generate new - updates ALL existing previews with new design
 async function handleGenerateNew() {
   // Show generating state with professional loading
   isGeneratingPreview.value = true
@@ -1135,35 +1191,10 @@ async function handleGenerateNew() {
     await nextTick()
     await nextTick()
     
-    // Hide generating state before adding preview
-    isGeneratingPreview.value = false
-    
-    // ADD A NEW PREVIEW MESSAGE BELOW (don't update existing ones)
-    // This keeps previous designs visible and adds the new one below
-    chatMessages.value.push({
-      id: Date.now(),
-      text: '',
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      type: 'preview'
-    })
-    
-    // Add a brief message about the new design
-    chatMessages.value.push({
-      id: Date.now() + 1,
-      text: "Here's another design for you! 🎨",
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-    
-    // Wait for the new preview container to be created
-    await nextTick()
-    await nextTick()
-    
-    // Small delay for container to fully render
+    // Small delay for render
     await new Promise(resolve => setTimeout(resolve, 200))
     
-    // Clone the master SVG to ONLY the new (last) preview container
+    // UPDATE ALL EXISTING preview containers with the new design
     if (weddingPreviewContainer.value) {
       const masterSvg = weddingPreviewContainer.value.querySelector('svg')
       if (masterSvg) {
@@ -1171,49 +1202,64 @@ async function handleGenerateNew() {
           ? chatPreviewContainer.value 
           : (chatPreviewContainer.value ? [chatPreviewContainer.value] : [])
         
-        // Get the LAST container (the newly added one)
-        const newContainer = previewContainers[previewContainers.length - 1]
-        
-        if (newContainer) {
-          // Remove any loading placeholder
-          const loadingPlaceholder = newContainer.querySelector('.preview-loading-placeholder')
-          if (loadingPlaceholder) loadingPlaceholder.remove()
-          
-          // Clone the master SVG
-          const clonedSvg = masterSvg.cloneNode(true) as SVGSVGElement
-          
-          // Get viewBox to calculate aspect ratio
-          const viewBox = clonedSvg.getAttribute('viewBox')
-          if (viewBox) {
-            const parts = viewBox.split(/\s+|,/)
-            if (parts.length >= 4) {
-              const vbWidth = parseFloat(parts[2])
-              const vbHeight = parseFloat(parts[3])
-              const aspectRatio = vbWidth / vbHeight
-              newContainer.style.aspectRatio = String(aspectRatio)
+        // Update ALL preview containers with the new design
+        previewContainers.forEach((container) => {
+          if (container) {
+            // Remove any existing SVG or loading placeholder
+            const existingSvg = container.querySelector('svg')
+            if (existingSvg) existingSvg.remove()
+            
+            const loadingPlaceholder = container.querySelector('.preview-loading-placeholder')
+            if (loadingPlaceholder) loadingPlaceholder.remove()
+            
+            // Clone the master SVG
+            const clonedSvg = masterSvg.cloneNode(true) as SVGSVGElement
+            
+            // Get viewBox to calculate aspect ratio
+            const viewBox = clonedSvg.getAttribute('viewBox')
+            if (viewBox) {
+              const parts = viewBox.split(/\s+|,/)
+              if (parts.length >= 4) {
+                const vbWidth = parseFloat(parts[2])
+                const vbHeight = parseFloat(parts[3])
+                const aspectRatio = vbWidth / vbHeight
+                container.style.aspectRatio = String(aspectRatio)
+              }
             }
+            
+            // Style the cloned SVG
+            clonedSvg.style.display = 'block'
+            clonedSvg.style.width = '100%'
+            clonedSvg.style.maxWidth = '100%'
+            clonedSvg.style.height = 'auto'
+            clonedSvg.removeAttribute('width')
+            clonedSvg.removeAttribute('height')
+            
+            // Append to container
+            container.appendChild(clonedSvg)
           }
-          
-          // Style the cloned SVG
-          clonedSvg.style.display = 'block'
-          clonedSvg.style.width = '100%'
-          clonedSvg.style.maxWidth = '100%'
-          clonedSvg.style.height = 'auto'
-          clonedSvg.removeAttribute('width')
-          clonedSvg.removeAttribute('height')
-          
-          // Append to container
-          newContainer.appendChild(clonedSvg)
-          console.log('✅ New design added below existing one')
-        }
+        })
+        
+        console.log(`✅ Updated ${previewContainers.length} preview(s) with new design`)
       }
     }
+    
+    // Add a brief message about the updated design
+    chatMessages.value.push({
+      id: Date.now(),
+      text: "Your design has been updated with a fresh new look! 🎨✨",
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    })
+    
+    // Hide generating state
+    isGeneratingPreview.value = false
   } else {
     // No new background available
     isGeneratingPreview.value = false
   }
   
-  // Scroll to see the new result
+  // Scroll to see the result
   scrollToBottom()
 }
 
@@ -1490,14 +1536,23 @@ async function generateWeddingPreview() {
     return
   }
 
-  if (!formData.description.trim()) {
-    authStore.showNotification({
-      title: 'Description Required',
-      message: 'Please enter a description for your wedding sticker',
-      type: 'info'
+  // Chat flow often builds `accumulatedDescription`; prefer that if form input is empty.
+  const resolvedDescription = (formData.description || '').trim() || (accumulatedDescription.value || '').trim()
+
+  if (!resolvedDescription) {
+    chatMessages.value.push({
+      id: Date.now(),
+      text: "Please provide your details first.\n\nExample:\n(John & Mary) 8th March 2025 courtesy: Smith family",
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     })
+    scrollToBottom()
     return
   }
+
+  // Keep both in sync so downstream logic always reads the same thing.
+  formData.description = resolvedDescription
+  accumulatedDescription.value = resolvedDescription
 
   // Check requirements: Must have names OR a picture
   const { name1, name2 } = extractNames(formData.description)
@@ -1533,6 +1588,9 @@ async function generateWeddingPreview() {
   showWeddingStickerPreview.value = true // Ensure container exists in DOM (even if hidden)
 
   try {
+    // Ensure backgrounds list is loaded before selecting/persisting.
+    await loadWeddingBackgroundManifest()
+
     // Wait for DOM to create the container element
     await nextTick()
     await nextTick() // Double nextTick to ensure Vue has fully rendered the component
@@ -1560,11 +1618,14 @@ async function generateWeddingPreview() {
        }
     }
 
-    // CRITICAL: Select random background FIRST so title knows what color to use
-    // This ensures the title color matches the background from the start
-    const initialBackground = getRandomBackground()
+    // CRITICAL: Choose background FIRST so title knows what color to use.
+    // Best practice: random once, then persist per user so refresh doesn't change it.
+    const persisted = getPersistedWeddingBackground()
+    const initialBackground =
+      persisted && availableBackgrounds.value.includes(persisted) ? persisted : getRandomBackground()
     if (initialBackground) {
       currentBackgroundFileName.value = initialBackground
+      setPersistedWeddingBackground(initialBackground)
       console.log('🎨 Pre-selected background for title color:', initialBackground)
     }
     
@@ -1920,6 +1981,10 @@ function capitalizeWords(str: string): string {
     .join(' ')
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 // Enhanced Name Extraction Function - NOW CASE INSENSITIVE
 function extractNamesFromResponse(text: string): { name1: string | null; name2: string | null } {
   // FIRST: Check if this is just a request phrase - don't extract names from it
@@ -1978,6 +2043,47 @@ function extractNamesFromResponse(text: string): { name1: string | null; name2: 
   // Pattern 1: Name and Name or Name & Name (CASE INSENSITIVE)
   // PRIORITY: Look for & pattern FIRST - this is most explicit way users indicate names
   const skipWordsBeforeAnd = ['is', 'are', 'the', 'couple', 'name', 'names', 'my', 'our', 'their', 'for', 'of', 'to', 'from', 'with', 'ceremony', 'wedding', 'congratulation', 'congratulations', 'on', 'your', 'alhamdulillahi', 'beautiful', 'save']
+
+  // Special case: "Aishatu & Amina Muhammad" (shared surname at the end)
+  // Heuristic: if there are 3 tokens where the third looks like a surname,
+  // treat it as surname for BOTH names.
+  const sharedSurnameAmpersandPattern = /\b([a-zA-Z][a-zA-Z'-]+)\s*&\s*([a-zA-Z][a-zA-Z'-]+)\s+([a-zA-Z][a-zA-Z'-]+)\b/i
+  const sharedSurnameAmpersandMatch = textForNames.match(sharedSurnameAmpersandPattern)
+  if (sharedSurnameAmpersandMatch) {
+    const first = sharedSurnameAmpersandMatch[1].trim()
+    const second = sharedSurnameAmpersandMatch[2].trim()
+    const surname = sharedSurnameAmpersandMatch[3].trim()
+    if (
+      !skipWordsBeforeAnd.includes(first.toLowerCase()) &&
+      !skipWordsBeforeAnd.includes(second.toLowerCase()) &&
+      !skipWordsBeforeAnd.includes(surname.toLowerCase())
+    ) {
+      console.log('[extractNamesFromResponse] Found names via & with shared surname:', first, second, surname)
+      return {
+        name1: capitalizeWords(`${first} ${surname}`),
+        name2: capitalizeWords(`${second} ${surname}`)
+      }
+    }
+  }
+
+  const sharedSurnameAndPattern = /\b([a-zA-Z][a-zA-Z'-]+)\s+(?:and|n)\s+([a-zA-Z][a-zA-Z'-]+)\s+([a-zA-Z][a-zA-Z'-]+)\b/i
+  const sharedSurnameAndMatch = textForNames.match(sharedSurnameAndPattern)
+  if (sharedSurnameAndMatch) {
+    const first = sharedSurnameAndMatch[1].trim()
+    const second = sharedSurnameAndMatch[2].trim()
+    const surname = sharedSurnameAndMatch[3].trim()
+    if (
+      !skipWordsBeforeAnd.includes(first.toLowerCase()) &&
+      !skipWordsBeforeAnd.includes(second.toLowerCase()) &&
+      !skipWordsBeforeAnd.includes(surname.toLowerCase())
+    ) {
+      console.log('[extractNamesFromResponse] Found names via and with shared surname:', first, second, surname)
+      return {
+        name1: capitalizeWords(`${first} ${surname}`),
+        name2: capitalizeWords(`${second} ${surname}`)
+      }
+    }
+  }
   
   // Try & pattern first (most explicit)
   const ampersandPattern = /\b([a-zA-Z][a-zA-Z'-]+)\s*&\s*([a-zA-Z][a-zA-Z'-]+)\b/i
@@ -2531,7 +2637,8 @@ function toggleVoice() {
       if (typeof window !== 'undefined' && window.speechSynthesis) {
         window.speechSynthesis?.cancel()
       }
-      TextToSpeech.stop().catch(() => {}) // Also stop native TTS if running
+      // Stop native TTS (lazy loaded)
+      loadTextToSpeech().then(TTS => TTS?.stop?.()).catch(() => {})
     } catch (error) {
       // Ignore errors when stopping speech
     }
@@ -2590,8 +2697,8 @@ function stopAllSpeech() {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel()
     }
-    // Stop native TTS (Capacitor) if available
-    TextToSpeech.stop().catch(() => {})
+    // Stop native TTS (Capacitor) if available - lazy loaded
+    loadTextToSpeech().then(TTS => TTS?.stop?.()).catch(() => {})
   } catch (e) {
     // Ignore errors
   }
@@ -2600,7 +2707,8 @@ function stopAllSpeech() {
 async function tryNativeTTS(text: string) {
   try {
     console.log('🔊 Attempting native TTS...')
-    await TextToSpeech.speak({
+    const TTS = await loadTextToSpeech()
+    await TTS.speak({
       text: text,
       lang: 'en-US',
       rate: 0.95,
@@ -2852,25 +2960,78 @@ const pendingCourtesyText = ref<string | null>(null) // Stores what user typed w
 // ============================================================================
 // BACKGROUND TEMPLATES - Available backgrounds for "generate another" feature
 // ============================================================================
-// List of available background images in public/svg/background folder
-// These should match the actual files in the folder
-// NOTE: Backgrounds are picked RANDOMLY on each design generation
-// NOTE: SVG backgrounds may not render properly in <image> elements on some browsers
-//       PNG backgrounds are more reliable for cross-platform compatibility
-const availableBackgrounds = [
-  // Light backgrounds
+// Backgrounds come from a single manifest so you can add/remove files without editing multiple places:
+// - Put files in: public/svg/background/
+// - Update: public/svg/background/backgrounds.json
+type BackgroundManifestItem = {
+  id: string
+  name: string
+  category?: string
+  file: string
+}
+
+const fallbackAvailableBackgrounds = [
   'Beige Gold Gradient Islamic Modern Group Project Presentation.png',
-  // Dark backgrounds
   'Deep Green bg-1.png',
   'Blue Futuristic Background Instagram Post (5 x 3 in).png',
-  // Red and Gold backgrounds
   'Red and Gold Simple Elegant Islamic Background Poster.png',
   'Red and Gold Chinese New Year Background Instagram Post (5 x 3 in).png',
   'Red and Gold Classic Lunar Chinese Background Flyer (5 x 3 in).png',
-  'Dark-Baground/Red and Gold Modern Chinese Background Flyer.png',
-  // SVG backgrounds (from backgrondMix folder)
-  'backgrondMix/backgroundColour.svg',
+  'Red and Gold Modern Chinese Background Flyer.png'
 ]
+
+const availableBackgrounds = ref<string[]>([...fallbackAvailableBackgrounds])
+
+let weddingBackgroundsLoadPromise: Promise<void> | null = null
+
+const persistedWeddingBackgroundKey = computed(() => {
+  const userId = authStore.user?.id || 'anon'
+  return `weddingSticker:selectedBackground:${userId}`
+})
+
+function getPersistedWeddingBackground(): string | null {
+  try {
+    return localStorage.getItem(persistedWeddingBackgroundKey.value)
+  } catch {
+    return null
+  }
+}
+
+function setPersistedWeddingBackground(fileName: string) {
+  try {
+    localStorage.setItem(persistedWeddingBackgroundKey.value, fileName)
+  } catch {
+    // ignore (private mode, storage disabled)
+  }
+}
+
+async function loadWeddingBackgroundManifest() {
+  if (weddingBackgroundsLoadPromise) return weddingBackgroundsLoadPromise
+
+  weddingBackgroundsLoadPromise = (async () => {
+  try {
+    const res = await fetch('/svg/background/backgrounds.json', { cache: 'no-store' })
+    if (!res.ok) throw new Error(`Failed to load backgrounds.json (${res.status})`)
+    const items = (await res.json()) as BackgroundManifestItem[]
+    const weddingFiles = (items || [])
+      .filter((it) => !it.category || it.category === 'wedding')
+      .map((it) => it.file)
+      .filter(Boolean)
+    const firebaseRefs = await getBackgroundRefsCached('wedding', { ttlMs: 12 * 60 * 60 * 1000, limit: 50 })
+    const merged = [...weddingFiles, ...firebaseRefs]
+    const deduped = Array.from(new Set(merged))
+    if (deduped.length > 0) availableBackgrounds.value = deduped
+  } catch (e) {
+    console.warn('⚠️ Could not load /svg/background/backgrounds.json. Using fallback list.', e)
+    // Still try Firebase in case local manifest fails
+    const firebaseRefs = await getBackgroundRefsCached('wedding', { ttlMs: 12 * 60 * 60 * 1000, limit: 50 })
+    const merged = [...fallbackAvailableBackgrounds, ...firebaseRefs]
+    availableBackgrounds.value = Array.from(new Set(merged))
+  }
+  })()
+
+  return weddingBackgroundsLoadPromise
+}
 
 // Background color configurations
 // Defines what text colors to use for each background type
@@ -3153,25 +3314,26 @@ function getTitleColorForBackground(backgroundFileName?: string): string {
 // Function to get a random background (different from current)
 // Uses Fisher-Yates style selection to ensure variety
 function getRandomBackground(): string {
-  if (availableBackgrounds.length === 0) return ''
-  if (availableBackgrounds.length === 1) return availableBackgrounds[0]
+  const backgrounds = availableBackgrounds.value
+  if (backgrounds.length === 0) return ''
+  if (backgrounds.length === 1) return backgrounds[0]
   
   // Get list of unused backgrounds in this session
-  const unusedIndices = availableBackgrounds
+  const unusedIndices = backgrounds
     .map((_, index) => index)
     .filter(index => !usedBackgroundsInSession.value.includes(index))
   
   // If all backgrounds have been used, reset the session tracking
   if (unusedIndices.length === 0) {
     usedBackgroundsInSession.value = [currentBackgroundIndex.value] // Keep current to avoid immediate repeat
-    const availableIndices = availableBackgrounds
+    const availableIndices = backgrounds
       .map((_, index) => index)
       .filter(index => index !== currentBackgroundIndex.value)
     const newIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)]
     currentBackgroundIndex.value = newIndex
     usedBackgroundsInSession.value.push(newIndex)
-    console.log(`🎲 Background cycle reset. Selected: ${availableBackgrounds[newIndex]}`)
-    return availableBackgrounds[newIndex]
+    console.log(`🎲 Background cycle reset. Selected: ${backgrounds[newIndex]}`)
+    return backgrounds[newIndex]
   }
   
   // Pick a random unused background
@@ -3179,8 +3341,8 @@ function getRandomBackground(): string {
   currentBackgroundIndex.value = randomUnusedIndex
   usedBackgroundsInSession.value.push(randomUnusedIndex)
   
-  console.log(`🎲 Random background selected: ${availableBackgrounds[randomUnusedIndex]} (index: ${randomUnusedIndex})`)
-  return availableBackgrounds[randomUnusedIndex]
+  console.log(`🎲 Random background selected: ${backgrounds[randomUnusedIndex]} (index: ${randomUnusedIndex})`)
+  return backgrounds[randomUnusedIndex]
 }
 
 // Function to apply a new background to the SVG template
@@ -3196,16 +3358,24 @@ async function applyNewBackground(backgroundFileName: string): Promise<void> {
     return
   }
 
-  // Handle backgrounds from different folders
-  // If filename includes a path separator, use it as-is under /svg/
-  // Otherwise, assume it's in the default /svg/background/ folder
-  const backgroundUrl = backgroundFileName.includes('/') 
-    ? `/svg/${backgroundFileName}` 
-    : `/svg/background/${backgroundFileName}`
+  // Handle backgrounds from different sources:
+  // - Remote URLs (Firebase Storage download URLs): use as-is
+  // - Absolute paths: use as-is
+  // - Relative paths with '/': treat as under /svg/
+  // - Plain filenames: treat as under /svg/background/
+  const isRemoteUrl = /^https?:\/\//i.test(backgroundFileName)
+  const backgroundUrl = isRemoteUrl
+    ? backgroundFileName
+    : backgroundFileName.startsWith('/')
+      ? backgroundFileName
+      : backgroundFileName.includes('/')
+        ? encodeURI(`/svg/${backgroundFileName}`)
+        : encodeURI(`/svg/background/${backgroundFileName}`)
   console.log(`🎨 Applying new background: ${backgroundUrl}`)
   
   // Track current background filename for title color detection
   currentBackgroundFileName.value = backgroundFileName
+  setPersistedWeddingBackground(backgroundFileName)
   
   // Clear title cache to force re-render with new background color
   clearTitleImageCache()
@@ -3970,6 +4140,7 @@ function parseAllInOneMessage(text: string): {
 const titlePatterns = [
   /congratulation[s]?\s+on\s+your\s+wedding/i,
   /congratulation[s]?\s+on\s+your\s+wedding\s+ceremony/i,
+  /congratulation[s]?\s+on\s+your\s+(?:qur'?anic\s+)?(?:walima|walimah|walimat|walmia|walmiah|wamima|wamimat|wamimah)/i,
   /beautiful\s+beginning/i,
   /conjugal\s+bliss/i,
   /save\s+the\s+date/i,
@@ -3987,6 +4158,8 @@ const titlePatterns = [
 const titlePhraseMap: { pattern: RegExp; display: string }[] = [
   { pattern: /congratulation[s]?\s+on\s+your\s+wedding\s+ceremony/i, display: 'Congratulations On Your Wedding Ceremony' },
   { pattern: /congratulation[s]?\s+on\s+your\s+wedding/i, display: 'Congratulations On Your Wedding' },
+  { pattern: /congratulation[s]?\s+on\s+your\s+qur'?anic\s+(?:walima|walimah|walimat|walmia|walmiah|wamima|wamimat|wamimah)/i, display: "Congratulations On Your Qur'anic Walima" },
+  { pattern: /congratulation[s]?\s+on\s+your\s+(?:walima|walimah|walimat|walmia|walmiah|wamima|wamimat|wamimah)/i, display: 'Congratulations On Your Walima' },
   { pattern: /beautiful\s+beginning/i, display: 'Beautiful Beginning' },
   { pattern: /conjugal\s+bliss/i, display: 'Conjugal Bliss' },
   { pattern: /save\s+the\s+date/i, display: 'Save The Date' },
@@ -4273,6 +4446,7 @@ async function sendMessage() {
         textWithoutTitle = text
           .replace(/congratulation[s]?\s+on\s+your\s+wedding\s+ceremony/gi, '')
           .replace(/congratulation[s]?\s+on\s+your\s+wedding/gi, '')
+          .replace(/congratulation[s]?\s+on\s+your\s+(?:qur'?anic\s+)?(?:walima|walimah|walimat|walmia|walmiah|wamima|wamimat|wamimah)/gi, '')
           .replace(/beautiful\s+beginning/gi, '')
           .replace(/conjugal\s+bliss/gi, '')
           .replace(/save\s+the\s+date/gi, '')
@@ -4342,10 +4516,13 @@ async function sendMessage() {
             
             // Remove names pattern (Name & Name or Name and Name)
             if (allInOne.names.name2) {
-              remainingText = remainingText.replace(new RegExp(`\\b${allInOne.names.name1}\\s*[&]\\s*${allInOne.names.name2}\\b`, 'gi'), '')
-              remainingText = remainingText.replace(new RegExp(`\\b${allInOne.names.name1}\\s+and\\s+${allInOne.names.name2}\\b`, 'gi'), '')
+              const n1 = escapeRegExp(allInOne.names.name1)
+              const n2 = escapeRegExp(allInOne.names.name2)
+              remainingText = remainingText.replace(new RegExp(`\\b${n1}\\s*[&]\\s*${n2}\\b`, 'gi'), '')
+              remainingText = remainingText.replace(new RegExp(`\\b${n1}\\s+and\\s+${n2}\\b`, 'gi'), '')
             } else if (allInOne.names.name1) {
-              remainingText = remainingText.replace(new RegExp(`\\b${allInOne.names.name1}\\b`, 'gi'), '')
+              const n1 = escapeRegExp(allInOne.names.name1)
+              remainingText = remainingText.replace(new RegExp(`\\b${n1}\\b`, 'gi'), '')
             }
             
             // Remove date
@@ -4411,6 +4588,10 @@ async function sendMessage() {
         if (formattedParts.length > 0) {
           accumulatedDescription.value += (accumulatedDescription.value ? ' ' : '') + formattedParts.join(' ')
           console.log('📝 Formatted description added:', formattedParts.join(' '))
+
+          // Keep description in sync with chat-extracted structured data.
+          // This does not trigger SVG updates by itself (those are driven by generation / explicit actions).
+          formData.description = accumulatedDescription.value
         }
         
         if (foundSize && formattedParts.length === 0) {
@@ -5193,6 +5374,43 @@ async function analyzeMessage(lastUserMessage: string) {
         }
       }
     }
+  }
+
+  // Priority 3.75: Handle Heading Input AFTER preview is shown
+  // When user says "change heading" we set awaitingHeadingInput, but we must consume the next message here.
+  if (showWeddingStickerPreview.value && awaitingHeadingInput.value) {
+    const trimmed = lastUserMessage.trim()
+    const wantsDefault = /^(default|keep|original|skip|no|no thanks)$/i.test(trimmed)
+
+    awaitingHeadingInput.value = false
+    headingStepComplete.value = true
+
+    if (wantsDefault) {
+      customHeading.value = null
+      aiResponse = "Okay — keeping the default heading."
+    } else if (trimmed.length >= 2) {
+      customHeading.value = trimmed
+      aiResponse = `Done! Heading updated to "${customHeading.value}".`
+    } else {
+      aiResponse = "Please type the heading you want to use, or say 'default'."
+      awaitingHeadingInput.value = true
+    }
+
+    // Update the SVG without regenerating the whole design
+    if (!awaitingHeadingInput.value) {
+      await processDescriptionInput()
+      await nextTick()
+      updateChatPreviewSVG()
+    }
+
+    chatMessages.value.push({
+      id: Date.now(),
+      text: aiResponse,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    })
+    scrollToBottom()
+    return
   }
   
   // Priority 4: Handle Name Input (After AI asks for name)
@@ -6768,8 +6986,12 @@ function getCategoryName(categoryId: string | null): string {
 
 function goBack() {
   if (selectedCategory.value) {
+    // Reset state and go back to category selection
     selectedCategory.value = null
+    showWeddingStickerPreview.value = false
+    chatMessages.value = []
   } else {
+    // Navigate to home immediately
     router.push('/home')
   }
 }
@@ -6957,12 +7179,7 @@ async function loadWeddingStickerTemplate() {
         await handleNamesWithTitleSVG(formData.description, svgElements)
       }
 
-      // Show success notification
-      authStore.showNotification({
-        title: 'Template Loaded',
-        message: `Wedding sticker template loaded from ${successSource}`,
-        type: 'success'
-      })
+      // Note: Don't show a toast here; this runs during generation and would be noisy.
     }
   } catch (error) {
     console.error('❌ Failed to load wedding sticker template:', error)
@@ -7109,6 +7326,10 @@ const handleDescriptionInput = useDebounceFn(() => {
   processDescriptionInput()
 }, 50)
 
+// Cache keys to avoid expensive re-renders during real-time updates
+let lastWeddingTitleRenderKey = ''
+let lastWeddingFlourishRenderKey = ''
+
 /**
  * Apply custom heading and font to the SVG heading elements
  * This function updates the blessing, occasion, eventType, and ceremony text elements
@@ -7202,15 +7423,54 @@ async function processDescriptionInput() {
       let stickerData: any = null
 
       // Use Title Library to find matching title SVG
-      // Check accumulated description OR custom heading for title match
-      const textToMatch = customHeading.value || accumulatedDescription.value || formData.description
+      // Use trimmed custom heading text when present (avoids nullable refs)
+      const customHeadingText = (customHeading.value ?? '').trim()
+      const textToMatch = customHeadingText || accumulatedDescription.value || formData.description
       const matchedTitle = findMatchingTitle(textToMatch)
       
       // Get title color based on current background
       const titleColor = getTitleColorForBackground()
       console.log('🎨 Title color for current background:', titleColor)
+
+      const headingElementIds = ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text']
+      const hasCustomHeading = customHeadingText.length > 0
+
+      // If user provided a custom heading, ALWAYS show the editable text heading.
+      // Title graphics are only for the default/auto heading flow.
+      if (hasCustomHeading) {
+        restoreTitleTextElements(svgElement, headingElementIds)
+        lastWeddingTitleRenderKey = `text|${customHeadingText}`
+      } else {
       
-      if (matchedTitle) {
+      const desiredTitle = matchedTitle
+        ? {
+            svgPath: matchedTitle.svgPath,
+            fallbackText: matchedTitle.fallbackText,
+            position: matchedTitle.position || { x: -30, y: 50, width: 1800, height: 900 },
+            scale: matchedTitle.scale || 1.0
+          }
+        : {
+            svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
+            fallbackText: 'Default wedding title',
+            position: { x: -30, y: 50, width: 1800, height: 900 },
+            scale: 1.0
+          }
+
+      const titleCacheKey = [
+        desiredTitle.svgPath,
+        titleColor,
+        desiredTitle.position.x,
+        desiredTitle.position.y,
+        desiredTitle.position.width,
+        desiredTitle.position.height,
+        desiredTitle.scale
+      ].join('|')
+
+      const hasTitleReplacement = !!svgElement.querySelector('#wedding-title-replacement')
+      if (!hasTitleReplacement || titleCacheKey !== lastWeddingTitleRenderKey) {
+        lastWeddingTitleRenderKey = titleCacheKey
+
+        if (matchedTitle) {
         console.log('🎯 Using Title Library match:', matchedTitle.fallbackText)
         console.log('🎯 SVG Path:', matchedTitle.svgPath)
         
@@ -7222,22 +7482,32 @@ async function processDescriptionInput() {
           scale: matchedTitle.scale || 1.0,
           color: titleColor
         })
+        } else {
+          // No match found - use default wedding title
+          console.log('⚠️ No title match, using default wedding title')
+          await replaceTitleWithImage(svgElement, {
+            svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
+            targetElementIds: headingElementIds,
+            position: { x: -30, y: 50, width: 1800, height: 900 },
+            scale: 1.0,
+            color: titleColor
+          })
+        }
       } else {
-        // No match found - use default wedding title
-        console.log('⚠️ No title match, using default wedding title')
-        // Use default SVG title
-        await replaceTitleWithImage(svgElement, {
-          svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
-          targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
-          position: { x: -30, y: 50, width: 1800, height: 900 },
-          scale: 1.0,
-          color: titleColor
-        })
+        console.log('⚡ Title unchanged, skipping re-render')
+      }
       }
       
       // Insert flourish above names with matching color
       const flourishColor = getFlourishColorForBackground()
-      await insertFlourishAboveNames(svgElement, flourishColor)
+      const flourishCacheKey = [flourishColor, currentBackgroundFileName.value || ''].join('|')
+      const hasFlourish = !!svgElement.querySelector('#wedding-flourish')
+      if (!hasFlourish || flourishCacheKey !== lastWeddingFlourishRenderKey) {
+        lastWeddingFlourishRenderKey = flourishCacheKey
+        await insertFlourishAboveNames(svgElement, flourishColor)
+      } else {
+        console.log('⚡ Flourish unchanged, skipping re-render')
+      }
       
       // Update names, date, and courtesy
       stickerData = await handleNamesWithTitleSVG(formData.description, svgElements)
@@ -8432,6 +8702,10 @@ onMounted(() => {
   // Clear previous form data
   autoDesignStore.resetFormData()
 
+  // Load the background manifest so both the random picker and the UI use the same list
+  // (falls back to a hardcoded list if the JSON can't be fetched)
+  loadWeddingBackgroundManifest()
+
   // Set category
   autoDesignStore.setCategory('sticker')
 
@@ -8441,6 +8715,33 @@ onMounted(() => {
   nextTick(() => {
     loadWeddingStickerTemplate()
   })
+})
+
+// Cleanup on unmount to prevent memory leaks and improve navigation speed
+onBeforeUnmount(() => {
+  // Stop any ongoing speech synthesis immediately
+  try {
+    window.speechSynthesis?.cancel()
+  } catch (e) {}
+  
+  // Stop speech recognition
+  try {
+    speechRecognition.value?.stop()
+  } catch (e) {}
+  speechRecognition.value = null
+  
+  // Clear intervals and timeouts
+  stopGeneratingMessages()
+  if (speakTimeout) {
+    clearTimeout(speakTimeout)
+    speakTimeout = null
+  }
+  
+  // Revoke any object URLs
+  if (preGeneratedImagePreview.value) {
+    URL.revokeObjectURL(preGeneratedImagePreview.value)
+    preGeneratedImagePreview.value = null
+  }
 })
 </script>
 
@@ -8515,6 +8816,11 @@ onMounted(() => {
   overflow: hidden;
 }
 
+/* Wedding mode - full width chat */
+.sticker-page-wrapper.wedding-active .form-view {
+  max-width: 100%;
+}
+
 .preview-view {
   width: 100%;
   max-width: 1000px;
@@ -8533,7 +8839,7 @@ onMounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: auto;
+  overflow: hidden;
   min-height: 0;
 }
 
@@ -8542,6 +8848,7 @@ onMounted(() => {
   padding: 0;
   border-radius: 0;
   overflow: hidden;
+  background: transparent;
 }
 
 /* Wedding chat interface layout */
@@ -8550,8 +8857,9 @@ onMounted(() => {
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  height: 100%;
   overflow: hidden;
-  background: white;
+  background: var(--bg-primary, white);
 }
 
 .form-group {
@@ -8949,15 +9257,15 @@ onMounted(() => {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Add bottom padding to main container to account for fixed footer */
-.form-section,
-.wedding-preview-section {
+/* Add bottom padding to main container to account for fixed footer (non-wedding only) */
+.sticker-page-wrapper:not(.wedding-active) .form-section,
+.sticker-page-wrapper:not(.wedding-active) .wedding-preview-section {
   margin-bottom: 80px;
 }
 
 @media (max-width: 768px) {
-  .form-section,
-  .wedding-preview-section {
+  .sticker-page-wrapper:not(.wedding-active) .form-section,
+  .sticker-page-wrapper:not(.wedding-active) .wedding-preview-section {
     margin-bottom: 70px;
   }
 }

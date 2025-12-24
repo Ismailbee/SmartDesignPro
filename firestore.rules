@@ -1,6 +1,14 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Background catalog (metadata only). Files live in Firebase Storage.
+    // Read is public so the app can browse without auth if needed.
+    // Writes are restricted to admins.
+    match /backgrounds/{backgroundId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.admin == true;
+    }
     
     // User documents - users can read and write their own data
     match /users/{userId} {

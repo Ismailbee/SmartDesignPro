@@ -16,12 +16,13 @@
       <!-- Vue Router View -->
       <router-view v-show="!showSplash" />
 
-      <!-- Global Modals -->
-      <AuthModal />
+      <!-- Global Modals (lazy) -->
+      <AuthModal v-if="isAuthModalOpen" />
     
 
       <!-- Success Notification -->
       <SuccessNotification
+        v-if="showSuccessNotification"
         :show="showSuccessNotification"
         :title="successNotificationData.title"
         :message="successNotificationData.message"
@@ -39,20 +40,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, defineAsyncComponent } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from './stores/auth'
 import ErrorBoundary from './components/ErrorBoundary.vue'
-import AuthModal from './components/auth/AuthModal.vue'
-import SuccessNotification from './components/SuccessNotification.vue'
-import ToastNotification from './components/ToastNotification.vue'
+const AuthModal = defineAsyncComponent(() => import('./components/auth/AuthModal.vue'))
+const SuccessNotification = defineAsyncComponent(() => import('./components/SuccessNotification.vue'))
+const ToastNotification = defineAsyncComponent(() => import('./components/ToastNotification.vue'))
 import { IonSpinner, IonIcon } from '@ionic/vue'
 import { sparklesOutline } from 'ionicons/icons'
 // import MemoryMonitor from './components/MemoryMonitor.vue'
 import { useHardwareBackButton } from './composables/useHardwareBackButton'
 
 const authStore = useAuthStore()
-const { showSuccessNotification, successNotificationData, isAuthReady } = storeToRefs(authStore)
+const { showSuccessNotification, successNotificationData, isAuthReady, isAuthModalOpen } = storeToRefs(authStore)
 const { closeNotification } = authStore
 
 // Show memory monitor in development
