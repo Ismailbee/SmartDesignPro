@@ -1,0 +1,24 @@
+# Build outputs
+dist/
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+ui-debug.log
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp files
+selected_java_path.txt

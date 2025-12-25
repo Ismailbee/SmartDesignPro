@@ -138,6 +138,7 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.setItem('authenticatedMember', JSON.stringify(memberData))
 
       // Mark auth as ready
+      authInitialized.value = true
       isAuthReady.value = true
 
       console.log('✅ Offline mode active - user:', offlineUser.email)
@@ -175,6 +176,7 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.setItem('authenticatedMember', JSON.stringify(memberData))
 
       // Mark auth as ready in dev mode
+      authInitialized.value = true
       isAuthReady.value = true
 
       console.log('✅ Auto-logged in as:', devUser.email)
@@ -586,6 +588,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoading,
     error,
     isAuthReady,
+    authInitialized,
     isAuthModalOpen,
     authModalView,
     showSuccessNotification,

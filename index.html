@@ -13,6 +13,58 @@
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Cinzel+Decorative:wght@700&family=Montserrat:wght@300;400;500;600;700&family=Oswald:wght@200;300;400;500;600;700&family=Poppins:wght@100;200;300;400;500;600;700;800;900&family=Inter:wght@100;200;300;400;500;600;700;800;900&family=Roboto:wght@100;300;400;500;700;900&family=Open+Sans:wght@300;400;500;600;700;800&family=Lato:wght@100;300;400;700;900&family=Nunito:wght@200;300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700;1,800;1,900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&family=Source+Sans+Pro:ital,wght@0,200;0,300;0,400;0,600;0,700;0,900;1,200;1,300;1,400;1,600;1,700;1,900&family=Raleway:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Dancing+Script:wght@400;500;600;700&family=Pacifico&family=Lobster&family=Great+Vibes&family=Amatic+SC:wght@400;700&family=Caveat:wght@400;500;600;700&family=Quicksand:wght@300;400;500;600;700&family=Comfortaa:wght@300;400;500;600;700&family=Righteous&family=Fredoka+One&family=Bebas+Neue&family=Orbitron:wght@400;500;600;700;800;900&family=Exo+2:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
   </head>
   <body>
+    <!-- Early error suppression for storage issues -->
+    <script>
+      // Suppress tracking prevention and storage-related errors early
+      (function() {
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        // Patterns that should be suppressed
+        const suppressPatterns = [
+          'Tracking Prevention blocked access to storage',
+          'Datadog Browser SDK: No storage available',
+          'blocked access to storage for',
+          'Storage access is disabled',
+          'Failed to read the \'localStorage\' property',
+          'Failed to read the \'sessionStorage\' property'
+        ];
+        
+        console.error = function(...args) {
+          const message = args.join(' ');
+          for (const pattern of suppressPatterns) {
+            if (message.includes(pattern)) {
+              return; // Suppress this error
+            }
+          }
+          originalError.apply(console, args);
+        };
+        
+        console.warn = function(...args) {
+          const message = args.join(' ');
+          for (const pattern of suppressPatterns) {
+            if (message.includes(pattern)) {
+              return; // Suppress this warning
+            }
+          }
+          originalWarn.apply(console, args);
+        };
+        
+        // Handle storage quota exceeded errors gracefully
+        window.addEventListener('error', function(event) {
+          if (event.error && (
+            event.error.name === 'QuotaExceededError' ||
+            event.error.message.includes('storage') ||
+            event.error.message.includes('localStorage') ||
+            event.error.message.includes('sessionStorage')
+          )) {
+            event.preventDefault();
+            console.info('Storage error suppressed:', event.error.message);
+          }
+        });
+      })();
+    </script>
+    
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
 

@@ -1,0 +1,14 @@
+:root {
+  --primary-color: #3b82f6; /* Tailwind's blue-500 */
+  --secondary-color: #fbbf24; /* Tailwind's yellow-400 */
+  --accent-color: #ef4444; /* Tailwind's red-500 */
+  --background-color: #ffffff; /* Light background */
+  --text-color: #1f2937; /* Tailwind's gray-800 */
+  --border-color: #e5e7eb; /* Tailwind's gray-300 */
+  --shadow-color: rgba(0, 0, 0, 0.1); /* Light shadow */
+  
+  /* Dark mode variables */
+  --dark-background-color: #1f2937; /* Dark background */
+  --dark-text-color: #ffffff; /* Light text */
+  --dark-border-color: #4b5563; /* Dark border */
+}

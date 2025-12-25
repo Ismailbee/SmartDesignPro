@@ -117,11 +117,17 @@ async function bootstrap() {
     console.log('⏳ Waiting for router to be ready...')
     await Promise.race([
       router.isReady(),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('router.isReady() timed out')), 5000))
+      new Promise((_, rej) => setTimeout(() => rej(new Error('router.isReady() timed out')), 3000))
     ])
     console.log('✅ Router is ready')
   } catch (err) {
-    console.warn('Router readiness issue (continuing to mount anyway):', err)
+    console.warn('⚠️ Router readiness timeout - continuing to mount anyway:', err)
+    // Force router to be ready by navigating to current location
+    try {
+      await router.replace(router.currentRoute.value.fullPath || '/')
+    } catch (navErr) {
+      console.warn('⚠️ Router force navigation failed:', navErr)
+    }
   }
 
   console.log('🚀 Mounting Vue app to #app...')

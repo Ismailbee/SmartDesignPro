@@ -699,6 +699,20 @@ const routes: RouteRecordRaw[] = [
   },
 
   // ============================================================
+  // Micro-Apps (Branch Applications)
+  // ============================================================
+  {
+    path: '/ican-app',
+    name: 'ican-app',
+    component: () => import('@/views/micro-apps/IcanWrapper.vue'),
+    meta: {
+      title: 'ICAN Portal - SmartDesignPro',
+      requiresAuth: false,  // Set to true if authentication required
+      requiresSpecialAccess: false  // Set to true for restricted access
+    }
+  },
+
+  // ============================================================
   // 404 Not Found
   // ============================================================
   {
@@ -738,12 +752,17 @@ router.beforeEach(async (to, _from, next) => {
 
   // Wait for auth initialization before making routing decisions
   if (!authStore.authInitialized) {
-    // Wait for Firebase auth to initialize
+    // Wait for Firebase auth to initialize (max 2 seconds)
     let attempts = 0
-    const maxAttempts = 50 // 5 seconds max wait
+    const maxAttempts = 20 // 2 seconds max wait
     while (!authStore.authInitialized && attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 100))
       attempts++
+    }
+    
+    // If auth still not initialized after timeout, proceed anyway (offline mode or error)
+    if (!authStore.authInitialized) {
+      console.warn('⚠️ Router proceeding without auth initialization')
     }
   }
 
