@@ -5,7 +5,7 @@
     <ion-chip v-else-if="userStore.user" color="primary" class="token-chip">
       <span class="token-icon">💎</span>
       <ion-label class="token-count">
-        {{ userStore.user.tokens.toLocaleString() }}
+        {{ userStore.user?.tokens ? userStore.user.tokens.toLocaleString() : '0' }}
       </ion-label>
     </ion-chip>
 

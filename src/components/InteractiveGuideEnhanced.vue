@@ -200,6 +200,14 @@ const loadVoices = () => {
 const speak = (text: string) => {
   if (!isVoiceEnabled.value || !synth) return
   
+  // Check if another component is using speech (e.g., wedding chat)
+  // Don't speak if the wedding sticker panel chat is active
+  const weddingChatActive = document.querySelector('.wedding-chat-interface')
+  if (weddingChatActive) {
+    console.log('🔇 InteractiveGuide: Skipping speech - wedding chat is active')
+    return
+  }
+  
   // Cancel any current speech
   synth?.cancel()
   

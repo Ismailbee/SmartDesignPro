@@ -10,7 +10,13 @@
 
 import { onRequest } from 'firebase-functions/v2/https'
 import { logger } from 'firebase-functions/v2'
+import { initializeApp } from 'firebase-admin/app'
+import { getFirestore } from 'firebase-admin/firestore'
 import fetch from 'node-fetch'
+
+// Initialize Firebase Admin
+initializeApp()
+const db = getFirestore()
 
 // ============================================================================
 // PAYSTACK CONFIGURATION
@@ -33,6 +39,72 @@ export const health = onRequest(
       version: '1.0.0',
       timestamp: new Date().toISOString()
     })
+  }
+)
+
+// ============================================================================
+// INITIALIZE PAYMENT
+// ============================================================================
+
+export const initializePayment = onRequest(
+  {
+    cors: true
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' })
+    }
+
+    try {
+      const { email, amount, userId, type, tokens, plan, planId } = req.body
+      const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY
+
+      // Construct metadata
+      const metadata = {
+        userId,
+        type,
+        tokens,
+        plan,
+        planId,
+        custom_fields: [
+          {
+            display_name: "User ID",
+            variable_name: "user_id",
+            value: userId
+          },
+          {
+            display_name: "Type",
+            variable_name: "type",
+            value: type
+          }
+        ]
+      }
+
+      const response = await fetch(`${PAYSTACK_API_URL}/transaction/initialize`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${paystackSecretKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email,
+          amount: amount * 100, // Convert to kobo
+          metadata
+        })
+      })
+
+      const data = await response.json()
+      
+      if (!data.status) {
+        logger.error('Paystack initialization failed:', data)
+        return res.status(400).json({ error: data.message || 'Payment initialization failed' })
+      }
+
+      return res.json(data.data)
+    } catch (error) {
+      logger.error('Error initializing payment:', error)
+      return res.status(500).json({ error: 'Failed to initialize payment' })
+    }
   }
 )
 
@@ -111,6 +183,63 @@ export const verifyPayment = onRequest(
 
       logger.info('Payment verified successfully:', { reference })
 
+      // UPDATE USER TOKENS IN DATABASE AFTER SUCCESSFUL PAYMENT
+      const metadata = paymentData.metadata || {}
+      const userId = metadata.userId
+
+      if (userId) {
+        const userRef = db.collection('users').doc(userId)
+        
+        // Check if transaction already recorded to prevent double crediting
+        const txSnapshot = await db.collection('transactions').where('reference', '==', reference).get()
+        
+        if (txSnapshot.empty) {
+          // Record transaction
+          await db.collection('transactions').add({
+            reference,
+            userId,
+            amount: paymentData.amount / 100,
+            type: metadata.type || 'purchase',
+            status: 'success',
+            createdAt: new Date().toISOString(),
+            metadata
+          })
+
+          // Update user balance for token purchase
+          if (metadata.type === 'token_purchase' && metadata.tokens) {
+            const tokensToAdd = parseInt(metadata.tokens)
+            await db.runTransaction(async (t) => {
+              const doc = await t.get(userRef)
+              if (!doc.exists) {
+                logger.warn('User not found for token update:', userId)
+                return
+              }
+              const currentTokens = doc.data().tokens || 0
+              t.update(userRef, { 
+                tokens: currentTokens + tokensToAdd,
+                updatedAt: new Date().toISOString()
+              })
+              logger.info(`Tokens updated for user ${userId}: ${currentTokens} + ${tokensToAdd} = ${currentTokens + tokensToAdd}`)
+            })
+          }
+          
+          // Handle plan upgrade
+          if (metadata.type === 'plan_upgrade' && metadata.plan) {
+            const expiryDate = new Date()
+            expiryDate.setMonth(expiryDate.getMonth() + 1)
+            
+            await userRef.update({
+              plan: metadata.plan,
+              planExpiry: expiryDate.toISOString(),
+              updatedAt: new Date().toISOString()
+            })
+            logger.info(`Plan upgraded for user ${userId}: ${metadata.plan}`)
+          }
+        } else {
+          logger.info('Transaction already processed, skipping duplicate:', reference)
+        }
+      }
+
       return res.json({
         success: true,
         message: 'Payment verified successfully',
@@ -171,3 +300,421 @@ export const paystackWebhook = onRequest(
     }
   }
 )
+
+// ============================================================================
+// USER API - Get user data
+// ============================================================================
+
+export const api = onRequest(
+  {
+    cors: true,
+    timeoutSeconds: 30,
+    memory: '256MiB'
+  },
+  async (req, res) => {
+    const path = req.path.replace('/api', '')
+    
+    // ========================================================================
+    // PAYMENT ROUTES
+    // ========================================================================
+
+    // POST /api/payments/initialize
+    if (req.method === 'POST' && path === '/payments/initialize') {
+      try {
+        const { email, amount, userId, type, tokens, plan, planId } = req.body
+        const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY
+
+        // Construct metadata
+        const metadata = {
+          userId,
+          type,
+          tokens,
+          plan,
+          planId,
+          custom_fields: [
+            {
+              display_name: "User ID",
+              variable_name: "user_id",
+              value: userId
+            },
+            {
+              display_name: "Type",
+              variable_name: "type",
+              value: type
+            }
+          ]
+        }
+
+        const response = await fetch(`${PAYSTACK_API_URL}/transaction/initialize`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${paystackSecretKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            email,
+            amount: amount * 100, // Convert to kobo
+            metadata,
+            callback_url: `${req.protocol}://${req.get('host')}/api/payments/callback` // Optional
+          })
+        })
+
+        const data = await response.json()
+        
+        if (!data.status) {
+          logger.error('Paystack initialization failed:', data)
+          return res.status(400).json({ error: data.message || 'Payment initialization failed' })
+        }
+
+        return res.json(data.data)
+      } catch (error) {
+        logger.error('Error initializing payment:', error)
+        return res.status(500).json({ error: 'Failed to initialize payment' })
+      }
+    }
+
+    // GET /api/payments/verify/:reference
+    if (req.method === 'GET' && path.startsWith('/payments/verify/')) {
+      const reference = path.split('/')[3]
+      const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY
+
+      try {
+        const response = await fetch(`${PAYSTACK_API_URL}/transaction/verify/${reference}`, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${paystackSecretKey}`
+          }
+        })
+
+        const data = await response.json()
+
+        if (!data.status || data.data.status !== 'success') {
+          return res.status(400).json({ error: 'Payment verification failed' })
+        }
+
+        const paymentData = data.data
+        const metadata = paymentData.metadata || {}
+        const userId = metadata.userId
+
+        // Update user tokens/plan if successful and not already processed
+        if (userId) {
+             const userRef = db.collection('users').doc(userId)
+             
+             // Check if transaction already recorded to prevent double crediting
+             const txSnapshot = await db.collection('transactions').where('reference', '==', reference).get()
+             
+             if (txSnapshot.empty) {
+                 // Record transaction
+                 await db.collection('transactions').add({
+                     reference,
+                     userId,
+                     amount: paymentData.amount / 100,
+                     type: metadata.type || 'purchase',
+                     status: 'success',
+                     createdAt: new Date().toISOString(),
+                     metadata
+                 })
+
+                 // Update user balance for token purchase
+                 if (metadata.type === 'token_purchase' && metadata.tokens) {
+                     const tokensToAdd = parseInt(metadata.tokens)
+                     await db.runTransaction(async (t) => {
+                         const doc = await t.get(userRef)
+                         if (!doc.exists) return
+                         const currentTokens = doc.data().tokens || 0
+                         t.update(userRef, { 
+                             tokens: currentTokens + tokensToAdd,
+                             updatedAt: new Date().toISOString()
+                         })
+                     })
+                 }
+                 
+                 // Handle plan upgrade
+                 if (metadata.type === 'plan_upgrade' && metadata.plan) {
+                     const expiryDate = new Date()
+                     // Default to 1 month if not specified
+                     expiryDate.setMonth(expiryDate.getMonth() + 1)
+                     
+                     await userRef.update({
+                         plan: metadata.plan,
+                         planExpiry: expiryDate.toISOString(),
+                         updatedAt: new Date().toISOString()
+                     })
+                 }
+             }
+        }
+
+        return res.json({ success: true, data: paymentData })
+
+      } catch (error) {
+        logger.error('Error verifying payment:', error)
+        return res.status(500).json({ error: 'Failed to verify payment' })
+      }
+    }
+
+    // GET /api/users/:userId
+    if (req.method === 'GET' && path.startsWith('/users/')) {
+      const userId = path.split('/')[2]
+      const { email, name } = req.query
+      
+      try {
+        // Get user from Firestore
+        const userDoc = await db.collection('users').doc(userId).get()
+        
+        if (!userDoc.exists) {
+          // Create new user with referral code and FREE STARTER TOKENS
+          const newUser = {
+            id: userId,
+            email: email || '',
+            name: name || 'User',
+            tokens: 100, // FREE starting tokens for new users!
+            plan: 'Basic',
+            totalDesignsGenerated: 0,
+            referralCode: generateReferralCode(userId),
+            totalReferrals: 0,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+          
+          await db.collection('users').doc(userId).set(newUser)
+          return res.json(newUser)
+        }
+        
+        return res.json(userDoc.data())
+        
+      } catch (error) {
+        logger.error('Error getting user:', error)
+        return res.status(500).json({ error: 'Failed to get user' })
+      }
+    }
+    
+    // POST /api/users/:userId/deduct-tokens
+    if (req.method === 'POST' && path.includes('/deduct-tokens')) {
+      const userId = path.split('/')[2]
+      const { amount, reason } = req.body
+      
+      try {
+        const userRef = db.collection('users').doc(userId)
+        const userDoc = await userRef.get()
+        
+        if (!userDoc.exists) {
+          return res.status(404).json({ error: 'User not found' })
+        }
+        
+        const userData = userDoc.data()
+        const newBalance = userData.tokens - amount
+        
+        if (newBalance < 0) {
+          return res.status(400).json({ 
+            success: false,
+            error: 'Insufficient tokens',
+            currentBalance: userData.tokens
+          })
+        }
+        
+        await userRef.update({
+          tokens: newBalance,
+          totalDesignsGenerated: (userData.totalDesignsGenerated || 0) + 1,
+          updatedAt: new Date().toISOString()
+        })
+        
+        return res.json({
+          success: true,
+          newBalance,
+          deducted: amount,
+          reason
+        })
+        
+      } catch (error) {
+        logger.error('Error deducting tokens:', error)
+        return res.status(500).json({ error: 'Failed to deduct tokens' })
+      }
+    }
+    
+    // POST /api/referral/validate - Validate referral code
+    if (req.method === 'POST' && path === '/referral/validate') {
+      const { referralCode } = req.body
+      
+      try {
+        // Find user with this referral code
+        const usersSnapshot = await db.collection('users')
+          .where('referralCode', '==', referralCode)
+          .limit(1)
+          .get()
+        
+        if (usersSnapshot.empty) {
+          return res.status(404).json({
+            valid: false,
+            error: 'Invalid referral code'
+          })
+        }
+        
+        const referrerData = usersSnapshot.docs[0].data()
+        
+        return res.json({
+          valid: true,
+          referrerName: referrerData.name || 'User',
+          referrerEmail: referrerData.email
+        })
+        
+      } catch (error) {
+        logger.error('Error validating referral:', error)
+        return res.status(500).json({ error: 'Failed to validate referral code' })
+      }
+    }
+    
+    // POST /api/referral/apply - Apply referral code
+    if (req.method === 'POST' && path === '/referral/apply') {
+      const { referralCode, userId, email, name } = req.body
+      
+      try {
+        // Find referrer
+        const usersSnapshot = await db.collection('users')
+          .where('referralCode', '==', referralCode)
+          .limit(1)
+          .get()
+        
+        if (usersSnapshot.empty) {
+          return res.status(404).json({
+            success: false,
+            error: 'Invalid referral code'
+          })
+        }
+        
+        const referrerDoc = usersSnapshot.docs[0]
+        const referrerData = referrerDoc.data()
+        const referrerId = referrerDoc.id
+        
+        // Can't refer yourself
+        if (referrerId === userId) {
+          return res.status(400).json({
+            success: false,
+            error: 'You cannot use your own referral code'
+          })
+        }
+        
+        // Award tokens to both users
+        const newUserRef = db.collection('users').doc(userId)
+        const referrerRef = db.collection('users').doc(referrerId)
+        
+        // Give 750 tokens to new user
+        await newUserRef.update({
+          tokens: (await newUserRef.get()).data()?.tokens + 750 || 750,
+          referredBy: referralCode,
+          updatedAt: new Date().toISOString()
+        })
+        
+        // Give 500 tokens to referrer
+        await referrerRef.update({
+          tokens: referrerData.tokens + 500,
+          totalReferrals: (referrerData.totalReferrals || 0) + 1,
+          updatedAt: new Date().toISOString()
+        })
+        
+        // Create referral record
+        await db.collection('referrals').add({
+          referrerId,
+          referredUserId: userId,
+          referredUserEmail: email,
+          referredUserName: name || 'User',
+          referralCode,
+          tokensAwarded: {
+            referrer: 500,
+            referred: 750
+          },
+          status: 'completed',
+          createdAt: new Date().toISOString()
+        })
+        
+        return res.json({
+          success: true,
+          message: 'Referral applied successfully',
+          tokensAwarded: 750
+        })
+        
+      } catch (error) {
+        logger.error('Error applying referral:', error)
+        return res.status(500).json({ error: 'Failed to apply referral code' })
+      }
+    }
+    
+    // GET /api/referral/stats/:userId - Get referral stats
+    if (req.method === 'GET' && path.startsWith('/referral/stats/')) {
+      const userId = path.split('/')[3]
+      
+      try {
+        // Get user's referral code
+        const userDoc = await db.collection('users').doc(userId).get()
+        
+        if (!userDoc.exists) {
+          return res.status(404).json({ error: 'User not found' })
+        }
+        
+        const userData = userDoc.data()
+        const referralCode = userData.referralCode
+        
+        // Get referrals made by this user
+        const referralsSnapshot = await db.collection('referrals')
+          .where('referrerId', '==', userId)
+          .orderBy('createdAt', 'desc')
+          .get()
+        
+        const referrals = referralsSnapshot.docs.map(doc => {
+          const data = doc.data()
+          return {
+            id: doc.id,
+            name: data.referredUserName,
+            email: data.referredUserEmail,
+            date: data.createdAt,
+            tokensEarned: data.tokensAwarded.referrer,
+            status: data.status
+          }
+        })
+        
+        const totalReferrals = referrals.length
+        const totalTokensEarned = referrals.reduce((sum, ref) => sum + ref.tokensEarned, 0)
+        
+        return res.json({
+          referralCode,
+          totalReferrals,
+          totalTokensEarned,
+          referrals,
+          tier: getTier(totalReferrals),
+          nextMilestone: getNextMilestone(totalReferrals)
+        })
+        
+      } catch (error) {
+        logger.error('Error getting referral stats:', error)
+        return res.status(500).json({ error: 'Failed to get referral stats' })
+      }
+    }
+    
+    return res.status(404).json({ error: 'Endpoint not found' })
+  }
+)
+
+// Helper functions for referral tiers
+function getTier(count) {
+  if (count >= 100) return 'diamond'
+  if (count >= 50) return 'platinum'
+  if (count >= 25) return 'gold'
+  if (count >= 10) return 'silver'
+  if (count >= 5) return 'bronze'
+  return 'starter'
+}
+
+function getNextMilestone(count) {
+  const milestones = [5, 10, 25, 50, 100]
+  for (const milestone of milestones) {
+    if (count < milestone) return milestone
+  }
+  return count + 50
+}
+
+// Generate unique referral code
+function generateReferralCode(userId) {
+  // Create a code from userId + random string
+  const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase()
+  const userPart = userId.substring(0, 4).toUpperCase()
+  return `${userPart}${randomPart}`
+}

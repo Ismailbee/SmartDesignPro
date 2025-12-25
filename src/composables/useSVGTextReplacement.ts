@@ -10,6 +10,13 @@
  */
 
 import { ref, Ref } from 'vue'
+import { CGWC_TITLE_SVG } from './inlineSvgs'
+
+// Map of SVG file paths to inline content
+const INLINE_SVG_MAP: Record<string, string> = {
+  '/svg/Header_tittle/CongratCeremony/cgwc.svg': CGWC_TITLE_SVG,
+  '/weddigTitles/cgwc.svg': CGWC_TITLE_SVG
+}
 
 export interface ReplacementConfig {
   // Keywords to detect (case-insensitive)
@@ -25,6 +32,10 @@ export interface ReplacementConfig {
     width: number
     height: number
   }
+  // Optional: Scale factor for the SVG (default 1.0)
+  scale?: number
+  // Optional: Title color to apply (changes fill colors in injected SVG)
+  titleColor?: string
 }
 
 export interface ReplacementState {
@@ -125,27 +136,62 @@ export function useSVGTextReplacement() {
     config: ReplacementConfig
   ): Promise<boolean> => {
     try {
-      console.log('🎨 Starting SVG replacement process... VERSION: 2025-11-12-16:00 LATEST')
+      console.log('🎨 Starting SVG replacement process... VERSION: 2025-12-14-FIX-DUPLICATES')
       console.log('🔗 SVG Path to fetch:', config.svgFiles[0])
+      
+      // CRITICAL: Remove any existing title replacement group FIRST to prevent duplicates
+      const existingReplacement = svgElement.querySelector('#wedding-title-replacement')
+      if (existingReplacement) {
+        console.log('🗑️ Removing existing title replacement group to prevent duplicates')
+        existingReplacement.remove()
+      }
+      
+      // Also remove existing title styles
+      const existingStyles = svgElement.querySelector('#wedding-title-styles')
+      if (existingStyles) {
+        existingStyles.remove()
+      }
       
       // Store original elements first
       storeOriginalElements(svgElement, config.targetElementIds)
 
-      // Select SVG file (random or first available)
-      const selectedSvg = replacementState.value.selectedSvgFile || selectRandomSvg(config.svgFiles)
+      // ALWAYS use the SVG file from config - don't use cached value
+      const selectedSvg = config.svgFiles[0]
       replacementState.value.selectedSvgFile = selectedSvg
       console.log('📁 Selected SVG file:', selectedSvg)
 
-      // Fetch the SVG file content
-      const response = await fetch(selectedSvg)
-      if (!response.ok) {
-        console.error(`❌ Failed to fetch SVG: ${selectedSvg}`, response.status, response.statusText)
-        return false
-      }
+      // Check if we have an inline SVG for this path
+      let svgText: string
+      if (INLINE_SVG_MAP[selectedSvg]) {
+        console.log('✅ Using inline SVG for:', selectedSvg)
+        svgText = INLINE_SVG_MAP[selectedSvg]
+      } else {
+        // Fetch the SVG file content with full URL
+        // In development, paths like /svg/Header_tittle/CongratCeremony/cgwc.svg are served from public folder
+        const fullUrl = selectedSvg.startsWith('/') ? window.location.origin + selectedSvg : selectedSvg
+        console.log('🔗 Full URL to fetch:', fullUrl)
+        
+        let response: Response
+        try {
+          response = await fetch(fullUrl, { 
+            method: 'GET',
+            cache: 'no-cache',
+            headers: { 'Accept': 'image/svg+xml, */*' }
+          })
+        } catch (fetchError) {
+          console.error(`❌ Network error fetching SVG: ${fullUrl}`, fetchError)
+          return false
+        }
+        
+        if (!response.ok) {
+          console.error(`❌ Failed to fetch SVG: ${fullUrl}`, response.status, response.statusText)
+          return false
+        }
 
-      const svgText = await response.text()
-      console.log('✅ SVG content fetched, length:', svgText.length)
-      console.log('📄 First 200 chars:', svgText.substring(0, 200))
+        svgText = await response.text()
+      }
+      console.log('✅ SVG content loaded, length:', svgText.length)
+      console.log('📄 First 300 chars:', svgText.substring(0, 300))
       
       const parser = new DOMParser()
       const svgDoc = parser.parseFromString(svgText, 'image/svg+xml')
@@ -165,13 +211,38 @@ export function useSVGTextReplacement() {
       }
 
       console.log('✅ SVG parsed successfully')
+      
+      // Get the viewBox to understand the content's coordinate system
+      const viewBoxAttr = fetchedSvg.getAttribute('viewBox')
+      let viewBoxOffsetX = 0
+      let viewBoxOffsetY = 0
+      let svgWidth = parseFloat(fetchedSvg.getAttribute('width') || '0')
+      let svgHeight = parseFloat(fetchedSvg.getAttribute('height') || '0')
+      
+      if (viewBoxAttr) {
+        const parts = viewBoxAttr.split(/[\s,]+/).map(Number)
+        if (parts.length >= 4) {
+          viewBoxOffsetX = parts[0] // min-x
+          viewBoxOffsetY = parts[1] // min-y
+          svgWidth = parts[2] // width
+          svgHeight = parts[3] // height
+        }
+        console.log('📐 ViewBox parsed:', { viewBoxOffsetX, viewBoxOffsetY, svgWidth, svgHeight })
+      }
 
-      // Remove original text elements
+      // Remove original text elements - use AGGRESSIVE removal to ensure no duplicates
       console.log('🗑️ Removing original text elements:', config.targetElementIds)
       config.targetElementIds.forEach(id => {
-        const element = svgElement.querySelector(`#${id}`)
+        // Try multiple selector approaches to ensure we find the element
+        const element = svgElement.querySelector(`#${id}`) || 
+                       svgElement.querySelector(`[id="${id}"]`)
         if (element) {
-          console.log(`  ✅ Removed element: #${id}`)
+          console.log(`  ✅ Removing element: #${id}`)
+          // First hide it as a failsafe
+          ;(element as HTMLElement).style.display = 'none'
+          ;(element as HTMLElement).style.visibility = 'hidden'
+          element.setAttribute('opacity', '0')
+          // Then remove it completely
           element.remove()
         } else {
           console.log(`  ⚠️ Element not found: #${id}`)
@@ -182,41 +253,115 @@ export function useSVGTextReplacement() {
       const groupElement = document.createElementNS('http://www.w3.org/2000/svg', 'g')
       groupElement.setAttribute('id', 'wedding-title-replacement')
       
-      // Set transform to position and scale the group
-      groupElement.setAttribute('transform', `translate(${config.position.x}, ${config.position.y})`)
+      // Calculate the correct position accounting for viewBox offset
+      // The position.x and position.y are where we want the content to appear in the parent SVG
+      // We need to offset by the negative of the viewBox min values to align content at 0,0 first
+      const translateX = config.position.x - viewBoxOffsetX
+      const translateY = config.position.y - viewBoxOffsetY
       
-      console.log('� Created group element with transform:', groupElement.getAttribute('transform'))
+      // Get scale factor (default to 1.0 if not specified)
+      const scaleFactor = config.scale || 1.0
+      
+      // Set transform to position and scale the group
+      // Order matters: translate first, then scale
+      groupElement.setAttribute('transform', `translate(${translateX}, ${translateY}) scale(${scaleFactor})`)
+      
+      console.log('📐 Created group element with transform:', groupElement.getAttribute('transform'), 
+                  { positionX: config.position.x, positionY: config.position.y, viewBoxOffsetX, viewBoxOffsetY, scaleFactor })
 
       // Copy all child elements from the fetched SVG into the group
+      // First, handle styles separately - move them to parent SVG's defs
       Array.from(fetchedSvg.children).forEach(child => {
-        // If it's a style element, we need to be careful about global scope pollution
         if (child.tagName.toLowerCase() === 'style') {
           // Rename classes in the style content to avoid conflicts
-          // Specifically looking for .fnt0 which conflicts with name02.svg
           let styleContent = child.textContent || ''
-          if (styleContent.includes('.fnt0')) {
-            console.log('⚠️ Found conflicting .fnt0 class in title SVG style - renaming to .title-fnt0')
-            styleContent = styleContent.replace(/\.fnt0/g, '.title-fnt0')
-            child.textContent = styleContent
+          
+          // Prefix all class names with 'title-' to avoid conflicts
+          styleContent = styleContent.replace(/\.fil0/g, '.title-fil0')
+          styleContent = styleContent.replace(/\.fil1/g, '.title-fil1')
+          styleContent = styleContent.replace(/\.fil2/g, '.title-fil2')
+          styleContent = styleContent.replace(/\.fnt0/g, '.title-fnt0')
+          styleContent = styleContent.replace(/\.fnt1/g, '.title-fnt1')
+          
+          // IMPORTANT: Override fill colors if titleColor is specified
+          // This changes the injected title SVG colors to match the background
+          if (config.titleColor) {
+            console.log(`🎨 Applying title color override: ${config.titleColor}`)
+            // Replace fill colors in style rules (common patterns in title SVGs)
+            // Match fill:#XXXXXX or fill: #XXXXXX patterns
+            styleContent = styleContent.replace(/fill:\s*#[0-9A-Fa-f]{3,6}/g, `fill:${config.titleColor}`)
+            // Also handle rgb() colors
+            styleContent = styleContent.replace(/fill:\s*rgb\([^)]+\)/g, `fill:${config.titleColor}`)
           }
+          
+          console.log('📝 Processing title SVG styles with prefixed classes')
+          
+          // Create new style element for the parent SVG
+          const newStyle = document.createElementNS('http://www.w3.org/2000/svg', 'style')
+          newStyle.setAttribute('id', 'wedding-title-styles')
+          newStyle.textContent = styleContent
+          
+          // Remove any existing title styles first
+          const existingTitleStyle = svgElement.querySelector('#wedding-title-styles')
+          if (existingTitleStyle) {
+            existingTitleStyle.remove()
+          }
+          
+          // Add to parent SVG defs or directly to SVG if no defs
+          let defs = svgElement.querySelector('defs')
+          if (defs) {
+            defs.appendChild(newStyle)
+          } else {
+            // Insert at beginning of SVG
+            svgElement.insertBefore(newStyle, svgElement.firstChild)
+          }
+          console.log('✅ Title SVG styles added to parent SVG')
+        }
+      })
+      
+      // Now copy non-style children to the group
+      Array.from(fetchedSvg.children).forEach(child => {
+        // Skip style elements as they're already handled
+        if (child.tagName.toLowerCase() === 'style') {
+          return
         }
         
         const clonedChild = child.cloneNode(true)
         
-        // If we renamed the class in the style, we need to update usages in the elements
-        if (child.tagName.toLowerCase() !== 'style') {
-          // Recursively update class attributes in cloned elements
-          const updateClasses = (el: Element) => {
-            if (el.hasAttribute('class')) {
-              const cls = el.getAttribute('class') || ''
-              if (cls.includes('fnt0')) {
-                el.setAttribute('class', cls.replace('fnt0', 'title-fnt0'))
-              }
-            }
-            Array.from(el.children).forEach(updateClasses)
+        // Recursively update class attributes to use prefixed names
+        // AND apply title color override to inline fill attributes
+        const updateElementAttributes = (el: Element) => {
+          // Update class names with prefix
+          if (el.hasAttribute('class')) {
+            let cls = el.getAttribute('class') || ''
+            cls = cls.replace(/\bfil0\b/g, 'title-fil0')
+            cls = cls.replace(/\bfil1\b/g, 'title-fil1')
+            cls = cls.replace(/\bfil2\b/g, 'title-fil2')
+            cls = cls.replace(/\bfnt0\b/g, 'title-fnt0')
+            cls = cls.replace(/\bfnt1\b/g, 'title-fnt1')
+            el.setAttribute('class', cls)
           }
-          updateClasses(clonedChild as Element)
+          
+          // Override inline fill attribute if titleColor is specified
+          if (config.titleColor && el.hasAttribute('fill')) {
+            const currentFill = el.getAttribute('fill')
+            // Only override if it's a color value (not 'none' or a URL reference like 'url(#gradient)')
+            if (currentFill && currentFill !== 'none' && !currentFill.startsWith('url(')) {
+              el.setAttribute('fill', config.titleColor)
+            }
+          }
+          
+          // Also check for style attribute with fill
+          if (config.titleColor && el.hasAttribute('style')) {
+            let style = el.getAttribute('style') || ''
+            style = style.replace(/fill:\s*#[0-9A-Fa-f]{3,6}/g, `fill:${config.titleColor}`)
+            style = style.replace(/fill:\s*rgb\([^)]+\)/g, `fill:${config.titleColor}`)
+            el.setAttribute('style', style)
+          }
+          
+          Array.from(el.children).forEach(updateElementAttributes)
         }
+        updateElementAttributes(clonedChild as Element)
         
         groupElement.appendChild(clonedChild)
       })
@@ -310,7 +455,13 @@ export function useSVGTextReplacement() {
         console.log(`🎨 Replacing with: ${config.svgFiles[0]}`)
         await replaceWithSvgImage(svgElement, config)
       } else {
-        console.log('✅ Already replaced with the same SVG, skipping')
+        // Already replaced with same SVG - but check if color needs updating
+        if (config.titleColor) {
+          console.log(`🎨 Updating title color to: ${config.titleColor}`)
+          updateTitleColor(svgElement, config.titleColor)
+        } else {
+          console.log('✅ Already replaced with the same SVG, skipping')
+        }
       }
     } else if (!shouldReplace && replacementState.value.isReplaced) {
       // Restore original text
@@ -318,6 +469,53 @@ export function useSVGTextReplacement() {
       restoreOriginalElements(svgElement)
     } else {
       console.log('❌ Conditions not met for replacement')
+    }
+  }
+
+  /**
+   * Update the color of an already-injected title SVG
+   * Used when background changes and title color needs to match
+   */
+  const updateTitleColor = (svgElement: SVGSVGElement, newColor: string): void => {
+    if (!replacementState.value.isReplaced) {
+      console.log('⚠️ No title SVG injected, cannot update color')
+      return
+    }
+
+    console.log(`🎨 Updating injected title SVG color to: ${newColor}`)
+
+    // Update the style element if it exists
+    const titleStyles = svgElement.querySelector('#wedding-title-styles')
+    if (titleStyles) {
+      let styleContent = titleStyles.textContent || ''
+      // Replace fill colors in style rules
+      styleContent = styleContent.replace(/fill:\s*#[0-9A-Fa-f]{3,6}/g, `fill:${newColor}`)
+      styleContent = styleContent.replace(/fill:\s*rgb\([^)]+\)/g, `fill:${newColor}`)
+      titleStyles.textContent = styleContent
+      console.log('✅ Updated title styles')
+    }
+
+    // Update inline fill attributes in the title group
+    const titleGroup = svgElement.querySelector('#wedding-title-replacement')
+    if (titleGroup) {
+      const updateFillColors = (el: Element) => {
+        if (el.hasAttribute('fill')) {
+          const currentFill = el.getAttribute('fill')
+          if (currentFill && currentFill !== 'none' && !currentFill.startsWith('url(')) {
+            el.setAttribute('fill', newColor)
+          }
+        }
+        // Also check style attribute
+        if (el.hasAttribute('style')) {
+          let style = el.getAttribute('style') || ''
+          style = style.replace(/fill:\s*#[0-9A-Fa-f]{3,6}/g, `fill:${newColor}`)
+          style = style.replace(/fill:\s*rgb\([^)]+\)/g, `fill:${newColor}`)
+          el.setAttribute('style', style)
+        }
+        Array.from(el.children).forEach(updateFillColors)
+      }
+      updateFillColors(titleGroup)
+      console.log('✅ Updated title group fill colors')
     }
   }
 
@@ -337,7 +535,8 @@ export function useSVGTextReplacement() {
     hasAllKeywords,
     handleReplacement,
     restoreOriginalElements,
-    resetReplacement
+    resetReplacement,
+    updateTitleColor
   }
 }
 

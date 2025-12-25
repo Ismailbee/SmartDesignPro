@@ -95,7 +95,6 @@ const categories = [
   { name: 'Calendar', image: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=100&h=100&fit=crop' },
   { name: 'Flyer', image: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=100&h=100&fit=crop' },
   { name: 'Flex/Banner', image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=100&h=100&fit=crop' },
-  { name: 'Jotter', image: 'https://images.unsplash.com/photo-1531346878377-a5be20888e57?w=100&h=100&fit=crop' },
   { name: 'Branding', image: 'https://images.unsplash.com/photo-1572044162444-ad60f128bdea?w=100&h=100&fit=crop' },
   { name: 'Table Calendar', image: 'https://images.unsplash.com/photo-1533073526757-2c8ca1df9f1c?w=100&h=100&fit=crop' },
   { name: 'Roll-up Stand', image: 'https://images.unsplash.com/photo-1557426272-fc759fdf7a8d?w=100&h=100&fit=crop' },

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { useLocalStorage } from '@vueuse/core'
+import { useLocalStorage, useDebounceFn } from '@vueuse/core'
 import type { CanvasState, AnyDesignObject, HistoryState, AssetItem, ColorPalette } from '@/types'
 import { logger } from '@/utils/logger'
 
@@ -98,6 +98,16 @@ export const useEditorStore = defineStore('editor', () => {
   const canUndo = computed(() => historyIndex.value > 0)
   const canRedo = computed(() => historyIndex.value < history.value.length - 1)
 
+  // Debounced auto-save to localStorage (500ms delay to batch rapid changes)
+  const debouncedSaveToLocalStorage = useDebounceFn(() => {
+    try {
+      savedState.value = canvasState.value
+      logger.info('Auto-saved to localStorage')
+    } catch (error) {
+      logger.error('Failed to auto-save:', error)
+    }
+  }, 500)
+
   // Actions
   function saveToHistory() {
     try {
@@ -128,8 +138,8 @@ export const useEditorStore = defineStore('editor', () => {
         historyIndex.value++
       }
 
-      // Auto-save (debounced in real implementation)
-      savedState.value = canvasState.value
+      // Debounced auto-save to localStorage (batches rapid changes)
+      debouncedSaveToLocalStorage()
     } catch (error) {
       logger.error('Failed to save to history:', error)
     }

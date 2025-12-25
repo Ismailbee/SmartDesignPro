@@ -69,6 +69,25 @@
 }
 
 /* Messages */
+.auth-initializing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #ebf4ff;
+  border: 1px solid #90cdf4;
+  border-radius: 12px;
+  color: #2b6cb0;
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+.auth-initializing svg {
+  flex-shrink: 0;
+  color: #4299e1;
+}
+
 .auth-error {
   display: flex;
   align-items: flex-start;

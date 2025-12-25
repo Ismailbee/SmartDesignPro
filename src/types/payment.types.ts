@@ -64,6 +64,7 @@ export interface PaymentConfig {
   email: string
   amount: number
   reference: string
+  authorizationUrl?: string  // Required for mobile payments
   metadata: {
     userId: string
     type: PaymentType
@@ -87,9 +88,9 @@ export interface InitializePaymentRequest {
 }
 
 export interface InitializePaymentResponse {
-  authorizationUrl: string
+  authorization_url: string
   reference: string
-  accessCode: string
+  access_code: string
 }
 
 export interface VerifyPaymentResponse {

@@ -191,24 +191,7 @@ body {
   background-color: var(--bg-hover);
 }
 
-/* Scrollbar */
-.dark-mode ::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
-}
-
-.dark-mode ::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
-}
-
-.dark-mode ::-webkit-scrollbar-thumb {
-  background: var(--bg-hover);
-  border-radius: 6px;
-}
-
-.dark-mode ::-webkit-scrollbar-thumb:hover {
-  background: var(--border-secondary);
-}
+/* Use default system scrollbars in dark mode too */
 
 /* Code blocks */
 .dark-mode code,

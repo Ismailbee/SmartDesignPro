@@ -89,15 +89,41 @@ export const CONFIG = {
 export interface RemoveBackgroundOptions {
   /** Use server fallback if local runtime fails */
   useServerFallback?: boolean
-  
-  /** Quality/speed tradeoff */
+
+  /** Quality/speed tradeoff - affects processing resolution */
   quality?: 'fast' | 'balanced' | 'high'
-  
+
   /** Output format */
   outputFormat?: 'image/png' | 'image/webp'
-  
+
   /** Progress callback */
   onProgress?: (progress: number, stage: string) => void
+}
+
+/**
+ * Quality profile configuration
+ * Maps quality levels to optimal INPUT_SIZE for performance/quality tradeoff
+ */
+const QUALITY_PROFILES = {
+  fast: {
+    inputSize: 512,     // ~4x faster processing
+    description: 'Fast processing, good for previews'
+  },
+  balanced: {
+    inputSize: 768,     // ~2x faster than high, good quality
+    description: 'Balanced speed and quality'
+  },
+  high: {
+    inputSize: 1024,    // Best quality, slower
+    description: 'Maximum quality, slower processing'
+  }
+} as const
+
+/**
+ * Get the appropriate input size based on quality setting
+ */
+function getInputSizeForQuality(quality: 'fast' | 'balanced' | 'high' = 'balanced'): number {
+  return QUALITY_PROFILES[quality].inputSize
 }
 
 export interface RemoveBackgroundResult {
@@ -547,48 +573,49 @@ async function loadImage(input: File | Blob | HTMLImageElement): Promise<HTMLIma
 
 /**
  * Preprocess image for RMBG-1.4 inference
- * - Resize to INPUT_SIZE x INPUT_SIZE
+ * - Resize to inputSize x inputSize (quality-dependent)
  * - Convert to float32 CHW format (1x3xHxW)
  * - Normalize with mean/std
  */
 async function preprocessImage(
   image: HTMLImageElement,
-  ort: typeof ORT
+  ort: typeof ORT,
+  inputSize: number = CONFIG.INPUT_SIZE
 ): Promise<ORT.Tensor> {
-  const { INPUT_SIZE, MEAN, STD } = CONFIG
+  const { MEAN, STD } = CONFIG
 
   // Create canvas and resize image
-  const canvas = getCanvas(INPUT_SIZE, INPUT_SIZE)
+  const canvas = getCanvas(inputSize, inputSize)
   const ctx = canvas.getContext('2d')!
 
   // Draw image with HIGH quality for better edge detection and accuracy
   // This is critical for preserving foreground details
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high' // High quality for better segmentation
-  ctx.drawImage(image, 0, 0, INPUT_SIZE, INPUT_SIZE)
+  ctx.drawImage(image, 0, 0, inputSize, inputSize)
 
   // Get pixel data
-  const imageData = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE)
+  const imageData = ctx.getImageData(0, 0, inputSize, inputSize)
   const { data } = imageData
 
   releaseCanvas(canvas)
 
   // Convert to CHW format and normalize
-  const inputSize = 3 * INPUT_SIZE * INPUT_SIZE
-  const inputData = new Float32Array(inputSize)
+  const tensorSize = 3 * inputSize * inputSize
+  const inputData = new Float32Array(tensorSize)
 
-  for (let i = 0; i < INPUT_SIZE * INPUT_SIZE; i++) {
+  for (let i = 0; i < inputSize * inputSize; i++) {
     const r = data[i * 4] / 255.0
     const g = data[i * 4 + 1] / 255.0
     const b = data[i * 4 + 2] / 255.0
 
     // CHW format: [C, H, W]
     inputData[i] = (r - MEAN[0]) / STD[0]  // R channel
-    inputData[INPUT_SIZE * INPUT_SIZE + i] = (g - MEAN[1]) / STD[1]  // G channel
-    inputData[INPUT_SIZE * INPUT_SIZE * 2 + i] = (b - MEAN[2]) / STD[2]  // B channel
+    inputData[inputSize * inputSize + i] = (g - MEAN[1]) / STD[1]  // G channel
+    inputData[inputSize * inputSize * 2 + i] = (b - MEAN[2]) / STD[2]  // B channel
   }
 
-  return new ort.Tensor('float32', inputData, [1, 3, INPUT_SIZE, INPUT_SIZE])
+  return new ort.Tensor('float32', inputData, [1, 3, inputSize, inputSize])
 }
 
 /**
@@ -682,23 +709,23 @@ function enhanceAlphaMask(data: Uint8ClampedArray, width: number, height: number
 async function postprocessOutput(
   output: ORT.Tensor,
   originalImage: HTMLImageElement,
-  outputFormat: 'image/png' | 'image/webp'
+  outputFormat: 'image/png' | 'image/webp',
+  inputSize: number = CONFIG.INPUT_SIZE
 ): Promise<Blob> {
-  const { INPUT_SIZE } = CONFIG
   const { width: origWidth, height: origHeight } = originalImage
 
   // Extract alpha mask from output tensor
   const outputData = output.data as Float32Array
 
   // Create canvas for alpha mask at model resolution
-  const maskCanvas = getCanvas(INPUT_SIZE, INPUT_SIZE)
+  const maskCanvas = getCanvas(inputSize, inputSize)
   const maskCtx = maskCanvas.getContext('2d')!
-  const maskImageData = maskCtx.createImageData(INPUT_SIZE, INPUT_SIZE)
+  const maskImageData = maskCtx.createImageData(inputSize, inputSize)
 
   // Convert float mask to grayscale image data with better precision
   let minAlpha = 1.0, maxAlpha = 0.0, sumAlpha = 0.0
 
-  for (let i = 0; i < INPUT_SIZE * INPUT_SIZE; i++) {
+  for (let i = 0; i < inputSize * inputSize; i++) {
     // Use full precision without aggressive clamping
     const alpha = Math.max(0, Math.min(1, outputData[i]))
     const value = Math.round(alpha * 255)
@@ -718,20 +745,20 @@ async function postprocessOutput(
 
   // Log alpha mask statistics
   if (CONFIG.LOG_ALPHA_STATS) {
-    const avgAlpha = sumAlpha / (INPUT_SIZE * INPUT_SIZE)
+    const avgAlpha = sumAlpha / (inputSize * inputSize)
     console.log(`📊 Alpha Mask Stats (Raw Model Output):`)
     console.log(`   Min: ${minAlpha.toFixed(3)}, Max: ${maxAlpha.toFixed(3)}, Avg: ${avgAlpha.toFixed(3)}`)
   }
 
   // Apply edge smoothing if enabled (reduces jagged edges)
   if (CONFIG.ENABLE_SMOOTHING) {
-    smoothAlphaMask(maskImageData.data, INPUT_SIZE, INPUT_SIZE, CONFIG.SMOOTHING_RADIUS)
+    smoothAlphaMask(maskImageData.data, inputSize, inputSize, CONFIG.SMOOTHING_RADIUS)
   }
 
   // Apply conservative enhancement if enabled (only cleans obvious background)
   // DISABLED by default to preserve foreground and avoid cutting subject
   if (CONFIG.ENABLE_ENHANCEMENT) {
-    enhanceAlphaMask(maskImageData.data, INPUT_SIZE, INPUT_SIZE)
+    enhanceAlphaMask(maskImageData.data, inputSize, inputSize)
   }
 
   maskCtx.putImageData(maskImageData, 0, 0)
@@ -817,9 +844,13 @@ export async function removeBackground(
   options: RemoveBackgroundOptions = {}
 ): Promise<RemoveBackgroundResult> {
   const {
+    quality = 'balanced',
     outputFormat = 'image/png',
     onProgress,
   } = options
+
+  // Get quality-based input size for ONNX processing
+  const inputSize = getInputSizeForQuality(quality)
 
   const startTime = performance.now()
 
@@ -827,7 +858,8 @@ export async function removeBackground(
   if (CONFIG.DEBUG_LOGGING) {
     console.log('⚙️  RMBG-1.4 Configuration:')
     console.log(`   Model: RMBG-1.4 (State-of-the-art background removal)`)
-    console.log(`   Resolution: ${CONFIG.INPUT_SIZE}x${CONFIG.INPUT_SIZE}`)
+    console.log(`   Quality: ${quality} (${QUALITY_PROFILES[quality].description})`)
+    console.log(`   Resolution: ${inputSize}x${inputSize}`)
     console.log(`   Normalization: MEAN=[${CONFIG.MEAN.join(', ')}], STD=[${CONFIG.STD.join(', ')}]`)
     console.log(`   Smoothing: ${CONFIG.ENABLE_SMOOTHING ? `Enabled (radius=${CONFIG.SMOOTHING_RADIUS})` : 'Disabled'}`)
     console.log(`   Enhancement: ${CONFIG.ENABLE_ENHANCEMENT ? 'Enabled' : 'Disabled (preserves foreground)'}`)
@@ -898,8 +930,8 @@ export async function removeBackground(
 
     onProgress?.(60, 'Image loaded')
 
-    // Preprocess
-    const inputTensor = await preprocessImage(image, ortInstance)
+    // Preprocess with quality-based input size
+    const inputTensor = await preprocessImage(image, ortInstance, inputSize)
 
     onProgress?.(70, 'Preprocessing complete')
 
@@ -915,10 +947,10 @@ export async function removeBackground(
 
     onProgress?.(85, 'AI processing complete')
 
-    // Postprocess
+    // Postprocess with quality-based input size
     onProgress?.(90, 'Creating final image')
 
-    const blob = await postprocessOutput(outputTensor, image, outputFormat)
+    const blob = await postprocessOutput(outputTensor, image, outputFormat, inputSize)
 
     // Create data URL
     onProgress?.(95, 'Finalizing')

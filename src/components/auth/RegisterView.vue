@@ -11,6 +11,15 @@
       <p class="auth-subtitle">Start your design journey today</p>
     </div>
 
+    <!-- Auth Initializing Message -->
+    <div v-if="!isAuthReady" class="auth-initializing">
+      <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <span>Connecting to authentication service...</span>
+    </div>
+
     <!-- Error Message -->
     <div v-if="error" class="auth-error">
       <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -155,8 +164,8 @@
       </div>
 
       <!-- Submit Button -->
-      <button type="submit" class="btn-primary" :disabled="isLoading || !isPasswordValid">
-        <span v-if="!isLoading">Create Account</span>
+      <button type="submit" class="btn-primary" :disabled="isFormDisabled || !isPasswordValid">
+        <span v-if="!isLoading">{{ isAuthReady ? 'Create Account' : 'Please wait...' }}</span>
         <span v-else class="loading-spinner">
           <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -191,7 +200,7 @@ import { useAuthStore } from '@/stores/auth'
 import type { RegisterData } from '@/types/auth'
 
 const authStore = useAuthStore()
-const { isLoading, error } = storeToRefs(authStore)
+const { isLoading, error, isAuthReady } = storeToRefs(authStore)
 const { registerUser, setAuthModalView, clearError } = authStore
 
 const formData = ref<RegisterData>({
@@ -203,6 +212,9 @@ const formData = ref<RegisterData>({
 })
 
 const showPassword = ref(false)
+
+// Disable form while auth is initializing or during loading
+const isFormDisabled = computed(() => !isAuthReady.value || isLoading.value)
 
 // Password validation
 const hasMinLength = computed(() => formData.value.password.length >= 8)
@@ -240,6 +252,12 @@ const passwordStrengthText = computed(() => {
 })
 
 async function handleRegister() {
+  // Prevent registration if auth not ready
+  if (!isAuthReady.value) {
+    console.warn('⚠️ Cannot register: Firebase auth not ready yet')
+    return
+  }
+
   clearError()
   if (!isPasswordValid.value) {
     return

@@ -3,15 +3,17 @@
  * Main routing setup for the application
  */
 
-import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHistory, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { Capacitor } from '@capacitor/core'
+
+// Use hash history on native platforms (Capacitor) for file:// protocol support
+const isNative = Capacitor.isNativePlatform()
 
 // Lazy load components for better performance
-const WelcomePage = () => import('@/components/WelcomePage.vue')
 const HomePage = () => import('@/components/HomePage.vue')
 const LoginPage = () => import('@/views/LoginPage.vue')
 const RegisterPage = () => import('@/views/RegisterPage.vue')
-const DesignEditor = () => import('@/components/DesignEditor.vue')
 const UserSettings = () => import('@/views/UserSettings.vue')
 const AutoDesignPage = () => import('@/views/AutoDesignPage.vue')
 const InvoiceReceiptPage = () => import('@/views/invoices/InvoiceReceiptPage.vue')
@@ -47,12 +49,7 @@ const MockupPage = () => import('@/views/MockupPage.vue')
 const VideosPage = () => import('@/views/VideosPage.vue')
 const PrivacySettings = () => import('@/views/PrivacySettings.vue')
 const SmartTemplateDesigner = () => import('@/components/SmartTemplateDesigner.vue')
-
-// Auto Design Sub-pages
-const NamingPanel = () => import('@/components/auto-design/NamingPanel.vue')
-
-// Micro-Apps
-const ICANWrapper = () => import('@/views/ICANWrapper.vue')
+const FabricEditorProPage = () => import('@/views/FabricEditorProPage.vue')
 
 // Help & Support Pages
 const HelpCenterPage = () => import('@/views/HelpCenterPage.vue')
@@ -88,12 +85,7 @@ const routes: RouteRecordRaw[] = [
   // ============================================================
   {
     path: '/',
-    name: 'welcome',
-    component: WelcomePage,
-    meta: {
-      title: 'Welcome - SmartDesignPro',
-      requiresAuth: false
-    }
+    redirect: '/home'
   },
   {
     path: '/login',
@@ -129,16 +121,6 @@ const routes: RouteRecordRaw[] = [
   },
 
   {
-    path: '/editor',
-    name: 'editor',
-    component: DesignEditor,
-    meta: {
-      title: 'Editor - SmartDesignPro',
-      requiresAuth: true
-    }
-  },
-
-  {
     path: '/settings',
     name: 'settings',
     component: UserSettings,
@@ -158,172 +140,15 @@ const routes: RouteRecordRaw[] = [
     }
   },
 
+  // Fabric Editor Pro (Canva-like UI with Voice Commands)
   {
-    path: '/auto-design/naming',
-    name: 'naming',
-    component: NamingPanel,
+    path: '/editor-pro',
+    name: 'editor-pro',
+    component: FabricEditorProPage,
     meta: {
-      title: 'Naming Design - SmartDesignPro',
-      requiresAuth: false  // Temporarily disabled for testing
+      title: 'Design Editor Pro - SmartDesignPro',
+      requiresAuth: false  // Public for testing
     }
-  },
-
-  // ============================================================
-  // Direct ICAN App Routes (bypasses wrapper)
-  // ============================================================
-  {
-    path: '/ican-app',
-    name: 'ican-app',
-    meta: {
-      title: 'ICAN Application - SmartDesignPro',
-      requiresAuth: true,
-      requiresSpecialAccess: true
-    },
-    children: [
-      {
-        path: '',
-        name: 'ican-app-splash',
-        component: () => import('@/views/micro-apps/Ican/src/pages/SplashScreen.vue')
-      },
-      {
-        path: 'home',
-        name: 'ican-app-home',
-        component: () => import('@/views/micro-apps/Ican/src/pages/HomePage.vue')
-      },
-      {
-        path: 'dashboard',
-        name: 'ican-app-dashboard',
-        component: () => import('@/views/micro-apps/Ican/src/pages/DashboardPage.vue'),
-        props: (route) => ({ branch: route.query.branch || '' })
-      },
-      {
-        path: 'receipt',
-        name: 'ican-app-receipt',
-        component: () => import('@/views/micro-apps/Ican/src/pages/ReceiptIcan/IcanReceipt.vue'),
-        props: (route) => ({ branch: route.query.branch || '' })
-      },
-      {
-        path: 'invoice-ican',
-        name: 'ican-app-invoice-ican',
-        component: () => import('@/views/micro-apps/Ican/src/pages/InvoiceIcan/IcanInvoice.vue'),
-        props: (route) => ({ branch: route.query.branch || '' })
-      },
-      {
-        path: 'member-management',
-        name: 'ican-app-member-management',
-        component: () => import('@/views/micro-apps/Ican/src/pages/MemberManagementPage.vue'),
-        props: (route) => ({ branch: route.query.branch || '' })
-      },
-      {
-        path: 'settings',
-        name: 'ican-app-settings',
-        component: () => import('@/views/micro-apps/Ican/src/pages/SettingsPage.vue'),
-        props: (route) => ({ branch: route.query.branch || '' })
-      },
-      {
-        path: 'reports',
-        name: 'ican-app-reports',
-        component: () => import('@/views/micro-apps/Ican/src/pages/ReportsAnalyticsPage.vue'),
-        props: (route) => ({ branch: route.query.branch || '' })
-      },
-      {
-        path: 'signature',
-        name: 'ican-app-signature',
-        component: () => import('@/views/micro-apps/Ican/src/pages/SignaturePage.vue'),
-        props: (route) => ({ branch: route.query.branch || '' })
-      },
-      {
-        path: 'stats',
-        name: 'ican-app-stats',
-        component: () => import('@/views/micro-apps/Ican/src/pages/StatsPage.vue')
-      },
-      {
-        path: 'signup',
-        name: 'ican-app-signup',
-        component: () => import('@/views/micro-apps/Ican/src/pages/SignUp.vue')
-      },
-      {
-        path: 'invoice-quickfill',
-        name: 'ican-app-invoice-quickfill',
-        component: () => import('@/views/micro-apps/Ican/src/pages/InvoiceIcan/IcanInvoice.vue'),
-        props: (route) => ({ branch: route.query.branch || '' })
-      },
-      {
-        path: 'invoice-preview',
-        name: 'ican-app-invoice-preview',
-        component: () => import('@/views/micro-apps/Ican/src/pages/InvoiceIcan/PreviewIcanInvoice.vue'),
-        props: (route) => ({ branch: route.query.branch || '' })
-      },
-      {
-        path: 'saved-invoices',
-        name: 'ican-app-saved-invoices',
-        component: () => import('@/views/micro-apps/Ican/src/pages/InvoiceIcan/SavedIcanInvoicesPage.vue'),
-        props: (route) => ({ branch: route.query.branch || '' })
-      },
-      {
-        path: 'saved-receipts',
-        name: 'ican-app-saved-receipts',
-        component: () => import('@/views/micro-apps/Ican/src/pages/ReceiptIcan/SavedIcanReceiptsPage.vue'),
-        props: (route) => ({ branch: route.query.branch || '' })
-      },
-      {
-        path: 'receipt-preview',
-        name: 'ican-app-receipt-preview',
-        component: () => import('@/views/micro-apps/Ican/src/pages/ReceiptIcan/PreviewIcanReceipt.vue'),
-        props: (route) => ({ branch: route.query.branch || '' })
-      }
-    ]
-  },
-
-  // ============================================================
-  // Micro-Apps Routes (Wrapper-based)
-  // ============================================================
-  {
-    path: '/ican',
-    name: 'ican-portal',
-    component: ICANWrapper,
-    meta: {
-      title: 'ICAN Portal - SmartDesignPro',
-      requiresAuth: true,
-      requiresSpecialAccess: true // Custom meta for special permission check
-    },
-    children: [
-      {
-        path: '',
-        name: 'ican-redirect',
-        redirect: '/ican/home'
-      },
-      {
-        path: 'home',
-        name: 'ican-home',
-        component: () => import('@/views/micro-apps/ican/components/ICANHome.vue')
-      },
-      {
-        path: 'dashboard',
-        name: 'ican-dashboard',
-        component: () => import('@/views/micro-apps/ican/components/ICANDashboard.vue')
-      },
-      {
-        path: 'invoice',
-        name: 'ican-invoice',
-        component: () => import('@/views/micro-apps/ican/components/ICANInvoice.vue')
-      },
-      {
-        path: 'receipt',
-        name: 'ican-receipt',
-        component: () => import('@/views/micro-apps/ican/components/ICANReceipt.vue')
-      },
-      {
-        path: 'member-login',
-        name: 'ican-member-login',
-        component: () => import('@/views/micro-apps/ican/components/ICANMemberLogin.vue')
-      },
-      {
-        path: 'settings',
-        name: 'ican-settings',
-        component: () => import('@/views/micro-apps/ican/components/ICANSettings.vue')
-      }
-    ]
   },
 
   {
@@ -888,9 +713,10 @@ const routes: RouteRecordRaw[] = [
 
 /**
  * Create router instance
+ * Use hash history on native platforms for file:// protocol support
  */
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: isNative ? createWebHashHistory() : createWebHistory(import.meta.env.BASE_URL),
   routes,
   scrollBehavior(to, from, savedPosition) {
     if (savedPosition) {
@@ -923,8 +749,8 @@ router.beforeEach(async (to, _from, next) => {
 
   // Debug logs removed to satisfy lint rules
 
-  // If user is authenticated and trying to access welcome/login page, redirect to home
-  if ((to.name === 'welcome' || to.meta.redirectIfAuth) && authStore.isAuthenticated) {
+  // If user is authenticated and trying to access login page, redirect to home
+  if (to.meta.redirectIfAuth && authStore.isAuthenticated) {
   // User authenticated, redirect to home
     next({ name: 'home' })
     return
@@ -934,12 +760,12 @@ router.beforeEach(async (to, _from, next) => {
   if (to.meta.requiresAuth) {
     // Allow navigation if user is authenticated OR in dev bypass mode
     if (!authStore.isAuthenticated) {
-  // Route requires auth, redirect to welcome page
+  // Route requires auth, redirect to login page
       // Store intended route for redirect after login
       sessionStorage.setItem('intendedRoute', to.fullPath)
 
-      // Redirect to welcome page
-      next({ name: 'welcome' })
+      // Redirect to login page
+      next({ name: 'login' })
       return
     }
   }
@@ -949,7 +775,7 @@ router.beforeEach(async (to, _from, next) => {
     if (!authStore.isAuthenticated) {
   // Admin route requires auth
       sessionStorage.setItem('intendedRoute', to.fullPath)
-      next({ name: 'welcome' })
+      next({ name: 'login' })
       return
     }
 

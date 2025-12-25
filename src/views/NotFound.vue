@@ -11,7 +11,7 @@
           <span class="btn-icon">🏠</span>
           <span>Go Home</span>
         </router-link>
-        <router-link to="/editor" class="btn btn-secondary">
+        <router-link to="/editor-pro" class="btn btn-secondary">
           <span class="btn-icon">🎨</span>
           <span>Go to Editor</span>
         </router-link>

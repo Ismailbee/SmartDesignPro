@@ -1,6 +1,7 @@
 /**
  * User Store
  * Manages user state, tokens, and plan information
+ * Supports offline mode for mobile apps
  */
 
 import { defineStore } from 'pinia'
@@ -8,6 +9,7 @@ import { ref, computed } from 'vue'
 import type { User, PlanType, ReferralStats, TierColor } from '@/types/payment.types'
 import { getUser, deductTokens } from '@/services/user.service'
 import { getReferralStats, applyReferralCode as applyReferral } from '@/services/referral.service'
+import { FEATURES, OFFLINE_USER } from '@/config/environment'
 
 export const useUserStore = defineStore('user', () => {
   // State
@@ -16,8 +18,9 @@ export const useUserStore = defineStore('user', () => {
   const error = ref<string | null>(null)
   const referralStats = ref<ReferralStats | null>(null)
 
-  // Getters
+  // Getters - Always have tokens in offline mode
   const hasTokens = computed(() => {
+    if (!FEATURES.TOKENS_ENABLED) return true // Always have tokens in offline mode
     return user.value ? user.value.tokens > 0 : false
   })
 
@@ -89,6 +92,27 @@ export const useUserStore = defineStore('user', () => {
   // Actions
   async function fetchUser(userId: string, email?: string, name?: string) {
     console.log('👤 fetchUser called with:', { userId, email, name })
+    
+    // In offline mode, create a local user without API call
+    if (!FEATURES.TOKENS_ENABLED) {
+      console.log('📱 Offline mode: Creating local user')
+      user.value = {
+        id: userId,
+        email: email || OFFLINE_USER.email,
+        name: name || OFFLINE_USER.displayName,
+        photoUrl: null,
+        plan: 'Premium' as PlanType,
+        planExpiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
+        tokens: OFFLINE_USER.tokens,
+        referralCode: 'OFFLINE',
+        totalDesignsGenerated: 0,
+        createdAt: OFFLINE_USER.createdAt,
+        updatedAt: OFFLINE_USER.createdAt
+      }
+      loading.value = false
+      return
+    }
+    
     loading.value = true
     error.value = null
 
@@ -112,6 +136,12 @@ export const useUserStore = defineStore('user', () => {
   }
 
   async function deductUserTokens(userId: string, amount: number) {
+    // In offline mode, skip token deduction
+    if (!FEATURES.TOKENS_ENABLED) {
+      console.log('📱 Offline mode: Skipping token deduction')
+      return { tokens: OFFLINE_USER.tokens, totalDesignsGenerated: 0 }
+    }
+    
     if (!user.value) {
       throw new Error('User not loaded')
     }

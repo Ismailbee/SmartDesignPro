@@ -401,8 +401,8 @@ export const useAutoDesignStore = defineStore('autoDesign', () => {
       zIndex: editorStore.canvasState.objects.length
     })
 
-    // Navigate to editor
-    router.push('/editor')
+    // Navigate to editor-pro
+    router.push('/editor-pro')
 
     authStore.showNotification({
       title: 'Sent to Editor',

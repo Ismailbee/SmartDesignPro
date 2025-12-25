@@ -21,7 +21,8 @@ const API_BASE_URL = import.meta.env.VITE_PAYMENT_API_URL || 'http://localhost:3
 export async function initializePayment(
   request: InitializePaymentRequest
 ): Promise<InitializePaymentResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/payments/initialize`, {
+  // Use standalone function
+  const response = await fetch(`${API_BASE_URL}/initializePayment`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -41,7 +42,14 @@ export async function initializePayment(
  * Verify a payment
  */
 export async function verifyPayment(reference: string): Promise<VerifyPaymentResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/payments/verify/${reference}`)
+  // Use standalone function (POST)
+  const response = await fetch(`${API_BASE_URL}/verifyPayment`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ reference })
+  })
 
   if (!response.ok) {
     const error = await response.json()
@@ -91,9 +99,11 @@ export async function openPaystackPopup(config: PaymentConfig): Promise<void> {
   const isNative = Capacitor.isNativePlatform()
 
   if (isNative) {
-    // Mobile: Open Paystack payment page in system browser
-    const paystackUrl = `https://checkout.paystack.com/${config.reference}`
-    await Browser.open({ url: paystackUrl })
+    // Mobile: Open Paystack payment page using authorization URL from Paystack API
+    if (!config.authorizationUrl) {
+      throw new Error('Authorization URL is required for mobile payment')
+    }
+    await Browser.open({ url: config.authorizationUrl })
     
     // Note: Payment verification needs to be handled via webhook or manual check
     console.log('Payment opened in browser. Reference:', config.reference)
@@ -125,6 +135,7 @@ export async function openPaystackPopup(config: PaymentConfig): Promise<void> {
 
 /**
  * Process token purchase
+ * Returns the payment reference for mobile payment tracking
  */
 export async function purchaseTokens(
   userId: string,
@@ -134,7 +145,7 @@ export async function purchaseTokens(
   tokens: number,
   onSuccess: (response: any) => void,
   onCancel: () => void
-): Promise<void> {
+): Promise<string> {
   try {
     // Initialize payment
     const response = await initializePayment({
@@ -147,10 +158,11 @@ export async function purchaseTokens(
     })
 
     // Open Paystack popup
-    openPaystackPopup({
+    await openPaystackPopup({
       email,
       amount,
       reference: response.reference,
+      authorizationUrl: response.authorization_url,
       metadata: {
         userId,
         type: 'token_purchase',
@@ -159,6 +171,9 @@ export async function purchaseTokens(
       onSuccess,
       onCancel
     })
+    
+    // Return reference for mobile payment tracking
+    return response.reference
   } catch (error) {
     console.error('Purchase tokens error:', error)
     throw error
@@ -167,6 +182,7 @@ export async function purchaseTokens(
 
 /**
  * Process plan upgrade
+ * Returns the payment reference for mobile payment tracking
  */
 export async function upgradePlan(
   userId: string,
@@ -177,7 +193,7 @@ export async function upgradePlan(
   amount: number,
   onSuccess: (response: any) => void,
   onCancel: () => void
-): Promise<void> {
+): Promise<string> {
   try {
     // Initialize payment
     const response = await initializePayment({
@@ -191,10 +207,11 @@ export async function upgradePlan(
     })
 
     // Open Paystack popup
-    openPaystackPopup({
+    await openPaystackPopup({
       email,
       amount,
       reference: response.reference,
+      authorizationUrl: response.authorization_url,
       metadata: {
         userId,
         type: 'plan_upgrade',
@@ -204,6 +221,9 @@ export async function upgradePlan(
       onSuccess,
       onCancel
     })
+    
+    // Return reference for mobile payment tracking
+    return response.reference
   } catch (error) {
     console.error('Upgrade plan error:', error)
     throw error

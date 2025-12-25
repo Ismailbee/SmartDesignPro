@@ -51,58 +51,10 @@ body.sidebar-scroll-lock .sidebar-content {
   background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
 }
 
-/* Show all scrollbars globally */
+/* Use default system scrollbars */
 * {
-  scrollbar-width: auto; /* Firefox */
-  -ms-overflow-style: auto; /* Internet Explorer 10+ */
-}
-
-/* Show scrollbars for WebKit browsers (Chrome, Safari, Edge) */
-*::-webkit-scrollbar {
-  display: block;
-  width: 12px;
-  height: 12px;
-  background: #f1f1f1;
-}
-
-/* Scrollbar track */
-*::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 10px;
-}
-
-/* Scrollbar thumb */
-*::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 10px;
-}
-
-/* Scrollbar thumb on hover */
-*::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
-
-/* Scrollbar corner */
-*::-webkit-scrollbar-corner {
-  background: #f1f1f1;
-}
-
-/* Custom scrollbar (now hidden by default) */
-.custom-scrollbar::-webkit-scrollbar {
-  display: none;
-  width: 0px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  display: none;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  display: none;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  display: none;
+  scrollbar-width: auto; /* Firefox - default scrollbar */
+  -ms-overflow-style: auto; /* Internet Explorer 10+ - default scrollbar */
 }
 
 /* Force light mode styles for inputs to prevent dark mode issues */

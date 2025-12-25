@@ -460,9 +460,10 @@ export function useWeddingStickerUpdater() {
 
   /**
    * Extract names from description
-   * ONLY extracts names from content inside brackets () or []
+   * Primary: extracts names from content inside brackets () or []
+   * Fallback: extracts "Name & Name" or "Name and Name" pattern without brackets
    * Returns both full names and separated first/last names
-   * Examples: "(Sarah Ahmed)", "[John Mary]", "(Fatima and Ibrahim)", "(Suleiman Abdullahi & Hauwa Yunusa)"
+   * Examples: "(Sarah Ahmed)", "[John Mary]", "(Fatima and Ibrahim)", "yahaya & muhamma"
    */
   const extractNames = (description: string): {
     name1: string | null;
@@ -473,13 +474,51 @@ export function useWeddingStickerUpdater() {
     name2Last: string | null;
     hasSeparator: boolean;
   } => {
-    // ONLY use bracket-based extraction
+    // Primary: use bracket-based extraction
     const bracketNames = extractNamesFromBrackets(description)
     if (bracketNames.name1First || bracketNames.name2First) {
       return bracketNames
     }
 
-    // Return null if no brackets found
+    // Fallback: Try to extract "Name & Name" or "Name and Name" without brackets
+    const couplePattern = /\b([a-zA-Z][a-zA-Z'-]+(?:\s+[a-zA-Z][a-zA-Z'-]+)?)\s*(?:&|and)\s*([a-zA-Z][a-zA-Z'-]+(?:\s+[a-zA-Z][a-zA-Z'-]+)?)\b/i
+    const coupleMatch = description.match(couplePattern)
+
+    if (coupleMatch) {
+      const person1 = coupleMatch[1].trim()
+      const person2 = coupleMatch[2].trim()
+
+      // Parse person 1
+      const person1Parts = person1.split(/\s+/).filter(w => w.length > 0)
+      const first1 = person1Parts.length > 0 ? toTitleCase(person1Parts[0]) : null
+      const last1 = person1Parts.length > 1
+        ? person1Parts.slice(1).join(' ').toUpperCase()
+        : null
+
+      // Parse person 2
+      const person2Parts = person2.split(/\s+/).filter(w => w.length > 0)
+      const first2 = person2Parts.length > 0 ? toTitleCase(person2Parts[0]) : null
+      const last2 = person2Parts.length > 1
+        ? person2Parts.slice(1).join(' ').toUpperCase()
+        : null
+
+      const fullName1 = [first1, last1].filter(Boolean).join(' ')
+      const fullName2 = [first2, last2].filter(Boolean).join(' ')
+
+      console.log('📝 Fallback name extraction (no brackets):', { fullName1, fullName2 })
+
+      return {
+        name1: fullName1 || null,
+        name2: fullName2 || null,
+        name1First: first1,
+        name1Last: last1,
+        name2First: first2,
+        name2Last: last2,
+        hasSeparator: true
+      }
+    }
+
+    // Return null if no names found
     return {
       name1: null,
       name2: null,
@@ -1284,6 +1323,7 @@ export function useWeddingStickerUpdater() {
     // SVG-BASED NAME RENDERING SYSTEM
     // Use external decorative SVG file with Cinzel Decorative Bold font
     // when two names with separator ("&" or "and") are detected
+    let usedDecorativeSVG = false
     if (hasSeparator && name1First && name2First) {
       console.log('🎨 Two names with separator detected - loading decorative SVG')
 
@@ -1297,6 +1337,7 @@ export function useWeddingStickerUpdater() {
 
           // Inject the modified SVG into the template
           injectNameSVGIntoTemplate(modifiedSVG, elements.weddingNamesGroup)
+          usedDecorativeSVG = true
 
           console.log('✅ Decorative SVG successfully loaded and injected')
           console.log('   Position: transform="translate(270, 950) scale(3)"')
@@ -1331,25 +1372,32 @@ export function useWeddingStickerUpdater() {
     }
 
     // Update full name elements (backward compatibility for old template elements)
-    if (name1) {
-      data.name1 = name1
-      if (elements.name1Text) {
-        elements.name1Text.textContent = data.name1
+    // SKIP this if we already used the decorative SVG - the names are already set correctly
+    if (!usedDecorativeSVG) {
+      if (name1) {
+        data.name1 = name1
+        if (elements.name1Text) {
+          elements.name1Text.textContent = data.name1
+        }
+        // Also update name1First if available (for new template structure)
+        if (elements.name1First) {
+          elements.name1First.textContent = toTitleCase(name1)
+        }
       }
-      // Also update name1First if available (for new template structure)
-      if (elements.name1First) {
-        elements.name1First.textContent = toTitleCase(name1)
+      if (name2) {
+        data.name2 = name2
+        if (elements.name2Text) {
+          elements.name2Text.textContent = data.name2
+        }
+        // Also update name2First if available (for new template structure)
+        if (elements.name2First) {
+          elements.name2First.textContent = toTitleCase(name2)
+        }
       }
-    }
-    if (name2) {
-      data.name2 = name2
-      if (elements.name2Text) {
-        elements.name2Text.textContent = data.name2
-      }
-      // Also update name2First if available (for new template structure)
-      if (elements.name2First) {
-        elements.name2First.textContent = toTitleCase(name2)
-      }
+    } else {
+      // Just update the data object for return value
+      if (name1) data.name1 = name1
+      if (name2) data.name2 = name2
     }
 
     // 4. Extract date with enhanced pattern matching
