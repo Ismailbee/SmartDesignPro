@@ -19,9 +19,9 @@ import { FEATURES, OFFLINE_USER, isNativePlatform } from '@/config/environment'
 
 const USER_KEY = 'user'
 
-// 🔧 DEV MODE: Set to true to bypass authentication (auto-login)
-// ⚠️ IMPORTANT: Set to false before deploying to production!
-const DEV_BYPASS_AUTH = true
+// 🔧 DEV MODE: Optional bypass for local testing only.
+// Enable explicitly with VITE_DEV_BYPASS_AUTH=true
+const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true'
 
 // 📱 OFFLINE MODE: Automatically enabled when Firebase is disabled or on mobile
 const USE_OFFLINE_MODE = !FEATURES.FIREBASE_AUTH_ENABLED || isNativePlatform()

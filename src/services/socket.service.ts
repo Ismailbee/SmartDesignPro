@@ -1,9 +1,13 @@
 // src/services/socket.service.ts
 import { io, Socket } from 'socket.io-client'
 
+const AUTO_DESIGN_API_URL = import.meta.env.VITE_AUTO_DESIGN_API_URL || 'http://localhost:3002/api/auto-design'
+const AUTO_DESIGN_SOCKET_URL =
+  import.meta.env.VITE_AUTO_DESIGN_SOCKET_URL || AUTO_DESIGN_API_URL.replace(/\/api\/auto-design\/?$/, '')
+
 class SocketService {
   private socket: Socket | null = null
-  private url: string = 'http://localhost:3003' // Auto Design Socket Server
+  private url: string = AUTO_DESIGN_SOCKET_URL // Auto Design Socket Server
   private reconnectAttempts = 0
   private maxReconnectAttempts = 5
 

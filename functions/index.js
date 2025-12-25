@@ -10,13 +10,74 @@
 
 import { onRequest } from 'firebase-functions/v2/https'
 import { logger } from 'firebase-functions/v2'
+import { defineBoolean, defineSecret, defineString } from 'firebase-functions/params'
 import { initializeApp } from 'firebase-admin/app'
+import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 import fetch from 'node-fetch'
 
 // Initialize Firebase Admin
 initializeApp()
 const db = getFirestore()
+
+// ============================================================================
+// RAILWAY NLP (spaCy) PROXY CONFIGURATION
+// ============================================================================
+
+// Prefer Firebase Params/Secrets. Fall back to process.env for local/dev.
+const RAILWAY_NLP_BASE_URL = defineString('RAILWAY_NLP_BASE_URL')
+const RAILWAY_NLP_API_KEY = defineSecret('RAILWAY_NLP_API_KEY')
+const NLP_REQUIRE_AUTH = defineBoolean('NLP_REQUIRE_AUTH')
+
+const PAYSTACK_SECRET_KEY = defineSecret('PAYSTACK_SECRET_KEY')
+
+function getEnv(name, fallback = '') {
+  const v = process.env[name]
+  return (v ?? fallback).toString().trim()
+}
+
+function truthyEnv(name, fallback = 'false') {
+  const v = getEnv(name, fallback).toLowerCase()
+  return v === '1' || v === 'true' || v === 'yes'
+}
+
+async function maybeVerifyFirebaseAuth(req) {
+  // Param value takes precedence, then env fallback
+  let requireAuth
+  if (typeof NLP_REQUIRE_AUTH.value === 'function') {
+    const v = NLP_REQUIRE_AUTH.value()
+    if (typeof v === 'boolean') {
+      requireAuth = v
+    } else if (typeof v === 'string') {
+      requireAuth = ['1', 'true', 'yes'].includes(v.toLowerCase())
+    }
+  }
+  if (typeof requireAuth !== 'boolean') {
+    requireAuth = truthyEnv('NLP_REQUIRE_AUTH', 'true')
+  }
+
+  if (!requireAuth) return null
+
+  const authHeader = req.get('authorization') || ''
+  const match = authHeader.match(/^Bearer\s+(.+)$/i)
+  if (!match) {
+    throw Object.assign(new Error('Missing Authorization Bearer token'), { statusCode: 401 })
+  }
+
+  const token = match[1]
+  try {
+    return await getAuth().verifyIdToken(token)
+  } catch (e) {
+    logger.warn('NLP proxy auth failed', e)
+    throw Object.assign(new Error('Invalid auth token'), { statusCode: 401 })
+  }
+}
+
+function joinUrl(baseUrl, path) {
+  const base = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`
+  const p = path.startsWith('/') ? path.slice(1) : path
+  return new URL(p, base).toString()
+}
 
 // ============================================================================
 // PAYSTACK CONFIGURATION
@@ -43,12 +104,90 @@ export const health = onRequest(
 )
 
 // ============================================================================
+// NLP EXTRACT (Proxy to Railway spaCy)
+// ============================================================================
+
+export const extractWeddingEntities = onRequest(
+  {
+    cors: true,
+    timeoutSeconds: 30,
+    memory: '256MiB',
+    secrets: [RAILWAY_NLP_API_KEY]
+  },
+  async (req, res) => {
+    // Handle preflight
+    if (req.method === 'OPTIONS') {
+      return res.status(204).send('')
+    }
+
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' })
+    }
+
+    try {
+      await maybeVerifyFirebaseAuth(req)
+
+      const baseFromParam = (typeof RAILWAY_NLP_BASE_URL.value === 'function')
+        ? (RAILWAY_NLP_BASE_URL.value() || '').trim()
+        : ''
+
+      const railwayBaseUrl = baseFromParam || getEnv('RAILWAY_NLP_BASE_URL')
+
+      // Secret takes precedence, then env fallback for local/dev
+      const railwayApiKey = (typeof RAILWAY_NLP_API_KEY.value === 'function')
+        ? (RAILWAY_NLP_API_KEY.value() || '').trim()
+        : getEnv('RAILWAY_NLP_API_KEY')
+
+      if (!railwayBaseUrl) {
+        return res.status(500).json({ error: 'Missing RAILWAY_NLP_BASE_URL' })
+      }
+
+      const text = (req.body?.text ?? '').toString()
+      if (!text.trim()) {
+        return res.status(400).json({ error: 'text is required' })
+      }
+
+      const url = joinUrl(railwayBaseUrl, '/extract')
+
+      const railwayResp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(railwayApiKey ? { 'x-api-key': railwayApiKey } : {})
+        },
+        body: JSON.stringify({ text })
+      })
+
+      const raw = await railwayResp.text()
+      let parsed
+      try {
+        parsed = raw ? JSON.parse(raw) : null
+      } catch {
+        parsed = { raw }
+      }
+
+      if (!railwayResp.ok) {
+        logger.warn('Railway NLP error', { status: railwayResp.status, body: parsed })
+        return res.status(502).json({ error: 'NLP service failed', details: parsed })
+      }
+
+      return res.json(parsed)
+    } catch (err) {
+      const status = err?.statusCode || 500
+      logger.error('extractWeddingEntities failed', err)
+      return res.status(status).json({ error: err?.message || 'Internal error' })
+    }
+  }
+)
+
+// ============================================================================
 // INITIALIZE PAYMENT
 // ============================================================================
 
 export const initializePayment = onRequest(
   {
-    cors: true
+    cors: true,
+    secrets: [PAYSTACK_SECRET_KEY]
   },
   async (req, res) => {
     if (req.method !== 'POST') {
@@ -57,7 +196,9 @@ export const initializePayment = onRequest(
 
     try {
       const { email, amount, userId, type, tokens, plan, planId } = req.body
-      const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY
+      const paystackSecretKey = (typeof PAYSTACK_SECRET_KEY.value === 'function')
+        ? PAYSTACK_SECRET_KEY.value()
+        : process.env.PAYSTACK_SECRET_KEY
 
       // Construct metadata
       const metadata = {
@@ -114,7 +255,8 @@ export const initializePayment = onRequest(
 
 export const verifyPayment = onRequest(
   { 
-    cors: true
+    cors: true,
+    secrets: [PAYSTACK_SECRET_KEY]
   },
   async (req, res) => {
     if (req.method !== 'POST') {
@@ -126,7 +268,9 @@ export const verifyPayment = onRequest(
 
     try {
       const { reference } = req.body
-      const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY
+      const paystackSecretKey = (typeof PAYSTACK_SECRET_KEY.value === 'function')
+        ? PAYSTACK_SECRET_KEY.value()
+        : process.env.PAYSTACK_SECRET_KEY
 
       if (!reference) {
         return res.status(400).json({
@@ -309,7 +453,8 @@ export const api = onRequest(
   {
     cors: true,
     timeoutSeconds: 30,
-    memory: '256MiB'
+    memory: '256MiB',
+    secrets: [PAYSTACK_SECRET_KEY]
   },
   async (req, res) => {
     const path = req.path.replace('/api', '')
@@ -322,7 +467,9 @@ export const api = onRequest(
     if (req.method === 'POST' && path === '/payments/initialize') {
       try {
         const { email, amount, userId, type, tokens, plan, planId } = req.body
-        const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY
+        const paystackSecretKey = (typeof PAYSTACK_SECRET_KEY.value === 'function')
+          ? PAYSTACK_SECRET_KEY.value()
+          : process.env.PAYSTACK_SECRET_KEY
 
         // Construct metadata
         const metadata = {
@@ -376,7 +523,9 @@ export const api = onRequest(
     // GET /api/payments/verify/:reference
     if (req.method === 'GET' && path.startsWith('/payments/verify/')) {
       const reference = path.split('/')[3]
-      const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY
+      const paystackSecretKey = (typeof PAYSTACK_SECRET_KEY.value === 'function')
+        ? PAYSTACK_SECRET_KEY.value()
+        : process.env.PAYSTACK_SECRET_KEY
 
       try {
         const response = await fetch(`${PAYSTACK_API_URL}/transaction/verify/${reference}`, {

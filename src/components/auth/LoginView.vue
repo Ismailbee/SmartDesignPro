@@ -146,7 +146,7 @@ import type { LoginData } from '@/types/auth'
 
 
 const authStore = useAuthStore()
-const { isLoading, error } = storeToRefs(authStore)
+const { isLoading, error, isAuthReady } = storeToRefs(authStore)
 const { loginUser, setAuthModalView, clearError, bypassAuthForTesting } = authStore
 
 const formData = ref<LoginData>({

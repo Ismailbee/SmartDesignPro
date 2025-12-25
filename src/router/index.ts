@@ -49,7 +49,6 @@ const MockupPage = () => import('@/views/MockupPage.vue')
 const VideosPage = () => import('@/views/VideosPage.vue')
 const PrivacySettings = () => import('@/views/PrivacySettings.vue')
 const SmartTemplateDesigner = () => import('@/components/SmartTemplateDesigner.vue')
-const FabricEditorProPage = () => import('@/views/FabricEditorProPage.vue')
 
 // Help & Support Pages
 const HelpCenterPage = () => import('@/views/HelpCenterPage.vue')
@@ -137,17 +136,6 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: 'Auto Design - SmartDesignPro',
       requiresAuth: false  // Temporarily disabled for testing
-    }
-  },
-
-  // Fabric Editor Pro (Canva-like UI with Voice Commands)
-  {
-    path: '/editor-pro',
-    name: 'editor-pro',
-    component: FabricEditorProPage,
-    meta: {
-      title: 'Design Editor Pro - SmartDesignPro',
-      requiresAuth: false  // Public for testing
     }
   },
 

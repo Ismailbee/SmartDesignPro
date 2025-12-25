@@ -679,7 +679,9 @@ export function useWeddingStickerUpdater() {
       return cachedNameSVG
     }
 
-    const svgPath = '/svg/weddingStiker/weddingTwoNames/name02.svg'
+    // Decorative name + surname SVG stored under public/assets
+    // Note: space must be URL-encoded for fetch()
+    const svgPath = '/assets/name&surname/name%20and%20surname.svg'
 
     try {
       console.log('🔄 Attempting to load decorative SVG from:', svgPath)
@@ -699,7 +701,7 @@ export function useWeddingStickerUpdater() {
           statusText: response.statusText,
           url: response.url
         })
-        console.error('💡 Tip: Check if file exists at public/svg/weddingStiker/weddingTwoNames/name02.svg')
+        console.error('💡 Tip: Check if file exists at public/assets/name&surname/name and surname.svg')
         return null
       }
 
@@ -717,7 +719,7 @@ export function useWeddingStickerUpdater() {
       console.error('❌ Error loading name SVG:', error)
       console.error('   Path attempted:', svgPath)
       console.error('💡 Possible causes:')
-      console.error('   - File does not exist at public/svg/weddingStiker/weddingTwoNames/name02.svg')
+      console.error('   - File does not exist at public/assets/name&surname/name and surname.svg')
       console.error('   - CORS policy blocking the request')
       console.error('   - Network error or server not running')
       return null
@@ -731,10 +733,12 @@ export function useWeddingStickerUpdater() {
    * @param name2 - Second person's name (will be converted to Title Case)
    * @returns Modified SVG content with replaced names
    */
-  const replaceNamesInSVG = (svgContent: string, name1: string, name2: string): string => {
+  const replaceNamesInSVG = (svgContent: string, name1: string, name2: string, name1LastRaw = '', name2LastRaw = ''): string => {
     // Apply Title Case formatting to names
     const formattedName1 = toTitleCase(name1)
     const formattedName2 = toTitleCase(name2)
+    const formattedLast1 = name1LastRaw?.trim() ? name1LastRaw.trim().toUpperCase() : ''
+    const formattedLast2 = name2LastRaw?.trim() ? name2LastRaw.trim().toUpperCase() : ''
 
     console.log('🔄 Replacing names in SVG:', {
       original: { name1: 'Muhammad', name2: 'Hauwawu' },
@@ -889,51 +893,67 @@ export function useWeddingStickerUpdater() {
       console.log(`📝 FONT FAMILY CHANGE: Both names are 10+ characters - switching to Swiss/Arial font`)
     }
 
-    // Replace the hardcoded names in the SVG
-    // Line 9: <text id="name1-first" x="-20" y="80" class="name-fil0 name-fnt0">Muhammad</text>
-    // Line 10: <text id="name2-first" x="40.23" y="148" class="name-fil0 name-fnt0">Hauwawu</text>
-    // Line 11: <text id="name-separator" x="-40.3" y="160.4" class="name-fil1 name-fnt0">&amp;</text>
+    // Prefer DOM-based updates so we can support any decorative SVG that
+    // provides the expected ids (name1-first, name2-first, name-separator, optional surname ids).
     let modifiedSVG = svgContent
-      .replace(/>Muhammad</g, `>${formattedName1}<`)
-      .replace(/>Hauwawu</g, `>${formattedName2}<`)
-      // Adjust x position for name1-first
-      .replace(
-        /(<text id="name1-first" x=")[^"]*(")/g,
-        `$1${name1XPosition}$2`
-      )
-      // Adjust x position for name2-first
-      .replace(
-        /(<text id="name2-first" x=")[^"]*(")/g,
-        `$1${name2XPosition}$2`
-      )
-      // Adjust y position for name2-first
-      .replace(
-        /(<text id="name2-first" x="[^"]*" y=")[^"]*(")/g,
-        `$1${name2YPosition}$2`
-      )
-      // Adjust x position for separator
-      .replace(
-        /(<text id="name-separator" x=")[^"]*(")/g,
-        `$1${separatorXPosition}$2`
-      )
-      // Adjust y position for separator (this is the key change)
-      .replace(
-        /(<text id="name-separator" x="[^"]*" y=")[^"]*(")/g,
-        `$1${separatorYPosition}$2`
-      )
+    try {
+      const parser = new DOMParser()
+      const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml')
+      const parserError = svgDoc.querySelector('parsererror')
+      if (parserError) {
+        throw new Error(parserError.textContent || 'SVG parse error')
+      }
 
-    // Apply font family change for long names (name elements only, not separator)
-    if (fontFamily) {
-      modifiedSVG = modifiedSVG
-        .replace(
-          /(<text id="name1-first"[^>]*)(>)/g,
-          `$1 style="font-family: ${fontFamily}"$2`
-        )
-        .replace(
-          /(<text id="name2-first"[^>]*)(>)/g,
-          `$1 style="font-family: ${fontFamily}"$2`
-        )
+      const elName1 = svgDoc.querySelector('text#name1-first') as SVGTextElement | null
+      const elName2 = svgDoc.querySelector('text#name2-first') as SVGTextElement | null
+      const elSep = svgDoc.querySelector('text#name-separator') as SVGTextElement | null
+      const elLast1 = svgDoc.querySelector('text#name1-last') as SVGTextElement | null
+      const elLast2 = svgDoc.querySelector('text#name2-last') as SVGTextElement | null
+
+      if (elName1) {
+        elName1.textContent = formattedName1
+        elName1.setAttribute('x', name1XPosition)
+        elName1.setAttribute('y', name1YPosition)
+        elName1.style.fontSize = `${fontSize}px`
+        if (fontFamily) elName1.style.fontFamily = fontFamily
+      }
+
+      if (elName2) {
+        elName2.textContent = formattedName2
+        elName2.setAttribute('x', name2XPosition)
+        elName2.setAttribute('y', name2YPosition)
+        elName2.style.fontSize = `${fontSize}px`
+        if (fontFamily) elName2.style.fontFamily = fontFamily
+      }
+
+      if (elSep) {
+        elSep.setAttribute('x', separatorXPosition)
+        elSep.setAttribute('y', separatorYPosition)
+        elSep.style.fontSize = `${fontSize}px`
+      }
+
+      if (formattedLast1 && elLast1) {
+        elLast1.textContent = formattedLast1
+      }
+      if (formattedLast2 && elLast2) {
+        elLast2.textContent = formattedLast2
+      }
+
+      if (hasLongName) {
+        if (elName1) elName1.style.letterSpacing = '-1px'
+        if (elName2) elName2.style.letterSpacing = '-1px'
+      }
+
+      const serializer = new XMLSerializer()
+      modifiedSVG = serializer.serializeToString(svgDoc.documentElement)
+    } catch (e) {
+      // Keep legacy regex-based behavior if parsing fails.
+      console.warn('⚠️ Decorative SVG DOM update failed, falling back to regex replacement:', e)
+      modifiedSVG = svgContent
     }
+
+    // If DOM update succeeded, we already applied fontFamily/fontSize directly.
+    // Keep legacy behavior below for older SVGs that rely on CSS class replacement.
 
     // Apply font size adjustment ALWAYS to ensure consistent sizing
     // Modify the .name-fnt0 style definition to use the calculated font size
@@ -1333,7 +1353,13 @@ export function useWeddingStickerUpdater() {
         
         if (svgContent) {
           // Replace hardcoded names with user-provided names
-          const modifiedSVG = replaceNamesInSVG(svgContent, name1First, name2First)
+          const modifiedSVG = replaceNamesInSVG(
+            svgContent,
+            name1First,
+            name2First,
+            name1Last || '',
+            name2Last || ''
+          )
 
           // Inject the modified SVG into the template
           injectNameSVGIntoTemplate(modifiedSVG, elements.weddingNamesGroup)

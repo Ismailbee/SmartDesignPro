@@ -15,6 +15,7 @@ import type {
 } from '@/types/auth'
 
 const API_BASE_URL = import.meta.env.VITE_AUTH_API_URL || 'http://localhost:3003/api/auth'
+const AUTH_SERVER_URL = API_BASE_URL.replace(/\/api\/auth\/?$/, '')
 
 /**
  * Handle API errors
@@ -155,7 +156,7 @@ export async function changePassword(data: PasswordChange, accessToken: string):
  * Check if server is healthy
  */
 export async function checkHealth(): Promise<{ status: string; service: string; timestamp: string }> {
-  const response = await fetch('http://localhost:3003/health')
+  const response = await fetch(`${AUTH_SERVER_URL}/health`)
   return response.json()
 }
 

@@ -9,6 +9,11 @@ const fs = require('fs')
 const { renderTemplate } = require('./template-renderer.cjs')
 
 const app = express()
+
+const PORT = Number(process.env.AUTO_DESIGN_PORT || 3002)
+// Public base URL for returned asset links (set this in production to your domain)
+const PUBLIC_BASE_URL = process.env.AUTO_DESIGN_PUBLIC_URL || `http://localhost:${PORT}`
+
 const server = http.createServer(app)
 const io = new Server(server, {
   cors: {
@@ -118,7 +123,7 @@ async function simulateDesignGeneration(projectId, userId) {
     // Render the template
     await renderTemplate(project.category, project.inputs, project.files, previewPath)
 
-    previewUrl = `http://localhost:3003/uploads/${previewFilename}`
+    previewUrl = `${PUBLIC_BASE_URL}/uploads/${previewFilename}`
     fullUrl = previewUrl
     console.log('✅ Template rendered successfully:', previewUrl)
 
@@ -158,7 +163,7 @@ async function simulateDesignGeneration(projectId, userId) {
 
           console.log('   Copy successful, checking if file exists:', fs.existsSync(previewPath))
 
-          previewUrl = `http://localhost:3003/uploads/${previewFilename}`
+          previewUrl = `${PUBLIC_BASE_URL}/uploads/${previewFilename}`
           fullUrl = previewUrl
           console.log('✅ Created preview copy:', previewUrl)
         } else {
@@ -190,7 +195,7 @@ async function simulateDesignGeneration(projectId, userId) {
 
         fs.copyFileSync(latestFile.path, previewPath)
 
-        previewUrl = `http://localhost:3003/uploads/${previewFilename}`
+        previewUrl = `${PUBLIC_BASE_URL}/uploads/${previewFilename}`
         fullUrl = previewUrl
         console.log('✅ Using latest uploaded file as preview:', previewUrl)
       }
@@ -206,14 +211,14 @@ async function simulateDesignGeneration(projectId, userId) {
         fs.writeFileSync(placeholderPath, placeholderText)
 
         // For now, we'll use a data URL with text
-        previewUrl = `http://localhost:3003/uploads/preview-${projectId}.txt`
+        previewUrl = `${PUBLIC_BASE_URL}/uploads/preview-${projectId}.txt`
         fullUrl = previewUrl
         console.log('📝 Created placeholder:', previewUrl)
       }
     } catch (fallbackError) {
       console.error('❌ Fallback also failed:', fallbackError)
       // Last resort: create a simple URL
-      previewUrl = `http://localhost:3003/uploads/preview-${projectId}.png`
+      previewUrl = `${PUBLIC_BASE_URL}/uploads/preview-${projectId}.png`
       fullUrl = previewUrl
     }
   }
@@ -223,7 +228,7 @@ async function simulateDesignGeneration(projectId, userId) {
   project.progress = 100
   project.design.previewUrl = previewUrl
   project.design.fullUrl = fullUrl
-  project.design.pdfUrl = `http://localhost:3003/uploads/design-${projectId}.pdf`
+  project.design.pdfUrl = `${PUBLIC_BASE_URL}/uploads/design-${projectId}.pdf`
   project.updatedAt = new Date()
 
   console.log(`✅ Design completed for project ${projectId}`)
@@ -253,7 +258,7 @@ app.post('/api/auto-design/upload', upload.single('file'), (req, res) => {
       return res.status(400).json({ success: false, message: 'No file uploaded' })
     }
 
-    const fileUrl = `http://localhost:3003/uploads/${req.file.filename}`
+    const fileUrl = `${PUBLIC_BASE_URL}/uploads/${req.file.filename}`
     
     res.json({
       success: true,
@@ -408,7 +413,6 @@ app.get('/health', (req, res) => {
 })
 
 // Start server
-const PORT = 3002
 server.listen(PORT, () => {
   console.log(`🚀 Auto Design Server running on http://localhost:${PORT}`)
   console.log(`📁 Uploads directory: ${uploadsDir}`)

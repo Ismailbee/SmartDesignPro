@@ -6,7 +6,7 @@ import type {
   AutoDesignProject 
 } from '@/types/auto-design'
 
-const BASE_URL = 'http://localhost:3003/api/auto-design'
+const BASE_URL = import.meta.env.VITE_AUTO_DESIGN_API_URL || 'http://localhost:3002/api/auto-design'
 
 /**
  * Generate a new design

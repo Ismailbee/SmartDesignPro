@@ -1,150 +1,194 @@
 /**
- * Image Retouch Logic
- * This composable provides automatic image enhancement and retouching
+ * Composable for image retouching/enhancement
+ * Provides automatic image enhancement features
  */
 
+import { ref } from 'vue'
+
 export function useImageRetouch() {
-  
+  const isProcessing = ref(false)
+  const error = ref<string | null>(null)
+
   /**
-   * Apply automatic retouch to an image
-   * @param imageDataUrl - Base64 data URL of the image
-   * @returns Promise with retouched image data URL
+   * Apply automatic retouch/enhancement to an image
+   * Uses canvas to apply basic enhancements like brightness, contrast, and sharpening
    */
-  async function applyRetouch(imageDataUrl: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
-      
-      img.onload = () => {
-        try {
-          // Create canvas for image processing
-          const canvas = document.createElement('canvas')
-          const ctx = canvas.getContext('2d')
-          
-          if (!ctx) {
-            reject(new Error('Could not get canvas context'))
-            return
+  async function applyRetouch(imageDataUrl: string, options: {
+    brightness?: number      // -100 to 100, default 10
+    contrast?: number        // -100 to 100, default 15
+    saturation?: number      // -100 to 100, default 10
+    sharpen?: boolean        // Apply sharpening, default true
+  } = {}): Promise<string> {
+    isProcessing.value = true
+    error.value = null
+
+    const {
+      brightness = 10,
+      contrast = 15,
+      saturation = 10,
+      sharpen = true
+    } = options
+
+    try {
+      return await new Promise((resolve, reject) => {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas')
+            const ctx = canvas.getContext('2d')
+            
+            if (!ctx) {
+              reject(new Error('Failed to get canvas context'))
+              return
+            }
+
+            canvas.width = img.width
+            canvas.height = img.height
+
+            // Draw original image
+            ctx.drawImage(img, 0, 0)
+
+            // Get image data for manipulation
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+            const data = imageData.data
+
+            // Apply brightness, contrast, and saturation adjustments
+            const brightnessFactor = brightness / 100
+            const contrastFactor = (contrast + 100) / 100
+            const saturationFactor = saturation / 100
+
+            for (let i = 0; i < data.length; i += 4) {
+              let r = data[i]
+              let g = data[i + 1]
+              let b = data[i + 2]
+
+              // Apply brightness
+              r = r + (255 * brightnessFactor)
+              g = g + (255 * brightnessFactor)
+              b = b + (255 * brightnessFactor)
+
+              // Apply contrast
+              r = ((r / 255 - 0.5) * contrastFactor + 0.5) * 255
+              g = ((g / 255 - 0.5) * contrastFactor + 0.5) * 255
+              b = ((b / 255 - 0.5) * contrastFactor + 0.5) * 255
+
+              // Apply saturation
+              const gray = 0.2989 * r + 0.587 * g + 0.114 * b
+              r = gray + saturationFactor * (r - gray) + r * saturationFactor
+              g = gray + saturationFactor * (g - gray) + g * saturationFactor
+              b = gray + saturationFactor * (b - gray) + b * saturationFactor
+
+              // Clamp values
+              data[i] = Math.max(0, Math.min(255, r))
+              data[i + 1] = Math.max(0, Math.min(255, g))
+              data[i + 2] = Math.max(0, Math.min(255, b))
+            }
+
+            ctx.putImageData(imageData, 0, 0)
+
+            // Apply sharpening using convolution if enabled
+            if (sharpen) {
+              applySharpen(ctx, canvas.width, canvas.height)
+            }
+
+            // Convert to data URL
+            const resultDataUrl = canvas.toDataURL('image/png', 0.95)
+            resolve(resultDataUrl)
+          } catch (err) {
+            reject(err)
           }
-          
-          canvas.width = img.width
-          canvas.height = img.height
-          
-          // Draw original image
-          ctx.drawImage(img, 0, 0)
-          
-          // Get image data
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-          const data = imageData.data
-          
-          // Apply retouch enhancements
-          for (let i = 0; i < data.length; i += 4) {
-            const r = data[i]
-            const g = data[i + 1]
-            const b = data[i + 2]
-            
-            // 1. Brightness enhancement (+10%)
-            const brightnessFactor = 1.1
-            
-            // 2. Contrast enhancement (+15%)
-            const contrastFactor = 1.15
-            const contrastOffset = 128 * (1 - contrastFactor)
-            
-            // 3. Saturation boost (+20%)
-            const gray = 0.299 * r + 0.587 * g + 0.114 * b
-            const saturationFactor = 1.2
-            
-            // Apply brightness
-            let newR = r * brightnessFactor
-            let newG = g * brightnessFactor
-            let newB = b * brightnessFactor
-            
-            // Apply contrast
-            newR = newR * contrastFactor + contrastOffset
-            newG = newG * contrastFactor + contrastOffset
-            newB = newB * contrastFactor + contrastOffset
-            
-            // Apply saturation
-            newR = gray + (newR - gray) * saturationFactor
-            newG = gray + (newG - gray) * saturationFactor
-            newB = gray + (newB - gray) * saturationFactor
-            
-            // 4. Slight sharpening effect
-            const sharpenFactor = 1.05
-            newR = gray + (newR - gray) * sharpenFactor
-            newG = gray + (newG - gray) * sharpenFactor
-            newB = gray + (newB - gray) * sharpenFactor
-            
-            // Clamp values to 0-255
-            data[i] = Math.min(255, Math.max(0, newR))
-            data[i + 1] = Math.min(255, Math.max(0, newG))
-            data[i + 2] = Math.min(255, Math.max(0, newB))
-            // Alpha channel (data[i + 3]) remains unchanged
-          }
-          
-          // Apply smoothing filter (simple blur for skin smoothing)
-          const smoothedData = applySmoothing(data, canvas.width, canvas.height)
-          
-          // Put processed data back
-          for (let i = 0; i < data.length; i++) {
-            imageData.data[i] = smoothedData[i]
-          }
-          
-          ctx.putImageData(imageData, 0, 0)
-          
-          // Convert to data URL
-          const retouchedDataUrl = canvas.toDataURL('image/png', 0.95)
-          resolve(retouchedDataUrl)
-          
-        } catch (error) {
-          reject(error)
         }
-      }
-      
-      img.onerror = () => {
-        reject(new Error('Failed to load image'))
-      }
-      
-      img.src = imageDataUrl
-    })
+
+        img.onerror = () => {
+          reject(new Error('Failed to load image for retouching'))
+        }
+
+        img.src = imageDataUrl
+      })
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Unknown error during retouch'
+      throw err
+    } finally {
+      isProcessing.value = false
+    }
   }
-  
+
   /**
-   * Apply smoothing filter for skin smoothing effect
+   * Apply sharpening filter using convolution
    */
-  function applySmoothing(data: Uint8ClampedArray, width: number, height: number): Uint8ClampedArray {
-    const result = new Uint8ClampedArray(data)
-    const radius = 1 // Small radius for subtle smoothing
-    
-    for (let y = radius; y < height - radius; y++) {
-      for (let x = radius; x < width - radius; x++) {
-        let r = 0, g = 0, b = 0, count = 0
-        
-        // Average surrounding pixels
-        for (let dy = -radius; dy <= radius; dy++) {
-          for (let dx = -radius; dx <= radius; dx++) {
-            const idx = ((y + dy) * width + (x + dx)) * 4
-            r += data[idx]
-            g += data[idx + 1]
-            b += data[idx + 2]
-            count++
+  function applySharpen(ctx: CanvasRenderingContext2D, width: number, height: number) {
+    const imageData = ctx.getImageData(0, 0, width, height)
+    const data = imageData.data
+    const copy = new Uint8ClampedArray(data)
+
+    // Sharpen kernel
+    const kernel = [
+      0, -1, 0,
+      -1, 5, -1,
+      0, -1, 0
+    ]
+
+    const kernelSize = 3
+    const half = Math.floor(kernelSize / 2)
+
+    for (let y = half; y < height - half; y++) {
+      for (let x = half; x < width - half; x++) {
+        let r = 0, g = 0, b = 0
+
+        for (let ky = 0; ky < kernelSize; ky++) {
+          for (let kx = 0; kx < kernelSize; kx++) {
+            const px = x + kx - half
+            const py = y + ky - half
+            const idx = (py * width + px) * 4
+            const weight = kernel[ky * kernelSize + kx]
+
+            r += copy[idx] * weight
+            g += copy[idx + 1] * weight
+            b += copy[idx + 2] * weight
           }
         }
-        
+
         const idx = (y * width + x) * 4
-        
-        // Blend original with smoothed (70% original, 30% smoothed)
-        const blendFactor = 0.3
-        result[idx] = data[idx] * (1 - blendFactor) + (r / count) * blendFactor
-        result[idx + 1] = data[idx + 1] * (1 - blendFactor) + (g / count) * blendFactor
-        result[idx + 2] = data[idx + 2] * (1 - blendFactor) + (b / count) * blendFactor
-        result[idx + 3] = data[idx + 3] // Keep alpha unchanged
+        data[idx] = Math.max(0, Math.min(255, r))
+        data[idx + 1] = Math.max(0, Math.min(255, g))
+        data[idx + 2] = Math.max(0, Math.min(255, b))
       }
     }
-    
-    return result
+
+    ctx.putImageData(imageData, 0, 0)
   }
-  
+
+  /**
+   * Auto-enhance an image with preset values for best results
+   */
+  async function autoEnhance(imageDataUrl: string): Promise<string> {
+    return applyRetouch(imageDataUrl, {
+      brightness: 8,
+      contrast: 12,
+      saturation: 15,
+      sharpen: true
+    })
+  }
+
+  /**
+   * Apply portrait enhancement (lighter touch for faces)
+   */
+  async function enhancePortrait(imageDataUrl: string): Promise<string> {
+    return applyRetouch(imageDataUrl, {
+      brightness: 5,
+      contrast: 8,
+      saturation: 5,
+      sharpen: false // Avoid over-sharpening faces
+    })
+  }
+
   return {
-    applyRetouch
+    isProcessing,
+    error,
+    applyRetouch,
+    autoEnhance,
+    enhancePortrait
   }
 }

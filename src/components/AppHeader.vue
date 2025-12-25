@@ -155,6 +155,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/vue'
+import { useAuthStore } from '@/stores/auth'
 
 // Props
 interface Props {
@@ -168,6 +169,9 @@ const emit = defineEmits<{
   navigate: [view: string]
   userAction: [action: string]
 }>()
+
+// Auth store
+const authStore = useAuthStore()
 
 // Navigation tabs configuration
 const navigationTabs = [
@@ -183,13 +187,13 @@ const navigationTabs = [
   }
 ]
 
-// User data (in a real app, this would come from a store or API)
-const userName = 'John Doe'
-const userEmail = 'john.doe@example.com'
-const userRole = 'Designer'
+// User data from auth store
+const userName = computed(() => authStore.user?.name || authStore.user?.email?.split('@')[0] || 'Guest')
+const userEmail = computed(() => authStore.user?.email || '')
+const userRole = computed(() => authStore.user?.role || 'User')
 
 const userInitials = computed(() => {
-  return userName
+  return (userName.value || 'G')
     .split(' ')
     .map(name => name.charAt(0))
     .join('')

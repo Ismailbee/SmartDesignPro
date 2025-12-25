@@ -1,7 +1,7 @@
 ﻿<template>
   <!-- Sidebar Component (Portal-like Fixed Position) -->
   <Teleport to="body">
-    <div class="sidebar-container" :class="{ 'sidebar-active': isSidebarOpen }">
+    <div v-if="isSidebarOpen" class="sidebar-container" :class="{ 'sidebar-active': isSidebarOpen }">
       <Sidebar
         :is-open="isSidebarOpen"
         :user="authStore.user"
@@ -39,28 +39,28 @@
       @start-project="handleStartProject"
     />
 
-    <!-- Template Section -->
+    <!-- Template Section (lazy) -->
     <TemplateSection />
 
-    <!-- Services Section -->
+    <!-- Services Section (lazy) -->
     <ServicesSection @learn-more="handleLearnMore" />
 
-    <!-- Process Section -->
+    <!-- Process Section (lazy) -->
     <ProcessSection @start-project="handleStartProject" />
 
-    <!-- Team Section -->
+    <!-- Team Section (lazy) -->
     <TeamSection />
 
-    <!-- Testimonials Section -->
+    <!-- Testimonials Section (lazy) -->
     <TestimonialsSection />
 
-    <!-- Contact Section -->
+    <!-- Contact Section (lazy) -->
     <ContactSection @submit-contact="handleSubmitContact" />
 
-    <!-- Footer -->
+    <!-- Footer (lazy) -->
     <HomeFooter />
 
-    <!-- Interactive Guide -->
+    <!-- Interactive Guide (lazy) -->
     <InteractiveGuide 
       :steps="guideSteps"
       :show-help-button="true"
@@ -72,23 +72,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, defineAsyncComponent } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user.store'
 
-// Import all home page components
-import Sidebar from '@/components/home/Sidebar.vue'
+// Above-the-fold components kept eager
 import HomeHeader from '@/components/home/HomeHeader.vue'
 import HeroSection from '@/components/home/HeroSection.vue'
-import TemplateSection from '@/components/home/TemplateSection.vue'
-import ServicesSection from '@/components/home/ServicesSection.vue'
-import ProcessSection from '@/components/home/ProcessSection.vue'
-import TeamSection from '@/components/home/TeamSection.vue'
-import TestimonialsSection from '@/components/home/TestimonialsSection.vue'
-import ContactSection from '@/components/home/ContactSection.vue'
-import HomeFooter from '@/components/home/HomeFooter.vue'
-import InteractiveGuide from '@/components/InteractiveGuideEnhanced.vue'
+
+// Lazy-load non-critical sections (reduces initial HomePage chunk)
+const Sidebar = defineAsyncComponent(() => import('@/components/home/Sidebar.vue'))
+const TemplateSection = defineAsyncComponent(() => import('@/components/home/TemplateSection.vue'))
+const ServicesSection = defineAsyncComponent(() => import('@/components/home/ServicesSection.vue'))
+const ProcessSection = defineAsyncComponent(() => import('@/components/home/ProcessSection.vue'))
+const TeamSection = defineAsyncComponent(() => import('@/components/home/TeamSection.vue'))
+const TestimonialsSection = defineAsyncComponent(() => import('@/components/home/TestimonialsSection.vue'))
+const ContactSection = defineAsyncComponent(() => import('@/components/home/ContactSection.vue'))
+const HomeFooter = defineAsyncComponent(() => import('@/components/home/HomeFooter.vue'))
+const InteractiveGuide = defineAsyncComponent(() => import('@/components/InteractiveGuideEnhanced.vue'))
 
 const router = useRouter()
 const authStore = useAuthStore()
