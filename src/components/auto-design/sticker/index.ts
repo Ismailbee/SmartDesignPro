@@ -3,6 +3,7 @@
 
 export { default as WeddingChatMessages } from './WeddingChatMessages.vue'
 export { default as WeddingChatInput } from './WeddingChatInput.vue'
+export { default as WeddingEditModal } from './WeddingEditModal.vue'
 export { default as CategorySelector } from './CategorySelector.vue'
 export { default as ImageControls } from './ImageControls.vue'
 export { default as UploadModal } from './UploadModal.vue'

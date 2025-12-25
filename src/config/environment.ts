@@ -34,7 +34,8 @@ export const isIOS = (): boolean => {
  */
 export const API_CONFIG = {
   // Set to true to enable offline mode (no backend calls)
-  OFFLINE_MODE: true,
+  // Controlled by env var to avoid accidentally shipping offline mode.
+  OFFLINE_MODE: import.meta.env.VITE_OFFLINE_MODE === 'true',
   
   // Base URLs - these would need to be real server URLs for production
   // For now, offline mode means these won't be used
@@ -53,8 +54,8 @@ export const API_CONFIG = {
  * Set USE_REAL_AUTH to false for offline mode (no login needed)
  */
 
-// TOGGLE THIS TO SWITCH BETWEEN REAL AUTH AND OFFLINE MODE
-const USE_REAL_AUTH = false  // Set to true for real login, false for offline
+// Controlled by env var so production can use real auth.
+const USE_REAL_AUTH = import.meta.env.VITE_USE_REAL_AUTH === 'true'
 
 export const FEATURES = {
   // Token system - enabled when using real auth

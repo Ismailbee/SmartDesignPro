@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="sticker-page-wrapper" :class="{ 'wedding-active': selectedCategory === 'wedding' }">
   <div class="sticker-template-panel">
     <!-- FORM VIEW -->
@@ -253,6 +253,8 @@ import { useUserStore } from '@/stores/user.store'
 import { FEATURES } from '@/config/environment'
 import { IonSpinner } from '@ionic/vue'
 import { useDebounceFn, useThrottleFn } from '@vueuse/core'
+import { ai } from '@/services/ai/ai.service'
+import { extractFirstJsonBlock, safeJsonParse } from '@/services/ai/json.util'
 
 // Lazy load heavy animation library
 const Vue3Lottie = defineAsyncComponent(() => 
@@ -277,7 +279,6 @@ import { useDynamicSVG } from '@/composables/useDynamicSVG'
 import { useSVGTextReplacement } from '@/composables/useSVGTextReplacement'
 import { useBackgroundRemoval } from '@/composables/useBackgroundRemoval'
 import { useImageRetouch } from '@/composables/useImageRetouch'
-import { SvgLayoutManager } from '@/services/svg-layout.service'
 import { getBackgroundRefsCached } from '@/services/background-catalog.service'
 
 // Lazy load heavy components for better performance
@@ -303,8 +304,9 @@ import type { ChatMessage, Category, ExtractedInfo } from './sticker'
 
 // Import extracted composables
 import { useTextExtraction } from '@/composables/useTextExtraction'
-import { useVoiceInput } from '@/composables/useVoiceInput'
 import { useAiChatResponses } from '@/composables/useAiChatResponses'
+import { useWeddingChat } from '@/composables/useWeddingChat'
+import { useStickerExport } from '@/composables/useStickerExport'
 
 const router = useRouter()
 const autoDesignStore = useAutoDesignStore()
@@ -362,12 +364,12 @@ function findMatchingTitle(input: string): TitleEntry | null {
     )
     
     if (allKeywordsMatch) {
-      console.log('🎯 Title Library Match:', entry.fallbackText, 'for input:', input)
+      console.log('ðŸŽ¯ Title Library Match:', entry.fallbackText, 'for input:', input)
       return entry
     }
   }
   
-  console.log('⚠️ No title match found for:', input)
+  console.log('âš ï¸ No title match found for:', input)
   return null
 }
 
@@ -389,7 +391,7 @@ const titleImageCache = new Map<string, string>()
 // Clear title image cache (call when background changes to force re-render with new color)
 function clearTitleImageCache(): void {
   titleImageCache.clear()
-  console.log('🗑️ Title image cache cleared')
+  console.log('ðŸ—‘ï¸ Title image cache cleared')
 }
 
 async function renderSvgToPng(svgUrl: string, width: number, height: number, color?: string): Promise<string> {
@@ -397,11 +399,11 @@ async function renderSvgToPng(svgUrl: string, width: number, height: number, col
   
   // Check cache first
   if (titleImageCache.has(cacheKey)) {
-    console.log('📦 Using cached title PNG:', cacheKey)
+    console.log('ðŸ“¦ Using cached title PNG:', cacheKey)
     return titleImageCache.get(cacheKey)!
   }
   
-  console.log('🎨 Rendering SVG to PNG:', svgUrl, 'color:', color, 'size:', width, 'x', height)
+  console.log('ðŸŽ¨ Rendering SVG to PNG:', svgUrl, 'color:', color, 'size:', width, 'x', height)
   
   // Fetch the SVG
   const response = await fetch(svgUrl)
@@ -500,7 +502,7 @@ async function renderSvgToPng(svgUrl: string, width: number, height: number, col
         
         // Cache the result
         titleImageCache.set(cacheKey, pngDataUrl)
-        console.log('✅ SVG rendered to PNG, size:', pngDataUrl.length, 'bytes')
+        console.log('âœ… SVG rendered to PNG, size:', pngDataUrl.length, 'bytes')
         
         resolve(pngDataUrl)
       } catch (e) {
@@ -520,13 +522,13 @@ async function renderSvgToPng(svgUrl: string, width: number, height: number, col
 }
 
 async function replaceTitleWithImage(svgElement: SVGSVGElement, config: TitleImageConfig): Promise<void> {
-  console.log('🖼️ Replacing title with pre-rendered PNG:', config.svgPath)
+  console.log('ðŸ–¼ï¸ Replacing title with pre-rendered PNG:', config.svgPath)
   
   // Remove any existing title replacement
   const existingReplacement = svgElement.querySelector('#wedding-title-replacement')
   if (existingReplacement) {
     existingReplacement.remove()
-    console.log('🗑️ Removed existing title replacement')
+    console.log('ðŸ—‘ï¸ Removed existing title replacement')
   }
   
   // Hide original text elements (do NOT remove; removal makes custom headings impossible later)
@@ -538,7 +540,7 @@ async function replaceTitleWithImage(svgElement: SVGSVGElement, config: TitleIma
       }
       element.setAttribute('display', 'none')
       element.setAttribute('data-title-hidden', 'true')
-      console.log(`🙈 Hiding original title text: #${id}`)
+      console.log(`ðŸ™ˆ Hiding original title text: #${id}`)
     }
   })
   
@@ -578,9 +580,9 @@ async function replaceTitleWithImage(svgElement: SVGSVGElement, config: TitleIma
       svgElement.appendChild(titleImage)
     }
     
-    console.log('✅ Title PNG image inserted into SVG')
+    console.log('âœ… Title PNG image inserted into SVG')
   } catch (error) {
-    console.error('❌ Failed to render title:', error)
+    console.error('âŒ Failed to render title:', error)
     // Fallback: use SVG directly (may not export properly but will show in preview)
     const titleImage = document.createElementNS('http://www.w3.org/2000/svg', 'image')
     titleImage.setAttribute('id', 'wedding-title-replacement')
@@ -598,7 +600,7 @@ async function replaceTitleWithImage(svgElement: SVGSVGElement, config: TitleIma
     } else {
       svgElement.appendChild(titleImage)
     }
-    console.log('⚠️ Fallback: Using SVG URL directly')
+    console.log('âš ï¸ Fallback: Using SVG URL directly')
   }
 }
 
@@ -607,7 +609,7 @@ function restoreTitleTextElements(svgElement: SVGSVGElement, targetElementIds: s
   const existingReplacement = svgElement.querySelector('#wedding-title-replacement')
   if (existingReplacement) {
     existingReplacement.remove()
-    console.log('🗑️ Removed title replacement (restoring text heading)')
+    console.log('ðŸ—‘ï¸ Removed title replacement (restoring text heading)')
   }
 
   // Restore original title text elements visibility
@@ -634,13 +636,13 @@ function restoreTitleTextElements(svgElement: SVGSVGElement, targetElementIds: s
 async function updateTitleColor(svgElement: SVGSVGElement, newColor: string): Promise<void> {
   const titleImage = svgElement.querySelector('#wedding-title-replacement') as SVGImageElement
   if (!titleImage) {
-    console.log('⚠️ No title image to update color')
+    console.log('âš ï¸ No title image to update color')
     return
   }
   
   const svgPath = titleImage.getAttribute('data-svg-path')
   if (!svgPath) {
-    console.log('⚠️ Title image missing SVG path, cannot update color')
+    console.log('âš ï¸ Title image missing SVG path, cannot update color')
     return
   }
   
@@ -656,9 +658,9 @@ async function updateTitleColor(svgElement: SVGSVGElement, newColor: string): Pr
     titleImage.setAttribute('href', pngDataUrl)
     titleImage.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', pngDataUrl)
     titleImage.setAttribute('data-color', newColor)
-    console.log('✅ Title color updated to:', newColor)
+    console.log('âœ… Title color updated to:', newColor)
   } catch (error) {
-    console.error('❌ Failed to update title color:', error)
+    console.error('âŒ Failed to update title color:', error)
   }
 }
 
@@ -674,7 +676,7 @@ const AVAILABLE_FLOURISHES = [
 // Get a random flourish SVG path
 function getRandomFlourish(): string {
   const randomIndex = Math.floor(Math.random() * AVAILABLE_FLOURISHES.length)
-  console.log(`🌸 Selected flourish ${randomIndex + 1}/${AVAILABLE_FLOURISHES.length}: ${AVAILABLE_FLOURISHES[randomIndex]}`)
+  console.log(`ðŸŒ¸ Selected flourish ${randomIndex + 1}/${AVAILABLE_FLOURISHES.length}: ${AVAILABLE_FLOURISHES[randomIndex]}`)
   return AVAILABLE_FLOURISHES[randomIndex]
 }
 
@@ -748,18 +750,18 @@ function getFlourishColorForBackground(backgroundFileName?: string): string {
  * Renders SVG to PNG with the appropriate color for the background
  */
 async function insertFlourishAboveNames(svgElement: SVGSVGElement, color?: string): Promise<void> {
-  console.log('🌸 Inserting flourish above names...')
+  console.log('ðŸŒ¸ Inserting flourish above names...')
   
   // Remove any existing flourish
   const existingFlourish = svgElement.querySelector('#wedding-flourish')
   if (existingFlourish) {
     existingFlourish.remove()
-    console.log('🗑️ Removed existing flourish')
+    console.log('ðŸ—‘ï¸ Removed existing flourish')
   }
   
   // Get the color based on background
   const flourishColor = color || getFlourishColorForBackground()
-  console.log('🎨 Flourish color:', flourishColor)
+  console.log('ðŸŽ¨ Flourish color:', flourishColor)
   
   // Calculate final dimensions
   const finalWidth = FLOURISH_CONFIG.position.width * FLOURISH_CONFIG.scale
@@ -794,16 +796,16 @@ async function insertFlourishAboveNames(svgElement: SVGSVGElement, color?: strin
     const namesGroup = svgElement.querySelector('#wedding-names-group')
     if (namesGroup) {
       svgElement.insertBefore(flourishImage, namesGroup)
-      console.log('✅ Flourish inserted above names group')
+      console.log('âœ… Flourish inserted above names group')
     } else {
       // Fallback: append to SVG
       svgElement.appendChild(flourishImage)
-      console.log('✅ Flourish appended to SVG (names group not found)')
+      console.log('âœ… Flourish appended to SVG (names group not found)')
     }
     
-    console.log(`✅ Flourish inserted at (${FLOURISH_CONFIG.position.x}, ${FLOURISH_CONFIG.position.y}) size: ${finalWidth}x${finalHeight}`)
+    console.log(`âœ… Flourish inserted at (${FLOURISH_CONFIG.position.x}, ${FLOURISH_CONFIG.position.y}) size: ${finalWidth}x${finalHeight}`)
   } catch (error) {
-    console.error('❌ Failed to insert flourish:', error)
+    console.error('âŒ Failed to insert flourish:', error)
   }
 }
 
@@ -813,14 +815,14 @@ async function insertFlourishAboveNames(svgElement: SVGSVGElement, color?: strin
 async function updateFlourishColor(svgElement: SVGSVGElement, newColor: string): Promise<void> {
   const flourishImage = svgElement.querySelector('#wedding-flourish') as SVGImageElement
   if (!flourishImage) {
-    console.log('⚠️ No flourish to update color')
+    console.log('âš ï¸ No flourish to update color')
     return
   }
   
   // Get the SVG path from the data attribute (stored when flourish was created)
   const svgPath = flourishImage.getAttribute('data-svg-path')
   if (!svgPath) {
-    console.log('⚠️ Flourish missing SVG path, cannot update color')
+    console.log('âš ï¸ Flourish missing SVG path, cannot update color')
     return
   }
   
@@ -836,9 +838,9 @@ async function updateFlourishColor(svgElement: SVGSVGElement, newColor: string):
     flourishImage.setAttribute('href', pngDataUrl)
     flourishImage.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', pngDataUrl)
     flourishImage.setAttribute('data-color', newColor)
-    console.log('✅ Flourish color updated to:', newColor)
+    console.log('âœ… Flourish color updated to:', newColor)
   } catch (error) {
-    console.error('❌ Failed to update flourish color:', error)
+    console.error('âŒ Failed to update flourish color:', error)
   }
 }
 
@@ -1001,15 +1003,15 @@ function handleMessageAction(action: { type: string; label?: string; route?: str
 
 // Token deduction helper function
 async function deductTokensForAction(amount: number, reason: string): Promise<boolean> {
-  // 📱 OFFLINE MODE: Skip token checks entirely
+  // ðŸ“± OFFLINE MODE: Skip token checks entirely
   if (!FEATURES.TOKENS_ENABLED) {
-    console.log('📱 Offline mode: Skipping token deduction for:', reason)
+    console.log('ðŸ“± Offline mode: Skipping token deduction for:', reason)
     return true
   }
   
   // Check if user is authenticated - REQUIRE LOGIN
   if (!authStore.isAuthenticated || !authStore.user?.id) {
-    console.log('💎 Token deduction blocked - user not authenticated')
+    console.log('ðŸ’Ž Token deduction blocked - user not authenticated')
     authStore.showNotification({
       title: 'Login Required',
       message: 'Please login or create an account to generate designs.',
@@ -1018,7 +1020,7 @@ async function deductTokensForAction(amount: number, reason: string): Promise<bo
     // Show a chat message prompting user to login with action buttons
     chatMessages.value.push({
       id: Date.now(),
-      text: "Hey there!\n\nTo create beautiful designs, you'll need to login or create a free account first.\n\nBenefits of signing up:\n• Get 100 FREE tokens to start!\n• Save your designs\n• Access all features",
+      text: "Hey there!\n\nTo create beautiful designs, you'll need to login or create a free account first.\n\nBenefits of signing up:\nâ€¢ Get 100 FREE tokens to start!\nâ€¢ Save your designs\nâ€¢ Access all features",
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       actions: [
@@ -1041,7 +1043,7 @@ async function deductTokensForAction(amount: number, reason: string): Promise<bo
     // Show a chat message guiding user to buy tokens with action button
     chatMessages.value.push({
       id: Date.now(),
-      text: "Oops! You've run out of tokens.\n\nTo continue creating beautiful designs, you'll need to purchase more tokens.\n\nToken Packages Available:\n• 100 tokens - ₦100\n• 500 tokens - ₦500\n• 1000 tokens - ₦1000 (Best Value!)",
+      text: "Oops! You've run out of tokens.\n\nTo continue creating beautiful designs, you'll need to purchase more tokens.\n\nToken Packages Available:\nâ€¢ 100 tokens - â‚¦100\nâ€¢ 500 tokens - â‚¦500\nâ€¢ 1000 tokens - â‚¦1000 (Best Value!)",
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       actions: [
@@ -1074,10 +1076,10 @@ async function deductTokensForAction(amount: number, reason: string): Promise<bo
   
   try {
     await userStore.deductUserTokens(authStore.user.id, amount)
-    console.log(`💎 Deducted ${amount} tokens for: ${reason}. New balance: ${userStore.user?.tokens}`)
+    console.log(`ðŸ’Ž Deducted ${amount} tokens for: ${reason}. New balance: ${userStore.user?.tokens}`)
     return true
   } catch (error: any) {
-    console.error('❌ Token deduction API failed:', error)
+    console.error('âŒ Token deduction API failed:', error)
     
     // If the backend is unavailable, deduct locally and allow the action
     // This prevents blocking users when server is down
@@ -1086,7 +1088,7 @@ async function deductTokensForAction(amount: number, reason: string): Promise<bo
         error.message?.includes('not found') ||
         error.message?.includes('404') ||
         error.message?.includes('500')) {
-      console.log('💎 Backend unavailable, deducting tokens locally')
+      console.log('ðŸ’Ž Backend unavailable, deducting tokens locally')
       // Deduct locally - backend will sync later
       userStore.updateTokens(-amount)
       authStore.showNotification({
@@ -1154,7 +1156,7 @@ async function handleGenerateMore() {
     
     chatMessages.value.push({
       id: Date.now() + 1,
-      text: "Here's a new design variation! 🎨 Like this one better?",
+      text: "Here's a new design variation! ðŸŽ¨ Like this one better?",
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     })
@@ -1240,14 +1242,14 @@ async function handleGenerateNew() {
           }
         })
         
-        console.log(`✅ Updated ${previewContainers.length} preview(s) with new design`)
+        console.log(`âœ… Updated ${previewContainers.length} preview(s) with new design`)
       }
     }
     
     // Add a brief message about the updated design
     chatMessages.value.push({
       id: Date.now(),
-      text: "Your design has been updated with a fresh new look! 🎨✨",
+      text: "Your design has been updated with a fresh new look! ðŸŽ¨âœ¨",
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     })
@@ -1287,7 +1289,7 @@ const editModalExtractedInfo = computed(() => ({
 
 // Handle save from edit modal - update SVG directly
 async function handleEditModalSave(data: { heading: string; name1: string; name2: string; date: string; courtesy: string }) {
-  console.log('📝 Edit modal save:', data)
+  console.log('ðŸ“ Edit modal save:', data)
   
   // Update extracted info
   extractedInfo.value.names.name1 = data.name1 || null
@@ -1422,7 +1424,7 @@ function toggleVoiceInput() {
     
     // Show toast notification - different message for mobile
     authStore.showNotification({
-      title: '🎤 Listening...',
+      title: 'ðŸŽ¤ Listening...',
       message: isMobile ? 'Speak clearly into your phone!' : 'Speak now! Say your message clearly.',
       type: 'info'
     })
@@ -1430,7 +1432,7 @@ function toggleVoiceInput() {
     // Add a listening indicator to chat
     chatMessages.value.push({
       id: Date.now(),
-      text: isMobile ? '🎤 Listening... Speak into your phone!' : '🎤 Listening... Speak now!',
+      text: isMobile ? 'ðŸŽ¤ Listening... Speak into your phone!' : 'ðŸŽ¤ Listening... Speak now!',
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       isLoading: true
@@ -1525,7 +1527,7 @@ async function generateWeddingPreview() {
     })
     chatMessages.value.push({
       id: Date.now(),
-      text: "Hold on!\n\nYou need to login or create a free account to generate your design.\n\nWhy sign up?\n• Get 100 FREE tokens instantly!\n• Save and download your designs\n• Access premium features",
+      text: "Hold on!\n\nYou need to login or create a free account to generate your design.\n\nWhy sign up?\nâ€¢ Get 100 FREE tokens instantly!\nâ€¢ Save and download your designs\nâ€¢ Access premium features",
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       actions: [
@@ -1607,13 +1609,13 @@ async function generateWeddingPreview() {
        if (sizeMatch) {
           const w = parseFloat(sizeMatch[1])
           const h = parseFloat(sizeMatch[2])
-          console.log(`📏 Applying initial size: ${w}x${h} inches`)
+          console.log(`ðŸ“ Applying initial size: ${w}x${h} inches`)
           
           // Ensure container is available before resizing
           if (weddingPreviewContainer.value) {
             await handleSizeChange(w, h)
           } else {
-            console.warn('⚠️ weddingPreviewContainer not ready for initial resize, skipping.')
+            console.warn('âš ï¸ weddingPreviewContainer not ready for initial resize, skipping.')
           }
        }
     }
@@ -1626,7 +1628,7 @@ async function generateWeddingPreview() {
     if (initialBackground) {
       currentBackgroundFileName.value = initialBackground
       setPersistedWeddingBackground(initialBackground)
-      console.log('🎨 Pre-selected background for title color:', initialBackground)
+      console.log('ðŸŽ¨ Pre-selected background for title color:', initialBackground)
     }
     
     // Now load the template - title will use the correct color based on pre-selected background
@@ -1637,12 +1639,12 @@ async function generateWeddingPreview() {
 
     // Apply the background image (already selected above)
     if (initialBackground) {
-      console.log('🎨 Applying background image:', initialBackground)
+      console.log('ðŸŽ¨ Applying background image:', initialBackground)
       await applyNewBackground(initialBackground)
       
       // Wait for background image to fully load before continuing
       await new Promise(resolve => setTimeout(resolve, 1500))
-      console.log('⏳ Background loaded, continuing...')
+      console.log('â³ Background loaded, continuing...')
     }
 
     // Clear the input field now that we've processed the description
@@ -1654,7 +1656,7 @@ async function generateWeddingPreview() {
       await nextTick() // Ensure DOM is ready
       
       if (!weddingPreviewContainer.value) {
-        console.error('❌ weddingPreviewContainer not available')
+        console.error('âŒ weddingPreviewContainer not available')
         return
       }
       
@@ -1681,7 +1683,7 @@ async function generateWeddingPreview() {
         }
 
         // Add image to SVG
-        console.log('📷 About to add image to SVG manager:', {
+        console.log('ðŸ“· About to add image to SVG manager:', {
           fileName: fileToProcess.name,
           fileSize: fileToProcess.size,
           fileType: fileToProcess.type
@@ -1689,7 +1691,7 @@ async function generateWeddingPreview() {
         
         const addedImage = await svgImageManager.addImage(fileToProcess, svgElement)
         
-        console.log('📷 Image added to SVG manager:', {
+        console.log('ðŸ“· Image added to SVG manager:', {
           success: !!addedImage,
           imageId: addedImage?.id,
           dataUrlLength: addedImage?.dataUrl?.length || 0,
@@ -1703,12 +1705,12 @@ async function generateWeddingPreview() {
         
         // Additional delay to ensure image is fully rendered
         await new Promise(resolve => setTimeout(resolve, 800))
-        console.log('⏳ User image render delay complete')
+        console.log('â³ User image render delay complete')
         
         // Debug: Log image element status
         const imgElement = svgElement.querySelector('#userImage, #placeholder-image') as SVGImageElement
         if (imgElement) {
-          console.log('🖼️ Image element after update:', {
+          console.log('ðŸ–¼ï¸ Image element after update:', {
             hasHref: !!imgElement.getAttribute('href'),
             hrefLength: imgElement.getAttribute('href')?.length || 0,
             hasXlinkHref: !!imgElement.getAttributeNS('http://www.w3.org/1999/xlink', 'href'),
@@ -1731,17 +1733,17 @@ async function generateWeddingPreview() {
             if (userIndex < bgIndex) {
               // Move userImage after background-image
               bgImage.after(imgElement)
-              console.log('🔧 Fixed: Moved userImage after background-image for correct z-order')
+              console.log('ðŸ”§ Fixed: Moved userImage after background-image for correct z-order')
             }
           }
           
           // Ensure opacity is set to 1
           if (!imgElement.getAttribute('opacity') || imgElement.getAttribute('opacity') === '0') {
             imgElement.setAttribute('opacity', '1')
-            console.log('🔧 Fixed: Set userImage opacity to 1')
+            console.log('ðŸ”§ Fixed: Set userImage opacity to 1')
           }
         } else {
-          console.warn('⚠️ No image element found in SVG after updateSVGWithImages')
+          console.warn('âš ï¸ No image element found in SVG after updateSVGWithImages')
         }
       }
     }
@@ -1771,7 +1773,7 @@ async function generateWeddingPreview() {
     
     // CRITICAL: Ensure preview flag is true to show Download/Edit buttons
     showWeddingStickerPreview.value = true
-    console.log('✅ showWeddingStickerPreview set to true for Download button visibility')
+    console.log('âœ… showWeddingStickerPreview set to true for Download button visibility')
     
     // Add the preview message to the chat history
     chatMessages.value.push({
@@ -1785,7 +1787,7 @@ async function generateWeddingPreview() {
     // Add guidance message
     chatMessages.value.push({
       id: Date.now() + 1,
-      text: "Your design is ready! Looking great! 🎉\n\n💡 **Tip:** You can drag the image to reposition it. Click 'Edit' for more options!",
+      text: "Your design is ready! Looking great! ðŸŽ‰\n\nðŸ’¡ **Tip:** You can drag the image to reposition it. Click 'Edit' for more options!",
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     })
@@ -1796,7 +1798,7 @@ async function generateWeddingPreview() {
     
     // Additional delay to ensure all images and elements are fully rendered
     await new Promise(resolve => setTimeout(resolve, 500))
-    console.log('⏳ Final render delay complete')
+    console.log('â³ Final render delay complete')
     
     // Copy the SVG from main container to chat container
     // Note: chatPreviewContainer is an array because it's in a v-for loop
@@ -1805,7 +1807,7 @@ async function generateWeddingPreview() {
       
       // Debug: Check image element in source SVG before cloning
       const sourceImgEl = svgElement?.querySelector('#userImage, #placeholder-image, image') as SVGImageElement
-      console.log('🔍 Source SVG image check before clone:', {
+      console.log('ðŸ” Source SVG image check before clone:', {
         hasImageElement: !!sourceImgEl,
         imageId: sourceImgEl?.id,
         hasHref: !!sourceImgEl?.getAttribute('href'),
@@ -1813,7 +1815,7 @@ async function generateWeddingPreview() {
         hasXlinkHref: !!sourceImgEl?.getAttributeNS('http://www.w3.org/1999/xlink', 'href')
       })
       
-      console.log('🔍 Checking weddingPreviewContainer for SVG...', {
+      console.log('ðŸ” Checking weddingPreviewContainer for SVG...', {
         hasContainer: !!weddingPreviewContainer.value,
         hasSVG: !!svgElement,
         svgDimensions: svgElement ? { width: svgElement.getAttribute('width'), height: svgElement.getAttribute('height') } : null
@@ -1825,7 +1827,7 @@ async function generateWeddingPreview() {
           ? chatPreviewContainer.value 
           : (chatPreviewContainer.value ? [chatPreviewContainer.value] : [])
         
-        console.log('🔍 Preview containers found:', previewContainers.length)
+        console.log('ðŸ” Preview containers found:', previewContainers.length)
         
         const targetContainer = previewContainers[previewContainers.length - 1]
         
@@ -1844,13 +1846,13 @@ async function generateWeddingPreview() {
               
               // Set container aspect ratio to match SVG design
               targetContainer.style.aspectRatio = String(aspectRatio)
-              console.log(`📐 Preview aspect ratio set to: ${aspectRatio.toFixed(2)} (${vbWidth}x${vbHeight})`)
+              console.log(`ðŸ“ Preview aspect ratio set to: ${aspectRatio.toFixed(2)} (${vbWidth}x${vbHeight})`)
             }
           }
           
           // Debug: Check image in cloned SVG before appending
           const clonedImgEl = clonedSVG.querySelector('#userImage, #placeholder-image, image') as SVGImageElement
-          console.log('🖼️ Cloned SVG image check:', {
+          console.log('ðŸ–¼ï¸ Cloned SVG image check:', {
             hasImageElement: !!clonedImgEl,
             imageId: clonedImgEl?.id,
             hasHref: !!clonedImgEl?.getAttribute('href'),
@@ -1870,14 +1872,14 @@ async function generateWeddingPreview() {
           targetContainer.innerHTML = ''
           targetContainer.appendChild(clonedSVG)
           
-          console.log('✅ SVG successfully cloned to chat container', {
+          console.log('âœ… SVG successfully cloned to chat container', {
             viewBox: viewBox,
             containerSize: { width: targetContainer.offsetWidth, height: targetContainer.offsetHeight }
           })
           
           // Verify the SVG was actually added
           if (!targetContainer.querySelector('svg')) {
-            console.error('❌ SVG clone failed - retrying...')
+            console.error('âŒ SVG clone failed - retrying...')
             // Try again with a small delay
             await new Promise(resolve => setTimeout(resolve, 50))
             targetContainer.appendChild(clonedSVG.cloneNode(true))
@@ -1894,17 +1896,17 @@ async function generateWeddingPreview() {
             const imageId = imgEl.getAttribute('data-image-id') || imgEl.id || 'user-image-1'
             if (imageId) {
               makeSVGImageDraggable(imgEl as SVGImageElement, imageId)
-              console.log('🎯 Attached draggable to image:', imageId)
+              console.log('ðŸŽ¯ Attached draggable to image:', imageId)
             }
           })
           
           // Force a layout recalculation
           void targetContainer.offsetHeight
         } else {
-          console.error('❌ Chat preview container not available in array')
+          console.error('âŒ Chat preview container not available in array')
         }
       } else {
-        console.error('❌ SVG not found in weddingPreviewContainer')
+        console.error('âŒ SVG not found in weddingPreviewContainer')
         
         // Try to show a fallback in the last preview container
         const previewContainers = Array.isArray(chatPreviewContainer.value) 
@@ -1924,7 +1926,7 @@ async function generateWeddingPreview() {
         }
       }
     } else {
-      console.error('❌ weddingPreviewContainer not available')
+      console.error('âŒ weddingPreviewContainer not available')
     }
     
     // Scroll to bottom to show the generated SVG
@@ -2178,7 +2180,7 @@ function extractNamesFromResponse(text: string): { name1: string | null; name2: 
 
 // Extract date from text
 function extractDateFromText(text: string): string | null {
-  console.log('📅 extractDateFromText input:', text)
+  console.log('ðŸ“… extractDateFromText input:', text)
   
   const datePatterns = [
     // Match dates like "6th of March, 2023" or "6th of march 2023" (with "of" keyword)
@@ -2199,25 +2201,25 @@ function extractDateFromText(text: string): string | null {
   for (let i = 0; i < datePatterns.length; i++) {
     const pattern = datePatterns[i]
     const match = text.match(pattern)
-    console.log(`📅 Pattern ${i + 1}:`, pattern.source, '-> Match:', match ? match[0] : 'null')
+    console.log(`ðŸ“… Pattern ${i + 1}:`, pattern.source, '-> Match:', match ? match[0] : 'null')
     if (match) {
-      console.log('📅 Date matched:', match[0])
+      console.log('ðŸ“… Date matched:', match[0])
       return match[0]
     }
   }
-  console.log('📅 No date pattern matched')
+  console.log('ðŸ“… No date pattern matched')
   return null
 }
 
 // Extract courtesy from text - ONLY when explicitly provided with specific keywords
 // STRICT MODE: Only matches very explicit courtesy patterns to avoid false positives
 function extractCourtesyFromText(text: string): string | null {
-  console.log('🎁 extractCourtesyFromText input:', text)
+  console.log('ðŸŽ extractCourtesyFromText input:', text)
   
   // Skip if this looks like a heading/title input (not courtesy)
   const isHeadingInput = /\b(heading|title|header|congratulations|happy|wedding|best wishes|wishing you)\b/i.test(text)
   if (isHeadingInput && !/\b(courtesy|cut-cee|from the .+ family|from .+ family)\b/i.test(text)) {
-    console.log('🎁 Skipping - looks like heading input')
+    console.log('ðŸŽ Skipping - looks like heading input')
     return null // This is a heading, not courtesy
   }
   
@@ -2228,10 +2230,10 @@ function extractCourtesyFromText(text: string): string | null {
                             /\bfrom\s+(the\s+)?[a-zA-Z][a-zA-Z]*\s+(family|families)\b/i.test(text) ||
                             /\b(change|update|edit)\s+(the\s+)?courtesy/i.test(text)
 
-  console.log('🎁 Has courtesy keyword:', hasCourtesyKeyword)
+  console.log('ðŸŽ Has courtesy keyword:', hasCourtesyKeyword)
   
   if (!hasCourtesyKeyword) {
-    console.log('🎁 No courtesy keyword found')
+    console.log('ðŸŽ No courtesy keyword found')
     return null // No courtesy keyword found, don't extract
   }
 
@@ -2257,7 +2259,7 @@ function extractCourtesyFromText(text: string): string | null {
   for (let i = 0; i < courtesyPatterns.length; i++) {
     const pattern = courtesyPatterns[i]
     const match = text.match(pattern)
-    console.log(`🎁 Pattern ${i + 1}:`, pattern.source, '-> Match:', match ? match[0] : 'null', 'Capture:', match ? match[1] : 'null')
+    console.log(`ðŸŽ Pattern ${i + 1}:`, pattern.source, '-> Match:', match ? match[0] : 'null', 'Capture:', match ? match[1] : 'null')
     if (match && match[1]) {
       // Build the courtesy string with "courtesy" prefix for consistency
       let name = match[1].trim()
@@ -2267,7 +2269,7 @@ function extractCourtesyFromText(text: string): string | null {
 
       // Skip if it's too short (likely a false positive) - need at least 3 chars
       if (name.length < 3) {
-        console.log('🎁 Skipping - name too short:', name)
+        console.log('ðŸŽ Skipping - name too short:', name)
         continue
       }
 
@@ -2280,7 +2282,7 @@ function extractCourtesyFromText(text: string): string | null {
         'my', 'your', 'our', 'their', 'his', 'her', 'its'
       ]
       if (falsePositives.includes(name.toLowerCase())) {
-        console.log('🎁 Skipping - false positive:', name)
+        console.log('ðŸŽ Skipping - false positive:', name)
         continue
       }
 
@@ -2290,14 +2292,14 @@ function extractCourtesyFromText(text: string): string | null {
       if (badStarts.some(start => lowerName.startsWith(start))) {
         // Remove the prefix and continue
         name = name.replace(/^(a|an|my|your|our|their)\s+/i, '').trim()
-        console.log('🎁 Removed prefix, new name:', name)
+        console.log('ðŸŽ Removed prefix, new name:', name)
         if (name.length < 3) continue
       }
       
       // Clean up any trailing quotes that might have slipped through
       name = name.replace(/["']+$/, '').trim()
 
-      console.log('🎁 Courtesy extracted:', `courtesy: ${name}`)
+      console.log('ðŸŽ Courtesy extracted:', `courtesy: ${name}`)
       return `courtesy: ${name}`
     }
   }
@@ -2321,7 +2323,7 @@ function trackImageUpload(file: File) {
   uploadedImages.value.push({ file, timestamp, used: false })
   lastUploadedImage.value = file
   
-  console.log('📸 Image uploaded:', { total: uploadedImages.value.length, timestamp })
+  console.log('ðŸ“¸ Image uploaded:', { total: uploadedImages.value.length, timestamp })
   
   // Handle multiple image uploads
   handleMultipleImageUploads()
@@ -2442,7 +2444,7 @@ const loadingAnimation = {
 }
 
 const categories = [
-  { id: 'wedding', name: 'Wedding', icon: '💍', gradient: 'linear-gradient(135deg, #f093fb 0%, #a855f7 100%)' }
+  { id: 'wedding', name: 'Wedding', icon: 'ðŸ’', gradient: 'linear-gradient(135deg, #f093fb 0%, #a855f7 100%)' }
 ]
 
 const formData = reactive({
@@ -2490,7 +2492,7 @@ function initSpeechRecognition() {
   const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
   
   if (!SpeechRecognition) {
-    console.warn('⚠️ Speech Recognition not supported in this browser/device')
+    console.warn('âš ï¸ Speech Recognition not supported in this browser/device')
     return null
   }
   
@@ -2529,7 +2531,7 @@ function initSpeechRecognition() {
       const baseText = chatInputText.value.replace(interimTranscript.value, '').trim()
       chatInputText.value = baseText ? `${baseText} ${finalTranscript}`.trim() : finalTranscript
       interimTranscript.value = ''
-      console.log('🎤 Recognized:', finalTranscript)
+      console.log('ðŸŽ¤ Recognized:', finalTranscript)
       
       // Auto-stop and auto-send after recognition
       voiceMessageSent.value = false // Reset flag
@@ -2541,14 +2543,14 @@ function initSpeechRecognition() {
   
   // Event: Recognition started
   recognition.onstart = () => {
-    console.log('🎤 Voice recognition started')
+    console.log('ðŸŽ¤ Voice recognition started')
     isRecording.value = true
     voiceMessageSent.value = false // Reset the sent flag when starting new recording
   }
   
   // Event: Recognition ended
   recognition.onend = () => {
-    console.log('🎤 Voice recognition ended')
+    console.log('ðŸŽ¤ Voice recognition ended')
     isRecording.value = false
     
     // Remove any listening messages
@@ -2568,7 +2570,7 @@ function initSpeechRecognition() {
   
   // Event: Error occurred
   recognition.onerror = (event: any) => {
-    console.error('🎤 Speech recognition error:', event.error)
+    console.error('ðŸŽ¤ Speech recognition error:', event.error)
     isRecording.value = false
     
     // Remove listening message on error
@@ -2706,7 +2708,7 @@ function stopAllSpeech() {
 
 async function tryNativeTTS(text: string) {
   try {
-    console.log('🔊 Attempting native TTS...')
+    console.log('ðŸ”Š Attempting native TTS...')
     const TTS = await loadTextToSpeech()
     await TTS.speak({
       text: text,
@@ -2716,9 +2718,9 @@ async function tryNativeTTS(text: string) {
       volume: 1.0,
       category: 'ambient'
     })
-    console.log('✅ Native TTS successful')
+    console.log('âœ… Native TTS successful')
   } catch (error) {
-    console.warn('❌ Native TTS failed:', error)
+    console.warn('âŒ Native TTS failed:', error)
     // Not available, will fallback to web speech
     throw error
   }
@@ -3022,7 +3024,7 @@ async function loadWeddingBackgroundManifest() {
     const deduped = Array.from(new Set(merged))
     if (deduped.length > 0) availableBackgrounds.value = deduped
   } catch (e) {
-    console.warn('⚠️ Could not load /svg/background/backgrounds.json. Using fallback list.', e)
+    console.warn('âš ï¸ Could not load /svg/background/backgrounds.json. Using fallback list.', e)
     // Still try Firebase in case local manifest fails
     const firebaseRefs = await getBackgroundRefsCached('wedding', { ttlMs: 12 * 60 * 60 * 1000, limit: 50 })
     const merged = [...fallbackAvailableBackgrounds, ...firebaseRefs]
@@ -3221,11 +3223,11 @@ const usedBackgroundsInSession = ref<number[]>([])
  */
 function getTitleColorForBackground(backgroundFileName?: string): string {
   const bgFile = backgroundFileName || currentBackgroundFileName.value
-  console.log('🔍 getTitleColorForBackground called with:', bgFile)
+  console.log('ðŸ” getTitleColorForBackground called with:', bgFile)
   
   if (!bgFile) {
     // No background set yet, use white as default (safe for most backgrounds)
-    console.log('🎨 No background set, using default WHITE')
+    console.log('ðŸŽ¨ No background set, using default WHITE')
     return '#FFFFFF' // White
   }
   
@@ -3235,7 +3237,7 @@ function getTitleColorForBackground(backgroundFileName?: string): string {
   
   // Beige Gold Gradient - Light beige background
   if (lowerName.includes('beige gold gradient')) {
-    console.log('🎨 Light bg (beige gold) -> BLACK')
+    console.log('ðŸŽ¨ Light bg (beige gold) -> BLACK')
     return '#000000' // Black
   }
   
@@ -3243,19 +3245,19 @@ function getTitleColorForBackground(backgroundFileName?: string): string {
   
   // Deep Green - Very dark green background
   if (lowerName.includes('deep green')) {
-    console.log('🎨 Dark bg (deep green) -> WHITE')
+    console.log('ðŸŽ¨ Dark bg (deep green) -> WHITE')
     return '#FFFFFF' // White
   }
   
   // Blue Futuristic - Dark blue background
   if (lowerName.includes('blue futuristic')) {
-    console.log('🎨 Dark bg (blue futuristic) -> WHITE')
+    console.log('ðŸŽ¨ Dark bg (blue futuristic) -> WHITE')
     return '#FFFFFF' // White
   }
   
   // BackgroundColour.svg - Yellow/Gold background with dark blue accents
   if (lowerName.includes('backgroundcolour')) {
-    console.log('🎨 Light bg (backgroundColour - yellow) -> DARK BLUE')
+    console.log('ðŸŽ¨ Light bg (backgroundColour - yellow) -> DARK BLUE')
     return '#000066' // Dark Blue (matching the accent color)
   }
   
@@ -3263,51 +3265,51 @@ function getTitleColorForBackground(backgroundFileName?: string): string {
   
   // Red and Gold Simple Elegant Islamic
   if (lowerName.includes('red and gold simple elegant')) {
-    console.log('🎨 Red bg (simple elegant) -> LIGHT GOLD')
+    console.log('ðŸŽ¨ Red bg (simple elegant) -> LIGHT GOLD')
     return '#FFE4B5' // Light Gold (Moccasin)
   }
   
   // Red and Gold Chinese New Year
   if (lowerName.includes('red and gold chinese new year')) {
-    console.log('🎨 Red bg (chinese new year) -> LIGHT GOLD')
+    console.log('ðŸŽ¨ Red bg (chinese new year) -> LIGHT GOLD')
     return '#FFE4B5' // Light Gold (Moccasin)
   }
   
   // Red and Gold Classic Lunar Chinese
   if (lowerName.includes('red and gold classic lunar')) {
-    console.log('🎨 Red bg (classic lunar) -> LIGHT GOLD')
+    console.log('ðŸŽ¨ Red bg (classic lunar) -> LIGHT GOLD')
     return '#FFE4B5' // Light Gold (Moccasin)
   }
   
   // Red and Gold Modern Chinese
   if (lowerName.includes('red and gold modern chinese')) {
-    console.log('🎨 Red bg (modern chinese) -> WHITE')
+    console.log('ðŸŽ¨ Red bg (modern chinese) -> WHITE')
     return '#FFFFFF' // White
   }
   
   // === FALLBACK DETECTION ===
-  console.log('🎨 Using fallback detection for:', lowerName)
+  console.log('ðŸŽ¨ Using fallback detection for:', lowerName)
   
   // Dark backgrounds - use White
   if (lowerName.includes('dark') || lowerName.includes('deep') || lowerName.includes('black') || lowerName.includes('futuristic')) {
-    console.log('🎨 Fallback: dark bg -> WHITE')
+    console.log('ðŸŽ¨ Fallback: dark bg -> WHITE')
     return '#FFFFFF' // White
   }
   
   // Red backgrounds - use Light Gold
   if (lowerName.includes('red')) {
-    console.log('🎨 Fallback: red bg -> LIGHT GOLD')
+    console.log('ðŸŽ¨ Fallback: red bg -> LIGHT GOLD')
     return '#FFE4B5' // Light Gold
   }
   
   // Light backgrounds - use Black
   if (lowerName.includes('white') || lowerName.includes('light') || lowerName.includes('beige') || lowerName.includes('pastel') || lowerName.includes('gold')) {
-    console.log('🎨 Fallback: light bg -> BLACK')
+    console.log('ðŸŽ¨ Fallback: light bg -> BLACK')
     return '#000000' // Black
   }
   
   // Default: White (visible on most backgrounds)
-  console.log('🎨 Default -> WHITE')
+  console.log('ðŸŽ¨ Default -> WHITE')
   return '#FFFFFF'
 }
 
@@ -3332,7 +3334,7 @@ function getRandomBackground(): string {
     const newIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)]
     currentBackgroundIndex.value = newIndex
     usedBackgroundsInSession.value.push(newIndex)
-    console.log(`🎲 Background cycle reset. Selected: ${backgrounds[newIndex]}`)
+    console.log(`ðŸŽ² Background cycle reset. Selected: ${backgrounds[newIndex]}`)
     return backgrounds[newIndex]
   }
   
@@ -3341,20 +3343,20 @@ function getRandomBackground(): string {
   currentBackgroundIndex.value = randomUnusedIndex
   usedBackgroundsInSession.value.push(randomUnusedIndex)
   
-  console.log(`🎲 Random background selected: ${backgrounds[randomUnusedIndex]} (index: ${randomUnusedIndex})`)
+  console.log(`ðŸŽ² Random background selected: ${backgrounds[randomUnusedIndex]} (index: ${randomUnusedIndex})`)
   return backgrounds[randomUnusedIndex]
 }
 
 // Function to apply a new background to the SVG template
 async function applyNewBackground(backgroundFileName: string): Promise<void> {
   if (!weddingPreviewContainer.value) {
-    console.error('❌ weddingPreviewContainer not available')
+    console.error('âŒ weddingPreviewContainer not available')
     return
   }
 
   const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
   if (!svgElement) {
-    console.error('❌ SVG element not found')
+    console.error('âŒ SVG element not found')
     return
   }
 
@@ -3371,7 +3373,7 @@ async function applyNewBackground(backgroundFileName: string): Promise<void> {
       : backgroundFileName.includes('/')
         ? encodeURI(`/svg/${backgroundFileName}`)
         : encodeURI(`/svg/background/${backgroundFileName}`)
-  console.log(`🎨 Applying new background: ${backgroundUrl}`)
+  console.log(`ðŸŽ¨ Applying new background: ${backgroundUrl}`)
   
   // Track current background filename for title color detection
   currentBackgroundFileName.value = backgroundFileName
@@ -3392,7 +3394,7 @@ async function applyNewBackground(backgroundFileName: string): Promise<void> {
     }
   }
   
-  console.log(`📐 Background will cover: ${svgWidth}x${svgHeight}`)
+  console.log(`ðŸ“ Background will cover: ${svgWidth}x${svgHeight}`)
 
   // Find existing background elements
   const existingBgRect = svgElement.querySelector('rect[fill="#F8F8F8"]')
@@ -3402,7 +3404,7 @@ async function applyNewBackground(backgroundFileName: string): Promise<void> {
   // Also find paths that might have been modified
   const wavePaths = svgElement.querySelectorAll('path[fill="#FFCC29"], path[fill="url(#g1)"], path[fill="#507C95"], path[fill="#104C6E"], path[d*="776.51"], path[d*="539.04"], path[d*="616.09"]')
 
-  console.log(`🌊 Found ${wavePaths.length} wave paths to hide`)
+  console.log(`ðŸŒŠ Found ${wavePaths.length} wave paths to hide`)
 
   // Remove or hide wave paths - use both style and attribute for reliability
   wavePaths.forEach((path, index) => {
@@ -3419,7 +3421,7 @@ async function applyNewBackground(backgroundFileName: string): Promise<void> {
     rectEl.style.display = 'none'
     rectEl.style.visibility = 'hidden'
     rectEl.setAttribute('opacity', '0')
-    console.log('🎨 Hidden default background rect')
+    console.log('ðŸŽ¨ Hidden default background rect')
   }
 
   // Check if we already have a background image element
@@ -3429,7 +3431,7 @@ async function applyNewBackground(backgroundFileName: string): Promise<void> {
     existingBgImage.setAttribute('xlink:href', backgroundUrl)
     existingBgImage.setAttribute('width', String(svgWidth))
     existingBgImage.setAttribute('height', String(svgHeight))
-    console.log('🎨 Updated existing background image')
+    console.log('ðŸŽ¨ Updated existing background image')
   } else {
     // Create new background image element
     const bgImage = document.createElementNS('http://www.w3.org/2000/svg', 'image')
@@ -3473,7 +3475,7 @@ async function applyNewBackground(backgroundFileName: string): Promise<void> {
   const name2InGroup = namesGroup?.querySelector('text:nth-child(2)') as SVGTextElement
   const separatorInGroup = namesGroup?.querySelector('text:nth-child(3)') as SVGTextElement
 
-  console.log('🎨 Name elements found:', {
+  console.log('ðŸŽ¨ Name elements found:', {
     name1First: !!name1First,
     name2First: !!name2First,
     nameSeparator: !!nameSeparator,
@@ -3499,21 +3501,21 @@ async function applyNewBackground(backgroundFileName: string): Promise<void> {
   name1Elements.forEach(el => {
     if (el) {
       el.setAttribute('fill', colorConfig.name1Color)
-      console.log(`🎨 Set name1 fill to: ${colorConfig.name1Color}`)
+      console.log(`ðŸŽ¨ Set name1 fill to: ${colorConfig.name1Color}`)
     }
   })
   
   name2Elements.forEach(el => {
     if (el) {
       el.setAttribute('fill', colorConfig.name2Color)
-      console.log(`🎨 Set name2 fill to: ${colorConfig.name2Color}`)
+      console.log(`ðŸŽ¨ Set name2 fill to: ${colorConfig.name2Color}`)
     }
   })
   
   separatorElements.forEach(el => {
     if (el) {
       el.setAttribute('fill', colorConfig.separatorColor)
-      console.log(`🎨 Set separator fill to: ${colorConfig.separatorColor}`)
+      console.log(`ðŸŽ¨ Set separator fill to: ${colorConfig.separatorColor}`)
     }
   })
   
@@ -3524,16 +3526,16 @@ async function applyNewBackground(backgroundFileName: string): Promise<void> {
       const currentFill = textEl.getAttribute('fill')
       if (index === 0 || textEl.id === 'name1-first') {
         textEl.setAttribute('fill', colorConfig.name1Color)
-        console.log(`🎨 Names group text[${index}] (${textEl.id}): ${currentFill} → ${colorConfig.name1Color}`)
+        console.log(`ðŸŽ¨ Names group text[${index}] (${textEl.id}): ${currentFill} â†’ ${colorConfig.name1Color}`)
       } else if (index === 1 || textEl.id === 'name2-first') {
         textEl.setAttribute('fill', colorConfig.name2Color)
-        console.log(`🎨 Names group text[${index}] (${textEl.id}): ${currentFill} → ${colorConfig.name2Color}`)
+        console.log(`ðŸŽ¨ Names group text[${index}] (${textEl.id}): ${currentFill} â†’ ${colorConfig.name2Color}`)
       } else if (textEl.id === 'name-separator' || textEl.textContent === '&') {
         textEl.setAttribute('fill', colorConfig.separatorColor)
-        console.log(`🎨 Names group text[${index}] (${textEl.id}): ${currentFill} → ${colorConfig.separatorColor}`)
+        console.log(`ðŸŽ¨ Names group text[${index}] (${textEl.id}): ${currentFill} â†’ ${colorConfig.separatorColor}`)
       }
     })
-    console.log(`🎨 Applied colors to ${allNamesText.length} text elements in names group`)
+    console.log(`ðŸŽ¨ Applied colors to ${allNamesText.length} text elements in names group`)
   }
   
   // Apply date and courtesy colors
@@ -3552,7 +3554,7 @@ async function applyNewBackground(backgroundFileName: string): Promise<void> {
         el.setAttribute('y', String(currentY - 30))
       }
     })
-    console.log('📍 Adjusted title positions up for backgroundColour.svg')
+    console.log('ðŸ“ Adjusted title positions up for backgroundColour.svg')
   }
 
   // Also find text elements by content as fallback (in case IDs changed)
@@ -3581,7 +3583,7 @@ async function applyNewBackground(backgroundFileName: string): Promise<void> {
     }
   })
   
-  console.log(`🎨 Applied colors for background: ${backgroundFileName}`, colorConfig)
+  console.log(`ðŸŽ¨ Applied colors for background: ${backgroundFileName}`, colorConfig)
 
   // Ensure proper element ordering: background -> user image -> text elements
   // This ensures user image shows above background but text shows above everything
@@ -3598,10 +3600,10 @@ async function applyNewBackground(backgroundFileName: string): Promise<void> {
     const bgImage = svgElement.querySelector('#background-image')
     if (bgImage && bgImage.nextSibling !== userImage) {
       bgImage.after(userImage)
-      console.log('🖼️ User image moved after background image')
+      console.log('ðŸ–¼ï¸ User image moved after background image')
     }
     
-    console.log('🖼️ User image found with href:', userImage.getAttribute('href') || userImage.getAttributeNS('http://www.w3.org/1999/xlink', 'href'))
+    console.log('ðŸ–¼ï¸ User image found with href:', userImage.getAttribute('href') || userImage.getAttributeNS('http://www.w3.org/1999/xlink', 'href'))
   }
 
   // Move all text elements to the end (on top of everything)
@@ -3620,7 +3622,7 @@ async function applyNewBackground(backgroundFileName: string): Promise<void> {
       svgElement.appendChild(el)
     }
   })
-  console.log('📝 Text elements moved to top layer')
+  console.log('ðŸ“ Text elements moved to top layer')
 
   // Refresh the images to ensure they are displayed correctly after background change
   updateSVGWithImages()
@@ -3631,15 +3633,15 @@ async function applyNewBackground(backgroundFileName: string): Promise<void> {
   
   // Update title PNG color based on new background
   const titleColor = getTitleColorForBackground(backgroundFileName)
-  console.log(`🎨 Updating title color to: ${titleColor} for background: ${backgroundFileName}`)
+  console.log(`ðŸŽ¨ Updating title color to: ${titleColor} for background: ${backgroundFileName}`)
   await updateTitleColor(svgElement, titleColor)
   
   // Update flourish color based on new background
   const flourishColor = getFlourishColorForBackground(backgroundFileName)
-  console.log(`🌸 Updating flourish color to: ${flourishColor} for background: ${backgroundFileName}`)
+  console.log(`ðŸŒ¸ Updating flourish color to: ${flourishColor} for background: ${backgroundFileName}`)
   await updateFlourishColor(svgElement, flourishColor)
   
-  console.log(`✅ Background applied successfully: ${backgroundFileName}`)
+  console.log(`âœ… Background applied successfully: ${backgroundFileName}`)
 }
 
 // Helper to update chat preview SVG with current state
@@ -3917,9 +3919,9 @@ const commonMisspellings: Record<string, string> = {
   'congrads': 'congratulations',
   
   // Names/Titles
-  'fiance': 'fiancé',
-  'fiancee': 'fiancée',
-  'fianc': 'fiancé',
+  'fiance': 'fiancÃ©',
+  'fiancee': 'fiancÃ©e',
+  'fianc': 'fiancÃ©',
   
   // Event terms
   'recpetion': 'reception',
@@ -4055,7 +4057,7 @@ function correctSpelling(text: string): { corrected: string; suggestions: string
         ? correctWord.charAt(0).toUpperCase() + correctWord.slice(1)
         : correctWord
       corrected = corrected.replace(new RegExp(`\\b${word}\\b`, 'g'), replacement)
-      suggestions.push(`"${word}" → "${replacement}"`)
+      suggestions.push(`"${word}" â†’ "${replacement}"`)
     } else {
       // Try fuzzy matching
       const fuzzyMatch = findFuzzyMatch(word, 0.25) // 25% difference threshold
@@ -4065,7 +4067,7 @@ function correctSpelling(text: string): { corrected: string; suggestions: string
           ? fuzzyMatch.charAt(0).toUpperCase() + fuzzyMatch.slice(1)
           : fuzzyMatch.toLowerCase()
         corrected = corrected.replace(new RegExp(`\\b${word}\\b`, 'g'), replacement)
-        suggestions.push(`"${word}" → "${replacement}" (fuzzy)`)
+        suggestions.push(`"${word}" â†’ "${replacement}" (fuzzy)`)
       }
     }
   }
@@ -4103,7 +4105,7 @@ function parseAllInOneMessage(text: string): {
   date: string | null;
   courtesy: string | null;
 } {
-  console.log('🔍 parseAllInOneMessage input:', text)
+  console.log('ðŸ” parseAllInOneMessage input:', text)
   
   // First try to extract names from brackets
   const bracketNames = extractNamesFromBrackets(text)
@@ -4119,20 +4121,20 @@ function parseAllInOneMessage(text: string): {
     } else {
       names.name1 = bracketNames
     }
-    console.log('🔍 Names from brackets:', names)
+    console.log('ðŸ” Names from brackets:', names)
   } else {
     // Fall back to regular name extraction
     names = extractNamesFromResponse(text)
-    console.log('🔍 Names from response:', names)
+    console.log('ðŸ” Names from response:', names)
   }
 
   const date = extractDateFromText(text)
-  console.log('🔍 Date extracted:', date)
+  console.log('ðŸ” Date extracted:', date)
   
   const courtesy = extractCourtesyFromText(text)
-  console.log('🔍 Courtesy extracted:', courtesy)
+  console.log('ðŸ” Courtesy extracted:', courtesy)
 
-  console.log('🔍 parseAllInOneMessage result:', { names, date, courtesy })
+  console.log('ðŸ” parseAllInOneMessage result:', { names, date, courtesy })
   return { names, date, courtesy }
 }
 
@@ -4294,7 +4296,7 @@ const aiResponseHelper = {
 
   // Fun responses for casual chat
   jokes: [
-    "Love is in the air! 💕"
+    "Love is in the air! ðŸ’•"
   ],
 
   // Casual responses
@@ -4350,288 +4352,822 @@ const scrollToBottom = () => {
   }
 }
 
+type WeddingAssistantActionName =
+  | 'none'
+  | 'open_login'
+  | 'generate_preview'
+  | 'open_edit'
+  | 'download_png'
+  | 'regenerate'
+  | 'set_size'
+  | 'ask_upload'
+
+interface WeddingAssistantDecision {
+  message: string
+  action?: {
+    name: WeddingAssistantActionName
+    args?: Record<string, unknown>
+  }
+  updates?: {
+    heading?: string | null
+    name1?: string | null
+    name2?: string | null
+    date?: string | null
+    courtesy?: string | null
+    size?: string | null
+  }
+  buttons?: Array<{ type: string; label: string; variant?: string }>
+}
+
+function syncWeddingDescriptionFromState() {
+  const parts: string[] = []
+  if (customHeading.value) parts.push(customHeading.value)
+
+  const n1 = extractedInfo.value.names.name1
+  const n2 = extractedInfo.value.names.name2
+  if (n1 && n2) parts.push(`(${n1} & ${n2})`)
+  else if (n1) parts.push(`(${n1})`)
+
+  if (extractedInfo.value.date) parts.push(extractedInfo.value.date)
+  if (extractedInfo.value.courtesy) parts.push(`courtesy: ${extractedInfo.value.courtesy}`)
+
+  const desc = parts.join(', ')
+  accumulatedDescription.value = desc
+  formData.description = desc
+}
+
+function buildWeddingChatContextForAI() {
+  const state = {
+    authenticated: !!authStore.isAuthenticated,
+    tokens: userStore.user?.tokens ?? 0,
+    hasPreview: !!showWeddingStickerPreview.value,
+    heading: customHeading.value ?? null,
+    details: {
+      name1: extractedInfo.value.names.name1 ?? null,
+      name2: extractedInfo.value.names.name2 ?? null,
+      date: extractedInfo.value.date ?? null,
+      courtesy: extractedInfo.value.courtesy ?? null,
+      size: extractedInfo.value.size ?? null
+    },
+    hasPhoto: !!preGeneratedImageFile.value
+  }
+
+  return JSON.stringify(state, null, 2)
+}
+
+function buildWeddingChatTranscriptForAI(maxMessages = 10): string {
+  const items = chatMessages.value
+    .filter(m => m && (m as any).sender && !(m as any).isLoading && (m as any).type !== 'preview')
+    .slice(-maxMessages)
+    .map(m => {
+      const role = (m as any).sender === 'user' ? 'User' : 'Assistant'
+      const text = String((m as any).text ?? '').trim()
+      return `${role}: ${text}`
+    })
+
+  return items.join('\n')
+}
+
+function parseSizeToInches(size: string): { w: number; h: number } | null {
+  const m = size.trim().match(/(\d+(?:\.\d+)?)\s*[xÃ—]\s*(\d+(?:\.\d+)?)/i)
+  if (!m) return null
+  const w = Number(m[1])
+  const h = Number(m[2])
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return null
+  return { w, h }
+}
+
+/**
+ * Try to extract wedding details locally without Ollama
+ * Handles common message formats like:
+ * - "congratulation on your wedding ceremony AIshatu & Suleiman on 6th March, 2020"
+ * - "John and Sarah, December 25, 2025, With love from the Smith family"
+ * - "ABdullahi & Musa" (just names)
+ * - "Yahaya Suleiman & Haruna Mohammed" (full names with first & last)
+ * - "the family" (as courtesy)
+ */
+function tryLocalExtraction(message: string): {
+  foundSomething: boolean
+  name1?: string
+  name2?: string
+  date?: string
+  courtesy?: string
+} {
+  const result: ReturnType<typeof tryLocalExtraction> = { foundSomething: false }
+  const msg = message.trim()
+  const lowerMsg = msg.toLowerCase()
+  
+  // --- Extract Names ---
+  // Pattern: "Name1 & Name2", "Name1 and Name2", supports full names like "Yahaya Suleiman & Haruna Mohammed"
+  const namePatterns = [
+    // Full names: "Yahaya Suleiman & Haruna Mohammed", "John Smith and Jane Doe"
+    /([A-Z][a-zA-Z']+(?:\s+[A-Z][a-zA-Z']+)?)\s*(?:&|and|AND|with)\s*([A-Z][a-zA-Z']+(?:\s+[A-Z][a-zA-Z']+)?)/,
+    // Full names case insensitive: "yahaya suleiman & haruna mohammed"
+    /([a-zA-Z][a-zA-Z']+(?:\s+[a-zA-Z][a-zA-Z']+)?)\s*(?:&|and)\s*([a-zA-Z][a-zA-Z']+(?:\s+[a-zA-Z][a-zA-Z']+)?)/i,
+    // "ceremony of John & Sarah"
+    /(?:ceremony|wedding|marriage)\s+(?:of\s+)?([A-Z][a-zA-Z']+(?:\s+[A-Z][a-zA-Z']+)?)\s*(?:&|and|AND|with)\s*([A-Z][a-zA-Z']+(?:\s+[A-Z][a-zA-Z']+)?)/i,
+  ]
+  
+  for (const pattern of namePatterns) {
+    const match = msg.match(pattern)
+    if (match && match[1].length > 1 && match[2].length > 1) {
+      // Capitalize first letter of each word
+      const capitalize = (str: string) => str.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+      result.name1 = capitalize(match[1].trim())
+      result.name2 = capitalize(match[2].trim())
+      result.foundSomething = true
+      break
+    }
+  }
+  
+  // --- Extract Date ---
+  // Patterns for various date formats
+  const datePatterns = [
+    // "6th March, 2020", "15th April 2025", "1st January, 2024"
+    /(\d{1,2}(?:st|nd|rd|th)?\s+(?:January|February|March|April|May|June|July|August|September|October|November|December),?\s+\d{4})/i,
+    // "March 6, 2020", "April 15, 2025"
+    /((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})/i,
+    // "6/3/2020", "15-04-2025", "2025-12-25"
+    /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/,
+    /(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/,
+    // "on 6th March" (without year - we'll add current/next year)
+    /on\s+(\d{1,2}(?:st|nd|rd|th)?\s+(?:January|February|March|April|May|June|July|August|September|October|November|December))/i,
+  ]
+  
+  for (const pattern of datePatterns) {
+    const match = msg.match(pattern)
+    if (match) {
+      result.date = match[1].trim()
+      result.foundSomething = true
+      break
+    }
+  }
+  
+  // --- Extract Courtesy Message ---
+  // Common patterns for courtesy/greeting
+  const courtesyPatterns = [
+    // "congratulation on your wedding ceremony" (at start)
+    /^((?:congratulation|congratulations|felicitation|best wishes|wishing you|celebrating)[\s\w]*(?:ceremony|wedding|marriage|union|love)?)/i,
+    // "With love from the Smith family" (at end)
+    /((?:with love|courtesy|from|by)[\s:]*(?:the\s+)?[\w\s]+(?:family|families))/i,
+    // "We invite you to celebrate..."
+    /(we invite you[\s\w]+)/i,
+    // "Alhamdulillah" style
+    /((?:alhamdulillah|alhamdulillahi|masha ?allah|barakallah)[\s\w]*)/i,
+    // Short phrases that are likely courtesy messages
+    /^(the\s+[\w\s]+family)/i,
+    /^(family\s+of\s+[\w\s]+)/i,
+    /^(from\s+[\w\s]+)/i,
+  ]
+  
+  for (const pattern of courtesyPatterns) {
+    const match = msg.match(pattern)
+    if (match) {
+      result.courtesy = match[1].trim()
+      result.foundSomething = true
+      break
+    }
+  }
+  
+  // If message is short and doesn't match other patterns, it might be a courtesy message
+  // Check if we already have names and date, and the message is short
+  const hasExistingName = !!extractedInfo.value?.names?.name1
+  const hasExistingDate = !!extractedInfo.value?.date
+  const noNameInMsg = !namePatterns.some(p => p.test(msg))
+  const noDateInMsg = !datePatterns.some(p => p.test(msg))
+  
+  if (!result.foundSomething && hasExistingName && hasExistingDate && noNameInMsg && noDateInMsg) {
+    // Short text without names/dates is likely a courtesy message
+    if (msg.length >= 3 && msg.length < 100 && !/^(yes|no|ok|hi|hello|hey|thanks)/i.test(msg)) {
+      result.courtesy = msg
+      result.foundSomething = true
+    }
+  }
+  
+  // If we found names but no courtesy, try to extract the whole message as courtesy
+  // if it looks like a greeting
+  if (result.name1 && !result.courtesy) {
+    const looksLikeGreeting = /congratulat|celebrat|invite|wish|alhamdulillah/i.test(msg)
+    if (looksLikeGreeting) {
+      // Use the part before the names or the whole first clause
+      const beforeNames = msg.split(/[A-Z][a-z]+\s*(?:&|and)/i)[0]?.trim()
+      if (beforeNames && beforeNames.length > 10) {
+        result.courtesy = beforeNames
+      }
+    }
+  }
+  
+  return result
+}
+
+let weddingChatRequestId = 0
+
+async function analyzeMessageWithOllama(lastUserMessage: string) {
+  const reqId = ++weddingChatRequestId
+  const context = buildWeddingChatContextForAI()
+  const transcript = buildWeddingChatTranscriptForAI()
+  const isAuthed = !!authStore.isAuthenticated
+  const lowerMsg = lastUserMessage.trim().toLowerCase()
+
+  // â”€â”€â”€ Quick greeting shortcut (avoid Ollama call for simple greetings) â”€â”€â”€
+  const isSimpleGreeting = /^(hi+|hello+|hey+|hiya|yo|good\s*(morning|afternoon|evening|day)|assalamualaikum|salam|greetings?)[\s!.?]*$/i.test(lowerMsg)
+  if (isSimpleGreeting) {
+    isAnalyzing.value = false
+    const hour = new Date().getHours()
+    let greet = 'Hello!'
+    if (hour >= 5 && hour < 12) greet = 'Good morning!'
+    else if (hour >= 12 && hour < 17) greet = 'Good afternoon!'
+    else if (hour >= 17 && hour < 21) greet = 'Good evening!'
+    if (/salam/i.test(lowerMsg)) greet = 'Wa alaikum assalam!'
+
+    // Check if we already have some info to personalize the greeting
+    const hasName = !!extractedInfo.value.names.name1
+    const hasDate = !!extractedInfo.value.date
+    
+    let responseText = ''
+    if (hasName && hasDate) {
+      responseText = `${greet} 😊 Welcome back! I still have your details saved. Would you like me to generate your sticker?`
+    } else if (hasName || hasDate) {
+      const have = hasName ? `the names (${extractedInfo.value.names.name1}${extractedInfo.value.names.name2 ? ' & ' + extractedInfo.value.names.name2 : ''})` : `the date (${extractedInfo.value.date})`
+      const need = !hasName ? 'the bride\'s and groom\'s names' : 'the wedding date'
+      responseText = `${greet} 😊 I remember ${have}. Just need ${need} to create your sticker!`
+    } else {
+      responseText = `${greet} 😊 I'm here to help create your wedding sticker!\n\nJust tell me the couple's names and wedding date, and I'll design something beautiful for you!`
+    }
+
+    chatMessages.value.push({
+      id: Date.now(),
+      text: responseText,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    } as any)
+    scrollToBottom()
+    return
+  }
+
+  // --- "Who are you?" / "What are you?" questions ---
+  const isWhoAreYou = /\b(who\s*(are\s*you|r\s*u|is\s*this)|what\s*(are\s*you|r\s*u|is\s*this(\s*app|\s*thing)?)|what\s*do\s*you\s*do|ur\s*name|your\s*name|introduce\s*yourself|tell\s*me\s*about\s*(you|yourself)|wats?\s*(dis|this))\b/i.test(lowerMsg)
+  if (isWhoAreYou) {
+    isAnalyzing.value = false
+    chatMessages.value.push({
+      id: Date.now(),
+      text: `Hey there! 👋 I'm your wedding sticker assistant!\n\nTell me the couple's names and when the big day is — I'll create a beautiful sticker design for you! 💒`,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    } as any)
+    scrollToBottom()
+    return
+  }
+
+  // --- How are you / casual chat ---
+  const isHowAreYou = /\b(how\s*(are\s*you|r\s*u|u\s*doing|ya\s*doing)|how'?s\s*(it\s*going|things|life|everything)|what'?s\s*(up|good|new)|sup|wassup|how\s*do\s*you\s*do)\b/i.test(lowerMsg)
+  if (isHowAreYou) {
+    isAnalyzing.value = false
+    const responses = [
+      `I'm doing wonderful, thanks for asking! 😊 Ready to help create something special for you!`,
+      `Great, thank you! 💕 So excited to help with your wedding sticker today!`,
+      `Feeling creative and ready to help! 😊 Got a wedding to celebrate?`
+    ]
+    const randomResponse = responses[Math.floor(Math.random() * responses.length)]
+    chatMessages.value.push({
+      id: Date.now(),
+      text: randomResponse,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    } as any)
+    scrollToBottom()
+    return
+  }
+
+  // --- General questions (what can you do, capabilities) ---
+  const isCapabilityQuestion = /\b(what\s*can\s*you\s*(do|make|create|help)|wha?t\s*(u|you)\s*do|your\s*capabilities|features|how\s*does\s*(this|it)\s*work|wat\s*can\s*u\s*do|show\s*me\s*what\s*you\s*can)\b/i.test(lowerMsg)
+  if (isCapabilityQuestion) {
+    isAnalyzing.value = false
+    chatMessages.value.push({
+      id: Date.now(),
+      text: `I create beautiful wedding stickers! 💒✨\n\nJust share:\n• The couple's names\n• Wedding date\n\nI'll design a gorgeous sticker you can download and share! You can also pick colors or styles if you'd like.`,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    } as any)
+    scrollToBottom()
+    return
+  }
+
+  // --- Non-wedding request detection (flyer, poster, logo, banner, etc.) ---
+  const isNonWeddingRequest = /\b(flyer|poster|logo|banner|business\s*card|brochure|menu|certificate|resume|cv|letterhead|book\s*cover|album|birthday|anniversary|graduation|baby\s*shower|funeral|naming\s*ceremony)\b/i.test(lowerMsg)
+  if (isNonWeddingRequest && !/wedding/i.test(lowerMsg)) {
+    isAnalyzing.value = false
+    const friendlyResponses = [
+      `I appreciate you thinking of me! 😊 But I specialize only in wedding stickers.\n\nIf you have a wedding coming up, I'd love to help create something beautiful!`,
+      `That sounds like a lovely project! Unfortunately, I only create wedding stickers. 💒\n\nGot a wedding to celebrate? I'm your assistant!`,
+      `I wish I could help with that! But my specialty is wedding stickers only. 😊\n\nKnow someone getting married? I'd love to help!`
+    ]
+    const randomResponse = friendlyResponses[Math.floor(Math.random() * friendlyResponses.length)]
+    chatMessages.value.push({
+      id: Date.now(),
+      text: randomResponse,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    } as any)
+    scrollToBottom()
+    return
+  }
+
+  // --- Vague design request ("I want a beautiful design", "make something nice") ---
+  const isVagueDesignRequest = /\b(beautiful|nice|pretty|good|amazing|lovely|stunning|cool|awesome)\s*(design|sticker|thing|something|one)?\b/i.test(lowerMsg) && !/(name|bride|groom|date|wedding)/i.test(lowerMsg)
+  if (isVagueDesignRequest) {
+    isAnalyzing.value = false
+    chatMessages.value.push({
+      id: Date.now(),
+      text: `I'd love to create something beautiful for you! 💕\n\nJust tell me:\n• Who's getting married? (couple's names)\n• When's the wedding?`,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    } as any)
+    scrollToBottom()
+    return
+  }
+
+  // --- Affirmative shortcut (yes/yeah/sure/ok) ---
+  const isAffirmative = /^(yes|yeah|yep|yup|sure|ok|okay|alright|definitely|of course|absolutely|let'?s go|let'?s do it)[\s!.?]*$/i.test(lowerMsg)
+  if (isAffirmative) {
+    isAnalyzing.value = false
+    // Check if we already have some info collected
+    const hasName1 = !!extractedInfo.value.names.name1
+    const hasDate = !!extractedInfo.value.date
+    
+    let responseText = ''
+    if (showWeddingStickerPreview.value) {
+      responseText = 'Your sticker is ready! You can download it or make edits. 😊'
+    } else if (hasName1 && hasDate) {
+      responseText = 'Got it! Generating your wedding sticker now... 😊'
+      setTimeout(() => generateWeddingPreview(), 100)
+    } else {
+      const missing: string[] = []
+      if (!hasName1) missing.push('bride\'s and groom\'s names')
+      if (!hasDate) missing.push('wedding date')
+      responseText = missing.length > 0 
+        ? `I still need: ${missing.join(' and ')}. 😊`
+        : 'Let\'s create your wedding sticker!\n\nTell me:\n• Bride\'s name\n• Groom\'s name\n• Wedding date'
+    }
+    
+    chatMessages.value.push({
+      id: Date.now(),
+      text: responseText,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    } as any)
+    scrollToBottom()
+    return
+  }
+
+  // --- Change request shortcut (I want to change X) ---
+  const changeMatch = lowerMsg.match(/(?:change|update|edit|modify)\s+(?:the\s+)?(\w+)/i)
+  if (changeMatch) {
+    const field = changeMatch[1].toLowerCase()
+    isAnalyzing.value = false
+    let responseText = ''
+    
+    if (field.includes('name')) {
+      responseText = 'Sure! What are the new names? (e.g., "John & Sarah")'
+    } else if (field.includes('date')) {
+      responseText = 'Sure! What is the new date? (e.g., "June 15, 2025")'
+    } else if (field.includes('message') || field.includes('courtesy') || field.includes('text')) {
+      responseText = 'Sure! What is the new courtesy message?'
+    } else {
+      responseText = `Sure! Please share the new ${field} you'd like to use.`
+    }
+    
+    chatMessages.value.push({
+      id: Date.now(),
+      text: responseText,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    } as any)
+    scrollToBottom()
+    return
+  }
+
+  // --- Negative shortcut (no/nope/not now) ---
+  const isNegative = /^(no|nope|nah|not now|not yet|maybe later|later|never mind|nevermind)[\s!.?]*$/i.test(lowerMsg)
+  if (isNegative) {
+    isAnalyzing.value = false
+    chatMessages.value.push({
+      id: Date.now(),
+      text: 'No problem! Just let me know whenever you\'re ready to create a wedding sticker. I\'m here to help! 😊',
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    } as any)
+    scrollToBottom()
+    return
+  }
+
+  // --- Thanks shortcut ---
+  const isThanks = /^(thanks?|thank you|thx|ty|cheers|appreciate it|awesome|great|perfect|cool)[\s!.?]*$/i.test(lowerMsg)
+  if (isThanks) {
+    isAnalyzing.value = false
+    const hasPreview = showWeddingStickerPreview.value
+    const responseText = hasPreview 
+      ? 'You\'re welcome! Your sticker looks great. Feel free to download it or let me know if you\'d like any changes!'
+      : 'You\'re welcome! Let me know if you need anything else for your wedding sticker.'
+    chatMessages.value.push({
+      id: Date.now(),
+      text: responseText,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    } as any)
+    scrollToBottom()
+    return
+  }
+
+  // --- Help shortcut ---
+  const isHelp = /^(help|help\s*me|i\s*need\s*help|what can you do|how does this work|instructions?|guide\s*me|how\s*to\s*use)[\s!.?]*$/i.test(lowerMsg)
+  if (isHelp) {
+    isAnalyzing.value = false
+    chatMessages.value.push({
+      id: Date.now(),
+      text: `Happy to help! 😊 Here's how it works:\n\n1️⃣ Tell me the couple's names (e.g., "John & Sarah")\n2️⃣ Share the wedding date\n3️⃣ I'll create a beautiful sticker!\n\nYou can also add a custom message or pick your favorite colors. Ready when you are! 💒`,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    } as any)
+    scrollToBottom()
+    return
+  }
+
+  // --- LOCAL EXTRACTION: Try to extract wedding details without Ollama ---
+  const localExtraction = tryLocalExtraction(lastUserMessage)
+  if (localExtraction.foundSomething) {
+    isAnalyzing.value = false
+    
+    // Apply extracted info
+    if (localExtraction.name1) extractedInfo.value.names.name1 = localExtraction.name1
+    if (localExtraction.name2) extractedInfo.value.names.name2 = localExtraction.name2
+    if (localExtraction.date) extractedInfo.value.date = localExtraction.date
+    if (localExtraction.courtesy) extractedInfo.value.courtesy = localExtraction.courtesy
+    
+    syncWeddingDescriptionFromState()
+    
+    // Check what we have now
+    const hasName = !!extractedInfo.value.names.name1
+    const hasDate = !!extractedInfo.value.date
+    
+    let responseText = ''
+    if (hasName && hasDate) {
+      responseText = `Great! 😊\n• Bride: ${extractedInfo.value.names.name1}\n• Groom: ${extractedInfo.value.names.name2 || 'Not specified'}\n• Date: ${extractedInfo.value.date}\n\nGenerating your sticker now...`
+      // Auto-generate preview
+      setTimeout(() => generateWeddingPreview(), 500)
+    } else {
+      const collected: string[] = []
+      const missing: string[] = []
+      if (hasName) {
+        if (extractedInfo.value.names.name2) {
+          collected.push(`Bride: ${extractedInfo.value.names.name1}`)
+          collected.push(`Groom: ${extractedInfo.value.names.name2}`)
+        } else {
+          collected.push(`Name: ${extractedInfo.value.names.name1}`)
+        }
+      }
+      if (hasDate) collected.push(`Date: ${extractedInfo.value.date}`)
+      if (!hasName) missing.push('bride\'s and groom\'s names')
+      if (!hasDate) missing.push('wedding date')
+      
+      responseText = collected.length > 0 
+        ? `Got it! 😊\n• ${collected.join('\n• ')}\n\nI still need: ${missing.join(' and ')}.`
+        : `To create your sticker, I need:\n• Bride's name\n• Groom's name\n• Wedding date`
+    }
+    
+    chatMessages.value.push({
+      id: Date.now(),
+      text: responseText,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    } as any)
+    scrollToBottom()
+    return
+  }
+
+  const task = [
+    'You are a friendly wedding sticker assistant. Respond naturally like a helpful human.',
+    'Keep responses SHORT (1-2 sentences), warm, and use emoji sparingly.',
+    'ONLY help with wedding stickers. Politely decline other requests.',
+    'Required info: couple names (name1=bride, name2=groom) and wedding date.',
+    'Optional: courtesy (custom message/venue), color preferences.',
+    'If info missing, ask friendly follow-up questions.',
+    'Never mention AI, models, JSON, or technical terms.',
+    'Output JSON: {"message":"your reply","updates":{"name1":null,"name2":null,"date":null,"courtesy":null}}'
+  ].join('\n')
+
+  // Build conversation context from recent messages
+  const recentMessages = chatMessages.value.slice(-6).map(m => 
+    `${m.sender === 'user' ? 'User' : 'Assistant'}: ${m.text}`
+  ).join('\n')
+
+  try {
+    const system = 'You are a friendly, conversational wedding sticker assistant. Chat naturally, be warm and helpful. JSON output only.'
+
+    const aiText = await ai.chatText({
+      system,
+      user: `${task}\n\nConversation:\n${recentMessages}\n\nUser: ${lastUserMessage}`,
+      maxTokens: 150  // Slightly more for natural responses
+    })
+
+    console.log('Ollama response:', aiText)
+
+    let rawDecision: any | null = null
+    const direct = safeJsonParse<any>(aiText)
+    if (direct.ok) {
+      rawDecision = direct.value
+      console.log('âœ… Direct JSON parse succeeded')
+    } else {
+      console.log('âš ï¸ Direct parse failed, trying extraction...')
+      const extracted = extractFirstJsonBlock(aiText)
+      console.log('ðŸ“¦ Extracted JSON block:', extracted)
+      if (extracted) {
+        const parsed = safeJsonParse<any>(extracted)
+        if (parsed.ok) {
+          rawDecision = parsed.value
+          console.log('âœ… Extracted JSON parse succeeded')
+        }
+      }
+    }
+
+    // Ignore stale responses
+    if (reqId !== weddingChatRequestId) return
+
+    // If JSON parsing failed, try to extract just the message from the text
+    if (!rawDecision) {
+      isAnalyzing.value = false
+      console.log('âŒ No valid JSON found, using fallback')
+      // Try to find a quoted message in the response
+      const msgMatch = aiText.match(/"message"\s*:\s*"([^"]+)"/i)
+      let fallbackText = msgMatch?.[1] || ''
+      
+      // If no message found, or response looks like JSON/code, use contextual fallback
+      const looksLikeCode = /^[\{\[\x60]|json|structure|format|returned|here is/i.test(fallbackText || aiText || '')
+      if (!fallbackText || looksLikeCode) {
+        const hasName = !!extractedInfo.value.names.name1
+        const hasDate = !!extractedInfo.value.date
+        const hasCourtesy = !!extractedInfo.value.courtesy
+        if (hasName && hasDate && hasCourtesy) {
+          fallbackText = 'I have all your details! Ready to generate your wedding sticker?'
+        } else {
+          const need: string[] = []
+          if (!hasName) need.push('names')
+          if (!hasDate) need.push('date')
+          if (!hasCourtesy) need.push('courtesy message')
+          fallbackText = need.length > 0 
+            ? 'Please share the ' + need.join(', ') + ' for your wedding sticker.'
+            : 'How can I help with your wedding sticker?'
+        }
+      }
+      
+      chatMessages.value.push({
+        id: Date.now(),
+        text: fallbackText,
+        sender: 'ai',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      } as any)
+      scrollToBottom()
+      return
+    }
+
+    const decision: WeddingAssistantDecision = {
+      // Some small models forget `message` and use `text`/`reply`/`answer`.
+      message: String(
+        rawDecision?.message ??
+          rawDecision?.text ??
+          rawDecision?.reply ??
+          rawDecision?.answer ??
+          ''
+      ),
+      action: {
+        name: (rawDecision?.action?.name ?? 'none') as WeddingAssistantActionName,
+        args: (rawDecision?.action?.args ?? {}) as Record<string, unknown>
+      },
+      // tolerate common model mistakes: update/button singular
+      updates: (rawDecision?.updates ?? rawDecision?.update ?? undefined) as any,
+      buttons: (rawDecision?.buttons ?? rawDecision?.button ?? undefined) as any
+    }
+
+    // Enforce authentication UI rules (donâ€™t allow login button spam)
+    const modelButtons = Array.isArray(decision.buttons) ? decision.buttons : []
+    if (isAuthed) {
+      decision.buttons = modelButtons.filter(b => (b as any)?.type !== 'login')
+      if (decision.action?.name === 'open_login') decision.action.name = 'none'
+    } else {
+      if (decision.action?.name === 'open_login') {
+        decision.buttons = [{ type: 'login', label: 'Login', variant: 'primary' }]
+      } else {
+        decision.buttons = modelButtons.filter(b => (b as any)?.type !== 'login')
+      }
+    }
+
+    // Apply extracted updates
+    if (decision.updates) {
+      if (decision.updates.heading !== undefined) {
+        customHeading.value = decision.updates.heading
+        headingStepComplete.value = !!decision.updates.heading
+      }
+      if (decision.updates.name1 !== undefined) extractedInfo.value.names.name1 = decision.updates.name1
+      if (decision.updates.name2 !== undefined) extractedInfo.value.names.name2 = decision.updates.name2
+      if (decision.updates.date !== undefined) extractedInfo.value.date = decision.updates.date
+      if (decision.updates.courtesy !== undefined) extractedInfo.value.courtesy = decision.updates.courtesy
+      if (decision.updates.size !== undefined) {
+        extractedInfo.value.size = decision.updates.size
+        formData.customSize = decision.updates.size ?? ''
+      }
+
+      syncWeddingDescriptionFromState()
+
+      // If preview already exists, update SVG text immediately (no regeneration)
+      if (showWeddingStickerPreview.value) {
+        await processDescriptionInput()
+        updateChatPreviewSVG()
+      }
+    }
+
+    isAnalyzing.value = false
+
+    // Push assistant message
+    // Prefer the structured `decision.message`, but if it's empty, fall back to raw AI text.
+    let msgText =
+      (decision.message || '').toString().trim() ||
+      ''
+    
+    // Filter out JSON-like or placeholder responses  
+    const badPatterns = /^(your reply|your response|<write|message here|here is|revised|\{|\[|json|structure|\`\`\`)|(\[new_name\]|\[name\]|\[date\]|\[message\])/i
+    if (!msgText || badPatterns.test(msgText)) {
+      const hasName = !!extractedInfo.value.names.name1
+      const hasDate = !!extractedInfo.value.date  
+      const hasCourtesy = !!extractedInfo.value.courtesy
+      if (hasName && hasDate && hasCourtesy) {
+        msgText = 'I have all your details! Ready to generate your wedding sticker?'
+      } else {
+        const need: string[] = []
+        if (!hasName) need.push('names')
+        if (!hasDate) need.push('date')
+        if (!hasCourtesy) need.push('courtesy message')
+        msgText = need.length > 0 
+          ? 'Please share the ' + need.join(', ') + ' for your wedding sticker.'
+          : 'How can I help with your wedding sticker?'
+      }
+    }
+    
+    const _unused =
+      'Iâ€™m here â€” tell me what you want to design.'
+    chatMessages.value.push({
+      id: Date.now(),
+      text: msgText,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      actions: Array.isArray(decision.buttons) ? decision.buttons : undefined
+    } as any)
+    scrollToBottom()
+
+    const actionName = decision.action?.name ?? 'none'
+    const actionArgs = decision.action?.args ?? {}
+
+    // Execute actions (when applicable)
+    if (actionName === 'open_login') {
+      authStore.openAuthModal('login')
+      return
+    }
+
+    if (actionName === 'ask_upload') {
+      return
+    }
+
+    if (actionName === 'set_size') {
+      const size = (actionArgs as any).size as string | undefined
+      if (size) {
+        const parsed = parseSizeToInches(size)
+        if (parsed) {
+          await handleSizeChange(parsed.w, parsed.h)
+        }
+      }
+      return
+    }
+
+    if (actionName === 'generate_preview') {
+      // Guard: ensure we have minimum required fields
+      const hasNames = !!extractedInfo.value.names.name1
+      const hasDate = !!extractedInfo.value.date
+      const hasCourtesy = !!extractedInfo.value.courtesy
+      if (!hasNames || !hasDate || !hasCourtesy) return
+      await generateWeddingPreview()
+      return
+    }
+
+    if (actionName === 'open_edit') {
+      if (!showWeddingStickerPreview.value) return
+      openEditModal()
+      return
+    }
+
+    if (actionName === 'download_png') {
+      if (!showWeddingStickerPreview.value) return
+      exportWeddingSticker('png')
+      return
+    }
+
+    if (actionName === 'regenerate') {
+      if (!showWeddingStickerPreview.value) return
+      await handleGenerateNew()
+      return
+    }
+  } catch (e) {
+    if (reqId !== weddingChatRequestId) return
+    console.log('⚠️ Ollama unavailable, using local extraction')
+    
+    // Try local extraction when Ollama fails
+    const localResult = tryLocalExtraction(lastUserMessage)
+    
+    // Apply any extracted data
+    if (localResult.name1) extractedInfo.value.names.name1 = localResult.name1
+    if (localResult.name2) extractedInfo.value.names.name2 = localResult.name2
+    if (localResult.date) extractedInfo.value.date = localResult.date
+    if (localResult.courtesy) extractedInfo.value.courtesy = localResult.courtesy
+    
+    // If something was found, sync and update
+    if (localResult.foundSomething) {
+      syncWeddingDescriptionFromState()
+      if (showWeddingStickerPreview.value) {
+        await processDescriptionInput()
+        updateChatPreviewSVG()
+      }
+    }
+    
+    // Generate a friendly response
+    const hasName = !!extractedInfo.value.names.name1
+    const hasDate = !!extractedInfo.value.date
+    const hasCourtesy = !!extractedInfo.value.courtesy
+    
+    let responseText = ''
+    if (localResult.foundSomething) {
+      const noted: string[] = []
+      if (localResult.name1) noted.push(`Names: ${localResult.name1}${localResult.name2 ? ' & ' + localResult.name2 : ''}`)
+      if (localResult.date) noted.push(`Date: ${localResult.date}`)
+      if (localResult.courtesy) noted.push(`Message: ${localResult.courtesy}`)
+      
+      const missing: string[] = []
+      if (!hasName) missing.push('names')
+      if (!hasDate) missing.push('date')
+      if (!hasCourtesy) missing.push('courtesy message')
+      
+      if (hasName && hasDate && hasCourtesy) {
+        responseText = `Got it! I've noted:\n• ${noted.join('\n• ')}\n\nReady to generate your wedding sticker?`
+      } else {
+        responseText = `Got it! I've noted:\n• ${noted.join('\n• ')}\n\nI still need: ${missing.join(', ')}.`
+      }
+    } else {
+      // Nothing extracted - provide guidance
+      const missing: string[] = []
+      if (!hasName) missing.push('names (e.g., "John & Sarah")')
+      if (!hasDate) missing.push('date (e.g., "June 15, 2025")')
+      if (!hasCourtesy) missing.push('courtesy message (e.g., "With love from the family")')
+      
+      if (missing.length > 0) {
+        responseText = `Please share the ${missing.join(', ')} for your wedding sticker.`
+      } else {
+        responseText = 'I have all your details! Would you like to generate your wedding sticker?'
+      }
+    }
+    
+    isAnalyzing.value = false
+    chatMessages.value.push({
+      id: Date.now(),
+      text: responseText,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    })
+    scrollToBottom()
+  }
+}
+
 async function sendMessage() {
   const text = chatInputText.value.trim()
   if (!text) return
 
-  // Stop voice recording if active
   stopVoiceRecording()
-
-  // Check if user is logged in when they start providing wedding details
-  // Allow basic greetings but require login for actual design info
-  const isGreeting = /^(hi|hello|hey|good morning|good afternoon|good evening|salam|assalamu alaikum|hola|bonjour)$/i.test(text.trim())
-  const isQuestion = /^(help|how|what|can you|could you|\?)/.test(text.toLowerCase())
-  
-  // If user is providing actual wedding info (names, dates, etc.) and not logged in, prompt login
-  if (!authStore.isAuthenticated && !isGreeting && !isQuestion && !showWeddingStickerPreview.value) {
-    // Check if this message contains wedding details
-    const hasWeddingInfo = parseAllInOneMessage(text)
-    const containsDetails = hasWeddingInfo.names.name1 || hasWeddingInfo.date || hasWeddingInfo.courtesy
-    
-    if (containsDetails) {
-      // Add their message first so they see it
-      chatMessages.value.push({
-        id: Date.now(),
-        text: text,
-        sender: 'user',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
-      
-      // Clear input
-      chatInputText.value = ''
-      
-      // Show login prompt with action buttons
-      setTimeout(() => {
-        chatMessages.value.push({
-          id: Date.now(),
-          text: "I love those details!\n\nBut before I can create your design, you'll need to login or create a free account.\n\nIt's quick and easy!\n• Get 100 FREE tokens instantly\n• Save your beautiful designs\n• Access all premium features",
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          actions: [
-            { type: 'login', label: 'Login to Continue', variant: 'primary' }
-          ]
-        })
-        scrollToBottom()
-      }, 800)
-      
-      return
-    }
-  }
 
   // Add User Message
   chatMessages.value.push({
     id: Date.now(),
-    text: text,
+    text,
     sender: 'user',
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   })
 
-  // Accumulate description ONLY if we haven't generated the preview yet
-  // This ensures that after generation, chat messages don't accidentally become part of the sticker text
-  if (!showWeddingStickerPreview.value) {
-    // Check if this is a vague/meta message that shouldn't be processed for info extraction
-    // Expanded to include more unclear inputs that shouldn't trigger extraction
-    // IMPORTANT: Only mark as vague if the ENTIRE message is just the vague phrase
-    const vaguePatterns = /^(this is|here is|here's|my info|my information|my details|the info|the information|the details|i have|got it|okay|ok|yes|no|sure|thanks|thank you|hi|hello|hey|good morning|good afternoon|good evening|um+|uh+|hmm+|err+|please|help|do it|make it|create|design|sticker|wedding)$/i
-    
-    // Only mark as vague if it's EXACTLY the intro phrase with nothing substantial after
-    // "this is my information: John & Mary..." should NOT be vague
-    const isJustIntroPhrase = /^(this is|here is|here's)\s+(my|the)\s+(info|information|details)\s*[:\s]*$/i.test(text.trim())
-    
-    const isVagueInput = vaguePatterns.test(text.trim()) || 
-      isJustIntroPhrase ||
-      /^[^a-zA-Z0-9]+$/.test(text.trim()) || // Only symbols
-      text.trim().length < 3 // Too short to be meaningful
-    
-    // Skip extraction if we're waiting for heading input - user's response is a heading, not wedding details
-    const isAwaitingHeadingResponse = awaitingHeadingInput.value
-    
-    // EARLY TITLE DETECTION: Check if this message contains a title/heading phrase
-    // This should be detected BEFORE other extraction to avoid title being parsed as names
-    let titleDetectedInThisMessage = false
-    let textWithoutTitle = text // Text with title removed for further extraction
-    
-    if (!isVagueInput && !headingStepComplete.value && !awaitingTitleConfirmation.value) {
-      const detectedTitle = extractTitleFromText(text)
-      if (detectedTitle) {
-        console.log('🎯 Early title detection found:', detectedTitle)
-        // Store the title and mark heading as complete
-        customHeading.value = detectedTitle
-        headingStepComplete.value = true
-        titleDetectedInThisMessage = true
-        
-        // Remove the title phrase from text for further extraction
-        // This prevents "congratulation on your wedding ceremony" being parsed as names
-        // but still allows "Abdullahi & Amina on 7th march" to be extracted
-        textWithoutTitle = text
-          .replace(/congratulation[s]?\s+on\s+your\s+wedding\s+ceremony/gi, '')
-          .replace(/congratulation[s]?\s+on\s+your\s+wedding/gi, '')
-          .replace(/congratulation[s]?\s+on\s+your\s+(?:qur'?anic\s+)?(?:walima|walimah|walimat|walmia|walmiah|wamima|wamimat|wamimah)/gi, '')
-          .replace(/beautiful\s+beginning/gi, '')
-          .replace(/conjugal\s+bliss/gi, '')
-          .replace(/save\s+the\s+date/gi, '')
-          .replace(/alhamdulillah[i]?\s+on\s+your\s+(?:qur'?anic\s+)?walima/gi, '')
-          .replace(/alhamdulillah[i]?\s+on\s+your\s+(?:qur'?anic\s+)?graduation/gi, '')
-          .replace(/alhamdulillah[i]?\s+on\s+your\s+wedding\s+ceremony/gi, '')
-          .replace(/alhamdulillah[i]?\s+on\s+your\s+wedding/gi, '')
-          .replace(/thank[s]?\s+for\s+attending/gi, '')
-          .replace(/best\s+wishes/gi, '')
-          .replace(/happy\s+wedding/gi, '')
-          .replace(/with\s+love/gi, '')
-          .trim()
-        
-        console.log('📝 Title set. Text for further extraction:', textWithoutTitle)
-      }
-    }
-    
-    // Extract names/date/courtesy from the text (with title removed if detected)
-    if (!isVagueInput && !isAwaitingHeadingResponse) {
-      // Use the text with title removed for extraction
-      const textToExtract = titleDetectedInThisMessage ? textWithoutTitle : text
-      
-      // Only proceed if there's still text to extract from
-      if (textToExtract.trim().length > 2) {
-        // Use parseAllInOneMessage for comprehensive extraction from a single message
-        const allInOne = parseAllInOneMessage(textToExtract)
-
-        // Only process if parseAllInOneMessage actually found something meaningful
-        // This prevents random text from being added to description
-        const hasValidExtraction = allInOne.names.name1 || allInOne.date || allInOne.courtesy
-
-        // Build formatted description parts
-        const formattedParts: string[] = []
-
-        if (hasValidExtraction) {
-          // Extract and format names IN BRACKETS so updateStickerText can extract them
-          if (allInOne.names.name1 && !extractedInfo.value.names.name1) {
-            extractedInfo.value.names = allInOne.names
-            // Add names in bracket format for SVG extraction
-            if (allInOne.names.name2) {
-              formattedParts.push(`(${allInOne.names.name1} and ${allInOne.names.name2})`)
-            } else {
-              formattedParts.push(`(${allInOne.names.name1})`)
-            }
-          }
-
-          // Extract date if found
-          if (allInOne.date && !extractedInfo.value.date) {
-            extractedInfo.value.date = allInOne.date
-            formattedParts.push(allInOne.date)
-          }
-
-          // Extract courtesy if found
-          if (allInOne.courtesy && !extractedInfo.value.courtesy) {
-            extractedInfo.value.courtesy = allInOne.courtesy
-            formattedParts.push(allInOne.courtesy)
-          }
-          
-          // REMAINING TEXT HEADING DETECTION
-          // If we extracted names, date, and courtesy but no known title was detected,
-          // check if there's remaining text that could be a custom heading
-          if (!titleDetectedInThisMessage && !headingStepComplete.value && 
-              allInOne.names.name1 && allInOne.date && allInOne.courtesy) {
-            
-            // Remove extracted content from text to find remaining text
-            let remainingText = textToExtract
-            
-            // Remove names pattern (Name & Name or Name and Name)
-            if (allInOne.names.name2) {
-              const n1 = escapeRegExp(allInOne.names.name1)
-              const n2 = escapeRegExp(allInOne.names.name2)
-              remainingText = remainingText.replace(new RegExp(`\\b${n1}\\s*[&]\\s*${n2}\\b`, 'gi'), '')
-              remainingText = remainingText.replace(new RegExp(`\\b${n1}\\s+and\\s+${n2}\\b`, 'gi'), '')
-            } else if (allInOne.names.name1) {
-              const n1 = escapeRegExp(allInOne.names.name1)
-              remainingText = remainingText.replace(new RegExp(`\\b${n1}\\b`, 'gi'), '')
-            }
-            
-            // Remove date
-            if (allInOne.date) {
-              remainingText = remainingText.replace(allInOne.date, '')
-            }
-            
-            // Remove courtesy patterns
-            remainingText = remainingText.replace(/courtesy\s*(?:of|:)\s*.+$/im, '')
-            remainingText = remainingText.replace(/from\s+(?:the\s+)?[a-zA-Z\s&'.-]+\s+(?:family|families)/gi, '')
-            
-            // Remove common filler words
-            remainingText = remainingText.replace(/\b(on|the|and|of|for|to|from|with|used|this|is|are|my|our|their|your)\b/gi, '')
-            
-            // Clean up whitespace and punctuation
-            remainingText = remainingText.replace(/[,.:;!?]+/g, ' ').replace(/\s+/g, ' ').trim()
-            
-            console.log('🎯 Remaining text after extraction:', remainingText)
-            
-            // If there's meaningful remaining text (at least 3 chars, at least 2 words), treat as potential heading
-            const words = remainingText.split(/\s+/).filter(w => w.length >= 2)
-            if (remainingText.length >= 3 && words.length >= 1) {
-              // Capitalize the remaining text as a heading
-              const potentialHeading = words.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
-              console.log('🎯 Potential heading detected:', potentialHeading)
-              
-              // Store as pending title for confirmation
-              pendingTitle.value = potentialHeading
-              awaitingTitleConfirmation.value = true
-              
-              // Show the confirmation message immediately
-              isAnalyzing.value = true
-              setTimeout(() => {
-                isAnalyzing.value = false
-                const confirmMsg = `I found "${potentialHeading}" - is this the heading you want to use? (yes/no)`
-                chatMessages.value.push({
-                  id: Date.now(),
-                  text: confirmMsg,
-                  sender: 'ai',
-                  time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                })
-                scrollToBottom()
-              }, 1500)
-              
-              // Clear input and return early - don't call analyzeMessage
-              chatInputText.value = ''
-              return
-            }
-          }
-        }
-
-        // Also check for size - track if we found size as structured data
-        const extractedSize = extractSizeFromText(text)
-        let foundSize = false
-        if (extractedSize && !extractedInfo.value.size) {
-          extractedInfo.value.size = extractedSize
-          formData.customSize = extractedSize
-          foundSize = true // Size is structured data, should not be added to description
-        }
-
-        // If we extracted structured data (including size), use formatted parts
-        // DON'T add raw text to description - only add properly extracted data
-        if (formattedParts.length > 0) {
-          accumulatedDescription.value += (accumulatedDescription.value ? ' ' : '') + formattedParts.join(' ')
-          console.log('📝 Formatted description added:', formattedParts.join(' '))
-
-          // Keep description in sync with chat-extracted structured data.
-          // This does not trigger SVG updates by itself (those are driven by generation / explicit actions).
-          formData.description = accumulatedDescription.value
-        }
-        
-        if (foundSize && formattedParts.length === 0) {
-          console.log('📏 Only size extracted, not adding to description:', extractedSize)
-        }
-        
-        // If nothing was extracted, don't add raw text to avoid garbage in description
-        if (!hasValidExtraction && !foundSize) {
-          console.log('📝 No valid data extracted from message, not adding to description:', textToExtract)
-        }
-      } else {
-        console.log('📝 Text too short after title removal, skipping extraction')
-      }
-    } else if (isAwaitingHeadingResponse) {
-      // User is providing heading input - don't extract as wedding details
-      console.log('📝 Awaiting heading input, skipping extraction:', text)
-    } else {
-      // Vague input - don't add to accumulated description
-      console.log('📝 Vague input detected, skipping extraction:', text)
-    }
-  } else {
-    // After preview is shown, messages are chat-only and don't update the SVG
-    console.log('📝 Preview already shown, message is chat-only:', text)
-  }
-
-  // Clear Input
   chatInputText.value = ''
   scrollToBottom()
 
-  // Start Analysis with debouncing to prevent rapid fire
   isAnalyzing.value = true
-  
-  // Debounced AI analysis - prevents rapid successive calls
   debouncedAnalyzeMessage(text)
 }
 
 // Debounced version of analyzeMessage for performance
 const debouncedAnalyzeMessage = useDebounceFn(async (text: string) => {
   await analyzeMessage(text)
-}, 800, { maxWait: 2000 })
+}, 250, { maxWait: 1500 })
 
 // Throttled scroll for smoother performance
 const throttledScrollToBottom = useThrottleFn(() => {
@@ -4643,16 +5179,16 @@ const throttledScrollToBottom = useThrottleFn(() => {
 }, 100)
 
 async function handleSizeChange(widthInches: number, heightInches: number) {
-  console.log(`📏 Resizing to ${widthInches}x${heightInches} inches`)
+  console.log(`ðŸ“ Resizing to ${widthInches}x${heightInches} inches`)
 
   if (!weddingPreviewContainer.value) {
-    console.error('❌ weddingPreviewContainer not available for resize')
+    console.error('âŒ weddingPreviewContainer not available for resize')
     return
   }
 
   const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
   if (!svgElement) {
-    console.error('❌ SVG element not found for resize')
+    console.error('âŒ SVG element not found for resize')
     return
   }
 
@@ -4725,8 +5261,8 @@ async function handleSizeChange(widthInches: number, heightInches: number) {
   svgElement.style.maxWidth = '100%'
   svgElement.style.display = 'block'
 
-  console.log(`📏 Original: ${origWidth}x${origHeight}, New viewBox: ${newViewBoxWidth.toFixed(0)}x${newViewBoxHeight.toFixed(0)}`)
-  console.log(`📏 Export: ${widthPixels}x${heightPixels}px (${widthInches}x${heightInches}" at ${DPI} DPI)`)
+  console.log(`ðŸ“ Original: ${origWidth}x${origHeight}, New viewBox: ${newViewBoxWidth.toFixed(0)}x${newViewBoxHeight.toFixed(0)}`)
+  console.log(`ðŸ“ Export: ${widthPixels}x${heightPixels}px (${widthInches}x${heightInches}" at ${DPI} DPI)`)
 
   // 7. Calculate content offset to center it in the new viewBox
   const contentOffsetX = (newViewBoxWidth - origWidth) / 2
@@ -4804,18 +5340,18 @@ async function handleSizeChange(widthInches: number, heightInches: number) {
     const newClipWidth = origClipWidth * scaleX
     const newClipHeight = newViewBoxHeight // Span full SVG height
     
-    console.log(`📐 Updating clip-path rect:`)
-    console.log(`   x: ${origClipX} → ${newClipX.toFixed(1)}`)
-    console.log(`   y: ${origClipY} → ${newClipY}`)
-    console.log(`   width: ${origClipWidth} → ${newClipWidth.toFixed(1)}`)
-    console.log(`   height: ${origClipHeight} → ${newClipHeight.toFixed(1)}`)
+    console.log(`ðŸ“ Updating clip-path rect:`)
+    console.log(`   x: ${origClipX} â†’ ${newClipX.toFixed(1)}`)
+    console.log(`   y: ${origClipY} â†’ ${newClipY}`)
+    console.log(`   width: ${origClipWidth} â†’ ${newClipWidth.toFixed(1)}`)
+    console.log(`   height: ${origClipHeight} â†’ ${newClipHeight.toFixed(1)}`)
     
     clipPathRect.setAttribute('x', String(newClipX))
     clipPathRect.setAttribute('y', String(newClipY))
     clipPathRect.setAttribute('width', String(newClipWidth))
     clipPathRect.setAttribute('height', String(newClipHeight))
   } else {
-    console.warn('⚠️ clipPath#imageClip rect not found')
+    console.warn('âš ï¸ clipPath#imageClip rect not found')
   }
 
   // 12. Scale the wave paths to extend to the new SVG height
@@ -4823,7 +5359,7 @@ async function handleSizeChange(widthInches: number, heightInches: number) {
   const wavePaths = svgElement.querySelectorAll('path[fill="#FFCC29"], path[fill="url(#g1)"], path[fill="#507C95"], path[fill="#104C6E"]')
   if (wavePaths.length > 0) {
     const heightRatio = newViewBoxHeight / origHeight
-    console.log(`🌊 Scaling ${wavePaths.length} wave paths by height ratio: ${heightRatio.toFixed(2)}`)
+    console.log(`ðŸŒŠ Scaling ${wavePaths.length} wave paths by height ratio: ${heightRatio.toFixed(2)}`)
     
     wavePaths.forEach((path, index) => {
       const d = path.getAttribute('d')
@@ -4858,7 +5394,7 @@ async function handleSizeChange(widthInches: number, heightInches: number) {
   if (heightDelta > 0) {
     // Move text down by only 30% of the height increase - enough to adjust but not too far
     const textOffset = heightDelta * 0.3
-    console.log(`📝 Repositioning text elements by ${textOffset.toFixed(1)}px (30% of ${heightDelta.toFixed(1)}px)`)
+    console.log(`ðŸ“ Repositioning text elements by ${textOffset.toFixed(1)}px (30% of ${heightDelta.toFixed(1)}px)`)
     
     // Move date text down slightly
     const dateTextEl = svgElement.querySelector('#date-text') as SVGTextElement
@@ -4866,7 +5402,7 @@ async function handleSizeChange(widthInches: number, heightInches: number) {
       const currentY = parseFloat(dateTextEl.getAttribute('y') || '1480')
       const newY = currentY + textOffset
       dateTextEl.setAttribute('y', String(newY))
-      console.log(`   Date text: y ${currentY} → ${newY}`)
+      console.log(`   Date text: y ${currentY} â†’ ${newY}`)
     }
     
     // Move courtesy text down slightly
@@ -4875,7 +5411,7 @@ async function handleSizeChange(widthInches: number, heightInches: number) {
       const currentY = parseFloat(courtesyTextEl.getAttribute('y') || '1600')
       const newY = currentY + textOffset
       courtesyTextEl.setAttribute('y', String(newY))
-      console.log(`   Courtesy text: y ${currentY} → ${newY}`)
+      console.log(`   Courtesy text: y ${currentY} â†’ ${newY}`)
     }
     
     // Move wedding names group down slightly
@@ -4890,7 +5426,7 @@ async function handleSizeChange(widthInches: number, heightInches: number) {
         const newY = currentY + textOffset
         const newTransform = transform.replace(/translate\([^)]+\)/, `translate(${currentX}, ${newY})`)
         weddingNamesGroup.setAttribute('transform', newTransform)
-        console.log(`   Names group: translate y ${currentY} → ${newY}`)
+        console.log(`   Names group: translate y ${currentY} â†’ ${newY}`)
       }
     }
   }
@@ -4902,7 +5438,7 @@ async function handleSizeChange(widthInches: number, heightInches: number) {
     bgImage.setAttribute('height', String(newViewBoxHeight))
     bgImage.setAttribute('x', '0')
     bgImage.setAttribute('y', '0')
-    console.log(`🎨 Updated background image to ${newViewBoxWidth}x${newViewBoxHeight}`)
+    console.log(`ðŸŽ¨ Updated background image to ${newViewBoxWidth}x${newViewBoxHeight}`)
   }
 
   // Force refresh
@@ -4914,1903 +5450,14 @@ async function handleSizeChange(widthInches: number, heightInches: number) {
   // Update the chat preview container with the resized SVG
   updateChatPreviewSVG()
 
-  console.log(`✅ Size change complete: ${widthInches}x${heightInches} inches`)
+  console.log(`âœ… Size change complete: ${widthInches}x${heightInches} inches`)
 }
 
 async function analyzeMessage(lastUserMessage: string) {
-  isAnalyzing.value = false
-
-  // Apply fuzzy text matching / spell correction + intent detection
-  const { corrected: correctedMessage, suggestions, intentResult } = correctSpelling(lastUserMessage)
-
-  // Log intent detection for debugging
-  console.log('🧠 Intent detected:', intentResult?.intent, 'confidence:', intentResult?.confidence, 'entities:', intentResult?.entities)
-
-  // If corrections were made, notify the user
-  if (suggestions.length > 0 && correctedMessage !== lastUserMessage) {
-    console.log('🔤 Spell corrections applied:', suggestions)
-    // Update the accumulated description with corrected text
-    if (!showWeddingStickerPreview.value) {
-      // Replace the last message in accumulated description with corrected version
-      const lastMsgIndex = accumulatedDescription.value.lastIndexOf(lastUserMessage)
-      if (lastMsgIndex !== -1) {
-        accumulatedDescription.value =
-          accumulatedDescription.value.substring(0, lastMsgIndex) +
-          correctedMessage +
-          accumulatedDescription.value.substring(lastMsgIndex + lastUserMessage.length)
-      }
-    }
-  }
-
-  const fullText = accumulatedDescription.value
-  const lowerMessage = correctedMessage.toLowerCase() // Use corrected message
-  const userName = authStore.user?.name || authStore.user?.email?.split('@')[0] || 'there'
-
-  let aiResponse = ''
-
-  // Handle intents with high confidence first (before state machine)
-  if (intentResult && intentResult.confidence >= 0.85) {
-    // Handle greeting intent
-    if (intentResult.intent === 'greeting') {
-      const hour = new Date().getHours()
-      let greetingType: 'morning' | 'afternoon' | 'evening' | 'general' = 'general'
-      if (hour >= 5 && hour < 12) greetingType = 'morning'
-      else if (hour >= 12 && hour < 17) greetingType = 'afternoon'
-      else if (hour >= 17 && hour < 21) greetingType = 'evening'
-      
-      // Check for salam
-      if (/\b(salam|assalam|salaam)\b/i.test(lowerMessage)) {
-        aiResponse = aiResponseHelper.pick(aiResponseHelper.greetings.salam)
-      } else {
-        aiResponse = aiResponseHelper.pick(aiResponseHelper.greetings[greetingType])
-      }
-      
-      chatMessages.value.push({
-        id: Date.now(),
-        text: aiResponse,
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
-      scrollToBottom()
-      return
-    }
-
-    // Handle thanks intent
-    if (intentResult.intent === 'thanks') {
-      aiResponse = aiResponseHelper.pick(aiResponseHelper.casual.thanks)
-      chatMessages.value.push({
-        id: Date.now(),
-        text: aiResponse,
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
-      scrollToBottom()
-      return
-    }
-
-    // Handle help request
-    if (intentResult.intent === 'help_request') {
-      aiResponse = `Hi ${userName}! Please provide your information.`
-      chatMessages.value.push({
-        id: Date.now(),
-        text: aiResponse,
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
-      scrollToBottom()
-      return
-    }
-  }
-  
-  // Handle color/design preference requests EARLY (before extraction attempts)
-  // This catches messages like "i want a purple design", "i need a blue sticker", etc.
-  const colorDesignPattern = /\b(?:i\s+)?(?:want|need|like|prefer|would\s+like)\s+(?:a\s+)?(?:purple|red|blue|green|yellow|pink|orange|black|white|gold|silver|brown|gray|grey|elegant|simple|modern|classic|beautiful|nice|fancy)\s*(?:color|colour|design|style|theme|sticker|background)?/i
-  const colorMentionPattern = /\b(purple|red|blue|green|yellow|pink|orange|black|white|gold|silver|brown|gray|grey)\s+(design|sticker|color|colour|theme|style|background)/i
-  const justColorRequest = /^i\s+want\s+(?:a\s+)?(purple|red|blue|green|yellow|pink|orange|black|white|gold|silver)\b/i
-  
-  if ((colorDesignPattern.test(lowerMessage) || colorMentionPattern.test(lowerMessage) || justColorRequest.test(lowerMessage)) && !showWeddingStickerPreview.value) {
-    // Extract the color mentioned
-    const colorMatch = lowerMessage.match(/\b(purple|red|blue|green|yellow|pink|orange|black|white|gold|silver|brown|gray|grey|elegant|simple|modern|classic)\b/i)
-    const colorPreference = colorMatch ? colorMatch[1] : 'custom'
-    
-    aiResponse = `Great choice! I'll use a ${colorPreference} style. Please provide your information.`
-    
-    chatMessages.value.push({
-      id: Date.now(),
-      text: aiResponse,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-    scrollToBottom()
-    return
-  }
-
-  // Handle intents with high confidence (continued)
-  if (intentResult && intentResult.confidence >= 0.85) {
-    // Handle cancel/restart intent
-    if (intentResult.intent === 'cancel') {
-      aiResponse = `No problem! Please provide your information.`
-      // Reset state
-      accumulatedDescription.value = ''
-      extractedInfo.value = { date: null, courtesy: null, size: null, names: { name1: null, name2: null } }
-      awaitingNameInput.value = false
-      awaitingPictureDecision.value = false
-      awaitingSizeDecision.value = false
-      headingStepComplete.value = false
-      pictureStepComplete.value = false
-      sizeStepComplete.value = false
-      showWeddingStickerPreview.value = false
-      preGeneratedImageFile.value = null
-      backgroundRemovalAlreadyHandled.value = false
-      // Reset background tracking for fresh variety
-      currentBackgroundIndex.value = -1
-      usedBackgroundsInSession.value = []
-      
-      chatMessages.value.push({
-        id: Date.now(),
-        text: aiResponse,
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
-      scrollToBottom()
-      return
-    }
-
-    // Handle download intent (only after preview is shown)
-    if (intentResult.intent === 'download' && showWeddingStickerPreview.value) {
-      aiResponse = `Great choice! Click the **Download** button below the preview to save your sticker. You can choose between SVG (for editing) or PNG (for printing/sharing)!`
-      chatMessages.value.push({
-        id: Date.now(),
-        text: aiResponse,
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
-      scrollToBottom()
-      return
-    }
-  }
-  
-  // Priority 1: Handle Image Choice (Multiple Uploads)
-  if (awaitingImageChoice.value) {
-    const wantsNew = lowerMessage.includes('new') || lowerMessage.includes('latest') || lowerMessage.includes('second') || lowerMessage.includes('yes')
-    const wantsFirst = lowerMessage.includes('first') || lowerMessage.includes('original') || lowerMessage.includes('no')
-
-    if (wantsNew && lastUploadedImage.value) {
-      preGeneratedImageFile.value = lastUploadedImage.value
-      uploadedImages.value.forEach(img => img.used = false)
-      const lastIndex = uploadedImages.value.length - 1
-      if (lastIndex >= 0) uploadedImages.value[lastIndex].used = true
-
-      aiResponse = "Perfect! I'll use the new picture you just uploaded!"
-    } else if (wantsFirst && uploadedImages.value.length > 0) {
-      preGeneratedImageFile.value = uploadedImages.value[0].file
-      uploadedImages.value[0].used = true
-
-      aiResponse = "Got it! I'll use the first picture you uploaded. Great choice!"
-    } else {
-      aiResponse = "Which image: 'new' or 'first'?"
-      chatMessages.value.push({
-        id: Date.now(),
-        text: aiResponse,
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
-      scrollToBottom()
-      return
-    }
-
-    awaitingImageChoice.value = false
-    pictureStepComplete.value = true
-
-    chatMessages.value.push({
-      id: Date.now(),
-      text: aiResponse,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-    scrollToBottom()
-
-    // Check if we have all info to proceed
-    const hasDate = /\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)|\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}/i.test(fullText)
-    const hasCourtesy = /(?:courtesy|from|by)/i.test(fullText)
-    const hasNames = /(?:and|&)/i.test(fullText) || extractNamesFromResponse(fullText).name1
-
-    if (hasNames && hasDate && hasCourtesy) {
-      // Proceed to size or generation
-      if (!sizeStepComplete.value) {
-        setTimeout(() => {
-          aiResponse = aiResponseHelper.pick(aiResponseHelper.sizeAsk)
-          awaitingSizeDecision.value = true
-          chatMessages.value.push({
-            id: Date.now(),
-            text: aiResponse,
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-        }, 500)
-      }
-    }
-    return
-  }
-
-  // Priority 1.5: Handle Title/Heading Confirmation
-  if (awaitingTitleConfirmation.value) {
-    const wantsAsTitle = lowerMessage.includes('yes') || lowerMessage.includes('use it') || lowerMessage.includes('ok') || lowerMessage === 'y'
-    const doesntWant = lowerMessage.includes('no') || lowerMessage === 'n'
-
-    if (wantsAsTitle && pendingTitle.value) {
-      customHeading.value = pendingTitle.value
-      headingStepComplete.value = true
-      awaitingTitleConfirmation.value = false
-      pendingTitle.value = null
-
-      // Check if we already have all other info (names, date, courtesy)
-      const hasAllInfo = extractedInfo.value.names.name1 && extractedInfo.value.date && extractedInfo.value.courtesy
-      
-      if (hasAllInfo) {
-        // All info present, proceed to picture step
-        if (!preGeneratedImageFile.value && !pictureStepComplete.value) {
-          aiResponse = `Perfect! Using "${customHeading.value}" as your heading. Would you like to add a picture to your design?`
-          awaitingPictureDecision.value = true
-        } else {
-          aiResponse = `Perfect! Using "${customHeading.value}" as your heading. Creating your design now...`
-          // Trigger generation after a short delay
-          setTimeout(() => generateWeddingPreview(), 300)
-        }
-      } else {
-        aiResponse = `Got it! Using "${customHeading.value}" as your heading. Now please provide your details.`
-      }
-    } else if (doesntWant) {
-      awaitingTitleConfirmation.value = false
-      pendingTitle.value = null
-      awaitingHeadingInput.value = true
-
-      aiResponse = "No problem! Please provide your heading."
-    } else {
-      // User typed something else - treat it as the actual heading
-      customHeading.value = lastUserMessage
-      headingStepComplete.value = true
-      awaitingTitleConfirmation.value = false
-      pendingTitle.value = null
-
-      // Check if we already have all other info (names, date, courtesy)
-      const hasAllInfo = extractedInfo.value.names.name1 && extractedInfo.value.date && extractedInfo.value.courtesy
-      
-      if (hasAllInfo) {
-        // All info present, proceed to picture step
-        if (!preGeneratedImageFile.value && !pictureStepComplete.value) {
-          aiResponse = `Perfect! Using "${customHeading.value}" as your heading. Would you like to add a picture to your design?`
-          awaitingPictureDecision.value = true
-        } else {
-          aiResponse = `Perfect! Using "${customHeading.value}" as your heading. Creating your design now...`
-          // Trigger generation after a short delay
-          setTimeout(() => generateWeddingPreview(), 300)
-        }
-      } else {
-        aiResponse = `Got it! Using "${customHeading.value}" as your heading. Now please provide your details.`
-      }
-    }
-
-    chatMessages.value.push({
-      id: Date.now(),
-      text: aiResponse,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-    scrollToBottom()
-    return
-  }
-  
-  // Priority 2: Handle Date Change Confirmation (Post-Generation)
-  if (awaitingDateChange.value) {
-    if (lowerMessage.includes('yes') || lowerMessage.includes('change') || lowerMessage.includes('update')) {
-      if (pendingDateUpdate.value) {
-        // Update the accumulated description
-        const oldDate = extractedInfo.value.date
-        if (oldDate) {
-          accumulatedDescription.value = accumulatedDescription.value.replace(oldDate, pendingDateUpdate.value)
-        } else {
-          accumulatedDescription.value += ' ' + pendingDateUpdate.value
-        }
-
-        extractedInfo.value.date = pendingDateUpdate.value
-        formData.description = accumulatedDescription.value
-
-        // Update the SVG without regenerating
-        await processDescriptionInput()
-
-        aiResponse = `Done! Date updated to ${pendingDateUpdate.value}!`
-      }
-    } else {
-      aiResponse = "Okay! I'll keep the original date."
-    }
-
-    awaitingDateChange.value = false
-    pendingDateUpdate.value = null
-
-    chatMessages.value.push({
-      id: Date.now(),
-      text: aiResponse,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-    scrollToBottom()
-    return
-  }
-
-  // Priority 3: Handle Courtesy Change Confirmation (Post-Generation)
-  if (awaitingCourtesyChange.value) {
-    if (lowerMessage.includes('yes') || lowerMessage.includes('change') || lowerMessage.includes('update')) {
-      if (pendingCourtesyUpdate.value) {
-        // Update the accumulated description
-        const oldCourtesy = extractedInfo.value.courtesy
-        if (oldCourtesy) {
-          accumulatedDescription.value = accumulatedDescription.value.replace(oldCourtesy, pendingCourtesyUpdate.value)
-        } else {
-          accumulatedDescription.value += ' ' + pendingCourtesyUpdate.value
-        }
-
-        extractedInfo.value.courtesy = pendingCourtesyUpdate.value
-        formData.description = accumulatedDescription.value
-
-        // Update the SVG without regenerating
-        await processDescriptionInput()
-
-        aiResponse = `Done! Courtesy message updated! Looking great!`
-      }
-    } else {
-      aiResponse = "Okay! I'll keep the original courtesy message."
-    }
-
-    awaitingCourtesyChange.value = false
-    pendingCourtesyUpdate.value = null
-
-    chatMessages.value.push({
-      id: Date.now(),
-      text: aiResponse,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-    scrollToBottom()
-    return
-  }
-
-  // Priority 3.5: Handle Courtesy Input Confirmation (when AI asked for courtesy and user responds)
-  if (awaitingCourtesyInput.value) {
-    // Check if user is confirming the pending courtesy text
-    const isConfirmingYes = /^(yes|yeah|yep|sure|ok|okay|correct|right|that'?s? (it|right|correct)|exactly)$/i.test(lowerMessage.trim())
-    const isConfirmingNo = /^(no|nope|nah|wrong|not that|change it)$/i.test(lowerMessage.trim())
-    
-    if (pendingCourtesyText.value && isConfirmingYes) {
-      // User confirmed the courtesy text
-      extractedInfo.value.courtesy = pendingCourtesyText.value
-      accumulatedDescription.value += ` courtesy: ${pendingCourtesyText.value}`
-      
-      awaitingCourtesyInput.value = false
-      pendingCourtesyText.value = null
-      
-      aiResponse = `Perfect! I'll use "${extractedInfo.value.courtesy}" as the courtesy. `
-      
-      // Check what's next
-      if (!preGeneratedImageFile.value && !pictureStepComplete.value) {
-        aiResponse += 'Would you like to add a photo?'
-        awaitingPictureDecision.value = true
-      } else if (!sizeStepComplete.value) {
-        aiResponse += "What size would you like? (e.g., '3x3' or 'default' for 4x4)"
-        awaitingSizeDecision.value = true
-      }
-      
-      chatMessages.value.push({
-        id: Date.now(),
-        text: aiResponse,
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
-      scrollToBottom()
-      return
-    } else if (pendingCourtesyText.value && isConfirmingNo) {
-      // User said no, ask for the correct courtesy
-      pendingCourtesyText.value = null
-      aiResponse = "No problem! Please provide the correct courtesy name."
-      
-      chatMessages.value.push({
-        id: Date.now(),
-        text: aiResponse,
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
-      scrollToBottom()
-      return
-    } else {
-      // User provided new text - either accept it directly or ask for confirmation
-      const trimmedMessage = lastUserMessage.trim()
-      
-      // Check if it looks like a courtesy (has family, or is just a name)
-      const looksLikeCourtesy = trimmedMessage.length >= 3 && 
-        !trimmedMessage.match(/^(yes|no|ok|hi|hello|hey|help)/i)
-      
-      if (looksLikeCourtesy) {
-        // Check if they included "courtesy:" prefix - if so, extract and use directly
-        const explicitCourtesy = extractCourtesyFromText(trimmedMessage)
-        if (explicitCourtesy) {
-          extractedInfo.value.courtesy = explicitCourtesy
-          accumulatedDescription.value += ` courtesy: ${explicitCourtesy}`
-          awaitingCourtesyInput.value = false
-          pendingCourtesyText.value = null
-          
-          aiResponse = `Got it! Courtesy set to "${explicitCourtesy}". `
-          
-          // Check what's next
-          if (!preGeneratedImageFile.value && !pictureStepComplete.value) {
-            aiResponse += 'Would you like to add a photo?'
-            awaitingPictureDecision.value = true
-          } else if (!sizeStepComplete.value) {
-            aiResponse += "What size would you like? (e.g., '3x3' or 'default' for 4x4)"
-            awaitingSizeDecision.value = true
-          }
-          
-          chatMessages.value.push({
-            id: Date.now(),
-            text: aiResponse,
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-          return
-        } else {
-          // No explicit courtesy prefix - ask for confirmation
-          pendingCourtesyText.value = trimmedMessage
-          aiResponse = `Is "${trimmedMessage}" the courtesy you want to use? (yes/no)`
-          
-          chatMessages.value.push({
-            id: Date.now(),
-            text: aiResponse,
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-          return
-        }
-      }
-    }
-  }
-
-  // Priority 3.75: Handle Heading Input AFTER preview is shown
-  // When user says "change heading" we set awaitingHeadingInput, but we must consume the next message here.
-  if (showWeddingStickerPreview.value && awaitingHeadingInput.value) {
-    const trimmed = lastUserMessage.trim()
-    const wantsDefault = /^(default|keep|original|skip|no|no thanks)$/i.test(trimmed)
-
-    awaitingHeadingInput.value = false
-    headingStepComplete.value = true
-
-    if (wantsDefault) {
-      customHeading.value = null
-      aiResponse = "Okay — keeping the default heading."
-    } else if (trimmed.length >= 2) {
-      customHeading.value = trimmed
-      aiResponse = `Done! Heading updated to "${customHeading.value}".`
-    } else {
-      aiResponse = "Please type the heading you want to use, or say 'default'."
-      awaitingHeadingInput.value = true
-    }
-
-    // Update the SVG without regenerating the whole design
-    if (!awaitingHeadingInput.value) {
-      await processDescriptionInput()
-      await nextTick()
-      updateChatPreviewSVG()
-    }
-
-    chatMessages.value.push({
-      id: Date.now(),
-      text: aiResponse,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-    scrollToBottom()
-    return
-  }
-  
-  // Priority 4: Handle Name Input (After AI asks for name)
-  if (awaitingNameInput.value) {
-    const extracted = extractNamesFromResponse(lastUserMessage)
-    const extractedDate = extractDateFromText(lastUserMessage)
-    const extractedCourtesy = extractCourtesyFromText(lastUserMessage)
-    
-    if (extracted.name1) {
-      // Build the description with extracted info
-      const descriptionParts: string[] = []
-
-      // Add names IN BRACKET FORMAT so updateStickerText can extract them
-      if (extracted.name2) {
-        descriptionParts.push(`(${extracted.name1} and ${extracted.name2})`)
-        aiResponse = `Great! I have ${extracted.name1} and ${extracted.name2}.`
-      } else {
-        descriptionParts.push(`(${extracted.name1})`)
-        aiResponse = `Got it! I have ${extracted.name1}.`
-      }
-
-      if (extractedDate) {
-        descriptionParts.push(extractedDate)
-        aiResponse += ` Date: ${extractedDate}.`
-      }
-
-      if (extractedCourtesy) {
-        descriptionParts.push(extractedCourtesy)
-        aiResponse += ` ${extractedCourtesy}.`
-      }
-
-      // Update accumulated description
-      accumulatedDescription.value += (accumulatedDescription.value ? ' ' : '') + descriptionParts.join(' ')
-      
-      // Store extracted info
-      extractedInfo.value.names = extracted
-      if (extractedDate) extractedInfo.value.date = extractedDate
-      if (extractedCourtesy) extractedInfo.value.courtesy = extractedCourtesy
-      
-      // Check for size in the message
-      const extractedSize = extractSizeFromText(lastUserMessage)
-      if (extractedSize) {
-        extractedInfo.value.size = extractedSize
-        formData.customSize = extractedSize
-      }
-      
-      awaitingNameInput.value = false
-      nameExtractionAttempts.value = 0
-      
-      // Check what info we still need based on extractedInfo (not fullText)
-      const needsDate = !extractedInfo.value.date
-      const needsCourtesy = !extractedInfo.value.courtesy
-      
-      // SINGLE COMBINED RESPONSE - no more conflicting setTimeout messages
-      if (needsDate || needsCourtesy) {
-        // We still need date or courtesy - add to the same response
-        const missing: string[] = []
-        if (needsDate) missing.push('date')
-        if (needsCourtesy) missing.push('courtesy')
-        aiResponse += ` Please also provide ${missing.join(' and ')}.`
-      } else {
-        // Has everything (names, date, courtesy)
-        if (!preGeneratedImageFile.value && !pictureStepComplete.value) {
-          aiResponse += ` Add a picture?`
-          awaitingPictureDecision.value = true
-        } else {
-          // Has picture too, ask about size or proceed
-          pictureStepComplete.value = true
-          if (!extractedInfo.value.size && !sizeStepComplete.value) {
-            aiResponse += ` What size would you like the sticker to be? (e.g., say '3x3' for inches, or 'default' for 4x4)`
-            awaitingSizeDecision.value = true
-          } else {
-            // Has everything including size, generate!
-            aiResponse += ` Let me create your sticker now!`
-            formData.description = accumulatedDescription.value
-            setTimeout(() => generateWeddingPreview(), 300)
-          }
-        }
-      }
-      
-      chatMessages.value.push({
-        id: Date.now(),
-        text: aiResponse,
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
-      scrollToBottom()
-      return
-    } else {
-      // Failed to extract name
-      nameExtractionAttempts.value++
-
-      if (nameExtractionAttempts.value >= 2) {
-        aiResponse = "I couldn't find the names. Please use a format like: 'John and Mary' or 'Sarah & Ahmed'."
-      } else {
-        aiResponse = "I couldn't quite catch the names. Please type them like this: 'John and Mary' or 'Fatima & Ahmed'."
-      }
-
-      chatMessages.value.push({
-        id: Date.now(),
-        text: aiResponse,
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
-      scrollToBottom()
-      return
-    }
-  }
-
-  // Handle Image Update Confirmation (Post-Generation)
-  if (awaitingImageUpdateConfirmation.value) {
-    if (lowerMessage === 'yes' || lowerMessage.includes('yes please') || lowerMessage.includes('sure') || lowerMessage.includes('ok')) {
-       aiResponse = "Great! Updating your sticker with the new picture..."
-
-       // Apply the image
-       if (pendingImageFile.value && weddingPreviewContainer.value) {
-          const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
-          if (svgElement) {
-             await svgImageManager.addImage(pendingImageFile.value, svgElement)
-             updateSVGWithImages()
-          }
-       }
-       pendingImageFile.value = null
-    } else {
-       aiResponse = "Okay, I'll skip that picture."
-       pendingImageFile.value = null
-    }
-    awaitingImageUpdateConfirmation.value = false
-    
-    chatMessages.value.push({
-      id: Date.now(),
-      text: aiResponse,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-    scrollToBottom()
-    return
-  }
-
-  // Handle Background Removal Decision - NEW FLOW: Remove BG first, THEN crop
-  if (awaitingBackgroundRemovalDecision.value) {
-    const wantsRemoval = lowerMessage === 'yes' || lowerMessage.includes('yes please') || lowerMessage.includes('remove')
-
-    awaitingBackgroundRemovalDecision.value = false
-
-    if (!pendingImageFile.value) {
-      aiResponse = "No image found! Please upload an image first."
-      chatMessages.value.push({
-        id: Date.now(),
-        text: aiResponse,
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
-      scrollToBottom()
-      return
-    }
-
-    if (wantsRemoval) {
-      // User wants background removal - run it FIRST, then open crop modal
-      aiResponse = "Perfect! Removing the background now... This may take a few seconds."
-      chatMessages.value.push({
-        id: Date.now(),
-        text: aiResponse,
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
-      scrollToBottom()
-
-      try {
-        // Run background removal
-        const result = await removeBackground(pendingImageFile.value, {
-          quality: 'high',
-          outputFormat: 'image/png',
-          onProgress: (prog) => {
-            console.log(`🖼️ Background removal progress: ${Math.round(prog * 100)}%`)
-          }
-        })
-
-        // Result contains blob directly (no success property)
-        if (result.blob) {
-          // Create a new file from the background-removed image
-          const bgRemovedFile = new File([result.blob], pendingImageFile.value!.name.replace(/\.[^/.]+$/, '_nobg.png'), {
-            type: 'image/png',
-            lastModified: Date.now()
-          })
-
-          // Set background removal flag so it's NOT done again at generation
-          autoRemoveBackground.value = false
-          backgroundRemovalAlreadyHandled.value = true // Mark BG removal as done
-
-          // Open crop modal with the background-removed image
-          cropImageSrc.value = URL.createObjectURL(result.blob)
-          cropImageFile.value = bgRemovedFile
-          isPreGenerationCrop.value = true
-          showCropModal.value = true
-
-          // Clear pending image
-          pendingImageFile.value = null
-
-          chatMessages.value.push({
-            id: Date.now(),
-            text: "Background removed! Now you can crop your image to fit perfectly.",
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-        } else {
-          throw new Error('Background removal failed - no result')
-        }
-      } catch (error) {
-        console.error('Background removal failed:', error)
-
-        // Fall back to opening crop modal with original image
-        if (!pendingImageFile.value) return
-        cropImageSrc.value = URL.createObjectURL(pendingImageFile.value)
-        cropImageFile.value = pendingImageFile.value
-        isPreGenerationCrop.value = true
-        showCropModal.value = true
-        pendingImageFile.value = null
-
-        chatMessages.value.push({
-          id: Date.now(),
-          text: "Sorry, background removal didn't work this time. You can still crop your image!",
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        })
-        scrollToBottom()
-      }
-      return
-    } else {
-      // User doesn't want background removal - use the already cropped image directly
-      autoRemoveBackground.value = false
-      backgroundRemovalAlreadyHandled.value = true // Mark BG decision as made (they said no)
-
-      // The image was already cropped, so use it directly for generation
-      if (pendingImageFile.value) {
-        preGeneratedImageFile.value = pendingImageFile.value
-        pictureStepComplete.value = true
-        pendingImageFile.value = null
-
-        // Check if we have all info to proceed
-        const hasAllInfo = extractedInfo.value.names.name1 && extractedInfo.value.date && extractedInfo.value.courtesy
-        const hasSize = sizeStepComplete.value || extractedInfo.value.size
-        
-        if (hasAllInfo && hasSize) {
-          // Has everything - generate!
-          chatMessages.value.push({
-            id: Date.now(),
-            text: "Perfect! Your image is ready! Let me create your sticker now! 🎨",
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-          formData.description = accumulatedDescription.value
-          setTimeout(() => generateWeddingPreview(), 300)
-        } else if (hasAllInfo && !sizeStepComplete.value) {
-          // Has names, date, courtesy but needs size
-          chatMessages.value.push({
-            id: Date.now(),
-            text: "Perfect! Your image is ready! 📸\n\nWhat size would you like the sticker? (e.g., '3x3' or 'default' for 4x4 inches)",
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          awaitingSizeDecision.value = true
-          scrollToBottom()
-        } else {
-          // Still missing some info
-          chatMessages.value.push({
-            id: Date.now(),
-            text: "Perfect! Your image is ready! 📸\n\n💡 **Tip:** You can drag the image to reposition it after the design is generated!",
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-        }
-      }
-      return
-    }
-  }
-
-  // Check for required fields ONLY if preview hasn't been generated yet
-  // After generation, all messages are just chat responses
-  if (showWeddingStickerPreview.value) {
-    // Handle "generate another" / "new background" / "another design" requests
-    const generateAnotherPatterns = /\b(generate\s+another|another\s+(design|one|version)|new\s+background|different\s+background|change\s+background|try\s+another|next\s+(design|one)|random\s+background)\b/i
-    if (generateAnotherPatterns.test(lowerMessage)) {
-      // Deduct tokens for background change (10 tokens)
-      const canProceed = await deductTokensForAction(TOKEN_COST_CHANGE_BACKGROUND, 'Change background')
-      if (!canProceed) {
-        chatMessages.value.push({
-          id: Date.now(),
-          text: "Sorry, you don't have enough tokens to change the background. Please purchase more tokens to continue.",
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        })
-        scrollToBottom()
-        isAnalyzing.value = false
-        return
-      }
-      
-      // Get a random background and apply it
-      const randomBackground = getRandomBackground()
-      
-      if (randomBackground) {
-        // Show loading spinner message
-        isGeneratingNewBackground.value = true
-        const loadingResponse = '🎨 Generating a new background design... Please wait!'
-        chatMessages.value.push({
-          id: Date.now(),
-          text: loadingResponse,
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          isLoading: true
-        })
-        scrollToBottom()
-        
-        // Wait 6 seconds with loading spinner then apply background
-        await new Promise(resolve => setTimeout(resolve, 6000))
-        
-        await applyNewBackground(randomBackground)
-        isGeneratingNewBackground.value = false
-        
-        // Remove loading message and add completion message
-        const loadingMsgIndex = chatMessages.value.findIndex(m => m.isLoading)
-        if (loadingMsgIndex !== -1) {
-          chatMessages.value.splice(loadingMsgIndex, 1)
-        }
-        
-        const bgName = randomBackground.replace(/\.[^/.]+$/, '').replace(/-/g, ' ')
-        const aiResponse = `Done! I've applied a new background design: "${bgName}". 🎨\n\nWant me to try another one? Just say "generate another"!`
-        chatMessages.value.push({
-          id: Date.now(),
-          text: aiResponse,
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        })
-      } else {
-        const aiResponse = "Sorry, I couldn't find any background templates. Please add some background images to the /svg/background folder."
-        chatMessages.value.push({
-          id: Date.now(),
-          text: aiResponse,
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        })
-      }
-      scrollToBottom()
-      isAnalyzing.value = false
-      return
-    }
-
-    // Check if user explicitly wants to change something (direct update without confirmation)
-    const wantsToChange = lowerMessage.includes('change') || lowerMessage.includes('update') ||
-                          lowerMessage.includes('replace') || lowerMessage.includes('make it') ||
-                          lowerMessage.includes('set the') || lowerMessage.includes('use')
-    
-    // ONLY extract and check for changes if user explicitly wants to change something
-    if (wantsToChange) {
-      const newDate = extractDateFromText(lastUserMessage)
-      const newCourtesy = extractCourtesyFromText(lastUserMessage)
-      
-      // IMPORTANT: Check date FIRST before names to prevent "change the date" extracting "Change" as a name
-      // Handle direct date changes
-      if (newDate && newDate !== extractedInfo.value.date) {
-        // Deduct tokens for date change (5 tokens)
-        const canProceed = await deductTokensForAction(TOKEN_COST_EDIT_TEXT, 'Change date')
-        if (!canProceed) {
-          chatMessages.value.push({
-            id: Date.now(),
-            text: "Sorry, you don't have enough tokens to make this change. Please purchase more tokens to continue editing.",
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-          return
-        }
-        
-        // Direct update - user explicitly wants to change date
-        const oldDate = extractedInfo.value.date
-        if (oldDate) {
-          accumulatedDescription.value = accumulatedDescription.value.replace(oldDate, newDate)
-        } else {
-          accumulatedDescription.value += ' ' + newDate
-        }
-        extractedInfo.value.date = newDate
-        formData.description = accumulatedDescription.value
-        
-        // Update SVG with new date
-        await processDescriptionInput()
-        
-        // Format the date with "on" prefix if not already present
-        const formattedDate = newDate.toLowerCase().startsWith('on ') ? newDate : `on ${newDate}`
-        
-        // Update the master SVG in weddingPreviewContainer
-        const masterSvgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
-        if (masterSvgElement) {
-          const dateTextEl = masterSvgElement.querySelector('#date-text') as SVGTextElement
-          if (dateTextEl) {
-            dateTextEl.textContent = formattedDate
-            console.log('📅 Master SVG date updated:', formattedDate)
-          }
-        }
-        
-        // ALSO update the cloned SVG in chatPreviewContainer for immediate visual feedback
-        const previewContainers = Array.isArray(chatPreviewContainer.value) 
-          ? chatPreviewContainer.value 
-          : (chatPreviewContainer.value ? [chatPreviewContainer.value] : [])
-        
-        previewContainers.forEach((container) => {
-          if (container) {
-            const chatSvg = container.querySelector('svg') as SVGSVGElement
-            if (chatSvg) {
-              const chatDateEl = chatSvg.querySelector('#date-text') as SVGTextElement
-              if (chatDateEl) {
-                chatDateEl.textContent = formattedDate
-                console.log('📅 Chat preview SVG date updated:', formattedDate)
-              }
-            }
-          }
-        })
-
-        const aiResponse = `Done! I've updated the date to ${newDate}. Your design has been refreshed!`
-        chatMessages.value.push({
-          id: Date.now(),
-          text: aiResponse,
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        })
-        scrollToBottom()
-        return
-      }
-
-      // Handle direct courtesy changes - normalize both for comparison to avoid repeated updates
-      const normalizeCourtesy = (c: string | null) => c?.toLowerCase().replace(/courtesy[:\s]*/i, '').replace(/\s+/g, ' ').trim() || ''
-      const normalizedNew = normalizeCourtesy(newCourtesy)
-      const normalizedExisting = normalizeCourtesy(extractedInfo.value.courtesy)
-      
-      if (newCourtesy && normalizedNew !== normalizedExisting) {
-        // Deduct tokens for courtesy change (5 tokens)
-        const canProceed = await deductTokensForAction(TOKEN_COST_EDIT_TEXT, 'Change courtesy')
-        if (!canProceed) {
-          chatMessages.value.push({
-            id: Date.now(),
-            text: "Sorry, you don't have enough tokens to make this change. Please purchase more tokens to continue editing.",
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-          return
-        }
-        
-        // Direct update - user explicitly wants to change courtesy
-        const oldCourtesy = extractedInfo.value.courtesy
-        if (oldCourtesy) {
-          accumulatedDescription.value = accumulatedDescription.value.replace(oldCourtesy, newCourtesy)
-        } else {
-          accumulatedDescription.value += ' ' + newCourtesy
-        }
-        extractedInfo.value.courtesy = newCourtesy
-        formData.description = accumulatedDescription.value
-        
-        // Update SVG with new courtesy
-        await processDescriptionInput()
-        
-        // Format with "Courtesy:" prefix if not already present
-        const formattedCourtesy = newCourtesy.toLowerCase().startsWith('courtesy') ? newCourtesy : `Courtesy: ${newCourtesy}`
-        
-        // Update the master SVG in weddingPreviewContainer
-        const masterSvgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
-        if (masterSvgElement) {
-          const courtesyTextEl = masterSvgElement.querySelector('#courtesy-text') as SVGTextElement
-          if (courtesyTextEl) {
-            courtesyTextEl.textContent = formattedCourtesy
-            console.log('🎭 Master SVG courtesy updated:', formattedCourtesy)
-          }
-        }
-        
-        // ALSO update the cloned SVG in chatPreviewContainer for immediate visual feedback
-        const previewContainers = Array.isArray(chatPreviewContainer.value) 
-          ? chatPreviewContainer.value 
-          : (chatPreviewContainer.value ? [chatPreviewContainer.value] : [])
-        
-        previewContainers.forEach((container) => {
-          if (container) {
-            const chatSvg = container.querySelector('svg') as SVGSVGElement
-            if (chatSvg) {
-              const chatCourtesyEl = chatSvg.querySelector('#courtesy-text') as SVGTextElement
-              if (chatCourtesyEl) {
-                chatCourtesyEl.textContent = formattedCourtesy
-                console.log('🎭 Chat preview SVG courtesy updated:', formattedCourtesy)
-              }
-            }
-          }
-        })
-
-        const aiResponse = `Done! I've updated the courtesy to "${newCourtesy}". Your design has been refreshed!`
-        chatMessages.value.push({
-          id: Date.now(),
-          text: aiResponse,
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        })
-        scrollToBottom()
-        return
-      }
-
-      // Handle picture/photo/image change requests - BEFORE name extraction
-      // to prevent "i want to change the picture" from extracting "To" as a name
-      if (lowerMessage.includes('picture') || lowerMessage.includes('photo') || lowerMessage.includes('image')) {
-        const aiResponse = 'Sure! Please upload the new picture you want to use. Just click the image button or paste an image!'
-        chatMessages.value.push({
-          id: Date.now(),
-          text: aiResponse,
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        })
-        scrollToBottom()
-        return
-      }
-
-      // Handle "change the name" requests - check if user is ASKING to change names without providing them
-      // Patterns like: "i want to change the name", "change the name", "update the names"
-      const isAskingToChangeName = /\b(change|update|edit|modify)\s+(the\s+)?(name|names)\b/i.test(lastUserMessage) &&
-        !/\b(change|update|edit|modify)\s+(the\s+)?(name|names)\s+(to|from)\s+[A-Z]/i.test(lastUserMessage)
-      
-      if (isAskingToChangeName) {
-        // User wants to change names but hasn't provided new names yet - ask for them
-        const aiResponse = 'What are the new names?'
-        awaitingNameInput.value = true
-        chatMessages.value.push({
-          id: Date.now(),
-          text: aiResponse,
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        })
-        scrollToBottom()
-        return
-      }
-
-      // Handle direct name changes - ONLY if no date, courtesy, or picture was detected
-      // This prevents "change the date" or "change the picture" from extracting random words as names
-      const newNames = extractNamesFromResponse(lastUserMessage)
-      if (newNames.name1) {
-        // Deduct tokens for name change (5 tokens)
-        const canProceed = await deductTokensForAction(TOKEN_COST_EDIT_TEXT, 'Change names')
-        if (!canProceed) {
-          chatMessages.value.push({
-            id: Date.now(),
-            text: "Sorry, you don't have enough tokens to make this change. Please purchase more tokens to continue editing.",
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-          return
-        }
-        
-        // Direct update - user explicitly wants to change names
-        extractedInfo.value.names = newNames
-        
-        // Update accumulated description to include names in a format extractNames can detect
-        // This ensures the decorative SVG system will pick up the new names
-        if (newNames.name2) {
-          // Try to replace existing name patterns (both with and without brackets)
-          const bracketPattern = /\([^)]*(?:&|and)[^)]*\)/gi
-          const plainPattern = /\b[A-Z][a-z]+\s*(?:&|and)\s*[A-Z][a-z]+\b/gi
-          const newNameString = `(${newNames.name1} & ${newNames.name2})`
-          
-          if (bracketPattern.test(accumulatedDescription.value)) {
-            accumulatedDescription.value = accumulatedDescription.value.replace(bracketPattern, newNameString)
-          } else if (plainPattern.test(accumulatedDescription.value)) {
-            accumulatedDescription.value = accumulatedDescription.value.replace(plainPattern, newNameString)
-          } else {
-            // No existing name pattern found - append names to description
-            accumulatedDescription.value += ` ${newNameString}`
-          }
-          console.log('📝 Updated accumulated description with new names:', accumulatedDescription.value)
-        }
-        await processDescriptionInput()
-        
-        // Note: Don't directly update SVG textContent here - let processDescriptionInput handle it
-        // through the decorative SVG system to preserve fonts
-        
-        // Just sync the chat preview after processDescriptionInput has updated the main SVG
-        await nextTick()
-        updateChatPreviewSVG()
-
-        const aiResponse = `Done! I've updated the names to ${newNames.name1}${newNames.name2 ? ` and ${newNames.name2}` : ''}. Your design has been refreshed!`
-        chatMessages.value.push({
-          id: Date.now(),
-          text: aiResponse,
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        })
-        scrollToBottom()
-        return
-      }
-    }
-    
-    // Preview is already shown - handle as chat message only
-    // Provide contextual AI response based on message content
-    // Note: aiResponse is already declared at the function level
-
-    if (lowerMessage.includes('change') || lowerMessage.includes('update') || lowerMessage.includes('edit')) {
-      // Smart change detection - check what specifically they want to change
-      if (lowerMessage.includes('picture') || lowerMessage.includes('photo') || lowerMessage.includes('image')) {
-        aiResponse = 'Upload the new picture.'
-      } else if (lowerMessage.includes('date')) {
-        aiResponse = 'What\'s the new date?'
-      } else if (lowerMessage.includes('name')) {
-        aiResponse = 'What are the new names?'
-        awaitingNameInput.value = true
-      } else if (lowerMessage.includes('courtesy') || lowerMessage.includes('from')) {
-        aiResponse = 'What\'s the new courtesy?'
-      } else if (lowerMessage.includes('size')) {
-        aiResponse = 'What size would you like?'
-        awaitingSizeDecision.value = true
-      } else if (lowerMessage.includes('heading') || lowerMessage.includes('title')) {
-        aiResponse = 'What should the heading say?'
-        awaitingHeadingInput.value = true
-      } else {
-        aiResponse = 'What would you like to change?'
-      }
-    } else if (lowerMessage.includes('download') || lowerMessage.includes('save')) {
-      aiResponse = 'Click the Download button below the preview!'
-    } else if (lowerMessage.includes('thank') || lowerMessage.includes('great') || lowerMessage.includes('perfect')) {
-      aiResponse = aiResponseHelper.pick(aiResponseHelper.casual.thanks)
-    } else {
-      aiResponse = 'Your design is ready!'
-    }
-    
-    chatMessages.value.push({
-      id: Date.now(),
-      text: aiResponse,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-    scrollToBottom()
-    isAnalyzing.value = false
-    return
-  }
-  
-  // Check what we have so far using extractedInfo
-  const hasNames = extractedInfo.value.names.name1 !== null
-  const hasDate = extractedInfo.value.date !== null
-  const hasCourtesy = extractedInfo.value.courtesy !== null
-  
-  // 1. Check for COMPLETE details first
-  if (hasNames && hasDate && hasCourtesy) {
-    // Step 0: Handle Custom Heading (NEW - Ask before picture)
-    if (!headingStepComplete.value) {
-      // Font choice step removed - using default font
-      if (awaitingHeadingInput.value) {
-        // User is providing a custom heading
-        const wantsDefault = lowerMessage.includes('default') || lowerMessage.includes('keep') ||
-                            lowerMessage.includes('original') || lowerMessage.includes('skip') ||
-                            lowerMessage === 'no' || lowerMessage.includes('no thanks')
-
-        if (wantsDefault) {
-          customHeading.value = null // Keep default
-          aiResponse = "No problem! I'll keep the default heading."
-          awaitingHeadingInput.value = false
-          headingStepComplete.value = true
-        } else if (lastUserMessage.trim().length > 3) {
-          // User provided a custom heading
-          customHeading.value = lastUserMessage.trim()
-          awaitingHeadingInput.value = false
-          headingStepComplete.value = true
-          
-          // Proceed to picture step immediately
-          if (!preGeneratedImageFile.value && !pictureStepComplete.value) {
-            aiResponse = `Perfect! Using "${customHeading.value}" as your heading. Would you like to add a picture to your design?`
-            awaitingPictureDecision.value = true
-            chatMessages.value.push({
-              id: Date.now(),
-              text: aiResponse,
-              sender: 'ai',
-              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            })
-            scrollToBottom()
-            return
-          } else {
-            aiResponse = `Perfect! Using "${customHeading.value}" as your heading. Creating your design now...`
-            chatMessages.value.push({
-              id: Date.now(),
-              text: aiResponse,
-              sender: 'ai',
-              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            })
-            scrollToBottom()
-            setTimeout(() => generateWeddingPreview(), 300)
-            return
-          }
-        } else {
-          aiResponse = "Please enter a heading for your sticker (e.g., 'Congratulations on your wedding!') or say 'default' to keep the original."
-          chatMessages.value.push({
-            id: Date.now(),
-            text: aiResponse,
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-          return
-        }
-
-        chatMessages.value.push({
-          id: Date.now(),
-          text: aiResponse,
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        })
-        scrollToBottom()
-        // Fall through to picture step
-      } else {
-        // First time - ask about custom heading
-        if (!showWeddingStickerPreview.value) {
-          aiResponse = `${aiResponseHelper.pick(aiResponseHelper.confirmations)} Would you like a custom heading? (or say 'default')`
-          awaitingHeadingInput.value = true
-
-          chatMessages.value.push({
-            id: Date.now(),
-            text: aiResponse,
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-          return
-        }
-      }
-    }
-
-    // Step 1: Handle Picture Decision
-    // Check if we already have a picture uploaded (via UI or previous chat)
-    if (preGeneratedImageFile.value) {
-      pictureStepComplete.value = true
-    }
-
-    if (!pictureStepComplete.value) {
-      if (awaitingPictureDecision.value) {
-        const hasYes = lowerMessage.includes('yes') || lowerMessage.includes('yeah') || lowerMessage.includes('sure') || lowerMessage.includes('yep')
-        const hasNo = lowerMessage.includes('no') || lowerMessage.includes('nope') || lowerMessage.includes('not')
-
-        if (hasYes) {
-          aiResponse = `Great! Please upload your picture using the image button!`
-          awaitingPictureDecision.value = false
-          // We don't set pictureStepComplete to true here because we want them to actually upload it
-          // But we can set a flag to remind them if they try to proceed without it
-
-          chatMessages.value.push({
-            id: Date.now(),
-            text: aiResponse,
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-          return
-        } else if (hasNo) {
-          aiResponse = `No problem! We'll continue without a picture. It will still look great!`
-          awaitingPictureDecision.value = false
-          pictureStepComplete.value = true
-          askedQuestions.value.picture = true
-
-          chatMessages.value.push({
-            id: Date.now(),
-            text: aiResponse,
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-
-          // Fall through to next step (Size)
-        } else {
-          // Unclear response - but don't ask repeatedly
-          if (!askedQuestions.value.picture) {
-            aiResponse = "Please answer Yes or No! Do you have a picture you'd like to use?"
-            askedQuestions.value.picture = true
-          } else {
-            // Already asked twice, proceed without picture
-            aiResponse = "No worries! Let's continue without a picture."
-            awaitingPictureDecision.value = false
-            pictureStepComplete.value = true
-          }
-          chatMessages.value.push({
-            id: Date.now(),
-            text: aiResponse,
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-          if (!pictureStepComplete.value) return
-        }
-      } else {
-        // Ask about picture if not already asked - PREVENT REPETITION
-        if (!showWeddingStickerPreview.value && !askedQuestions.value.picture) {
-          aiResponse = `Would you like to add a picture to your design? 📸`
-          awaitingPictureDecision.value = true
-          askedQuestions.value.picture = true
-
-          chatMessages.value.push({
-            id: Date.now(),
-            text: aiResponse,
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-          return
-        } else if (!showWeddingStickerPreview.value) {
-          // Already asked about picture, skip to size
-          pictureStepComplete.value = true
-        }
-      }
-    }
-
-    // Step 2: Handle Size Decision (skip if already provided) - PREVENT REPETITION
-    if (pictureStepComplete.value && !sizeStepComplete.value) {
-      // Check if size was already provided
-      if (extractedInfo.value.size) {
-        formData.customSize = extractedInfo.value.size
-        sizeStepComplete.value = true
-        askedQuestions.value.size = true
-        // Don't ask, just proceed to generation
-        aiResponse = aiResponseHelper.pick(aiResponseHelper.processing)
-
-        chatMessages.value.push({
-          id: Date.now(),
-          text: aiResponse,
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        })
-        scrollToBottom()
-
-        formData.description = fullText
-        setTimeout(() => {
-          generateWeddingPreview()
-        }, 1000)
-        return
-      }
-      
-      if (awaitingSizeDecision.value) {
-        // Check for size in message
-        const sizeMatch = lowerMessage.match(/(\d+(?:\.\d+)?)\s*(?:x|by)\s*(\d+(?:\.\d+)?)(?:\s*(?:inch|inches|in))?/i)
-        const isDefault = lowerMessage.includes('default') || lowerMessage.includes('standard') || lowerMessage.includes('normal') || lowerMessage.includes('skip')
-
-        if (sizeMatch) {
-           const width = parseFloat(sizeMatch[1])
-           const height = parseFloat(sizeMatch[2])
-           formData.customSize = `${width}x${height} in`
-           aiResponse = aiResponseHelper.pick(aiResponseHelper.sizeConfirm(`${width}x${height}`))
-           awaitingSizeDecision.value = false
-           sizeStepComplete.value = true
-           askedQuestions.value.size = true
-        } else if (isDefault) {
-           formData.customSize = '4x4'
-           aiResponse = "Perfect! Using the classic 4x4 inch size! ✨"
-           awaitingSizeDecision.value = false
-           sizeStepComplete.value = true
-           askedQuestions.value.size = true
-        } else if (askedQuestions.value.size) {
-           // Already asked once, use default and proceed
-           formData.customSize = '4x4'
-           aiResponse = "I'll use the standard 4x4 inch size! 📐"
-           awaitingSizeDecision.value = false
-           sizeStepComplete.value = true
-        } else {
-           aiResponse = "What size? (e.g., '3x3') Or say 'default' for 4x4 inches!"
-           askedQuestions.value.size = true
-           chatMessages.value.push({
-            id: Date.now(),
-            text: aiResponse,
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-          return
-        }
-
-        chatMessages.value.push({
-          id: Date.now(),
-          text: aiResponse,
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        })
-        scrollToBottom()
-
-        // Fall through to Generation
-      } else {
-        // Ask about size - PREVENT REPETITION
-        if (!askedQuestions.value.size) {
-          aiResponse = "What size would you like? 📐 (e.g., '4x4' or say 'default')"
-          awaitingSizeDecision.value = true
-          askedQuestions.value.size = true
-
-          chatMessages.value.push({
-            id: Date.now(),
-            text: aiResponse,
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-          return
-        } else {
-          // Already asked, use default
-          formData.customSize = '4x4'
-          sizeStepComplete.value = true
-        }
-      }
-    }
-
-    // If we're here, all steps are complete. Proceed with generation.
-    // ONLY generate if preview hasn't been shown yet - prevents validation errors when user types after generation
-    if (!showWeddingStickerPreview.value) {
-      aiResponse = aiResponseHelper.pick(aiResponseHelper.processing)
-      
-      chatMessages.value.push({
-        id: Date.now(),
-        text: aiResponse,
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
-      scrollToBottom()
-
-      // Trigger Generation
-      // Set the full description back to formData so the generator uses it
-      formData.description = fullText 
-      
-      setTimeout(() => {
-        generateWeddingPreview()
-      }, 1000)
-    }
-    // If preview is already shown, just ignore this path and let the chat response flow handle it
-    return
-  }
-
-  // 2. Check for Greetings & Questions
-  const greetings = ['hi', 'hello', 'hey', 'greetings', 'good morning', 'good afternoon', 'good evening', 'hola', 'bonjour', 'salam', 'assalamu alaikum', 'namaste']
-  const isGreeting = greetings.some(g => lowerMessage.includes(g))
-  
-  // Check if this is a question/command - use word boundaries to avoid false matches
-  // e.g. "November" should NOT match "no", "show" should NOT match "how"
-  const isQuestion = lowerMessage.includes('?') || 
-                     /\bhow\b/.test(lowerMessage) || 
-                     /\bwhat\b/.test(lowerMessage) || 
-                     /\bhelp\b/.test(lowerMessage) ||
-                     /\bguide\b/.test(lowerMessage) ||
-                     /\bupdate\b/.test(lowerMessage) ||
-                     /\bchange\b/.test(lowerMessage) ||
-                     /\byes\b/.test(lowerMessage) ||
-                     /\bno\b/.test(lowerMessage) ||
-                     lowerMessage.includes('can you') ||
-                     lowerMessage.includes('could you') ||
-                     lowerMessage.includes('would you')
-
-  const hasAnyInfo = hasNames || hasDate || hasCourtesy
-
-  // Check for "continue" or "skip" commands to proceed with partial info
-  if ((lowerMessage.includes('continue') || lowerMessage.includes('skip') || lowerMessage.includes('proceed')) && !showWeddingStickerPreview.value) {
-    if (extractedInfo.value.names.name1) {
-      // Has at least a name, can proceed
-      if (!pictureStepComplete.value && !preGeneratedImageFile.value) {
-        aiResponse = `Alright! Do you have a picture you'd like to use in your design?`
-        awaitingPictureDecision.value = true
-        chatMessages.value.push({
-          id: Date.now(),
-          text: aiResponse,
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        })
-        scrollToBottom()
-        return
-      } else {
-        // Proceed to generation
-        formData.description = fullText
-        setTimeout(() => generateWeddingPreview(), 300)
-        return
-      }
-    }
-  }
-
-  // Check for size change request
-  const sizeMatch = lowerMessage.match(/(\d+(?:\.\d+)?)\s*(?:x|by)\s*(\d+(?:\.\d+)?)(?:\s*(?:inch|inches|in))?/i)
-  if (sizeMatch) {
-     const width = parseFloat(sizeMatch[1])
-     const height = parseFloat(sizeMatch[2])
-
-     if (!isNaN(width) && !isNaN(height)) {
-        formData.customSize = `${width}x${height} in`
-
-        if (showWeddingStickerPreview.value) {
-           await handleSizeChange(width, height)
-           aiResponse = `Done! I've resized your design to ${width} x ${height} inches!`
-        } else {
-           aiResponse = `Got it! The design will be ${width} x ${height} inches. What else would you like?`
-        }
-
-        chatMessages.value.push({
-          id: Date.now(),
-          text: aiResponse,
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        })
-        scrollToBottom()
-        return
-     }
-  }
-
-  // Check for specific questions and requests
-  if (lowerMessage.includes('color') || lowerMessage.includes('colour')) {
-    aiResponse = "What colors would you like?"
-  } else if (lowerMessage.includes('size') || lowerMessage.includes('dimension')) {
-    aiResponse = "What size would you like?"
-  } else if (lowerMessage.includes('example') || lowerMessage.includes('sample')) {
-    aiResponse = "Example: 'Sarah & Michael, 20th June 2025, courtesy: Johnson Family'"
-  } else if (lowerMessage.includes('price') || lowerMessage.includes('cost') || lowerMessage.includes('pay')) {
-    aiResponse = "For pricing, please check with the team."
-  } else if (lowerMessage.includes('download') || lowerMessage.includes('save')) {
-    aiResponse = "Click the 'Export' button to download your sticker!"
-  } else if (lowerMessage.includes('redo') || lowerMessage.includes('start over') || lowerMessage.includes('again') || lowerMessage.includes('new design') || lowerMessage.includes('fresh start')) {
-    // Reset state for new generation
-    showWeddingStickerPreview.value = false
-    accumulatedDescription.value = ''
-    formData.description = ''
-    svgImageManager.clearAllImages()
-    preGeneratedImageFile.value = null
-    pendingImageFile.value = null
-    pictureStepComplete.value = false
-    sizeStepComplete.value = false
-    awaitingPictureDecision.value = false
-    awaitingSizeDecision.value = false
-    backgroundRemovalAlreadyHandled.value = false
-    // Reset heading and font state
-    awaitingHeadingInput.value = false
-    awaitingFontChoice.value = false
-    customHeading.value = null
-    selectedHeadingFont.value = null
-    headingStepComplete.value = false
-    // Reset background tracking for fresh variety
-    currentBackgroundIndex.value = -1
-    usedBackgroundsInSession.value = []
-    // Reset extracted info
-    extractedInfo.value = {
-      date: null,
-      courtesy: null,
-      size: null,
-      names: { name1: null, name2: null }
-    }
-    // Reset asked questions tracking to prevent repetition issues
-    resetAskedQuestions()
-
-    aiResponse = "Fresh start! 🎨 Tell me the couple's names, wedding date, and courtesy to begin!"
-  } else if (lowerMessage.includes('thank')) {
-    aiResponse = aiResponseHelper.pick(aiResponseHelper.casual.thanks)
-  } else if (isQuestion) {
-     // Check if user is asking what information is needed
-     if (lowerMessage.includes('what') && (lowerMessage.includes('information') || lowerMessage.includes('info') || lowerMessage.includes('need') || lowerMessage.includes('require'))) {
-        aiResponse = "I need the following information to create your wedding sticker:\n\n" +
-          "📝 **Names** - The couple's names (e.g., Aisha & Khalid)\n" +
-          "📅 **Date** - Wedding date (e.g., on 25th December 2025)\n" +
-          "👨‍👩‍👧 **Courtesy** - Family name (e.g., courtesy: The Abdullahi's)\n" +
-          "📐 **Size** - Sticker size (e.g., 4x2.5 inches)\n" +
-          "🖼️ **Picture** - Optional photo of the couple\n\n" +
-          "You can type all at once or one at a time!"
-     } else if (lowerMessage.includes('how')) {
-        aiResponse = "Just tell me the couple's **names**, **wedding date**, and **family name** (courtesy). For example:\n\n" +
-          "\"Aisha & Khalid, on 25th December 2025, courtesy: The Abdullahi's\"\n\n" +
-          "You can also add a size like \"4x2.5 inches\" and upload a photo!"
-     } else if (lowerMessage.includes('what')) {
-        aiResponse = "I can help you create a beautiful wedding sticker! Just provide:\n\n" +
-          "• Couple's names\n• Wedding date\n• Family courtesy\n• Size (optional)\n• Photo (optional)"
-     } else if (lowerMessage.includes('update') || lowerMessage.includes('change')) {
-        // If we have a preview, update it directly
-        if (showWeddingStickerPreview.value) {
-          aiResponse = "Sure! Updating your design now... Please wait!"
-
-          setTimeout(() => {
-            processDescriptionInput()
-          }, 500)
-        } else {
-          aiResponse = "Just type the new info you'd like to change, and I'll update it automatically!"
-        }
-     } else if (lowerMessage === 'yes' || lowerMessage.includes('yes please')) {
-        // Handle confirmation for image update or general adjustments
-        if (showWeddingStickerPreview.value) {
-           aiResponse = "Great! Updating your design now..."
-           setTimeout(() => {
-             generateWeddingPreview()
-           }, 1000)
-
-           chatMessages.value.push({
-            id: Date.now(),
-            text: aiResponse,
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-          return
-        } else {
-           aiResponse = "Please provide your information."
-        }
-     } else if (lowerMessage === 'no' || lowerMessage.includes('no thanks')) {
-        aiResponse = "Alright!"
-     } else {
-        aiResponse = aiResponseHelper.pick(aiResponseHelper.errors.noInfo)
-     }
-  } else if (isGreeting && !hasAnyInfo) {
-     // Use friendly greetings
-     aiResponse = aiResponseHelper.getGreeting(lastUserMessage, userName)
-  } else if (customHeading.value && !extractedInfo.value.names.name1 && !extractedInfo.value.date && !extractedInfo.value.courtesy) {
-     // Title was detected but no other info yet - acknowledge the title and ask for more
-     aiResponse = `Got it! I'll use "${customHeading.value}" as your heading.\n\nPlease provide names, date and courtesy.`
-  } else if (lowerMessage.includes('dont have') || lowerMessage.includes('don\'t have') || lowerMessage.includes('not now') || lowerMessage.includes('cancel') || lowerMessage.includes('leave it')) {
-     aiResponse = "No problem!"
-  } else if (lowerMessage.includes('thank')) {
-     aiResponse = aiResponseHelper.pick(aiResponseHelper.casual.thanks)
-  } else if (lowerMessage.includes('how are you') || lowerMessage.includes('how you dey') || lowerMessage.includes('how far')) {
-     aiResponse = aiResponseHelper.pick(aiResponseHelper.casual.howAreYou)
-  } else if (lowerMessage.includes('bye') || lowerMessage.includes('goodbye') || lowerMessage.includes('later')) {
-     aiResponse = aiResponseHelper.pick(aiResponseHelper.casual.goodbye)
-  } else if (lowerMessage.includes('joke') || lowerMessage.includes('funny') || lowerMessage.includes('make me laugh')) {
-     aiResponse = aiResponseHelper.pick(aiResponseHelper.jokes)
-  } else {
-    // If user provides info but it's incomplete or just an update
-    if (showWeddingStickerPreview.value) {
-       // Only update if user explicitly requests changes with keywords
-       const isUpdateRequest = lowerMessage.includes('change') || 
-                               lowerMessage.includes('update') || 
-                               lowerMessage.includes('modify') ||
-                               lowerMessage.includes('edit') ||
-                               lowerMessage.includes('fix') ||
-                               lowerMessage.includes('replace')
-       
-       if (isUpdateRequest) {
-         aiResponse = "I've updated your design with the new details."
-         setTimeout(() => {
-           processDescriptionInput()
-         }, 500)
-       } else {
-         // User is just chatting, don't auto-update
-         aiResponse = "Got it! Let me know if you need changes."
-       }
-    } else {
-      // 3. Standard Missing Fields Logic - Enhanced Name Detection
-      const missingFields: string[] = []
-      
-      // IMPORTANT: Check if the input is vague/unclear first - don't try to extract from gibberish
-      const isUnclearInput = !lastUserMessage.trim() || 
-        lastUserMessage.trim().length < 3 ||
-        /^[^a-zA-Z0-9]*$/.test(lastUserMessage) || // Only symbols/punctuation
-        /^(um+|uh+|hmm+|err+|ah+|oh+|eh+|huh+)$/i.test(lastUserMessage.trim()) // Filler words
-      
-      // Check if this is a vague reference without actual data
-      const isVagueReference = /^(this is|here is|here's|my info|my information|my details|the info|the information|the details|i have|got|okay|ok|alright|yes|no|sure|maybe|please|help me|do it|make it|create|design|sticker|wedding)$/i.test(lastUserMessage.trim()) ||
-        /^(this is|here is|here's|i have)\s+(my|the|some)?\s*(info|information|details|data|stuff)?$/i.test(lastUserMessage.trim())
-      
-      // If input is unclear or vague, don't try to extract - just guide the user
-      if (isUnclearInput || isVagueReference) {
-        aiResponse = `Sure! Please provide:\n\n` +
-          `• Names (e.g., John & Mary)\n` +
-          `• Date (e.g., 25th Dec 2025)\n` +
-          `• Courtesy (e.g., The Smith Family)\n\n` +
-          `You can share everything in one message!`
-        
-        chatMessages.value.push({
-          id: Date.now(),
-          text: aiResponse,
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        })
-        scrollToBottom()
-        return
-      }
-      
-      // Try to extract any missing info from the current message first
-      if (!extractedInfo.value.date) {
-        const newDate = extractDateFromText(lastUserMessage)
-        if (newDate) {
-          extractedInfo.value.date = newDate
-          accumulatedDescription.value += ' ' + newDate
-        }
-      }
-      
-      if (!extractedInfo.value.courtesy) {
-        const newCourtesy = extractCourtesyFromText(lastUserMessage)
-        if (newCourtesy) {
-          extractedInfo.value.courtesy = newCourtesy
-          accumulatedDescription.value += ' ' + newCourtesy
-        }
-      }
-      
-      // Check for names using enhanced extraction
-      const extractedNames = extractNamesFromResponse(lastUserMessage)
-      if (extractedNames.name1 && !extractedInfo.value.names.name1) {
-        extractedInfo.value.names = extractedNames
-        // Add names to accumulated description IN BRACKET FORMAT so updateStickerText can extract them
-        if (extractedNames.name2) {
-          accumulatedDescription.value += ' (' + extractedNames.name1 + ' and ' + extractedNames.name2 + ')'
-        } else {
-          accumulatedDescription.value += ' (' + extractedNames.name1 + ')'
-        }
-      }
-      
-      // Now check what's still missing based on extractedInfo
-      const hasNamesEnhanced = extractedInfo.value.names.name1 !== null
-      const hasDateEnhanced = extractedInfo.value.date !== null
-      const hasCourtesyEnhanced = extractedInfo.value.courtesy !== null
-      
-      // If we just got all the info, proceed!
-      if (hasNamesEnhanced && hasDateEnhanced && hasCourtesyEnhanced) {
-        // FIRST: Check if heading is needed
-        if (!headingStepComplete.value && !awaitingTitleConfirmation.value) {
-          // Check for known title phrases first
-          const detectedTitle = extractTitleFromText(lastUserMessage)
-          if (detectedTitle) {
-            pendingTitle.value = detectedTitle
-            awaitingTitleConfirmation.value = true
-            aiResponse = `Is "${detectedTitle}" your heading? (yes/no or type your own)`
-            chatMessages.value.push({
-              id: Date.now(),
-              text: aiResponse,
-              sender: 'ai',
-              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            })
-            scrollToBottom()
-            return
-          }
-          
-          // If no known title detected, try to find remaining text as potential heading
-          // Remove extracted info from the message to see what's left
-          let remainingText = lastUserMessage
-          
-          // Remove names
-          if (extractedInfo.value.names.name1) {
-            remainingText = remainingText.replace(new RegExp(extractedInfo.value.names.name1, 'gi'), '')
-          }
-          if (extractedInfo.value.names.name2) {
-            remainingText = remainingText.replace(new RegExp(extractedInfo.value.names.name2, 'gi'), '')
-          }
-          // Remove & and 'and' connectors
-          remainingText = remainingText.replace(/\s*&\s*/g, ' ').replace(/\s+and\s+/gi, ' ')
-          
-          // Remove date
-          if (extractedInfo.value.date) {
-            remainingText = remainingText.replace(new RegExp(extractedInfo.value.date.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '')
-          }
-          // Remove common date patterns
-          remainingText = remainingText
-            .replace(/\b\d{1,2}(?:st|nd|rd|th)?\s+(?:of\s+)?(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)[,.]?\s*\d{0,4}\b/gi, '')
-            .replace(/\bon\s+/gi, ' ')
-          
-          // Remove courtesy
-          if (extractedInfo.value.courtesy) {
-            remainingText = remainingText.replace(new RegExp(extractedInfo.value.courtesy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '')
-          }
-          // Remove common courtesy patterns
-          remainingText = remainingText
-            .replace(/\bcourtesy[:\s]*/gi, '')
-            .replace(/\bthe\s+\w+\s+family\b/gi, '')
-          
-          // Clean up remaining text
-          remainingText = remainingText
-            .replace(/[()[\]]/g, '') // Remove brackets
-            .replace(/\s+/g, ' ') // Normalize whitespace
-            .trim()
-          
-          // If there's meaningful remaining text (more than 3 chars), ask if it's the heading
-          if (remainingText.length > 3 && !/^(and|the|on|of|for|with|from|to|in|at)$/i.test(remainingText)) {
-            // Capitalize first letter of each word for display
-            const formattedHeading = remainingText
-              .split(' ')
-              .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-              .join(' ')
-            
-            pendingTitle.value = formattedHeading
-            awaitingTitleConfirmation.value = true
-            aiResponse = `Is "${formattedHeading}" the heading you want to use? (yes/no)`
-            chatMessages.value.push({
-              id: Date.now(),
-              text: aiResponse,
-              sender: 'ai',
-              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            })
-            scrollToBottom()
-            return
-          }
-        }
-        
-        // Has everything now, check picture and size
-        if (!preGeneratedImageFile.value && !pictureStepComplete.value) {
-          aiResponse = aiResponseHelper.pick(aiResponseHelper.pictureAsk)
-          awaitingPictureDecision.value = true
-          chatMessages.value.push({
-            id: Date.now(),
-            text: aiResponse,
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-          return
-        } else {
-          pictureStepComplete.value = true
-          if (!extractedInfo.value.size && !sizeStepComplete.value) {
-            aiResponse = aiResponseHelper.pick(aiResponseHelper.sizeAsk)
-            awaitingSizeDecision.value = true
-            chatMessages.value.push({
-              id: Date.now(),
-              text: aiResponse,
-              sender: 'ai',
-              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            })
-            scrollToBottom()
-            return
-          } else {
-            // Has everything, generate!
-            aiResponse = aiResponseHelper.pick(aiResponseHelper.processing) + " " + aiResponseHelper.pick(aiResponseHelper.success)
-            formData.description = accumulatedDescription.value
-            setTimeout(() => generateWeddingPreview(), 300)
-            return
-          }
-        }
-      }
-
-      if (!hasNamesEnhanced) {
-        missingFields.push('names')
-
-        // If ONLY name is missing, trigger enhanced name extraction mode
-        if (hasDateEnhanced || hasCourtesyEnhanced || fullText.trim().length > 10) {
-          awaitingNameInput.value = true
-          nameExtractionAttempts.value = 0
-          aiResponse = aiResponseHelper.pick(aiResponseHelper.askNames)
-
-          chatMessages.value.push({
-            id: Date.now(),
-            text: aiResponse,
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-          return
-        }
-      }
-
-      if (!hasDateEnhanced) missingFields.push('date')
-      if (!hasCourtesyEnhanced) missingFields.push('courtesy')
-
-      // Special case: If ONLY courtesy is missing, set awaiting flag
-      if (hasNamesEnhanced && hasDateEnhanced && !hasCourtesyEnhanced) {
-        awaitingCourtesyInput.value = true
-        aiResponse = `${aiResponseHelper.pick(aiResponseHelper.confirmations)} Please provide the courtesy.`
-        
-        chatMessages.value.push({
-          id: Date.now(),
-          text: aiResponse,
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        })
-        scrollToBottom()
-        return
-      }
-
-      // Special case: User uploaded a picture but hasn't provided text details
-      if (preGeneratedImageFile.value && missingFields.length === 3) {
-         aiResponse = `${aiResponseHelper.pick(aiResponseHelper.pictureReceived)} Please provide names, date, and courtesy.`
-      } else if (missingFields.length === 1) {
-        // If only courtesy is missing, set the flag
-        if (!hasCourtesyEnhanced) {
-          awaitingCourtesyInput.value = true
-        }
-        aiResponse = `${aiResponseHelper.pick(aiResponseHelper.confirmations)} Please provide ${missingFields[0]}.`
-      } else if (missingFields.length > 0) {
-        // Just ask for missing fields
-        aiResponse = `Please provide ${missingFields.join(' and ')}.`
-      } else {
-        aiResponse = aiResponseHelper.pick(aiResponseHelper.confirmations)
-      }
-    }
-  }
-
-  // FALLBACK: If no response was generated, check if the message could be a title/heading
-  if (!aiResponse || aiResponse.trim() === '') {
-    // Check if message looks like a potential title/heading
-    if (isPotentialTitle(lastUserMessage) && !headingStepComplete.value) {
-      pendingTitle.value = lastUserMessage
-      awaitingTitleConfirmation.value = true
-      aiResponse = `Do you want to use "${lastUserMessage}" as your heading? (yes/no)`
-    } else if (lastUserMessage.length > 5 && lastUserMessage.length < 60 && !headingStepComplete.value) {
-      // Message is short enough to be a title but not detected as a known pattern
-      pendingTitle.value = lastUserMessage
-      awaitingTitleConfirmation.value = true
-      aiResponse = `Do you want to use "${lastUserMessage}" as your heading? (yes/no)`
-    } else {
-      // Simple fallback - just ask for details
-      aiResponse = "Please provide your details."
-    }
-  }
-
-  chatMessages.value.push({
-    id: Date.now(),
-    text: aiResponse,
-    sender: 'ai',
-    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  })
-  scrollToBottom()
+  await analyzeMessageWithOllama(lastUserMessage)
 }
+
+
 
 function handleEnterKey(e: KeyboardEvent) {
   if (selectedCategory.value === 'wedding') {
@@ -6865,11 +5512,11 @@ const imageSlots = ref<Array<{ file: File; preview: string } | null>>([
 ])
 
 function selectCategory(categoryId: string) {
-  console.log('🎯 Category selected:', categoryId)
+  console.log('ðŸŽ¯ Category selected:', categoryId)
   
   selectedCategory.value = categoryId
-  console.log('✅ selectedCategory.value set to:', selectedCategory.value)
-  console.log('📋 Should show form now:', !!selectedCategory.value)
+  console.log('âœ… selectedCategory.value set to:', selectedCategory.value)
+  console.log('ðŸ“‹ Should show form now:', !!selectedCategory.value)
   // Load category-specific template
   loadCategoryTemplate(categoryId)
 }
@@ -6999,17 +5646,17 @@ function goBack() {
 // Wedding Sticker Functions
 async function loadWeddingStickerTemplate() {
   if (!weddingPreviewContainer.value) {
-    console.error('❌ weddingPreviewContainer.value is null!')
+    console.error('âŒ weddingPreviewContainer.value is null!')
     return
   }
 
-  console.log('🔄 Loading wedding sticker template...')
+  console.log('ðŸ”„ Loading wedding sticker template...')
 
   try {
     // Reset replacement state when loading new template
     resetReplacement()
 
-    // 🔥 INLINE SVG TEMPLATE - No server fetch needed
+    // ðŸ”¥ INLINE SVG TEMPLATE - No server fetch needed
     const svgText = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2996.9 1685.75" preserveAspectRatio="xMidYMid meet">
   
   <defs>
@@ -7070,14 +5717,14 @@ async function loadWeddingStickerTemplate() {
 </svg>`
 
     const successSource = 'Inline Template'
-    console.log(`✅ Using inline SVG template`)
+    console.log(`âœ… Using inline SVG template`)
 
-    console.log('📝 SVG text length:', svgText.length)
-    console.log('📝 First 200 chars:', svgText.substring(0, 200))
+    console.log('ðŸ“ SVG text length:', svgText.length)
+    console.log('ðŸ“ First 200 chars:', svgText.substring(0, 200))
 
     // Insert SVG into container
     weddingPreviewContainer.value.innerHTML = svgText
-    console.log('✅ SVG inserted into container')
+    console.log('âœ… SVG inserted into container')
     
     // Force immediate DOM update
     await nextTick()
@@ -7092,12 +5739,12 @@ async function loadWeddingStickerTemplate() {
     const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
     
     if (!svgElement) {
-      console.error('❌ SVG element not found after insertion!')
+      console.error('âŒ SVG element not found after insertion!')
       console.error('Container HTML:', weddingPreviewContainer.value.innerHTML.substring(0, 200))
       return
     }
     
-    console.log('✅ SVG element found:', svgElement)
+    console.log('âœ… SVG element found:', svgElement)
     
     if (svgElement) {
       // Set responsive dimensions based on viewBox aspect ratio (NOT fixed 400x400)
@@ -7113,7 +5760,7 @@ async function loadWeddingStickerTemplate() {
           svgElement.removeAttribute('height') // Let aspect ratio determine height
           // Store original dimensions for export
           svgElement.setAttribute('data-original-viewbox', viewBox)
-          console.log(`📐 SVG viewBox: ${vbWidth}x${vbHeight} (aspect: ${(vbWidth/vbHeight).toFixed(2)})`)
+          console.log(`ðŸ“ SVG viewBox: ${vbWidth}x${vbHeight} (aspect: ${(vbWidth/vbHeight).toFixed(2)})`)
         }
       } else if (!svgElement.hasAttribute('viewBox')) {
         // Only set default viewBox if none exists
@@ -7128,8 +5775,8 @@ async function loadWeddingStickerTemplate() {
       const textToMatch = customHeading.value || accumulatedDescription.value || formData.description || 'wedding'
       const matchedTitle = findMatchingTitle(textToMatch)
       
-      console.log('🔍 SVG Element before handleReplacement:', svgElement)
-      console.log('🔍 SVG Element IDs found:', {
+      console.log('ðŸ” SVG Element before handleReplacement:', svgElement)
+      console.log('ðŸ” SVG Element IDs found:', {
         blessingText: !!svgElement.querySelector('#blessing-text'),
         occasionText: !!svgElement.querySelector('#occasion-text'),
         eventTypeText: !!svgElement.querySelector('#event-type-text'),
@@ -7139,11 +5786,11 @@ async function loadWeddingStickerTemplate() {
       try {
         // Get title color based on current background
         const titleColor = getTitleColorForBackground()
-        console.log('🎨 Title color for current background:', titleColor)
+        console.log('ðŸŽ¨ Title color for current background:', titleColor)
         
         if (matchedTitle) {
-          console.log('🎯 Title Library match found:', matchedTitle.fallbackText)
-          console.log('🎯 Using SVG:', matchedTitle.svgPath)
+          console.log('ðŸŽ¯ Title Library match found:', matchedTitle.fallbackText)
+          console.log('ðŸŽ¯ Using SVG:', matchedTitle.svgPath)
           
           // Pre-render SVG to PNG for reliable export (allows color changes)
           await replaceTitleWithImage(svgElement, {
@@ -7154,7 +5801,7 @@ async function loadWeddingStickerTemplate() {
             color: titleColor
           })
         } else {
-          console.log('⚠️ No title match, using default wedding title')
+          console.log('âš ï¸ No title match, using default wedding title')
           // Use default SVG title
           await replaceTitleWithImage(svgElement, {
             svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
@@ -7164,14 +5811,14 @@ async function loadWeddingStickerTemplate() {
             color: titleColor
           })
         }
-        console.log('✅ handleReplacement completed successfully')
-        console.log('🔍 Title replacement group exists:', !!svgElement.querySelector('#wedding-title-replacement'))
+        console.log('âœ… handleReplacement completed successfully')
+        console.log('ðŸ” Title replacement group exists:', !!svgElement.querySelector('#wedding-title-replacement'))
         
         // Insert flourish above names with matching color
         const flourishColor = getFlourishColorForBackground()
         await insertFlourishAboveNames(svgElement, flourishColor)
       } catch (handleReplacementError) {
-        console.error('❌ handleReplacement failed:', handleReplacementError)
+        console.error('âŒ handleReplacement failed:', handleReplacementError)
       }
 
       // Apply current description if any (for names, date, etc.)
@@ -7182,7 +5829,7 @@ async function loadWeddingStickerTemplate() {
       // Note: Don't show a toast here; this runs during generation and would be noisy.
     }
   } catch (error) {
-    console.error('❌ Failed to load wedding sticker template:', error)
+    console.error('âŒ Failed to load wedding sticker template:', error)
     authStore.showNotification({
       title: 'Template Load Failed',
       message: 'Failed to load wedding sticker template. Please check the console for details.',
@@ -7196,7 +5843,7 @@ async function loadWeddingStickerTemplate() {
 
 // Helper function to update only date and courtesy (not names) when title SVG is active
 function updateDateAndCourtesy(description: string, svgElements: any) {
-  console.log('🔍 updateDateAndCourtesy called with:', { description, svgElements: !!svgElements })
+  console.log('ðŸ” updateDateAndCourtesy called with:', { description, svgElements: !!svgElements })
   // Extract date from description
   const extractDate = (desc: string): string | null => {
     // Match patterns like "15th March 2025", "March 15, 2025", "2025-03-15"
@@ -7231,20 +5878,20 @@ function updateDateAndCourtesy(description: string, svgElements: any) {
   const dateText = extractDate(description)
   if (dateText && svgElements.dateText) {
     svgElements.dateText.textContent = dateText
-    console.log('📅 Date updated:', dateText)
+    console.log('ðŸ“… Date updated:', dateText)
   }
 
   // Update courtesy if found
   const courtesyData = extractCourtesy(description)
   if (courtesyData && svgElements.courtesyText) {
     svgElements.courtesyText.textContent = `${courtesyData.prefix} ${courtesyData.text}`
-    console.log('🎭 Courtesy updated:', courtesyData)
+    console.log('ðŸŽ­ Courtesy updated:', courtesyData)
   }
 }
 
 // Helper function to handle names when title SVG is active (use decorative name02.svg)
 async function handleNamesWithTitleSVG(description: string, svgElements: any) {
-  console.log('🔍 handleNamesWithTitleSVG called with:', { description })
+  console.log('ðŸ” handleNamesWithTitleSVG called with:', { description })
   
   // Always call updateStickerText to ensure date and courtesy are updated
   // regardless of whether names are present or not
@@ -7256,7 +5903,7 @@ async function handleNamesWithTitleSVG(description: string, svgElements: any) {
   if (nameMatch) {
     const names = nameMatch.split(/\s*[&and]+\s*/i).map(name => name.trim())
     if (names.length === 2 && svgElements?.weddingNamesGroup) {
-      console.log('✅ Two names detected, decorative SVG injection handled by updateStickerText')
+      console.log('âœ… Two names detected, decorative SVG injection handled by updateStickerText')
     }
   }
   
@@ -7279,7 +5926,7 @@ function handleDescriptionKeydown(event: KeyboardEvent) {
       textarea.selectionStart = cursorPos + 1
       textarea.selectionEnd = cursorPos + 1
     }, 0)
-    console.log('✅ Auto-paired parentheses')
+    console.log('âœ… Auto-paired parentheses')
   }
   
   // Auto-complete courtesy keywords
@@ -7316,7 +5963,7 @@ function handleDescriptionKeydown(event: KeyboardEvent) {
         textarea.selectionEnd = newPos
       }, 0)
       
-      console.log(`✅ Auto-completed "${lastWord}" to "${match.complete}"`)
+      console.log(`âœ… Auto-completed "${lastWord}" to "${match.complete}"`)
     }
   }
 }
@@ -7380,7 +6027,7 @@ function applyCustomHeadingAndFont(svgElement: SVGSVGElement) {
       if (ceremonyText) ceremonyText.textContent = ''
     }
 
-    console.log('📝 Applied custom heading:', customHeading.value)
+    console.log('ðŸ“ Applied custom heading:', customHeading.value)
   }
 
   // Apply selected font if set
@@ -7397,12 +6044,12 @@ function applyCustomHeadingAndFont(svgElement: SVGSVGElement) {
       }
     })
 
-    console.log('🎨 Applied heading font:', selectedHeadingFont.value, fontFamily)
+    console.log('ðŸŽ¨ Applied heading font:', selectedHeadingFont.value, fontFamily)
   }
 }
 
 async function processDescriptionInput() {
-  console.log('🔄 processDescriptionInput triggered:', { 
+  console.log('ðŸ”„ processDescriptionInput triggered:', { 
     description: formData.description, 
     category: selectedCategory.value, 
     hasSvgElements: !!svgElements 
@@ -7430,7 +6077,7 @@ async function processDescriptionInput() {
       
       // Get title color based on current background
       const titleColor = getTitleColorForBackground()
-      console.log('🎨 Title color for current background:', titleColor)
+      console.log('ðŸŽ¨ Title color for current background:', titleColor)
 
       const headingElementIds = ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text']
       const hasCustomHeading = customHeadingText.length > 0
@@ -7471,8 +6118,8 @@ async function processDescriptionInput() {
         lastWeddingTitleRenderKey = titleCacheKey
 
         if (matchedTitle) {
-        console.log('🎯 Using Title Library match:', matchedTitle.fallbackText)
-        console.log('🎯 SVG Path:', matchedTitle.svgPath)
+        console.log('ðŸŽ¯ Using Title Library match:', matchedTitle.fallbackText)
+        console.log('ðŸŽ¯ SVG Path:', matchedTitle.svgPath)
         
         // Pre-render SVG to PNG for reliable export (allows color changes)
         await replaceTitleWithImage(svgElement, {
@@ -7484,7 +6131,7 @@ async function processDescriptionInput() {
         })
         } else {
           // No match found - use default wedding title
-          console.log('⚠️ No title match, using default wedding title')
+          console.log('âš ï¸ No title match, using default wedding title')
           await replaceTitleWithImage(svgElement, {
             svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
             targetElementIds: headingElementIds,
@@ -7494,7 +6141,7 @@ async function processDescriptionInput() {
           })
         }
       } else {
-        console.log('⚡ Title unchanged, skipping re-render')
+        console.log('âš¡ Title unchanged, skipping re-render')
       }
       }
       
@@ -7506,7 +6153,7 @@ async function processDescriptionInput() {
         lastWeddingFlourishRenderKey = flourishCacheKey
         await insertFlourishAboveNames(svgElement, flourishColor)
       } else {
-        console.log('⚡ Flourish unchanged, skipping re-render')
+        console.log('âš¡ Flourish unchanged, skipping re-render')
       }
       
       // Update names, date, and courtesy
@@ -7652,7 +6299,7 @@ async function handleCropComplete(data: { dataUrl: string; blob: Blob; width: nu
             // Has everything - generate!
             chatMessages.value.push({
               id: Date.now(),
-              text: "Perfect! Your image is ready! Let me create your sticker now! 🎨",
+              text: "Perfect! Your image is ready! Let me create your sticker now! ðŸŽ¨",
               sender: 'ai',
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             })
@@ -7663,7 +6310,7 @@ async function handleCropComplete(data: { dataUrl: string; blob: Blob; width: nu
             // Has names, date, courtesy but needs size
             chatMessages.value.push({
               id: Date.now(),
-              text: "Perfect! Your image is ready! 📸\n\nWhat size would you like the sticker? (e.g., '3x3' or 'default' for 4x4 inches)",
+              text: "Perfect! Your image is ready! ðŸ“¸\n\nWhat size would you like the sticker? (e.g., '3x3' or 'default' for 4x4 inches)",
               sender: 'ai',
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             })
@@ -7673,7 +6320,7 @@ async function handleCropComplete(data: { dataUrl: string; blob: Blob; width: nu
             // Still missing some info
             chatMessages.value.push({
               id: Date.now(),
-              text: "Perfect! Your image is ready! 📸\n\n💡 **Tip:** You can drag the image to reposition it after the design is generated!",
+              text: "Perfect! Your image is ready! ðŸ“¸\n\nðŸ’¡ **Tip:** You can drag the image to reposition it after the design is generated!",
               sender: 'ai',
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             })
@@ -8154,7 +6801,7 @@ function updateSVGWithImages() {
 
   const images = svgImageManager.images.value
   
-  console.log('🔄 updateSVGWithImages called:', {
+  console.log('ðŸ”„ updateSVGWithImages called:', {
     imagesCount: images.length,
     hasImages: images.length > 0,
     firstImageDataUrlLength: images[0]?.dataUrl?.length || 0
@@ -8226,7 +6873,7 @@ function updateSVGWithImages() {
       frameWidth = origFrameWidth * scaleX
       frameHeight = origFrameHeight * scaleY
       
-      console.log(`📸 Frame scaled: x=${frameX.toFixed(0)}, y=${frameY.toFixed(0)}, w=${frameWidth.toFixed(0)}, h=${frameHeight.toFixed(0)}`)
+      console.log(`ðŸ“¸ Frame scaled: x=${frameX.toFixed(0)}, y=${frameY.toFixed(0)}, w=${frameWidth.toFixed(0)}, h=${frameHeight.toFixed(0)}`)
     } else {
       // Use centered position for fallback/smaller templates
       // Default to 50% width/height centered
@@ -8296,12 +6943,12 @@ function updateSVGWithImages() {
         clipPathRect.setAttribute('y', clipY.toString())
         clipPathRect.setAttribute('width', clipWidth.toString())
         clipPathRect.setAttribute('height', clipHeight.toString())
-        console.log(`📐 Clip-path adjusted: x=${clipX.toFixed(0)}, y=${clipY}, w=${clipWidth.toFixed(0)}, h=${clipHeight.toFixed(1)}`)
+        console.log(`ðŸ“ Clip-path adjusted: x=${clipX.toFixed(0)}, y=${clipY}, w=${clipWidth.toFixed(0)}, h=${clipHeight.toFixed(1)}`)
       }
     }
     
-    console.log(`🖼️ Image update: x=${adjustedX.toFixed(1)}, y=${adjustedY.toFixed(1)}, w=${adjustedWidth.toFixed(1)}, h=${adjustedHeight.toFixed(1)}`)
-    console.log(`🖼️ Image dataUrl length: ${img.dataUrl?.length || 0}`)
+    console.log(`ðŸ–¼ï¸ Image update: x=${adjustedX.toFixed(1)}, y=${adjustedY.toFixed(1)}, w=${adjustedWidth.toFixed(1)}, h=${adjustedHeight.toFixed(1)}`)
+    console.log(`ðŸ–¼ï¸ Image dataUrl length: ${img.dataUrl?.length || 0}`)
     
     userImageElement.setAttribute('x', adjustedX.toString())
     userImageElement.setAttribute('y', adjustedY.toString())
@@ -8447,7 +7094,7 @@ async function exportWeddingSticker(format: 'svg' | 'png') {
     // Validate SVG is properly configured for export
     const validation = validateForExport(svgElement)
     if (!validation.valid) {
-      console.warn('⚠️ SVG validation issues:', validation.issues)
+      console.warn('âš ï¸ SVG validation issues:', validation.issues)
       // Continue anyway but log the issues
     }
 
@@ -8459,7 +7106,7 @@ async function exportWeddingSticker(format: 'svg' | 'png') {
     const originalStyleWidth = svgElement.style.width
     const originalStyleHeight = svgElement.style.height
 
-    console.log('📤 Starting export:', {
+    console.log('ðŸ“¤ Starting export:', {
       format,
       imagesCount: svgImageManager.images.value.length,
       hasDataUrl: svgImageManager.images.value[0]?.dataUrl?.length || 0,
@@ -8476,7 +7123,7 @@ async function exportWeddingSticker(format: 'svg' | 'png') {
       // Remove CSS constraints that might interfere with the export canvas sizing
       svgElement.style.width = ''
       svgElement.style.height = ''
-      console.log(`📏 Set export dimensions: ${exportWidthPx} × ${exportHeightPx}px`)
+      console.log(`ðŸ“ Set export dimensions: ${exportWidthPx} Ã— ${exportHeightPx}px`)
     } else if (exportWidth && exportHeight) {
       // Fallback to inch dimensions
       svgElement.setAttribute('width', exportWidth)
@@ -8498,7 +7145,7 @@ async function exportWeddingSticker(format: 'svg' | 'png') {
         svgElement.setAttribute('height', String(calculatedHeight))
         svgElement.style.width = ''
         svgElement.style.height = ''
-        console.log(`📏 Calculated export from viewBox: ${calculatedWidth} × ${calculatedHeight}px (viewBox: ${vbWidth}x${vbHeight})`)
+        console.log(`ðŸ“ Calculated export from viewBox: ${calculatedWidth} Ã— ${calculatedHeight}px (viewBox: ${vbWidth}x${vbHeight})`)
       }
     }
 
@@ -9114,7 +7761,7 @@ onBeforeUnmount(() => {
 }
 
 .warning-list-item:before {
-  content: "•";
+  content: "â€¢";
   position: absolute;
   left: 8px;
   color: #fbbf24;
