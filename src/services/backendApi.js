@@ -42,7 +42,7 @@ stream
 BT
 /F1 12 Tf
 100 700 Td
-(Mock PDF for ${filename}) Tj
+(Mock PDF for 1-64.pdf) Tj
 ET
 endstream
 endobj
@@ -117,4 +117,8 @@ export const backendApi = {
   impose: async (formData) => requestImposition('/api/imposition/process', formData),
   // formData should include: files[] (multiple), impositionType, pageSize, orientation, addBlankPages
   merge: async (formData) => requestImposition('/api/imposition/merge', formData),
+  // formData should include: files[] (images to convert to PDF)
+  convert: async (formData) => requestImposition('/api/imposition/convert', formData),
+  // formData should include: file or files[], exportFormat (jpeg, png, doc)
+  export: async (formData) => requestImposition('/api/imposition/export', formData),
 }

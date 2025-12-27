@@ -1,3 +1,30 @@
+// Suppress console messages BEFORE any imports
+const originalWarn = console.warn
+console.warn = (...args: any[]) => {
+  const message = args[0]?.toString?.() || ''
+  if (message.includes('Datadog') || message.includes('No storage available')) {
+    return // Suppress Datadog warnings
+  }
+  originalWarn.apply(console, args)
+}
+
+const originalLog = console.log
+console.log = (...args: any[]) => {
+  if (args[0]?.includes?.('Datadog Browser SDK')) {
+    return // Suppress Datadog logs
+  }
+  originalLog.apply(console, args)
+}
+
+const originalError = console.error
+console.error = (...args: any[]) => {
+  const errorMsg = args[0]?.toString?.() || ''
+  if (errorMsg.includes('service worker') || errorMsg.includes('ServiceWorker')) {
+    return // Suppress service worker errors in dev
+  }
+  originalError.apply(console, args)
+}
+
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import router from './router'
@@ -22,15 +49,6 @@ import '@ionic/vue/css/text-alignment.css'
 import '@ionic/vue/css/text-transformation.css'
 import '@ionic/vue/css/flex-utils.css'
 import '@ionic/vue/css/display.css'
-
-// Suppress Datadog Browser SDK warning
-const originalWarn = console.warn
-console.warn = (...args: any[]) => {
-  if (args[0]?.includes?.('Datadog Browser SDK')) {
-    return // Suppress Datadog warnings
-  }
-  originalWarn.apply(console, args)
-}
 
 // Vue Konva imports
 import VueKonva from 'vue-konva'

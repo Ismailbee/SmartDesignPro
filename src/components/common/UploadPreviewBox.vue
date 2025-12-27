@@ -26,27 +26,32 @@
     >
       <!-- Upload State -->
       <div v-if="!hasImage" class="upload-state">
-        <div class="upload-icon">
-          <svg 
-            class="w-6 h-6" 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path 
-              stroke-linecap="round" 
-              stroke-linejoin="round" 
-              stroke-width="2" 
-              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-            />
-          </svg>
+        <div class="upload-icon-wrapper">
+          <div class="upload-icon-bg"></div>
+          <div class="upload-icon">
+            <svg 
+              class="w-6 h-6" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path 
+                stroke-linecap="round" 
+                stroke-linejoin="round" 
+                stroke-width="2" 
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+              />
+            </svg>
+          </div>
         </div>
-        <span class="upload-text">
-          {{ uploadText }}
-        </span>
-        <span v-if="uploadHint" class="upload-hint">
-          {{ uploadHint }}
-        </span>
+        <div class="upload-text-content">
+          <span class="upload-text">
+            {{ uploadText }}
+          </span>
+          <span v-if="uploadHint" class="upload-hint">
+            {{ uploadHint }}
+          </span>
+        </div>
       </div>
 
       <!-- Preview State -->
@@ -318,22 +323,66 @@ defineExpose({
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 12px;
   padding: 16px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.upload-icon-wrapper {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.upload-icon-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  border-radius: 50%;
+  opacity: 0.1;
+  animation: breathe 2s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.1; }
+  50% { transform: scale(1.1); opacity: 0.15; }
 }
 
 .upload-icon {
-  color: #9ca3af;
+  color: #3b82f6;
+  z-index: 1;
+  filter: drop-shadow(0 2px 8px rgba(59, 130, 246, 0.3));
+  animation: floatIcon 3s ease-in-out infinite;
+}
+
+@keyframes floatIcon {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 
 .dark .upload-icon {
-  color: #6b7280;
+  color: #60a5fa;
+}
+
+.upload-text-content {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .upload-text {
   font-size: 12px;
-  font-weight: 500;
-  color: #64748b;
+  font-weight: 600;
+  color: #475569;
   text-align: center;
 }
 
@@ -343,12 +392,13 @@ defineExpose({
 
 .upload-hint {
   font-size: 10px;
-  color: #9ca3af;
+  color: #64748b;
   text-align: center;
+  font-weight: 500;
 }
 
 .dark .upload-hint {
-  color: #6b7280;
+  color: #94a3b8;
 }
 
 /* Preview State */
