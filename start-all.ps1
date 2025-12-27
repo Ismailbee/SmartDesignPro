@@ -56,12 +56,12 @@ Get-Process | Where-Object {$_.ProcessName -like "*node*"} | Stop-Process -Force
 
 Write-Host "`n📡 Starting Backend Services..." -ForegroundColor Magenta
 
-# Start all backend servers
-Start-BackgroundServer -Name "Auth Server" -Command "node auth-server.js" -Port 3003
-Start-BackgroundServer -Name "Admin Server" -Command "node admin-server.js" -Port 3006  
-Start-BackgroundServer -Name "Collaboration Server" -Command "node collaboration-server.js" -Port 3000
-Start-BackgroundServer -Name "Auto Design Server" -Command "node auto-design-server.js" -Port 3003
-Start-BackgroundServer -Name "ICAN SSO Server" -Command "node ican-sso-server.js" -Port 3007
+# Start all backend servers (from servers/ directory)
+Start-BackgroundServer -Name "Auth Server" -Command "node servers/auth-server.js" -Port 3003
+Start-BackgroundServer -Name "Admin Server" -Command "node servers/admin-server.js" -Port 3006  
+Start-BackgroundServer -Name "Collaboration Server" -Command "node servers/collaboration-server.js" -Port 3000
+Start-BackgroundServer -Name "Auto Design Server" -Command "node servers/auto-design-server.js" -Port 3003
+Start-BackgroundServer -Name "ICAN SSO Server" -Command "node servers/ican-sso-server.js" -Port 3007
 
 # Start ICAN Backend
 $icanBackendDir = Join-Path $PWD "src\views\micro-apps\Ican\backend"

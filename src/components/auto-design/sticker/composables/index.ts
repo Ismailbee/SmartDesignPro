@@ -1,0 +1,164 @@
+/**
+ * Sticker Composables Index
+ * 
+ * Export all composables for the wedding sticker chat system
+ */
+
+// Offline response handlers
+export {
+  offlineDelay,
+  isGreeting,
+  getGreetingResponse,
+  isWhoAreYou,
+  getWhoAreYouResponse,
+  isHowAreYou,
+  getHowAreYouResponse,
+  isCapabilityQuestion,
+  getCapabilityResponse,
+  isNonWeddingRequest,
+  getNonWeddingResponse,
+  isVagueDesignRequest,
+  getVagueDesignResponse,
+  isAffirmative,
+  getAffirmativeResponse,
+  isChangeRequest,
+  getChangeResponse,
+  isNegative,
+  getNegativeResponse,
+  isThanks,
+  getThanksResponse,
+  isHelp,
+  getHelpResponse,
+  isStartRequest,
+  getStartResponse,
+  isPricingQuestion,
+  getPricingResponse,
+  isConfused,
+  getConfusedResponse,
+  getFallbackResponse,
+  getExtractionSuccessResponse,
+} from './useOfflineResponses'
+
+// Local extraction
+export {
+  extractWeddingDetails,
+  hasWeddingDetails,
+} from './useLocalExtraction'
+
+// Main wedding chat composable
+export {
+  useWeddingChat,
+  type UseWeddingChatOptions,
+} from './useWeddingChat'
+
+// Title library system
+export {
+  useTitleLibrary,
+  type TitleEntry,
+  type TitleImageConfig,
+} from './useTitleLibrary'
+
+// Flourish decoration system
+export {
+  useFlourishSystem,
+  type FlourishConfig,
+} from './useFlourishSystem'
+
+// Speech-to-Text and Text-to-Speech
+export {
+  useSpeechToText,
+  type SpeechToTextOptions,
+  type ChatMessage,
+} from './useSpeechToText'
+
+// Spell correction with fuzzy matching
+export {
+  useSpellCorrection,
+  correctSpelling,
+  findFuzzyMatch,
+  levenshteinDistance,
+  COMMON_MISSPELLINGS,
+  type SpellCorrectionResult,
+} from './useSpellCorrection'
+
+// Intent detection for chat messages
+export {
+  useIntentDetection,
+  detectIntent,
+  isPositiveConfirmation,
+  isNegativeConfirmation,
+  isGreeting as isGreetingIntent,
+  isChangeRequest as isChangeRequestIntent,
+  extractTargetField,
+  type UserIntent,
+  type IntentEntities,
+  type IntentResult,
+} from './useIntentDetection'
+
+// AI Chat Logic (Ollama integration)
+export {
+  useAIChatLogic,
+  type WeddingAssistantActionName,
+  type WeddingAssistantDecision,
+  type UseAIChatLogicOptions,
+  type ChatMessage as AIChatMessage,
+  type ExtractedInfo,
+  type AskedQuestions,
+  type FormData as AIFormData,
+} from './useAIChatLogic'
+
+// Background Manager System
+export {
+  useBackgroundManager,
+  type BackgroundColorConfig,
+  type BackgroundManifestItem,
+  type UseBackgroundManagerOptions,
+  type UseBackgroundManagerReturn,
+  LIGHT_BG_COLORS,
+  DARK_BG_COLORS,
+  RED_GOLD_BG_COLORS,
+} from './useBackgroundManager'
+
+// Extraction utilities for names, dates, courtesy
+export {
+  useExtractionUtils,
+  capitalizeWords,
+  escapeRegExp,
+  extractNamesFromResponse,
+  extractDateFromText,
+  extractCourtesyFromText,
+  extractSizeFromText,
+  extractNamesFromBrackets,
+  parseAllInOneMessage,
+} from './useExtractionUtils'
+
+// AI Response Helper - professional response templates
+export {
+  useAIResponseHelper,
+  aiResponseHelper,
+  pick,
+  greetings,
+  confirmations,
+  processingMessages,
+  askNames,
+  askDate,
+  askCourtesy,
+  successMessages,
+  pictureMessages,
+  sizeMessages,
+  multipleImagesMessage,
+  errorMessages,
+  jokes,
+  casualResponses,
+  getGreeting,
+} from './useAIResponseHelper'
+
+// Title detection utilities
+export {
+  useTitleDetection,
+  titlePatterns,
+  titlePhraseMap,
+  isPotentialTitle,
+  extractTitleFromText,
+  getAllTitleOptions,
+} from './useTitleDetection'

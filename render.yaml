@@ -3,8 +3,8 @@ services:
     name: smartdesignpro-payment
     env: node
     plan: free
-    buildCommand: mv package.json package.json.bak && mv server-package.json package.json && npm install
-    startCommand: node payment-server.js
+    buildCommand: cd servers && mv ../package.json ../package.json.bak && cp server-package.json ../package.json && cd .. && npm install
+    startCommand: node servers/payment-server.js
     envVars:
       - key: PAYSTACK_SECRET_KEY
         sync: false

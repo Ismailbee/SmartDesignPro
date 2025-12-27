@@ -5382,7 +5382,7 @@ export default defineComponent({
         const progressDiv = document.querySelector('[style*="position: fixed"]');
         if (progressDiv) document.body.removeChild(progressDiv);
         
-        alert(`❌ Perfect CMYK Export Failed\n\n${error.message}\n\nPlease ensure the export server is running (node export-server.cjs) and try again.`);
+        alert(`❌ Perfect CMYK Export Failed\n\n${error.message}\n\nPlease ensure the export server is running (node servers/export-server.cjs) and try again.`);
       } finally {
         isExporting.value = false;
       }

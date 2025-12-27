@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="sticker-page-wrapper" :class="{ 'wedding-active': selectedCategory === 'wedding' }">
   <div class="sticker-template-panel">
     <!-- FORM VIEW -->
@@ -245,7 +245,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch, defineAsyncComponent } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch, defineAsyncComponent, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAutoDesignStore } from '@/stores/autoDesign'
 import { useAuthStore } from '@/stores/auth'
@@ -308,6 +308,45 @@ import { useAiChatResponses } from '@/composables/useAiChatResponses'
 import { useWeddingChat } from '@/composables/useWeddingChat'
 import { useStickerExport } from '@/composables/useStickerExport'
 
+// Import sticker composables (title, flourish, background management, spell correction, intent detection)
+import {
+  useTitleLibrary,
+  useFlourishSystem,
+  useBackgroundManager,
+  useSpellCorrection,
+  correctSpelling as correctSpellingComposable,
+  findFuzzyMatch as findFuzzyMatchComposable,
+  levenshteinDistance as levenshteinDistanceComposable,
+  COMMON_MISSPELLINGS,
+  useIntentDetection,
+  detectIntent as detectIntentComposable,
+  isPositiveConfirmation,
+  isNegativeConfirmation,
+  extractTargetField,
+  type TitleEntry,
+  type TitleImageConfig,
+  type UserIntent,
+  type IntentResult,
+  type SpellCorrectionResult,
+  type BackgroundColorConfig,
+  // Extraction utilities
+  extractNamesFromResponse,
+  extractDateFromText,
+  extractCourtesyFromText,
+  extractSizeFromText,
+  extractNamesFromBrackets,
+  parseAllInOneMessage,
+  capitalizeWords,
+  escapeRegExp,
+  // AI Response Helper
+  aiResponseHelper,
+  // Title detection
+  titlePatterns,
+  titlePhraseMap,
+  isPotentialTitle,
+  extractTitleFromText,
+} from './sticker/composables'
+
 const router = useRouter()
 const autoDesignStore = useAutoDesignStore()
 const authStore = useAuthStore()
@@ -316,533 +355,35 @@ const { updateStickerText, getSVGElements, extractNames } = useWeddingStickerUpd
 const { applyRetouch } = useImageRetouch()
 const { calculateDimensions, resizeSVG, validateForExport, PRINT_DPI, SCREEN_DPI } = useDynamicSVG()
 
-// ========================================
-// TITLE LIBRARY - Pre-designed SVG titles
-// ========================================
-interface TitleEntry {
-  keywords: string[];      // Keywords to match (all must be present)
-  svgPath: string;         // Path to the SVG file (for color flexibility)
-  fallbackText: string;    // Text to show if image fails
-  position?: { x: number; y: number; width: number; height: number };
-  scale?: number;
-}
-
-const TITLE_LIBRARY: TitleEntry[] = [
-  // Specific: "Alhamdulillah wedding" - your first title design
-  // SVG is used for color flexibility, then rendered to PNG for reliable export
-  {
-    keywords: ['alhamdulillah', 'wedding'],
-    svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
-    fallbackText: 'Alhamdulillahi on Your Wedding Ceremony',
-    position: { x: -100, y: -20, width: 1800, height: 900 },
-    scale: 1.0
-  },
-  // Default wedding fallback
-  {
-    keywords: ['wedding'],
-    svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
-    fallbackText: 'Alhamdulillahi on Your Wedding Ceremony',
-    position: { x: -100, y: -20, width: 1800, height: 900 },
-    scale: 1.0
-  },
-]
-
-/**
- * Find matching title SVG based on user input
- * More specific matches (more keywords) take priority
- */
-function findMatchingTitle(input: string): TitleEntry | null {
-  const normalizedInput = input.toLowerCase()
-  
-  // Sort by number of keywords (descending) to prioritize more specific matches
-  const sortedLibrary = [...TITLE_LIBRARY].sort((a, b) => b.keywords.length - a.keywords.length)
-  
-  for (const entry of sortedLibrary) {
-    // Check if ALL keywords are present in the input
-    const allKeywordsMatch = entry.keywords.every(keyword => 
-      normalizedInput.includes(keyword.toLowerCase())
-    )
-    
-    if (allKeywordsMatch) {
-      console.log('ðŸŽ¯ Title Library Match:', entry.fallbackText, 'for input:', input)
-      return entry
-    }
-  }
-  
-  console.log('âš ï¸ No title match found for:', input)
-  return null
-}
-
-/**
- * Replace title text elements with a pre-rendered PNG image
- * Loads SVG, applies color, renders to PNG for reliable export
- */
-interface TitleImageConfig {
-  svgPath: string;
-  targetElementIds: string[];
-  position: { x: number; y: number; width: number; height: number };
-  scale: number;
-  color?: string;  // Optional color override for the title
-}
-
-// Cache for pre-rendered title images (keyed by svgPath + color)
-const titleImageCache = new Map<string, string>()
-
-// Clear title image cache (call when background changes to force re-render with new color)
-function clearTitleImageCache(): void {
-  titleImageCache.clear()
-  console.log('ðŸ—‘ï¸ Title image cache cleared')
-}
-
-async function renderSvgToPng(svgUrl: string, width: number, height: number, color?: string): Promise<string> {
-  const cacheKey = `${svgUrl}-${color || 'default'}-${width}x${height}`
-  
-  // Check cache first
-  if (titleImageCache.has(cacheKey)) {
-    console.log('ðŸ“¦ Using cached title PNG:', cacheKey)
-    return titleImageCache.get(cacheKey)!
-  }
-  
-  console.log('ðŸŽ¨ Rendering SVG to PNG:', svgUrl, 'color:', color, 'size:', width, 'x', height)
-  
-  // Fetch the SVG
-  const response = await fetch(svgUrl)
-  if (!response.ok) {
-    throw new Error(`Failed to fetch SVG: ${response.status}`)
-  }
-  let svgText = await response.text()
-  
-  // Parse and modify SVG for color if specified
-  if (color) {
-    const parser = new DOMParser()
-    const svgDoc = parser.parseFromString(svgText, 'image/svg+xml')
-    const svgElement = svgDoc.querySelector('svg')
-    
-    if (svgElement) {
-      // Update fill colors in styles (CSS within SVG)
-      const styles = svgElement.querySelectorAll('style')
-      styles.forEach(style => {
-        if (style.textContent) {
-          style.textContent = style.textContent
-            .replace(/fill:\s*#[0-9A-Fa-f]{3,8}/gi, `fill:${color}`)
-            .replace(/fill:\s*rgb\([^)]+\)/gi, `fill:${color}`)
-            .replace(/fill:\s*rgba\([^)]+\)/gi, `fill:${color}`)
-        }
-      })
-      
-      // Update fill attributes on ALL elements with fill attribute
-      const fillElements = svgElement.querySelectorAll('[fill]')
-      fillElements.forEach(el => {
-        const currentFill = el.getAttribute('fill')
-        // Replace any color (hex, rgb, named) except 'none' and gradients
-        if (currentFill && currentFill !== 'none' && !currentFill.startsWith('url(')) {
-          el.setAttribute('fill', color)
-        }
-      })
-      
-      // Also update any inline style fill colors
-      const styledElements = svgElement.querySelectorAll('[style]')
-      styledElements.forEach(el => {
-        const style = el.getAttribute('style')
-        if (style && style.includes('fill')) {
-          const newStyle = style
-            .replace(/fill:\s*#[0-9A-Fa-f]{3,8}/gi, `fill:${color}`)
-            .replace(/fill:\s*rgb\([^)]+\)/gi, `fill:${color}`)
-            .replace(/fill:\s*rgba\([^)]+\)/gi, `fill:${color}`)
-          el.setAttribute('style', newStyle)
-        }
-      })
-      
-      // Handle g (group) elements that may have fill
-      const gElements = svgElement.querySelectorAll('g[fill]')
-      gElements.forEach(g => {
-        const currentFill = g.getAttribute('fill')
-        if (currentFill && currentFill !== 'none' && !currentFill.startsWith('url(')) {
-          g.setAttribute('fill', color)
-        }
-      })
-      
-      // Serialize back
-      const serializer = new XMLSerializer()
-      svgText = serializer.serializeToString(svgElement)
-    }
-  }
-  
-  // Create blob URL from (possibly modified) SVG
-  const svgBlob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' })
-  const svgBlobUrl = URL.createObjectURL(svgBlob)
-  
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    
-    const timeout = setTimeout(() => {
-      URL.revokeObjectURL(svgBlobUrl)
-      reject(new Error('SVG to PNG render timeout'))
-    }, 10000)
-    
-    img.onload = () => {
-      clearTimeout(timeout)
-      try {
-        const canvas = document.createElement('canvas')
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')
-        
-        if (!ctx) {
-          URL.revokeObjectURL(svgBlobUrl)
-          reject(new Error('Failed to get canvas context'))
-          return
-        }
-        
-        ctx.drawImage(img, 0, 0, width, height)
-        const pngDataUrl = canvas.toDataURL('image/png')
-        
-        URL.revokeObjectURL(svgBlobUrl)
-        
-        // Cache the result
-        titleImageCache.set(cacheKey, pngDataUrl)
-        console.log('âœ… SVG rendered to PNG, size:', pngDataUrl.length, 'bytes')
-        
-        resolve(pngDataUrl)
-      } catch (e) {
-        URL.revokeObjectURL(svgBlobUrl)
-        reject(e)
-      }
-    }
-    
-    img.onerror = () => {
-      clearTimeout(timeout)
-      URL.revokeObjectURL(svgBlobUrl)
-      reject(new Error('Failed to load SVG for rendering'))
-    }
-    
-    img.src = svgBlobUrl
-  })
-}
-
-async function replaceTitleWithImage(svgElement: SVGSVGElement, config: TitleImageConfig): Promise<void> {
-  console.log('ðŸ–¼ï¸ Replacing title with pre-rendered PNG:', config.svgPath)
-  
-  // Remove any existing title replacement
-  const existingReplacement = svgElement.querySelector('#wedding-title-replacement')
-  if (existingReplacement) {
-    existingReplacement.remove()
-    console.log('ðŸ—‘ï¸ Removed existing title replacement')
-  }
-  
-  // Hide original text elements (do NOT remove; removal makes custom headings impossible later)
-  config.targetElementIds.forEach(id => {
-    const element = svgElement.querySelector(`#${id}`) as SVGGraphicsElement | null
-    if (element) {
-      if (!element.hasAttribute('data-orig-display')) {
-        element.setAttribute('data-orig-display', element.getAttribute('display') ?? '')
-      }
-      element.setAttribute('display', 'none')
-      element.setAttribute('data-title-hidden', 'true')
-      console.log(`ðŸ™ˆ Hiding original title text: #${id}`)
-    }
-  })
-  
-  // Calculate final dimensions
-  const finalWidth = config.position.width * config.scale
-  const finalHeight = config.position.height * config.scale
-  
-  // Build full URL for the SVG
-  const fullUrl = config.svgPath.startsWith('/') 
-    ? window.location.origin + config.svgPath 
-    : config.svgPath
-  
-  try {
-    // Render SVG to PNG with optional color
-    const pngDataUrl = await renderSvgToPng(fullUrl, finalWidth, finalHeight, config.color)
-    
-    // Create image element with the PNG data URL
-    const titleImage = document.createElementNS('http://www.w3.org/2000/svg', 'image')
-    titleImage.setAttribute('id', 'wedding-title-replacement')
-    titleImage.setAttribute('x', String(config.position.x))
-    titleImage.setAttribute('y', String(config.position.y))
-    titleImage.setAttribute('width', String(finalWidth))
-    titleImage.setAttribute('height', String(finalHeight))
-    titleImage.setAttribute('href', pngDataUrl)
-    titleImage.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', pngDataUrl)
-    titleImage.setAttribute('preserveAspectRatio', 'xMidYMid meet')
-    
-    // Store the SVG path for potential color updates later
-    titleImage.setAttribute('data-svg-path', config.svgPath)
-    titleImage.setAttribute('data-color', config.color || '')
-    
-    // Insert the image into the SVG
-    const namesGroup = svgElement.querySelector('#wedding-names-group')
-    if (namesGroup) {
-      svgElement.insertBefore(titleImage, namesGroup)
-    } else {
-      svgElement.appendChild(titleImage)
-    }
-    
-    console.log('âœ… Title PNG image inserted into SVG')
-  } catch (error) {
-    console.error('âŒ Failed to render title:', error)
-    // Fallback: use SVG directly (may not export properly but will show in preview)
-    const titleImage = document.createElementNS('http://www.w3.org/2000/svg', 'image')
-    titleImage.setAttribute('id', 'wedding-title-replacement')
-    titleImage.setAttribute('x', String(config.position.x))
-    titleImage.setAttribute('y', String(config.position.y))
-    titleImage.setAttribute('width', String(finalWidth))
-    titleImage.setAttribute('height', String(finalHeight))
-    titleImage.setAttribute('href', fullUrl)
-    titleImage.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', fullUrl)
-    titleImage.setAttribute('preserveAspectRatio', 'xMidYMid meet')
-    
-    const namesGroup = svgElement.querySelector('#wedding-names-group')
-    if (namesGroup) {
-      svgElement.insertBefore(titleImage, namesGroup)
-    } else {
-      svgElement.appendChild(titleImage)
-    }
-    console.log('âš ï¸ Fallback: Using SVG URL directly')
-  }
-}
-
-function restoreTitleTextElements(svgElement: SVGSVGElement, targetElementIds: string[]) {
-  // Remove any existing title replacement image
-  const existingReplacement = svgElement.querySelector('#wedding-title-replacement')
-  if (existingReplacement) {
-    existingReplacement.remove()
-    console.log('ðŸ—‘ï¸ Removed title replacement (restoring text heading)')
-  }
-
-  // Restore original title text elements visibility
-  targetElementIds.forEach(id => {
-    const element = svgElement.querySelector(`#${id}`) as SVGGraphicsElement | null
-    if (!element) return
-
-    const origDisplay = element.getAttribute('data-orig-display')
-    if (origDisplay === null) {
-      element.removeAttribute('display')
-    } else if (origDisplay === '') {
-      element.removeAttribute('display')
-    } else {
-      element.setAttribute('display', origDisplay)
-    }
-
-    element.removeAttribute('data-title-hidden')
-  })
-}
-
-/**
- * Update the title color (re-renders the title with new color)
- */
-async function updateTitleColor(svgElement: SVGSVGElement, newColor: string): Promise<void> {
-  const titleImage = svgElement.querySelector('#wedding-title-replacement') as SVGImageElement
-  if (!titleImage) {
-    console.log('âš ï¸ No title image to update color')
-    return
-  }
-  
-  const svgPath = titleImage.getAttribute('data-svg-path')
-  if (!svgPath) {
-    console.log('âš ï¸ Title image missing SVG path, cannot update color')
-    return
-  }
-  
-  const width = parseFloat(titleImage.getAttribute('width') || '1800')
-  const height = parseFloat(titleImage.getAttribute('height') || '900')
-  
-  const fullUrl = svgPath.startsWith('/') 
-    ? window.location.origin + svgPath 
-    : svgPath
-  
-  try {
-    const pngDataUrl = await renderSvgToPng(fullUrl, width, height, newColor)
-    titleImage.setAttribute('href', pngDataUrl)
-    titleImage.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', pngDataUrl)
-    titleImage.setAttribute('data-color', newColor)
-    console.log('âœ… Title color updated to:', newColor)
-  } catch (error) {
-    console.error('âŒ Failed to update title color:', error)
-  }
-}
 
 // ========================================
-// FLOURISH SYSTEM - Decorative element above names
+// TITLE LIBRARY - Using composable
 // ========================================
+const {
+  TITLE_LIBRARY,
+  findMatchingTitle,
+  renderSvgToPng,
+  replaceTitleWithImage,
+  restoreTitleTextElements,
+  updateTitleColor,
+  clearTitleImageCache,
+} = useTitleLibrary()
 
-// Available flourish SVGs - will be randomly selected
-const AVAILABLE_FLOURISHES = [
-  '/assets/flourish/Yellow Green Pastel Islamic Frame Islamic Perspective on Daily Life Presentation.svg',
-]
+// Shared ref for tracking current background (used by flourish system)
+const currentBackgroundFileName = ref<string>('')
 
-// Get a random flourish SVG path
-function getRandomFlourish(): string {
-  const randomIndex = Math.floor(Math.random() * AVAILABLE_FLOURISHES.length)
-  console.log(`ðŸŒ¸ Selected flourish ${randomIndex + 1}/${AVAILABLE_FLOURISHES.length}: ${AVAILABLE_FLOURISHES[randomIndex]}`)
-  return AVAILABLE_FLOURISHES[randomIndex]
-}
-
-// Flourish position config (above names, aligned left - not overlapping image area)
-const FLOURISH_CONFIG = {
-  position: { x: 150, y: 780, width: 1200, height: 300 }, // Larger size, positioned left, above names
-  scale: 1.0
-}
-
-/**
- * Get flourish color based on current background
- * Returns a color that complements the background
- */
-function getFlourishColorForBackground(backgroundFileName?: string): string {
-  const bgFile = backgroundFileName || currentBackgroundFileName.value
-  if (!bgFile) {
-    return '#FFD700' // Default gold
-  }
-  
-  const lowerName = bgFile.toLowerCase()
-  
-  // Beige Gold Gradient - Dark gold/bronze
-  if (lowerName.includes('beige gold gradient')) {
-    return '#B8860B' // Dark Goldenrod
-  }
-  
-  // Blue Futuristic - Cyan or electric blue
-  if (lowerName.includes('blue futuristic')) {
-    return '#00CED1' // Dark Turquoise
-  }
-  
-  // Blue Yellow Modern - Yellow/amber accent
-  if (lowerName.includes('blue yellow modern')) {
-    return '#F59E0B' // Amber
-  }
-  
-  // Deep Green - Gold
-  if (lowerName.includes('deep green')) {
-    return '#FFD700' // Gold
-  }
-  
-  // Red and Gold Chinese themes - Gold
-  if (lowerName.includes('red and gold chinese new year')) {
-    return '#FFD700' // Gold
-  }
-  
-  if (lowerName.includes('red and gold classic lunar chinese')) {
-    return '#FFD700' // Gold
-  }
-  
-  if (lowerName.includes('red and gold modern chinese')) {
-    return '#FFD700' // Gold
-  }
-  
-  // Red and Gold Simple Elegant - Gold
-  if (lowerName.includes('red and gold simple elegant')) {
-    return '#DAA520' // Goldenrod
-  }
-  
-  // BackgroundColour.svg - Dark blue to contrast with yellow/gold background
-  if (lowerName.includes('backgroundcolour')) {
-    return '#000066' // Dark blue (matches the accent shapes in the background)
-  }
-  
-  // Default: Gold
-  return '#FFD700'
-}
-
-/**
- * Insert flourish SVG above the names
- * Renders SVG to PNG with the appropriate color for the background
- */
-async function insertFlourishAboveNames(svgElement: SVGSVGElement, color?: string): Promise<void> {
-  console.log('ðŸŒ¸ Inserting flourish above names...')
-  
-  // Remove any existing flourish
-  const existingFlourish = svgElement.querySelector('#wedding-flourish')
-  if (existingFlourish) {
-    existingFlourish.remove()
-    console.log('ðŸ—‘ï¸ Removed existing flourish')
-  }
-  
-  // Get the color based on background
-  const flourishColor = color || getFlourishColorForBackground()
-  console.log('ðŸŽ¨ Flourish color:', flourishColor)
-  
-  // Calculate final dimensions
-  const finalWidth = FLOURISH_CONFIG.position.width * FLOURISH_CONFIG.scale
-  const finalHeight = FLOURISH_CONFIG.position.height * FLOURISH_CONFIG.scale
-  
-  // Get a random flourish SVG
-  const randomFlourishPath = getRandomFlourish()
-  
-  // Build full URL
-  const fullUrl = randomFlourishPath.startsWith('/') 
-    ? window.location.origin + randomFlourishPath 
-    : randomFlourishPath
-  
-  try {
-    // Render SVG to PNG with color
-    const pngDataUrl = await renderSvgToPng(fullUrl, finalWidth, finalHeight, flourishColor)
-    
-    // Create image element
-    const flourishImage = document.createElementNS('http://www.w3.org/2000/svg', 'image')
-    flourishImage.setAttribute('id', 'wedding-flourish')
-    flourishImage.setAttribute('x', String(FLOURISH_CONFIG.position.x))
-    flourishImage.setAttribute('y', String(FLOURISH_CONFIG.position.y))
-    flourishImage.setAttribute('width', String(finalWidth))
-    flourishImage.setAttribute('height', String(finalHeight))
-    flourishImage.setAttribute('href', pngDataUrl)
-    flourishImage.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', pngDataUrl)
-    flourishImage.setAttribute('preserveAspectRatio', 'xMidYMid meet')
-    flourishImage.setAttribute('data-svg-path', randomFlourishPath)
-    flourishImage.setAttribute('data-color', flourishColor)
-    
-    // Find the names group and insert flourish before it (above in visual layer)
-    const namesGroup = svgElement.querySelector('#wedding-names-group')
-    if (namesGroup) {
-      svgElement.insertBefore(flourishImage, namesGroup)
-      console.log('âœ… Flourish inserted above names group')
-    } else {
-      // Fallback: append to SVG
-      svgElement.appendChild(flourishImage)
-      console.log('âœ… Flourish appended to SVG (names group not found)')
-    }
-    
-    console.log(`âœ… Flourish inserted at (${FLOURISH_CONFIG.position.x}, ${FLOURISH_CONFIG.position.y}) size: ${finalWidth}x${finalHeight}`)
-  } catch (error) {
-    console.error('âŒ Failed to insert flourish:', error)
-  }
-}
-
-/**
- * Update flourish color (re-renders with new color)
- */
-async function updateFlourishColor(svgElement: SVGSVGElement, newColor: string): Promise<void> {
-  const flourishImage = svgElement.querySelector('#wedding-flourish') as SVGImageElement
-  if (!flourishImage) {
-    console.log('âš ï¸ No flourish to update color')
-    return
-  }
-  
-  // Get the SVG path from the data attribute (stored when flourish was created)
-  const svgPath = flourishImage.getAttribute('data-svg-path')
-  if (!svgPath) {
-    console.log('âš ï¸ Flourish missing SVG path, cannot update color')
-    return
-  }
-  
-  const width = parseFloat(flourishImage.getAttribute('width') || '1100')
-  const height = parseFloat(flourishImage.getAttribute('height') || '275')
-  
-  const fullUrl = svgPath.startsWith('/') 
-    ? window.location.origin + svgPath 
-    : svgPath
-  
-  try {
-    const pngDataUrl = await renderSvgToPng(fullUrl, width, height, newColor)
-    flourishImage.setAttribute('href', pngDataUrl)
-    flourishImage.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', pngDataUrl)
-    flourishImage.setAttribute('data-color', newColor)
-    console.log('âœ… Flourish color updated to:', newColor)
-  } catch (error) {
-    console.error('âŒ Failed to update flourish color:', error)
-  }
-}
+// ========================================
+// FLOURISH SYSTEM - Using composable
+// ========================================
+const {
+  AVAILABLE_FLOURISHES,
+  DEFAULT_FLOURISH_CONFIG: FLOURISH_CONFIG,
+  getRandomFlourish,
+  getFlourishColorForBackground,
+  insertFlourishAboveNames,
+  updateFlourishColor,
+  removeFlourish,
+} = useFlourishSystem(currentBackgroundFileName)
 
 // Validation Warnings
 const validationWarnings = ref<string[]>([])
@@ -917,6 +458,52 @@ const chatHistoryContainer = computed(() => {
 })
 const imageFileInput = ref<HTMLInputElement | null>(null)
 let svgElements: ReturnType<typeof getSVGElements> | null = null
+
+// ========================================
+// BACKGROUND MANAGER - Using composable
+// ========================================
+// Forward declaration for updateSVGWithImages (defined later in file)
+let _updateSVGWithImages: (() => void) | undefined
+
+// Persistence key based on user ID
+const backgroundPersistenceKey = computed(() => {
+  const userId = authStore.user?.id || 'anon'
+  return `weddingSticker:selectedBackground:${userId}`
+})
+
+const {
+  availableBackgrounds,
+  currentBackgroundIndex,
+  currentBackgroundFileName: bgManagerBackgroundFileName,
+  usedBackgroundsInSession,
+  getPersistedWeddingBackground,
+  setPersistedWeddingBackground,
+  loadWeddingBackgroundManifest,
+  getBackgroundColorConfig,
+  getTitleColorForBackground,
+  getRandomBackground,
+  applyNewBackground,
+  updateChatPreviewSVG,
+  LIGHT_BG_COLORS,
+  DARK_BG_COLORS,
+  RED_GOLD_BG_COLORS,
+} = useBackgroundManager({
+  weddingPreviewContainer,
+  chatPreviewContainer: chatPreviewContainer as Ref<HTMLElement | HTMLElement[] | null>,
+  clearTitleImageCache,
+  updateSVGWithImages: () => _updateSVGWithImages?.(),
+  updateTitleColor,
+  flourishSystem: {
+    getFlourishColorForBackground,
+    updateFlourishColor,
+  },
+  persistenceKey: backgroundPersistenceKey,
+})
+
+// Sync background filename to our shared ref (for flourish system)
+watch(bgManagerBackgroundFileName, (newVal) => {
+  currentBackgroundFileName.value = newVal
+}, { immediate: true })
 
 const showMenu = ref(false)
 // Wedding is pre-selected as the only category
@@ -1003,15 +590,15 @@ function handleMessageAction(action: { type: string; label?: string; route?: str
 
 // Token deduction helper function
 async function deductTokensForAction(amount: number, reason: string): Promise<boolean> {
-  // ðŸ“± OFFLINE MODE: Skip token checks entirely
+  // ?? OFFLINE MODE: Skip token checks entirely
   if (!FEATURES.TOKENS_ENABLED) {
-    console.log('ðŸ“± Offline mode: Skipping token deduction for:', reason)
+    console.log('?? Offline mode: Skipping token deduction for:', reason)
     return true
   }
   
   // Check if user is authenticated - REQUIRE LOGIN
   if (!authStore.isAuthenticated || !authStore.user?.id) {
-    console.log('ðŸ’Ž Token deduction blocked - user not authenticated')
+    console.log('?? Token deduction blocked - user not authenticated')
     authStore.showNotification({
       title: 'Login Required',
       message: 'Please login or create an account to generate designs.',
@@ -1020,7 +607,7 @@ async function deductTokensForAction(amount: number, reason: string): Promise<bo
     // Show a chat message prompting user to login with action buttons
     chatMessages.value.push({
       id: Date.now(),
-      text: "Hey there!\n\nTo create beautiful designs, you'll need to login or create a free account first.\n\nBenefits of signing up:\nâ€¢ Get 100 FREE tokens to start!\nâ€¢ Save your designs\nâ€¢ Access all features",
+      text: "Hey there!\n\nTo create beautiful designs, you'll need to login or create a free account first.\n\nBenefits of signing up:\n� Get 100 FREE tokens to start!\n� Save your designs\n� Access all features",
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       actions: [
@@ -1043,7 +630,7 @@ async function deductTokensForAction(amount: number, reason: string): Promise<bo
     // Show a chat message guiding user to buy tokens with action button
     chatMessages.value.push({
       id: Date.now(),
-      text: "Oops! You've run out of tokens.\n\nTo continue creating beautiful designs, you'll need to purchase more tokens.\n\nToken Packages Available:\nâ€¢ 100 tokens - â‚¦100\nâ€¢ 500 tokens - â‚¦500\nâ€¢ 1000 tokens - â‚¦1000 (Best Value!)",
+      text: "Oops! You've run out of tokens.\n\nTo continue creating beautiful designs, you'll need to purchase more tokens.\n\nToken Packages Available:\n� 100 tokens - ?100\n� 500 tokens - ?500\n� 1000 tokens - ?1000 (Best Value!)",
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       actions: [
@@ -1076,10 +663,10 @@ async function deductTokensForAction(amount: number, reason: string): Promise<bo
   
   try {
     await userStore.deductUserTokens(authStore.user.id, amount)
-    console.log(`ðŸ’Ž Deducted ${amount} tokens for: ${reason}. New balance: ${userStore.user?.tokens}`)
+    console.log(`?? Deducted ${amount} tokens for: ${reason}. New balance: ${userStore.user?.tokens}`)
     return true
   } catch (error: any) {
-    console.error('âŒ Token deduction API failed:', error)
+    console.error('? Token deduction API failed:', error)
     
     // If the backend is unavailable, deduct locally and allow the action
     // This prevents blocking users when server is down
@@ -1088,7 +675,7 @@ async function deductTokensForAction(amount: number, reason: string): Promise<bo
         error.message?.includes('not found') ||
         error.message?.includes('404') ||
         error.message?.includes('500')) {
-      console.log('ðŸ’Ž Backend unavailable, deducting tokens locally')
+      console.log('?? Backend unavailable, deducting tokens locally')
       // Deduct locally - backend will sync later
       userStore.updateTokens(-amount)
       authStore.showNotification({
@@ -1156,7 +743,7 @@ async function handleGenerateMore() {
     
     chatMessages.value.push({
       id: Date.now() + 1,
-      text: "Here's a new design variation! ðŸŽ¨ Like this one better?",
+      text: "Here's a new design variation! ?? Like this one better?",
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     })
@@ -1242,14 +829,14 @@ async function handleGenerateNew() {
           }
         })
         
-        console.log(`âœ… Updated ${previewContainers.length} preview(s) with new design`)
+        console.log(`? Updated ${previewContainers.length} preview(s) with new design`)
       }
     }
     
     // Add a brief message about the updated design
     chatMessages.value.push({
       id: Date.now(),
-      text: "Your design has been updated with a fresh new look! ðŸŽ¨âœ¨",
+      text: "Your design has been updated with a fresh new look! ???",
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     })
@@ -1289,7 +876,7 @@ const editModalExtractedInfo = computed(() => ({
 
 // Handle save from edit modal - update SVG directly
 async function handleEditModalSave(data: { heading: string; name1: string; name2: string; date: string; courtesy: string }) {
-  console.log('ðŸ“ Edit modal save:', data)
+  console.log('?? Edit modal save:', data)
   
   // Update extracted info
   extractedInfo.value.names.name1 = data.name1 || null
@@ -1424,7 +1011,7 @@ function toggleVoiceInput() {
     
     // Show toast notification - different message for mobile
     authStore.showNotification({
-      title: 'ðŸŽ¤ Listening...',
+      title: '?? Listening...',
       message: isMobile ? 'Speak clearly into your phone!' : 'Speak now! Say your message clearly.',
       type: 'info'
     })
@@ -1432,7 +1019,7 @@ function toggleVoiceInput() {
     // Add a listening indicator to chat
     chatMessages.value.push({
       id: Date.now(),
-      text: isMobile ? 'ðŸŽ¤ Listening... Speak into your phone!' : 'ðŸŽ¤ Listening... Speak now!',
+      text: isMobile ? '?? Listening... Speak into your phone!' : '?? Listening... Speak now!',
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       isLoading: true
@@ -1527,7 +1114,7 @@ async function generateWeddingPreview() {
     })
     chatMessages.value.push({
       id: Date.now(),
-      text: "Hold on!\n\nYou need to login or create a free account to generate your design.\n\nWhy sign up?\nâ€¢ Get 100 FREE tokens instantly!\nâ€¢ Save and download your designs\nâ€¢ Access premium features",
+      text: "Hold on!\n\nYou need to login or create a free account to generate your design.\n\nWhy sign up?\n� Get 100 FREE tokens instantly!\n� Save and download your designs\n� Access premium features",
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       actions: [
@@ -1609,13 +1196,13 @@ async function generateWeddingPreview() {
        if (sizeMatch) {
           const w = parseFloat(sizeMatch[1])
           const h = parseFloat(sizeMatch[2])
-          console.log(`ðŸ“ Applying initial size: ${w}x${h} inches`)
+          console.log(`?? Applying initial size: ${w}x${h} inches`)
           
           // Ensure container is available before resizing
           if (weddingPreviewContainer.value) {
             await handleSizeChange(w, h)
           } else {
-            console.warn('âš ï¸ weddingPreviewContainer not ready for initial resize, skipping.')
+            console.warn('?? weddingPreviewContainer not ready for initial resize, skipping.')
           }
        }
     }
@@ -1628,7 +1215,7 @@ async function generateWeddingPreview() {
     if (initialBackground) {
       currentBackgroundFileName.value = initialBackground
       setPersistedWeddingBackground(initialBackground)
-      console.log('ðŸŽ¨ Pre-selected background for title color:', initialBackground)
+      console.log('?? Pre-selected background for title color:', initialBackground)
     }
     
     // Now load the template - title will use the correct color based on pre-selected background
@@ -1639,12 +1226,12 @@ async function generateWeddingPreview() {
 
     // Apply the background image (already selected above)
     if (initialBackground) {
-      console.log('ðŸŽ¨ Applying background image:', initialBackground)
+      console.log('?? Applying background image:', initialBackground)
       await applyNewBackground(initialBackground)
       
       // Wait for background image to fully load before continuing
       await new Promise(resolve => setTimeout(resolve, 1500))
-      console.log('â³ Background loaded, continuing...')
+      console.log('? Background loaded, continuing...')
     }
 
     // Clear the input field now that we've processed the description
@@ -1656,7 +1243,7 @@ async function generateWeddingPreview() {
       await nextTick() // Ensure DOM is ready
       
       if (!weddingPreviewContainer.value) {
-        console.error('âŒ weddingPreviewContainer not available')
+        console.error('? weddingPreviewContainer not available')
         return
       }
       
@@ -1683,7 +1270,7 @@ async function generateWeddingPreview() {
         }
 
         // Add image to SVG
-        console.log('ðŸ“· About to add image to SVG manager:', {
+        console.log('?? About to add image to SVG manager:', {
           fileName: fileToProcess.name,
           fileSize: fileToProcess.size,
           fileType: fileToProcess.type
@@ -1691,7 +1278,7 @@ async function generateWeddingPreview() {
         
         const addedImage = await svgImageManager.addImage(fileToProcess, svgElement)
         
-        console.log('ðŸ“· Image added to SVG manager:', {
+        console.log('?? Image added to SVG manager:', {
           success: !!addedImage,
           imageId: addedImage?.id,
           dataUrlLength: addedImage?.dataUrl?.length || 0,
@@ -1705,12 +1292,12 @@ async function generateWeddingPreview() {
         
         // Additional delay to ensure image is fully rendered
         await new Promise(resolve => setTimeout(resolve, 800))
-        console.log('â³ User image render delay complete')
+        console.log('? User image render delay complete')
         
         // Debug: Log image element status
         const imgElement = svgElement.querySelector('#userImage, #placeholder-image') as SVGImageElement
         if (imgElement) {
-          console.log('ðŸ–¼ï¸ Image element after update:', {
+          console.log('??? Image element after update:', {
             hasHref: !!imgElement.getAttribute('href'),
             hrefLength: imgElement.getAttribute('href')?.length || 0,
             hasXlinkHref: !!imgElement.getAttributeNS('http://www.w3.org/1999/xlink', 'href'),
@@ -1733,17 +1320,17 @@ async function generateWeddingPreview() {
             if (userIndex < bgIndex) {
               // Move userImage after background-image
               bgImage.after(imgElement)
-              console.log('ðŸ”§ Fixed: Moved userImage after background-image for correct z-order')
+              console.log('?? Fixed: Moved userImage after background-image for correct z-order')
             }
           }
           
           // Ensure opacity is set to 1
           if (!imgElement.getAttribute('opacity') || imgElement.getAttribute('opacity') === '0') {
             imgElement.setAttribute('opacity', '1')
-            console.log('ðŸ”§ Fixed: Set userImage opacity to 1')
+            console.log('?? Fixed: Set userImage opacity to 1')
           }
         } else {
-          console.warn('âš ï¸ No image element found in SVG after updateSVGWithImages')
+          console.warn('?? No image element found in SVG after updateSVGWithImages')
         }
       }
     }
@@ -1773,7 +1360,7 @@ async function generateWeddingPreview() {
     
     // CRITICAL: Ensure preview flag is true to show Download/Edit buttons
     showWeddingStickerPreview.value = true
-    console.log('âœ… showWeddingStickerPreview set to true for Download button visibility')
+    console.log('? showWeddingStickerPreview set to true for Download button visibility')
     
     // Add the preview message to the chat history
     chatMessages.value.push({
@@ -1787,7 +1374,7 @@ async function generateWeddingPreview() {
     // Add guidance message
     chatMessages.value.push({
       id: Date.now() + 1,
-      text: "Your design is ready! Looking great! ðŸŽ‰\n\nðŸ’¡ **Tip:** You can drag the image to reposition it. Click 'Edit' for more options!",
+      text: "Your design is ready! Looking great! ??\n\n?? **Tip:** You can drag the image to reposition it. Click 'Edit' for more options!",
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     })
@@ -1798,7 +1385,7 @@ async function generateWeddingPreview() {
     
     // Additional delay to ensure all images and elements are fully rendered
     await new Promise(resolve => setTimeout(resolve, 500))
-    console.log('â³ Final render delay complete')
+    console.log('? Final render delay complete')
     
     // Copy the SVG from main container to chat container
     // Note: chatPreviewContainer is an array because it's in a v-for loop
@@ -1807,7 +1394,7 @@ async function generateWeddingPreview() {
       
       // Debug: Check image element in source SVG before cloning
       const sourceImgEl = svgElement?.querySelector('#userImage, #placeholder-image, image') as SVGImageElement
-      console.log('ðŸ” Source SVG image check before clone:', {
+      console.log('?? Source SVG image check before clone:', {
         hasImageElement: !!sourceImgEl,
         imageId: sourceImgEl?.id,
         hasHref: !!sourceImgEl?.getAttribute('href'),
@@ -1815,7 +1402,7 @@ async function generateWeddingPreview() {
         hasXlinkHref: !!sourceImgEl?.getAttributeNS('http://www.w3.org/1999/xlink', 'href')
       })
       
-      console.log('ðŸ” Checking weddingPreviewContainer for SVG...', {
+      console.log('?? Checking weddingPreviewContainer for SVG...', {
         hasContainer: !!weddingPreviewContainer.value,
         hasSVG: !!svgElement,
         svgDimensions: svgElement ? { width: svgElement.getAttribute('width'), height: svgElement.getAttribute('height') } : null
@@ -1827,7 +1414,7 @@ async function generateWeddingPreview() {
           ? chatPreviewContainer.value 
           : (chatPreviewContainer.value ? [chatPreviewContainer.value] : [])
         
-        console.log('ðŸ” Preview containers found:', previewContainers.length)
+        console.log('?? Preview containers found:', previewContainers.length)
         
         const targetContainer = previewContainers[previewContainers.length - 1]
         
@@ -1846,13 +1433,13 @@ async function generateWeddingPreview() {
               
               // Set container aspect ratio to match SVG design
               targetContainer.style.aspectRatio = String(aspectRatio)
-              console.log(`ðŸ“ Preview aspect ratio set to: ${aspectRatio.toFixed(2)} (${vbWidth}x${vbHeight})`)
+              console.log(`?? Preview aspect ratio set to: ${aspectRatio.toFixed(2)} (${vbWidth}x${vbHeight})`)
             }
           }
           
           // Debug: Check image in cloned SVG before appending
           const clonedImgEl = clonedSVG.querySelector('#userImage, #placeholder-image, image') as SVGImageElement
-          console.log('ðŸ–¼ï¸ Cloned SVG image check:', {
+          console.log('??? Cloned SVG image check:', {
             hasImageElement: !!clonedImgEl,
             imageId: clonedImgEl?.id,
             hasHref: !!clonedImgEl?.getAttribute('href'),
@@ -1872,14 +1459,14 @@ async function generateWeddingPreview() {
           targetContainer.innerHTML = ''
           targetContainer.appendChild(clonedSVG)
           
-          console.log('âœ… SVG successfully cloned to chat container', {
+          console.log('? SVG successfully cloned to chat container', {
             viewBox: viewBox,
             containerSize: { width: targetContainer.offsetWidth, height: targetContainer.offsetHeight }
           })
           
           // Verify the SVG was actually added
           if (!targetContainer.querySelector('svg')) {
-            console.error('âŒ SVG clone failed - retrying...')
+            console.error('? SVG clone failed - retrying...')
             // Try again with a small delay
             await new Promise(resolve => setTimeout(resolve, 50))
             targetContainer.appendChild(clonedSVG.cloneNode(true))
@@ -1896,17 +1483,17 @@ async function generateWeddingPreview() {
             const imageId = imgEl.getAttribute('data-image-id') || imgEl.id || 'user-image-1'
             if (imageId) {
               makeSVGImageDraggable(imgEl as SVGImageElement, imageId)
-              console.log('ðŸŽ¯ Attached draggable to image:', imageId)
+              console.log('?? Attached draggable to image:', imageId)
             }
           })
           
           // Force a layout recalculation
           void targetContainer.offsetHeight
         } else {
-          console.error('âŒ Chat preview container not available in array')
+          console.error('? Chat preview container not available in array')
         }
       } else {
-        console.error('âŒ SVG not found in weddingPreviewContainer')
+        console.error('? SVG not found in weddingPreviewContainer')
         
         // Try to show a fallback in the last preview container
         const previewContainers = Array.isArray(chatPreviewContainer.value) 
@@ -1926,7 +1513,7 @@ async function generateWeddingPreview() {
         }
       }
     } else {
-      console.error('âŒ weddingPreviewContainer not available')
+      console.error('? weddingPreviewContainer not available')
     }
     
     // Scroll to bottom to show the generated SVG
@@ -1972,350 +1559,9 @@ const preGeneratedImageFile = ref<File | null>(null)
 const preGeneratedImagePreview = ref<string | null>(null)
 const preGeneratedImageInput = ref<HTMLInputElement | null>(null)
 
-// Helper function to capitalize first letter of each word and strip trailing numbers (typos)
-function capitalizeWords(str: string): string {
-  return str.split(' ')
-    .map(word => {
-      // Remove trailing numbers from each word (handles typos like "Yahaya4" -> "Yahaya")
-      const cleanWord = word.replace(/\d+$/, '')
-      return cleanWord.charAt(0).toUpperCase() + cleanWord.slice(1).toLowerCase()
-    })
-    .join(' ')
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-// Enhanced Name Extraction Function - NOW CASE INSENSITIVE
-function extractNamesFromResponse(text: string): { name1: string | null; name2: string | null } {
-  // FIRST: Check if this is just a request phrase - don't extract names from it
-  const requestPhrasePatterns = [
-    /^i\s+want\s+(?:a\s+)?(?:wedding\s+)?(?:sticker|stiker|design)/i,
-    /^i\s+need\s+(?:a\s+)?(?:wedding\s+)?(?:sticker|stiker|design)/i,
-    /^i\s+would\s+like\s+(?:a\s+)?(?:wedding\s+)?(?:sticker|stiker|design)/i,
-    /^i\s+(?:want|need|would\s+like)\s+(?:to\s+)?(?:create|make|design|get)/i,
-    /^(?:create|make|design|get)\s+(?:a\s+)?(?:wedding\s+)?(?:sticker|stiker|design)/i,
-    /^(?:can|could)\s+(?:you|i)\s+(?:help|make|create|design|get)/i,
-    /^please\s+(?:help|make|create|design|get)/i,
-    /^help\s+(?:me\s+)?(?:make|create|design|get)/i,
-    /^i\s+want\s+(?:a\s+)?(?:stiker|sticker)\s+design/i,
-    /(?:sticker|stiker)\s+design/i,
-    // Color/style requests - DON'T extract names from these
-    /^i\s+want\s+(?:a\s+)?(?:\w+)\s+(?:color|colour|design|style|theme|background)/i,
-    /^i\s+(?:want|need|like|prefer)\s+(?:a\s+)?(?:purple|red|blue|green|yellow|pink|orange|black|white|gold|silver|brown|gray|grey)\b/i,
-    /\b(?:purple|red|blue|green|yellow|pink|orange|black|white|gold|silver|brown|gray|grey)\s+(?:color|colour|design|style|theme|background)/i
-  ]
-  
-  for (const pattern of requestPhrasePatterns) {
-    if (pattern.test(text.trim())) {
-      console.log('[extractNamesFromResponse] Skipping - detected request phrase:', text)
-      return { name1: null, name2: null }
-    }
-  }
-
-  // PRE-PROCESS: Remove date portion to avoid "Hauwa on" being captured as "Hauwa On"
-  // Match patterns like "on 6th January" or "on March 7" and remove them for name extraction
-  let textForNames = text
-    .replace(/\s+on\s+\d{1,2}(?:st|nd|rd|th)?\s+(?:of\s+)?(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)(?:\s*[,.]?\s*\d{2,4})?/gi, ' ')
-    .replace(/\s+on\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}(?:st|nd|rd|th)?(?:\s*[,.]?\s*\d{2,4})?/gi, ' ')
-    .replace(/\s+on\s+\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}/gi, ' ')
-    .trim()
-
-  // Priority 0: Check for names inside brackets/parentheses first (e.g., "(Sarah & Michael)" or "(sarah & michael)")
-  const bracketPattern = /\(([^)]+)\)/
-  const bracketMatch = textForNames.match(bracketPattern)
-
-  if (bracketMatch && bracketMatch[1]) {
-    const bracketContent = bracketMatch[1].trim()
-    // Check for two names with "and" or "&" (case insensitive)
-    const bracketAndPattern = /(.+?)\s*(?:and|&)\s*(.+)/i
-    const bracketAndMatch = bracketContent.match(bracketAndPattern)
-
-    if (bracketAndMatch) {
-      return { 
-        name1: capitalizeWords(bracketAndMatch[1].trim()), 
-        name2: capitalizeWords(bracketAndMatch[2].trim()) 
-      }
-    }
-    // Single name in brackets
-    return { name1: capitalizeWords(bracketContent), name2: null }
-  }
-
-  // Pattern 1: Name and Name or Name & Name (CASE INSENSITIVE)
-  // PRIORITY: Look for & pattern FIRST - this is most explicit way users indicate names
-  const skipWordsBeforeAnd = ['is', 'are', 'the', 'couple', 'name', 'names', 'my', 'our', 'their', 'for', 'of', 'to', 'from', 'with', 'ceremony', 'wedding', 'congratulation', 'congratulations', 'on', 'your', 'alhamdulillahi', 'beautiful', 'save']
-
-  // Special case: "Aishatu & Amina Muhammad" (shared surname at the end)
-  // Heuristic: if there are 3 tokens where the third looks like a surname,
-  // treat it as surname for BOTH names.
-  const sharedSurnameAmpersandPattern = /\b([a-zA-Z][a-zA-Z'-]+)\s*&\s*([a-zA-Z][a-zA-Z'-]+)\s+([a-zA-Z][a-zA-Z'-]+)\b/i
-  const sharedSurnameAmpersandMatch = textForNames.match(sharedSurnameAmpersandPattern)
-  if (sharedSurnameAmpersandMatch) {
-    const first = sharedSurnameAmpersandMatch[1].trim()
-    const second = sharedSurnameAmpersandMatch[2].trim()
-    const surname = sharedSurnameAmpersandMatch[3].trim()
-    if (
-      !skipWordsBeforeAnd.includes(first.toLowerCase()) &&
-      !skipWordsBeforeAnd.includes(second.toLowerCase()) &&
-      !skipWordsBeforeAnd.includes(surname.toLowerCase())
-    ) {
-      console.log('[extractNamesFromResponse] Found names via & with shared surname:', first, second, surname)
-      return {
-        name1: capitalizeWords(`${first} ${surname}`),
-        name2: capitalizeWords(`${second} ${surname}`)
-      }
-    }
-  }
-
-  const sharedSurnameAndPattern = /\b([a-zA-Z][a-zA-Z'-]+)\s+(?:and|n)\s+([a-zA-Z][a-zA-Z'-]+)\s+([a-zA-Z][a-zA-Z'-]+)\b/i
-  const sharedSurnameAndMatch = textForNames.match(sharedSurnameAndPattern)
-  if (sharedSurnameAndMatch) {
-    const first = sharedSurnameAndMatch[1].trim()
-    const second = sharedSurnameAndMatch[2].trim()
-    const surname = sharedSurnameAndMatch[3].trim()
-    if (
-      !skipWordsBeforeAnd.includes(first.toLowerCase()) &&
-      !skipWordsBeforeAnd.includes(second.toLowerCase()) &&
-      !skipWordsBeforeAnd.includes(surname.toLowerCase())
-    ) {
-      console.log('[extractNamesFromResponse] Found names via and with shared surname:', first, second, surname)
-      return {
-        name1: capitalizeWords(`${first} ${surname}`),
-        name2: capitalizeWords(`${second} ${surname}`)
-      }
-    }
-  }
-  
-  // Try & pattern first (most explicit)
-  const ampersandPattern = /\b([a-zA-Z][a-zA-Z'-]+)\s*&\s*([a-zA-Z][a-zA-Z'-]+)\b/i
-  const ampersandMatch = textForNames.match(ampersandPattern)
-  if (ampersandMatch) {
-    const name1 = ampersandMatch[1].trim()
-    const name2 = ampersandMatch[2].trim()
-    // Make sure neither is a skip word
-    if (!skipWordsBeforeAnd.includes(name1.toLowerCase()) && !skipWordsBeforeAnd.includes(name2.toLowerCase())) {
-      console.log('[extractNamesFromResponse] Found names via &:', name1, name2)
-      return { 
-        name1: capitalizeWords(name1), 
-        name2: capitalizeWords(name2) 
-      }
-    }
-  }
-  
-  // Then try 'and' pattern
-  const andPattern = /\b([a-zA-Z][a-zA-Z0-9'-]*(?:\s+[a-zA-Z][a-zA-Z0-9'-]*)?)\s+(?:and|n)\s+([a-zA-Z][a-zA-Z0-9'-]*(?:\s+[a-zA-Z][a-zA-Z0-9'-]*)?)\b/i
-  const andMatch = textForNames.match(andPattern)
-
-  if (andMatch) {
-    const firstWord = andMatch[1].trim().toLowerCase()
-    // Skip if first captured word is a common skip word
-    if (!skipWordsBeforeAnd.includes(firstWord)) {
-      return { 
-        name1: capitalizeWords(andMatch[1].trim()), 
-        name2: capitalizeWords(andMatch[2].trim()) 
-      }
-    }
-    // If first word was a skip word, try to find the NEXT match after removing the prefix
-    const cleanedText = textForNames.replace(new RegExp(`\\b${andMatch[1]}\\s+(?:and|&|n)\\s+`, 'i'), '')
-    const secondTry = cleanedText.match(/\b([a-zA-Z][a-zA-Z'-]+)\s*(?:and|&|n)\s*([a-zA-Z][a-zA-Z'-]+)\b/i)
-    if (secondTry) {
-      return {
-        name1: capitalizeWords(secondTry[1].trim()),
-        name2: capitalizeWords(secondTry[2].trim())
-      }
-    }
-  }
-
-  // Pattern 2: Two consecutive words that look like names
-  const twoNamesPattern = /\b([a-zA-Z][a-zA-Z'-]{1,})\s+([a-zA-Z][a-zA-Z'-]{1,})\b/i
-  const twoNamesMatch = textForNames.match(twoNamesPattern)
-
-  // Only use this pattern if the words don't look like common English words
-  const commonWords = [
-    // Basic English words - including 'on' to prevent extraction
-    'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'her', 'was', 'one', 'our', 'out', 'day', 'had', 'has', 'his', 'how', 'its', 'may', 'new', 'now', 'old', 'see', 'way', 'who', 'boy', 'did', 'get', 'him', 'let', 'put', 'say', 'she', 'too', 'use', 'from', 'with', 'this', 'that', 'have', 'will', 'your', 'make', 'like', 'just', 'over', 'such', 'into', 'year', 'also', 'back', 'been', 'come', 'could', 'what', 'when', 'more', 'some', 'than', 'them', 'then', 'these', 'would', 'about', 'after', 'could', 'first', 'other', 'their', 'there', 'which', 'would',
-    // Short common words - INCLUDING 'on'
-    'to', 'a', 'i', 'an', 'as', 'at', 'be', 'by', 'do', 'go', 'if', 'in', 'me', 'of', 'on', 'or', 'so', 'up', 'us', 'we',
-    // Wedding/sticker context words
-    'wedding', 'sticker', 'stiker', 'design', 'designs', 'please', 'courtesy', 'family', 'picture', 'image', 'photo', 'template', 'templates',
-    // Colors
-    'purple', 'red', 'blue', 'green', 'yellow', 'pink', 'orange', 'black', 'white', 'gold', 'silver', 'brown', 'gray', 'grey', 'cyan', 'magenta', 'violet', 'indigo', 'teal', 'maroon', 'navy', 'beige', 'cream', 'coral', 'lavender', 'turquoise', 'burgundy', 'rose', 'peach', 'mint', 'olive', 'tan', 'ivory', 'aqua', 'lime', 'crimson', 'scarlet', 'amber', 'bronze', 'copper', 'ruby', 'emerald', 'sapphire', 'pearl', 'platinum', 'champagne', 'wine', 'plum', 'mauve', 'lilac', 'fuchsia', 'chartreuse', 'salmon', 'rust',
-    // Design/style words
-    'color', 'colour', 'style', 'theme', 'background', 'font', 'size', 'shape', 'border', 'frame', 'layout', 'format', 'look', 'fancy', 'elegant', 'simple', 'modern', 'classic', 'traditional', 'beautiful', 'nice', 'pretty', 'cool', 'awesome', 'great', 'best', 'perfect', 'amazing',
-    // Greeting/conversation words
-    'hi', 'hello', 'hey', 'my', 'is', 'information', 'info', 'details', 'here', 'name', 'names', 'date', 'it', 'yes', 'no', 'ok', 'okay', 'sure', 'thanks', 'thank', 'good', 'morning', 'afternoon', 'evening', 'night',
-    // Request verbs
-    'want', 'need', 'create', 'looking', 'help', 'assist', 'give', 'show', 'wanted', 'wanting', 'needs', 'needed', 'needing', 'love', 'doing', 'making', 'getting', 'having', 'using', 'going', 'coming', 'thinking', 'try', 'trying', 'start', 'starting', 'work', 'working',
-    // Change/update verbs
-    'change', 'changed', 'changing', 'update', 'updated', 'updating', 'edit', 'edited', 'editing', 'modify', 'modified', 'modifying', 'replace', 'replaced', 'replacing', 'set', 'setting', 'alter', 'altered', 'altering', 'correct', 'corrected', 'correcting', 'fix', 'fixed', 'fixing', 'switch', 'switched', 'switching', 'different', 'another'
-  ]
-  
-  if (twoNamesMatch) {
-    const word1 = twoNamesMatch[1].toLowerCase()
-    const word2 = twoNamesMatch[2].toLowerCase()
-    
-    // Skip if both words are common English words
-    if (!commonWords.includes(word1) && !commonWords.includes(word2)) {
-      return { 
-        name1: capitalizeWords(twoNamesMatch[1]), 
-        name2: capitalizeWords(twoNamesMatch[2]) 
-      }
-    }
-  }
-
-  // Pattern 3: Single name
-  const words = textForNames.split(/\s+/)
-  for (const word of words) {
-    const cleanWord = word.replace(/[^a-zA-Z'-]/g, '')
-    if (cleanWord.length >= 2 && !commonWords.includes(cleanWord.toLowerCase())) {
-      if (/^[a-zA-Z][a-zA-Z'-]+$/.test(cleanWord)) {
-        return { name1: capitalizeWords(cleanWord), name2: null }
-      }
-    }
-  }
-
-  return { name1: null, name2: null }
-}
-
-// Extract date from text
-function extractDateFromText(text: string): string | null {
-  console.log('ðŸ“… extractDateFromText input:', text)
-  
-  const datePatterns = [
-    // Match dates like "6th of March, 2023" or "6th of march 2023" (with "of" keyword)
-    /\d{1,2}(?:st|nd|rd|th)?\s+of\s+(?:Jan(?:uary|aury|urary)?|Feb(?:ruary|uary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?[,\s]+\d{2,4}/i,
-    // Match dates like "5th January, 2023" or "5th January 2023" (with or without comma)
-    // Also handles common typos like "Janauary", "Janurary", etc.
-    /\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan(?:uary|aury|urary|auary)?|Feb(?:ruary|uary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember|tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?[,\s]+\d{2,5}/i,
-    // Match dates like "6th Jan., 2023" or "6th jan. 2023" (with period after month abbreviation)
-    /\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?[,\s]+\d{2,5}/i,
-    // Match dates like "January 6th, 2023" or "January 6, 2023" (month first)
-    /(?:Jan(?:uary|aury|urary|auary)?|Feb(?:ruary|uary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}(?:st|nd|rd|th)?[,\s]+\d{2,5}/i,
-    // Match numeric dates like "12/25/2023" or "12-25-2023"
-    /\d{1,2}[-\/]\d{1,2}[-\/]\d{2,5}/,
-    // Match dates with short year like "6th January, 23" or typos like "20203"
-    /\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan(?:uary|aury|urary|auary)?|Feb(?:ruary|uary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?[,\s]+\d{1,5}/i,
-  ]
-  
-  for (let i = 0; i < datePatterns.length; i++) {
-    const pattern = datePatterns[i]
-    const match = text.match(pattern)
-    console.log(`ðŸ“… Pattern ${i + 1}:`, pattern.source, '-> Match:', match ? match[0] : 'null')
-    if (match) {
-      console.log('ðŸ“… Date matched:', match[0])
-      return match[0]
-    }
-  }
-  console.log('ðŸ“… No date pattern matched')
-  return null
-}
-
-// Extract courtesy from text - ONLY when explicitly provided with specific keywords
-// STRICT MODE: Only matches very explicit courtesy patterns to avoid false positives
-function extractCourtesyFromText(text: string): string | null {
-  console.log('ðŸŽ extractCourtesyFromText input:', text)
-  
-  // Skip if this looks like a heading/title input (not courtesy)
-  const isHeadingInput = /\b(heading|title|header|congratulations|happy|wedding|best wishes|wishing you)\b/i.test(text)
-  if (isHeadingInput && !/\b(courtesy|cut-cee|from the .+ family|from .+ family)\b/i.test(text)) {
-    console.log('ðŸŽ Skipping - looks like heading input')
-    return null // This is a heading, not courtesy
-  }
-  
-  // STRICT: Only match if the message explicitly indicates courtesy/sender info
-  // Must contain one of these keywords to even try extraction
-  // Also check for "change the courtesy" pattern
-  const hasCourtesyKeyword = /\b(courtesy|cut-cee)\b/i.test(text) || 
-                            /\bfrom\s+(the\s+)?[a-zA-Z][a-zA-Z]*\s+(family|families)\b/i.test(text) ||
-                            /\b(change|update|edit)\s+(the\s+)?courtesy/i.test(text)
-
-  console.log('ðŸŽ Has courtesy keyword:', hasCourtesyKeyword)
-  
-  if (!hasCourtesyKeyword) {
-    console.log('ðŸŽ No courtesy keyword found')
-    return null // No courtesy keyword found, don't extract
-  }
-
-  const courtesyPatterns = [
-    // Match "change the courtesy: Name" or "change the courtesy to Name" - handles user updates
-    // Very permissive - captures everything after courtesy: until end of line
-    /(?:change|update|edit)\s+(?:the\s+)?courtesy\s*[:\s]+(?:to\s+)?(.+?)(?:\s*$|\n|!)/i,
-    // Match "courtesy of Name" or "courtesy: Name" (most explicit) - PRIORITY 1
-    // More permissive - captures until end of string or newline
-    /courtesy\s*(?:of|:)\s*(.+?)$/im,
-    // Match "courtesy Name" (without of/:) - requires text after  
-    /courtesy\s+([a-zA-Z][a-zA-Z\s&'.-]+?)(?:\s*$|\n|!)/i,
-    // Match "cut-cee: Name" or "cut-cee Name" (Nigerian variation)
-    /cut-cee\s*[:\s]+(.+?)(?:\s*$|\n|!)/i,
-    // Match "from the [Name] Family" ONLY (must end with "family")
-    /from\s+the\s+([A-Za-z][A-Za-z\s&'.-]+\s+(?:family|families))(?:\s*$|\n|,|\.(?!\w)|!)/i,
-    // Match "from [Name] Family" (without "the", must end with "family")
-    /from\s+([A-Za-z][A-Za-z\s&'.-]+\s+(?:family|families))(?:\s*$|\n|,|\.(?!\w)|!)/i,
-    // Match "gift from Name" or "sticker from Name" or "card from Name"
-    /(?:gift|sticker|card)\s+from\s+([A-Za-z][A-Za-z\s&'.-]+?)(?:\s*$|\n|,|\.(?!\w)|!)/i,
-  ]
-
-  for (let i = 0; i < courtesyPatterns.length; i++) {
-    const pattern = courtesyPatterns[i]
-    const match = text.match(pattern)
-    console.log(`ðŸŽ Pattern ${i + 1}:`, pattern.source, '-> Match:', match ? match[0] : 'null', 'Capture:', match ? match[1] : 'null')
-    if (match && match[1]) {
-      // Build the courtesy string with "courtesy" prefix for consistency
-      let name = match[1].trim()
-
-      // Clean up trailing punctuation
-      name = name.replace(/[.,!?:;]+$/, '').trim()
-
-      // Skip if it's too short (likely a false positive) - need at least 3 chars
-      if (name.length < 3) {
-        console.log('ðŸŽ Skipping - name too short:', name)
-        continue
-      }
-
-      // Skip common false positives - expanded list
-      const falsePositives = [
-        'the', 'a', 'an', 'way', 'now', 'then', 'here', 'there',
-        'me', 'you', 'us', 'them', 'him', 'her', 'it', 'this', 'that',
-        'what', 'when', 'where', 'why', 'how', 'who', 'whom',
-        'yes', 'no', 'ok', 'okay', 'sure', 'thanks', 'thank',
-        'my', 'your', 'our', 'their', 'his', 'her', 'its'
-      ]
-      if (falsePositives.includes(name.toLowerCase())) {
-        console.log('ðŸŽ Skipping - false positive:', name)
-        continue
-      }
-
-      // Skip if name starts with common non-name words (but NOT "the" as "the X family" is valid)
-      const badStarts = ['a ', 'an ', 'my ', 'your ', 'our ', 'their ']
-      const lowerName = name.toLowerCase()
-      if (badStarts.some(start => lowerName.startsWith(start))) {
-        // Remove the prefix and continue
-        name = name.replace(/^(a|an|my|your|our|their)\s+/i, '').trim()
-        console.log('ðŸŽ Removed prefix, new name:', name)
-        if (name.length < 3) continue
-      }
-      
-      // Clean up any trailing quotes that might have slipped through
-      name = name.replace(/["']+$/, '').trim()
-
-      console.log('ðŸŽ Courtesy extracted:', `courtesy: ${name}`)
-      return `courtesy: ${name}`
-    }
-  }
-  return null
-}
-
-// Extract size from text
-function extractSizeFromText(text: string): string | null {
-  const sizeMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:x|by)\s*(\d+(?:\.\d+)?)(?:\s*(?:inch|inches|in))?/i)
-  if (sizeMatch) {
-    const width = parseFloat(sizeMatch[1])
-    const height = parseFloat(sizeMatch[2])
-    return `${width}x${height} in`
-  }
-  return null
-}
+// Extraction utilities imported from composables:
+// capitalizeWords, escapeRegExp, extractNamesFromResponse, extractDateFromText,
+// extractCourtesyFromText, extractSizeFromText, extractNamesFromBrackets, parseAllInOneMessage
 
 // Track image uploads
 function trackImageUpload(file: File) {
@@ -2323,7 +1569,7 @@ function trackImageUpload(file: File) {
   uploadedImages.value.push({ file, timestamp, used: false })
   lastUploadedImage.value = file
   
-  console.log('ðŸ“¸ Image uploaded:', { total: uploadedImages.value.length, timestamp })
+  console.log('📷 Image uploaded:', { total: uploadedImages.value.length, timestamp })
   
   // Handle multiple image uploads
   handleMultipleImageUploads()
@@ -2444,7 +1690,7 @@ const loadingAnimation = {
 }
 
 const categories = [
-  { id: 'wedding', name: 'Wedding', icon: 'ðŸ’', gradient: 'linear-gradient(135deg, #f093fb 0%, #a855f7 100%)' }
+  { id: 'wedding', name: 'Wedding', icon: '??', gradient: 'linear-gradient(135deg, #f093fb 0%, #a855f7 100%)' }
 ]
 
 const formData = reactive({
@@ -2492,7 +1738,7 @@ function initSpeechRecognition() {
   const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
   
   if (!SpeechRecognition) {
-    console.warn('âš ï¸ Speech Recognition not supported in this browser/device')
+    console.warn('?? Speech Recognition not supported in this browser/device')
     return null
   }
   
@@ -2531,7 +1777,7 @@ function initSpeechRecognition() {
       const baseText = chatInputText.value.replace(interimTranscript.value, '').trim()
       chatInputText.value = baseText ? `${baseText} ${finalTranscript}`.trim() : finalTranscript
       interimTranscript.value = ''
-      console.log('ðŸŽ¤ Recognized:', finalTranscript)
+      console.log('?? Recognized:', finalTranscript)
       
       // Auto-stop and auto-send after recognition
       voiceMessageSent.value = false // Reset flag
@@ -2543,14 +1789,14 @@ function initSpeechRecognition() {
   
   // Event: Recognition started
   recognition.onstart = () => {
-    console.log('ðŸŽ¤ Voice recognition started')
+    console.log('?? Voice recognition started')
     isRecording.value = true
     voiceMessageSent.value = false // Reset the sent flag when starting new recording
   }
   
   // Event: Recognition ended
   recognition.onend = () => {
-    console.log('ðŸŽ¤ Voice recognition ended')
+    console.log('?? Voice recognition ended')
     isRecording.value = false
     
     // Remove any listening messages
@@ -2570,7 +1816,7 @@ function initSpeechRecognition() {
   
   // Event: Error occurred
   recognition.onerror = (event: any) => {
-    console.error('ðŸŽ¤ Speech recognition error:', event.error)
+    console.error('?? Speech recognition error:', event.error)
     isRecording.value = false
     
     // Remove listening message on error
@@ -2708,7 +1954,7 @@ function stopAllSpeech() {
 
 async function tryNativeTTS(text: string) {
   try {
-    console.log('ðŸ”Š Attempting native TTS...')
+    console.log('?? Attempting native TTS...')
     const TTS = await loadTextToSpeech()
     await TTS.speak({
       text: text,
@@ -2718,9 +1964,9 @@ async function tryNativeTTS(text: string) {
       volume: 1.0,
       category: 'ambient'
     })
-    console.log('âœ… Native TTS successful')
+    console.log('? Native TTS successful')
   } catch (error) {
-    console.warn('âŒ Native TTS failed:', error)
+    console.warn('? Native TTS failed:', error)
     // Not available, will fallback to web speech
     throw error
   }
@@ -2960,1383 +2206,11 @@ const awaitingCourtesyInput = ref(false)
 const pendingCourtesyText = ref<string | null>(null) // Stores what user typed when we ask for confirmation
 
 // ============================================================================
-// BACKGROUND TEMPLATES - Available backgrounds for "generate another" feature
+// AI UTILITIES - Now imported from composables:
+// - aiResponseHelper: Response templates
+// - titlePatterns, titlePhraseMap, isPotentialTitle, extractTitleFromText: Title detection
+// - extractNamesFromBrackets, parseAllInOneMessage: Extraction utilities
 // ============================================================================
-// Backgrounds come from a single manifest so you can add/remove files without editing multiple places:
-// - Put files in: public/svg/background/
-// - Update: public/svg/background/backgrounds.json
-type BackgroundManifestItem = {
-  id: string
-  name: string
-  category?: string
-  file: string
-}
-
-const fallbackAvailableBackgrounds = [
-  'Beige Gold Gradient Islamic Modern Group Project Presentation.png',
-  'Deep Green bg-1.png',
-  'Blue Futuristic Background Instagram Post (5 x 3 in).png',
-  'Red and Gold Simple Elegant Islamic Background Poster.png',
-  'Red and Gold Chinese New Year Background Instagram Post (5 x 3 in).png',
-  'Red and Gold Classic Lunar Chinese Background Flyer (5 x 3 in).png',
-  'Red and Gold Modern Chinese Background Flyer.png'
-]
-
-const availableBackgrounds = ref<string[]>([...fallbackAvailableBackgrounds])
-
-let weddingBackgroundsLoadPromise: Promise<void> | null = null
-
-const persistedWeddingBackgroundKey = computed(() => {
-  const userId = authStore.user?.id || 'anon'
-  return `weddingSticker:selectedBackground:${userId}`
-})
-
-function getPersistedWeddingBackground(): string | null {
-  try {
-    return localStorage.getItem(persistedWeddingBackgroundKey.value)
-  } catch {
-    return null
-  }
-}
-
-function setPersistedWeddingBackground(fileName: string) {
-  try {
-    localStorage.setItem(persistedWeddingBackgroundKey.value, fileName)
-  } catch {
-    // ignore (private mode, storage disabled)
-  }
-}
-
-async function loadWeddingBackgroundManifest() {
-  if (weddingBackgroundsLoadPromise) return weddingBackgroundsLoadPromise
-
-  weddingBackgroundsLoadPromise = (async () => {
-  try {
-    const res = await fetch('/svg/background/backgrounds.json', { cache: 'no-store' })
-    if (!res.ok) throw new Error(`Failed to load backgrounds.json (${res.status})`)
-    const items = (await res.json()) as BackgroundManifestItem[]
-    const weddingFiles = (items || [])
-      .filter((it) => !it.category || it.category === 'wedding')
-      .map((it) => it.file)
-      .filter(Boolean)
-    const firebaseRefs = await getBackgroundRefsCached('wedding', { ttlMs: 12 * 60 * 60 * 1000, limit: 50 })
-    const merged = [...weddingFiles, ...firebaseRefs]
-    const deduped = Array.from(new Set(merged))
-    if (deduped.length > 0) availableBackgrounds.value = deduped
-  } catch (e) {
-    console.warn('âš ï¸ Could not load /svg/background/backgrounds.json. Using fallback list.', e)
-    // Still try Firebase in case local manifest fails
-    const firebaseRefs = await getBackgroundRefsCached('wedding', { ttlMs: 12 * 60 * 60 * 1000, limit: 50 })
-    const merged = [...fallbackAvailableBackgrounds, ...firebaseRefs]
-    availableBackgrounds.value = Array.from(new Set(merged))
-  }
-  })()
-
-  return weddingBackgroundsLoadPromise
-}
-
-// Background color configurations
-// Defines what text colors to use for each background type
-interface BackgroundColorConfig {
-  // Title colors (blessing, occasion, event type, ceremony)
-  titleColor: string
-  eventTypeColor: string  // WEDDING, NIKKAH, etc.
-  ceremonyColor: string   // CEREMONY
-  // Names colors
-  name1Color: string
-  name2Color: string
-  separatorColor: string  // The "&" between names
-  // Date and courtesy colors
-  dateColor: string
-  courtesyColor: string
-}
-
-// Light backgrounds - need dark text for titles, black names
-const LIGHT_BG_COLORS: BackgroundColorConfig = {
-  titleColor: '#000000',      // Black titles
-  eventTypeColor: '#104C6E',  // Dark blue event type
-  ceremonyColor: '#CC0000',   // Red ceremony
-  name1Color: '#000000',      // Black names
-  name2Color: '#000000',
-  separatorColor: '#FFD700',  // Gold separator
-  dateColor: '#000000',       // Black date
-  courtesyColor: '#333333',   // Dark gray courtesy
-}
-
-// Dark backgrounds (Deep Green) - need white/yellow text
-const DARK_BG_COLORS: BackgroundColorConfig = {
-  titleColor: '#FFFFFF',      // White titles
-  eventTypeColor: '#FFFF00',  // Yellow event type
-  ceremonyColor: '#FFFF00',   // Yellow ceremony
-  name1Color: '#FEFEFE',      // White names
-  name2Color: '#FEFEFE',
-  separatorColor: '#FFF212',  // Bright yellow separator
-  dateColor: '#FFFF00',       // Yellow date
-  courtesyColor: '#FFFFFF',   // White courtesy
-}
-
-// Red and Gold background - white/yellow titles, dark names
-const RED_GOLD_BG_COLORS: BackgroundColorConfig = {
-  titleColor: '#FFFFFF',      // White titles (Alhamdulillahi, ON YOUR)
-  eventTypeColor: '#FFD700',  // Gold event type (WEDDING)
-  ceremonyColor: '#FFD700',   // Gold ceremony
-  name1Color: '#FEFEFE',      // White names (visible on red)
-  name2Color: '#FEFEFE',
-  separatorColor: '#FFD700',  // Gold separator
-  dateColor: '#FFD700',       // Gold date
-  courtesyColor: '#FFFFFF',   // White courtesy
-}
-
-// Function to get color config for a background
-function getBackgroundColorConfig(backgroundFileName: string): BackgroundColorConfig {
-  const lowerName = backgroundFileName.toLowerCase()
-  
-  // Deep Green - dark background, needs light text everywhere
-  if (lowerName.includes('deep green')) {
-    return DARK_BG_COLORS
-  }
-  
-  // Blue Futuristic - dark blue background, needs light text
-  if (lowerName.includes('blue futuristic')) {
-    return {
-      ...DARK_BG_COLORS,
-      titleColor: '#FFFFFF',      // White titles
-      eventTypeColor: '#00BFFF',  // Light blue event type
-      ceremonyColor: '#00BFFF',   // Light blue ceremony
-      name1Color: '#FFFFFF',      // White names
-      name2Color: '#FFFFFF',
-      separatorColor: '#00BFFF',  // Light blue separator
-      dateColor: '#00BFFF',       // Light blue date
-      courtesyColor: '#FFFFFF',   // White courtesy
-    }
-  }
-  
-  // Red and Gold Simple Elegant - white/yellow titles, white/yellow date/courtesy
-  if (lowerName.includes('red and gold simple elegant islamic background poster.png') ||
-      lowerName === 'red and gold simple elegant islamic background poster.png') {
-    return RED_GOLD_BG_COLORS
-  }
-  
-  // Red and Gold Chinese New Year - red/gold Chinese theme
-  if (lowerName.includes('red and gold chinese new year')) {
-    return {
-      ...RED_GOLD_BG_COLORS,
-      titleColor: '#FFD700',      // Gold titles
-      eventTypeColor: '#FFFFFF',  // White event type
-      ceremonyColor: '#FFFFFF',   // White ceremony
-      name1Color: '#FFD700',      // Gold names
-      name2Color: '#FFD700',
-      separatorColor: '#FFFFFF',  // White separator
-      dateColor: '#FFD700',       // Gold date
-      courtesyColor: '#FFFFFF',   // White courtesy
-    }
-  }
-  
-  // Red and Gold Classic Lunar Chinese - traditional Chinese colors
-  if (lowerName.includes('red and gold classic lunar chinese')) {
-    return {
-      ...RED_GOLD_BG_COLORS,
-      titleColor: '#FFD700',      // Gold titles
-      eventTypeColor: '#FFFFFF',  // White event type
-      ceremonyColor: '#FFFFFF',   // White ceremony
-      name1Color: '#FFD700',      // Gold names
-      name2Color: '#FFD700',
-      separatorColor: '#FFFFFF',  // White separator
-      dateColor: '#FFD700',       // Gold date
-      courtesyColor: '#FFFFFF',   // White courtesy
-    }
-  }
-  
-  // Red and Gold Modern Chinese - modern Chinese aesthetic
-  if (lowerName.includes('red and gold modern chinese')) {
-    return {
-      ...RED_GOLD_BG_COLORS,
-      titleColor: '#FFFFFF',      // White titles
-      eventTypeColor: '#FFD700',  // Gold event type
-      ceremonyColor: '#FFD700',   // Gold ceremony
-      name1Color: '#FFFFFF',      // White names
-      name2Color: '#FFFFFF',
-      separatorColor: '#FFD700',  // Gold separator
-      dateColor: '#FFD700',       // Gold date
-      courtesyColor: '#FFFFFF',   // White courtesy
-    }
-  }
-  
-  // Beige Gold Gradient - light background, black names and BLACK titles
-  if (lowerName.includes('beige gold gradient')) {
-    return {
-      ...LIGHT_BG_COLORS,
-      titleColor: '#000000',      // Black title (Alhamdulillahi, ON YOUR)
-      eventTypeColor: '#000000',  // Black event type (WEDDING)
-      ceremonyColor: '#000000',   // Black ceremony
-      name1Color: '#000000',
-      name2Color: '#000000',
-      separatorColor: '#B8860B',  // Dark gold separator
-      dateColor: '#000000',
-      courtesyColor: '#333333',
-    }
-  }
-  
-  // Blue Yellow Modern - light background
-  if (lowerName.includes('blue yellow modern')) {
-    return {
-      ...LIGHT_BG_COLORS,
-      eventTypeColor: '#1E40AF',  // Blue event type
-      name1Color: '#000000',
-      name2Color: '#000000',
-      separatorColor: '#F59E0B',  // Yellow/amber separator
-      dateColor: '#1E40AF',
-      courtesyColor: '#333333',
-    }
-  }
-  
-  // BackgroundColour.svg - Yellow/Gold background with dark blue accents at bottom
-  // Names, date, and courtesy appear on the dark blue section, so they need to be WHITE/GOLD to be visible
-  if (lowerName.includes('backgroundcolour')) {
-    return {
-      titleColor: '#000066',      // Dark blue titles (matching the accent)
-      eventTypeColor: '#000066',  // Dark blue event type
-      ceremonyColor: '#000066',   // Dark blue ceremony
-      name1Color: '#FFFFFF',      // WHITE names (visible on dark blue section)
-      name2Color: '#FFFFFF',      // WHITE names (visible on dark blue section)
-      separatorColor: '#FFD700',  // Gold separator (visible on dark blue)
-      dateColor: '#FFD700',       // GOLD date (visible on dark blue area)
-      courtesyColor: '#FFFFFF',   // White courtesy (on dark blue area)
-    }
-  }
-  
-  // Default - light background colors
-  return LIGHT_BG_COLORS
-}
-
-// Track current background index to avoid repeating when user requests another
-const currentBackgroundIndex = ref(-1) // -1 means no background applied yet
-// Track current background filename for color detection
-const currentBackgroundFileName = ref<string>('')
-// Track used backgrounds to avoid repetition in session
-const usedBackgroundsInSession = ref<number[]>([])
-
-/**
- * Get the title color based on current background
- * Dark backgrounds: WHITE or LIGHT GOLD
- * Light backgrounds: BLACK
- */
-function getTitleColorForBackground(backgroundFileName?: string): string {
-  const bgFile = backgroundFileName || currentBackgroundFileName.value
-  console.log('ðŸ” getTitleColorForBackground called with:', bgFile)
-  
-  if (!bgFile) {
-    // No background set yet, use white as default (safe for most backgrounds)
-    console.log('ðŸŽ¨ No background set, using default WHITE')
-    return '#FFFFFF' // White
-  }
-  
-  const lowerName = bgFile.toLowerCase()
-  
-  // === LIGHT BACKGROUNDS - Use BLACK title ===
-  
-  // Beige Gold Gradient - Light beige background
-  if (lowerName.includes('beige gold gradient')) {
-    console.log('ðŸŽ¨ Light bg (beige gold) -> BLACK')
-    return '#000000' // Black
-  }
-  
-  // === DARK BACKGROUNDS - Use WHITE title ===
-  
-  // Deep Green - Very dark green background
-  if (lowerName.includes('deep green')) {
-    console.log('ðŸŽ¨ Dark bg (deep green) -> WHITE')
-    return '#FFFFFF' // White
-  }
-  
-  // Blue Futuristic - Dark blue background
-  if (lowerName.includes('blue futuristic')) {
-    console.log('ðŸŽ¨ Dark bg (blue futuristic) -> WHITE')
-    return '#FFFFFF' // White
-  }
-  
-  // BackgroundColour.svg - Yellow/Gold background with dark blue accents
-  if (lowerName.includes('backgroundcolour')) {
-    console.log('ðŸŽ¨ Light bg (backgroundColour - yellow) -> DARK BLUE')
-    return '#000066' // Dark Blue (matching the accent color)
-  }
-  
-  // === RED BACKGROUNDS - Use LIGHT GOLD title ===
-  
-  // Red and Gold Simple Elegant Islamic
-  if (lowerName.includes('red and gold simple elegant')) {
-    console.log('ðŸŽ¨ Red bg (simple elegant) -> LIGHT GOLD')
-    return '#FFE4B5' // Light Gold (Moccasin)
-  }
-  
-  // Red and Gold Chinese New Year
-  if (lowerName.includes('red and gold chinese new year')) {
-    console.log('ðŸŽ¨ Red bg (chinese new year) -> LIGHT GOLD')
-    return '#FFE4B5' // Light Gold (Moccasin)
-  }
-  
-  // Red and Gold Classic Lunar Chinese
-  if (lowerName.includes('red and gold classic lunar')) {
-    console.log('ðŸŽ¨ Red bg (classic lunar) -> LIGHT GOLD')
-    return '#FFE4B5' // Light Gold (Moccasin)
-  }
-  
-  // Red and Gold Modern Chinese
-  if (lowerName.includes('red and gold modern chinese')) {
-    console.log('ðŸŽ¨ Red bg (modern chinese) -> WHITE')
-    return '#FFFFFF' // White
-  }
-  
-  // === FALLBACK DETECTION ===
-  console.log('ðŸŽ¨ Using fallback detection for:', lowerName)
-  
-  // Dark backgrounds - use White
-  if (lowerName.includes('dark') || lowerName.includes('deep') || lowerName.includes('black') || lowerName.includes('futuristic')) {
-    console.log('ðŸŽ¨ Fallback: dark bg -> WHITE')
-    return '#FFFFFF' // White
-  }
-  
-  // Red backgrounds - use Light Gold
-  if (lowerName.includes('red')) {
-    console.log('ðŸŽ¨ Fallback: red bg -> LIGHT GOLD')
-    return '#FFE4B5' // Light Gold
-  }
-  
-  // Light backgrounds - use Black
-  if (lowerName.includes('white') || lowerName.includes('light') || lowerName.includes('beige') || lowerName.includes('pastel') || lowerName.includes('gold')) {
-    console.log('ðŸŽ¨ Fallback: light bg -> BLACK')
-    return '#000000' // Black
-  }
-  
-  // Default: White (visible on most backgrounds)
-  console.log('ðŸŽ¨ Default -> WHITE')
-  return '#FFFFFF'
-}
-
-// Function to get a random background (different from current)
-// Uses Fisher-Yates style selection to ensure variety
-function getRandomBackground(): string {
-  const backgrounds = availableBackgrounds.value
-  if (backgrounds.length === 0) return ''
-  if (backgrounds.length === 1) return backgrounds[0]
-  
-  // Get list of unused backgrounds in this session
-  const unusedIndices = backgrounds
-    .map((_, index) => index)
-    .filter(index => !usedBackgroundsInSession.value.includes(index))
-  
-  // If all backgrounds have been used, reset the session tracking
-  if (unusedIndices.length === 0) {
-    usedBackgroundsInSession.value = [currentBackgroundIndex.value] // Keep current to avoid immediate repeat
-    const availableIndices = backgrounds
-      .map((_, index) => index)
-      .filter(index => index !== currentBackgroundIndex.value)
-    const newIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)]
-    currentBackgroundIndex.value = newIndex
-    usedBackgroundsInSession.value.push(newIndex)
-    console.log(`ðŸŽ² Background cycle reset. Selected: ${backgrounds[newIndex]}`)
-    return backgrounds[newIndex]
-  }
-  
-  // Pick a random unused background
-  const randomUnusedIndex = unusedIndices[Math.floor(Math.random() * unusedIndices.length)]
-  currentBackgroundIndex.value = randomUnusedIndex
-  usedBackgroundsInSession.value.push(randomUnusedIndex)
-  
-  console.log(`ðŸŽ² Random background selected: ${backgrounds[randomUnusedIndex]} (index: ${randomUnusedIndex})`)
-  return backgrounds[randomUnusedIndex]
-}
-
-// Function to apply a new background to the SVG template
-async function applyNewBackground(backgroundFileName: string): Promise<void> {
-  if (!weddingPreviewContainer.value) {
-    console.error('âŒ weddingPreviewContainer not available')
-    return
-  }
-
-  const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
-  if (!svgElement) {
-    console.error('âŒ SVG element not found')
-    return
-  }
-
-  // Handle backgrounds from different sources:
-  // - Remote URLs (Firebase Storage download URLs): use as-is
-  // - Absolute paths: use as-is
-  // - Relative paths with '/': treat as under /svg/
-  // - Plain filenames: treat as under /svg/background/
-  const isRemoteUrl = /^https?:\/\//i.test(backgroundFileName)
-  const backgroundUrl = isRemoteUrl
-    ? backgroundFileName
-    : backgroundFileName.startsWith('/')
-      ? backgroundFileName
-      : backgroundFileName.includes('/')
-        ? encodeURI(`/svg/${backgroundFileName}`)
-        : encodeURI(`/svg/background/${backgroundFileName}`)
-  console.log(`ðŸŽ¨ Applying new background: ${backgroundUrl}`)
-  
-  // Track current background filename for title color detection
-  currentBackgroundFileName.value = backgroundFileName
-  setPersistedWeddingBackground(backgroundFileName)
-  
-  // Clear title cache to force re-render with new background color
-  clearTitleImageCache()
-
-  // Get SVG dimensions from CURRENT viewBox (may have been resized)
-  const viewBox = svgElement.getAttribute('viewBox')
-  let svgWidth = 2996.89
-  let svgHeight = 1685.75
-  if (viewBox) {
-    const parts = viewBox.split(/\s+|,/)
-    if (parts.length >= 4) {
-      svgWidth = parseFloat(parts[2])
-      svgHeight = parseFloat(parts[3])
-    }
-  }
-  
-  console.log(`ðŸ“ Background will cover: ${svgWidth}x${svgHeight}`)
-
-  // Find existing background elements
-  const existingBgRect = svgElement.querySelector('rect[fill="#F8F8F8"]')
-  const existingBgImage = svgElement.querySelector('#background-image')
-  
-  // Find wave path elements (they have specific fill colors) - use broader selector
-  // Also find paths that might have been modified
-  const wavePaths = svgElement.querySelectorAll('path[fill="#FFCC29"], path[fill="url(#g1)"], path[fill="#507C95"], path[fill="#104C6E"], path[d*="776.51"], path[d*="539.04"], path[d*="616.09"]')
-
-  console.log(`ðŸŒŠ Found ${wavePaths.length} wave paths to hide`)
-
-  // Remove or hide wave paths - use both style and attribute for reliability
-  wavePaths.forEach((path, index) => {
-    const pathEl = path as SVGPathElement
-    pathEl.style.display = 'none'
-    pathEl.style.visibility = 'hidden'
-    pathEl.setAttribute('opacity', '0')
-    console.log(`  - Hidden wave path ${index + 1}`)
-  })
-
-  // Hide the default background rect
-  if (existingBgRect) {
-    const rectEl = existingBgRect as SVGRectElement
-    rectEl.style.display = 'none'
-    rectEl.style.visibility = 'hidden'
-    rectEl.setAttribute('opacity', '0')
-    console.log('ðŸŽ¨ Hidden default background rect')
-  }
-
-  // Check if we already have a background image element
-  if (existingBgImage) {
-    // Update existing background image with new URL and dimensions
-    existingBgImage.setAttribute('href', backgroundUrl)
-    existingBgImage.setAttribute('xlink:href', backgroundUrl)
-    existingBgImage.setAttribute('width', String(svgWidth))
-    existingBgImage.setAttribute('height', String(svgHeight))
-    console.log('ðŸŽ¨ Updated existing background image')
-  } else {
-    // Create new background image element
-    const bgImage = document.createElementNS('http://www.w3.org/2000/svg', 'image')
-    bgImage.setAttribute('id', 'background-image')
-    bgImage.setAttribute('x', '0')
-    bgImage.setAttribute('y', '0')
-    bgImage.setAttribute('width', String(svgWidth))
-    bgImage.setAttribute('height', String(svgHeight))
-    bgImage.setAttribute('href', backgroundUrl)
-    bgImage.setAttribute('xlink:href', backgroundUrl)
-    bgImage.setAttribute('preserveAspectRatio', 'xMidYMid slice')
-
-    // Insert as the first child after defs (before other elements)
-    const defs = svgElement.querySelector('defs')
-    if (defs && defs.nextSibling) {
-      svgElement.insertBefore(bgImage, defs.nextSibling)
-    } else {
-      svgElement.insertBefore(bgImage, svgElement.firstChild)
-    }
-  }
-
-  // Update title colors based on background type
-  // Get the appropriate color configuration for this background
-  const colorConfig = getBackgroundColorConfig(backgroundFileName)
-  
-  const blessingText = svgElement.querySelector('#blessing-text') as SVGTextElement
-  const occasionText = svgElement.querySelector('#occasion-text') as SVGTextElement
-  const eventTypeText = svgElement.querySelector('#event-type-text') as SVGTextElement
-  const ceremonyText = svgElement.querySelector('#ceremony-text') as SVGTextElement
-  const dateText = svgElement.querySelector('#date-text') as SVGTextElement
-  const courtesyText = svgElement.querySelector('#courtesy-text') as SVGTextElement
-  
-  // Names group
-  const name1First = svgElement.querySelector('#name1-first') as SVGTextElement
-  const name2First = svgElement.querySelector('#name2-first') as SVGTextElement
-  const nameSeparator = svgElement.querySelector('#name-separator') as SVGTextElement
-  
-  // Also try to find names inside the wedding-names-group
-  const namesGroup = svgElement.querySelector('#wedding-names-group')
-  const name1InGroup = namesGroup?.querySelector('text:nth-child(1)') as SVGTextElement
-  const name2InGroup = namesGroup?.querySelector('text:nth-child(2)') as SVGTextElement
-  const separatorInGroup = namesGroup?.querySelector('text:nth-child(3)') as SVGTextElement
-
-  console.log('ðŸŽ¨ Name elements found:', {
-    name1First: !!name1First,
-    name2First: !!name2First,
-    nameSeparator: !!nameSeparator,
-    namesGroup: !!namesGroup,
-    name1InGroup: !!name1InGroup,
-    name2InGroup: !!name2InGroup,
-    separatorInGroup: !!separatorInGroup,
-    colorConfig: colorConfig
-  })
-
-  // Apply title colors
-  if (blessingText) blessingText.setAttribute('fill', colorConfig.titleColor)
-  if (occasionText) occasionText.setAttribute('fill', colorConfig.titleColor)
-  if (eventTypeText) eventTypeText.setAttribute('fill', colorConfig.eventTypeColor)
-  if (ceremonyText) ceremonyText.setAttribute('fill', colorConfig.ceremonyColor)
-  
-  // Apply name colors - try both by ID and by group child position
-  // CRITICAL: Apply to ALL found name elements to ensure colors are set
-  const name1Elements = [name1First, name1InGroup].filter(Boolean)
-  const name2Elements = [name2First, name2InGroup].filter(Boolean)
-  const separatorElements = [nameSeparator, separatorInGroup].filter(Boolean)
-  
-  name1Elements.forEach(el => {
-    if (el) {
-      el.setAttribute('fill', colorConfig.name1Color)
-      console.log(`ðŸŽ¨ Set name1 fill to: ${colorConfig.name1Color}`)
-    }
-  })
-  
-  name2Elements.forEach(el => {
-    if (el) {
-      el.setAttribute('fill', colorConfig.name2Color)
-      console.log(`ðŸŽ¨ Set name2 fill to: ${colorConfig.name2Color}`)
-    }
-  })
-  
-  separatorElements.forEach(el => {
-    if (el) {
-      el.setAttribute('fill', colorConfig.separatorColor)
-      console.log(`ðŸŽ¨ Set separator fill to: ${colorConfig.separatorColor}`)
-    }
-  })
-  
-  // Fallback: apply to all text elements inside wedding-names-group
-  if (namesGroup) {
-    const allNamesText = namesGroup.querySelectorAll('text')
-    allNamesText.forEach((textEl, index) => {
-      const currentFill = textEl.getAttribute('fill')
-      if (index === 0 || textEl.id === 'name1-first') {
-        textEl.setAttribute('fill', colorConfig.name1Color)
-        console.log(`ðŸŽ¨ Names group text[${index}] (${textEl.id}): ${currentFill} â†’ ${colorConfig.name1Color}`)
-      } else if (index === 1 || textEl.id === 'name2-first') {
-        textEl.setAttribute('fill', colorConfig.name2Color)
-        console.log(`ðŸŽ¨ Names group text[${index}] (${textEl.id}): ${currentFill} â†’ ${colorConfig.name2Color}`)
-      } else if (textEl.id === 'name-separator' || textEl.textContent === '&') {
-        textEl.setAttribute('fill', colorConfig.separatorColor)
-        console.log(`ðŸŽ¨ Names group text[${index}] (${textEl.id}): ${currentFill} â†’ ${colorConfig.separatorColor}`)
-      }
-    })
-    console.log(`ðŸŽ¨ Applied colors to ${allNamesText.length} text elements in names group`)
-  }
-  
-  // Apply date and courtesy colors
-  if (dateText) dateText.setAttribute('fill', colorConfig.dateColor)
-  if (courtesyText) courtesyText.setAttribute('fill', colorConfig.courtesyColor)
-
-  // Adjust title position for specific backgrounds
-  // backgroundColour.svg needs titles moved up slightly
-  const lowerBgName = backgroundFileName.toLowerCase()
-  if (lowerBgName.includes('backgroundcolour')) {
-    // Move all title elements up by 30 pixels for this background
-    const titleElements = [blessingText, occasionText, eventTypeText, ceremonyText]
-    titleElements.forEach(el => {
-      if (el) {
-        const currentY = parseFloat(el.getAttribute('y') || '0')
-        el.setAttribute('y', String(currentY - 30))
-      }
-    })
-    console.log('ðŸ“ Adjusted title positions up for backgroundColour.svg')
-  }
-
-  // Also find text elements by content as fallback (in case IDs changed)
-  const allTextElements = svgElement.querySelectorAll('text')
-  allTextElements.forEach((textEl) => {
-    const content = textEl.textContent?.toLowerCase() || ''
-    const id = textEl.getAttribute('id') || ''
-    
-    // Skip if already handled by ID
-    if (id && ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text', 
-               'name1-first', 'name2-first', 'name-separator', 'date-text', 'courtesy-text'].includes(id)) {
-      return
-    }
-    
-    // Top titles - Alhamdulillahi, Congratulations, ON YOUR
-    if (content.includes('alhamdulillah') || content.includes('congratulation') || content.includes('on your')) {
-      textEl.setAttribute('fill', colorConfig.titleColor)
-    }
-    // Main event type - WEDDING, NIKKAH
-    else if (content === 'wedding' || content === 'nikkah') {
-      textEl.setAttribute('fill', colorConfig.eventTypeColor)
-    }
-    // Ceremony
-    else if (content === 'ceremony') {
-      textEl.setAttribute('fill', colorConfig.ceremonyColor)
-    }
-  })
-  
-  console.log(`ðŸŽ¨ Applied colors for background: ${backgroundFileName}`, colorConfig)
-
-  // Ensure proper element ordering: background -> user image -> text elements
-  // This ensures user image shows above background but text shows above everything
-  
-  // First, ensure user image is visible and properly positioned in the layer order
-  const userImage = svgElement.querySelector('#userImage') as SVGImageElement
-  if (userImage) {
-    // Make sure user image has the clip-path
-    if (!userImage.getAttribute('clip-path')) {
-      userImage.setAttribute('clip-path', 'url(#imageClip)')
-    }
-    
-    // Move user image after the background image (so it's visible above the background)
-    const bgImage = svgElement.querySelector('#background-image')
-    if (bgImage && bgImage.nextSibling !== userImage) {
-      bgImage.after(userImage)
-      console.log('ðŸ–¼ï¸ User image moved after background image')
-    }
-    
-    console.log('ðŸ–¼ï¸ User image found with href:', userImage.getAttribute('href') || userImage.getAttributeNS('http://www.w3.org/1999/xlink', 'href'))
-  }
-
-  // Move all text elements to the end (on top of everything)
-  const textElements = [
-    svgElement.querySelector('#blessing-text'),
-    svgElement.querySelector('#occasion-text'),
-    svgElement.querySelector('#event-type-text'),
-    svgElement.querySelector('#ceremony-text'),
-    svgElement.querySelector('#wedding-names-group'),
-    svgElement.querySelector('#date-text'),
-    svgElement.querySelector('#courtesy-text'),
-  ]
-
-  textElements.forEach((el) => {
-    if (el) {
-      svgElement.appendChild(el)
-    }
-  })
-  console.log('ðŸ“ Text elements moved to top layer')
-
-  // Refresh the images to ensure they are displayed correctly after background change
-  updateSVGWithImages()
-
-  // Update the chat preview container as well
-  await nextTick()
-  updateChatPreviewSVG()
-  
-  // Update title PNG color based on new background
-  const titleColor = getTitleColorForBackground(backgroundFileName)
-  console.log(`ðŸŽ¨ Updating title color to: ${titleColor} for background: ${backgroundFileName}`)
-  await updateTitleColor(svgElement, titleColor)
-  
-  // Update flourish color based on new background
-  const flourishColor = getFlourishColorForBackground(backgroundFileName)
-  console.log(`ðŸŒ¸ Updating flourish color to: ${flourishColor} for background: ${backgroundFileName}`)
-  await updateFlourishColor(svgElement, flourishColor)
-  
-  console.log(`âœ… Background applied successfully: ${backgroundFileName}`)
-}
-
-// Helper to update chat preview SVG with current state
-function updateChatPreviewSVG(): void {
-  const previewContainers = Array.isArray(chatPreviewContainer.value) 
-    ? chatPreviewContainer.value 
-    : (chatPreviewContainer.value ? [chatPreviewContainer.value] : [])
-
-  if (!weddingPreviewContainer.value) return
-  const masterSvg = weddingPreviewContainer.value.querySelector('svg')
-  if (!masterSvg) return
-
-  previewContainers.forEach((container) => {
-    if (container) {
-      // Clone the master SVG to update chat preview
-      const existingSvg = container.querySelector('svg')
-      if (existingSvg) {
-        existingSvg.remove()
-      }
-      const clonedSvg = masterSvg.cloneNode(true) as SVGSVGElement
-      
-      // Get viewBox to calculate aspect ratio
-      const viewBox = clonedSvg.getAttribute('viewBox')
-      if (viewBox) {
-        const parts = viewBox.split(/\s+|,/)
-        if (parts.length >= 4) {
-          const vbWidth = parseFloat(parts[2])
-          const vbHeight = parseFloat(parts[3])
-          const aspectRatio = vbWidth / vbHeight
-          
-          // Set container aspect ratio to match SVG
-          container.style.aspectRatio = String(aspectRatio)
-        }
-      }
-      
-      // Set SVG to fill container while preserving aspect ratio
-      clonedSvg.style.width = '100%'
-      clonedSvg.style.height = 'auto'
-      clonedSvg.style.maxWidth = '100%'
-      clonedSvg.style.display = 'block'
-      clonedSvg.removeAttribute('width')
-      clonedSvg.removeAttribute('height')
-      
-      container.appendChild(clonedSvg)
-    }
-  })
-}
-
-// ============================================================================
-// AI RESPONSE HELPER - Professional, Clear English with Friendly Tone
-// ============================================================================
-
-// ============================================================================
-// INTENT DETECTION SYSTEM
-// ============================================================================
-type UserIntent = 
-  | 'provide_info'      // User is providing requested information
-  | 'change_request'    // User wants to modify something
-  | 'question'          // User is asking a question
-  | 'confirmation'      // User is confirming (yes/no)
-  | 'greeting'          // User is greeting
-  | 'thanks'            // User is expressing gratitude
-  | 'help_request'      // User needs help
-  | 'cancel'            // User wants to cancel/start over
-  | 'download'          // User wants to download
-
-interface IntentResult {
-  intent: UserIntent
-  confidence: number  // 0-1 scale
-  entities: {
-    hasNames?: boolean
-    hasDate?: boolean
-    hasCourtesy?: boolean
-    hasSize?: boolean
-    targetField?: string  // What field they want to change
-  }
-}
-
-function detectIntent(message: string): IntentResult {
-  const lowerMsg = message.toLowerCase().trim()
-  const result: IntentResult = {
-    intent: 'provide_info',
-    confidence: 0.5,
-    entities: {}
-  }
-
-  // PRIORITY 1: Detect greeting intent FIRST (before confirmation check)
-  // This ensures "hi", "hello", "hey" are treated as greetings, not confirmations
-  const greetingPatterns = /^(hi+|hello+|hey+|good morning|good afternoon|good evening|assalam|salam|salaam|as-salamu|wa alaikum|hii+|helo+|hola|howdy|greetings)/i
-  if (greetingPatterns.test(lowerMsg)) {
-    result.intent = 'greeting'
-    result.confidence = 0.95
-    return result
-  }
-
-  // PRIORITY 2: Detect confirmation intent (for yes/no responses)
-  const confirmationPatterns = /^(yes|yeah|yep|sure|ok|okay|no|nope|nah|please|alright|fine|correct|right|definitely|absolutely|of course)$/i
-  if (confirmationPatterns.test(lowerMsg)) {
-    const isPositive = /^(yes|yeah|yep|sure|ok|okay|please|alright|fine|correct|right|definitely|absolutely|of course)$/i.test(lowerMsg)
-    result.intent = 'confirmation'
-    result.confidence = 0.95
-    result.entities.targetField = isPositive ? 'positive' : 'negative'
-    return result
-  }
-
-  // Detect greeting intent (also check for greetings anywhere in message)
-  const greetingAnywhere = /\b(hi there|hello there|good morning|good afternoon|good evening|assalam|salam|salaam)\b/i
-  if (greetingAnywhere.test(lowerMsg)) {
-    result.intent = 'greeting'
-    result.confidence = 0.9
-    return result
-  }
-
-  // Detect thanks intent
-  const thanksPatterns = /\b(thank|thanks|thx|appreciate|grateful|awesome|great job|perfect|amazing|wonderful|beautiful|love it|looks great)\b/i
-  if (thanksPatterns.test(lowerMsg)) {
-    result.intent = 'thanks'
-    result.confidence = 0.85
-    return result
-  }
-
-  // Detect change/edit request intent
-  const changePatterns = /\b(change|update|edit|modify|replace|make it|set the|use|switch|different|alter|correct|fix)\b/i
-  if (changePatterns.test(lowerMsg)) {
-    result.intent = 'change_request'
-    result.confidence = 0.85
-    
-    // Detect what they want to change
-    if (/\b(name|names|couple|bride|groom)\b/i.test(lowerMsg)) {
-      result.entities.targetField = 'names'
-    } else if (/\b(date|day|when)\b/i.test(lowerMsg)) {
-      result.entities.targetField = 'date'
-    } else if (/\b(courtesy|from|sender|family)\b/i.test(lowerMsg)) {
-      result.entities.targetField = 'courtesy'
-    } else if (/\b(size|dimension|inches|inch)\b/i.test(lowerMsg)) {
-      result.entities.targetField = 'size'
-    } else if (/\b(picture|photo|image|pic)\b/i.test(lowerMsg)) {
-      result.entities.targetField = 'picture'
-    } else if (/\b(heading|title|text)\b/i.test(lowerMsg)) {
-      result.entities.targetField = 'heading'
-    }
-    return result
-  }
-
-  // Detect question intent
-  const questionPatterns = /(\?$|\b(what|how|when|where|who|why|which|can you|could you|would you|is it|are you|do you|does it)\b)/i
-  if (questionPatterns.test(lowerMsg)) {
-    result.intent = 'question'
-    result.confidence = 0.8
-    return result
-  }
-
-  // Detect help request
-  const helpPatterns = /\b(help|assist|guide|how do|how to|stuck|confused|don't understand|what should)\b/i
-  if (helpPatterns.test(lowerMsg)) {
-    result.intent = 'help_request'
-    result.confidence = 0.85
-    return result
-  }
-
-  // Detect cancel intent
-  const cancelPatterns = /\b(cancel|start over|restart|reset|clear|new design|begin again|forget)\b/i
-  if (cancelPatterns.test(lowerMsg)) {
-    result.intent = 'cancel'
-    result.confidence = 0.9
-    return result
-  }
-
-  // Detect download intent
-  const downloadPatterns = /\b(download|save|export|get the|send me)\b/i
-  if (downloadPatterns.test(lowerMsg)) {
-    result.intent = 'download'
-    result.confidence = 0.85
-    return result
-  }
-
-  // Default: providing information - check what entities are present
-  result.intent = 'provide_info'
-  result.confidence = 0.6
-  
-  // Check for entities in the message (CASE INSENSITIVE for names)
-  // Matches: "john and mary", "John & Mary", "(sarah and mike)", etc.
-  result.entities.hasNames = /\b([a-zA-Z][a-zA-Z'-]+)\s+(?:and|&|n)\s+([a-zA-Z][a-zA-Z'-]+)\b/i.test(message) || /\(([^)]+)\)/.test(message)
-  result.entities.hasDate = /\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i.test(message) || /\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}/.test(message)
-  result.entities.hasCourtesy = /\b(courtesy|from the|from .+ family)\b/i.test(message)
-  result.entities.hasSize = /\d+(?:\.\d+)?\s*(?:x|by)\s*\d+(?:\.\d+)?/i.test(message)
-
-  // Increase confidence if entities detected
-  if (result.entities.hasNames || result.entities.hasDate || result.entities.hasCourtesy || result.entities.hasSize) {
-    result.confidence = 0.8
-  }
-
-  return result
-}
-
-// ============================================================================
-// FUZZY SPELL CORRECTION WITH LEVENSHTEIN DISTANCE
-// ============================================================================
-
-// Calculate Levenshtein distance between two strings
-function levenshteinDistance(str1: string, str2: string): number {
-  const m = str1.length
-  const n = str2.length
-  
-  // Create a matrix
-  const dp: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0))
-  
-  // Initialize first row and column
-  for (let i = 0; i <= m; i++) dp[i][0] = i
-  for (let j = 0; j <= n; j++) dp[0][j] = j
-  
-  // Fill in the rest
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      if (str1[i - 1] === str2[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1]
-      } else {
-        dp[i][j] = 1 + Math.min(
-          dp[i - 1][j],     // deletion
-          dp[i][j - 1],     // insertion
-          dp[i - 1][j - 1]  // substitution
-        )
-      }
-    }
-  }
-  
-  return dp[m][n]
-}
-
-// Extended dictionary for fuzzy matching
-const commonMisspellings: Record<string, string> = {
-  // Islamic/Religious terms
-  'alhadullia': 'Alhamdulillah',
-  'alhamdulila': 'Alhamdulillah',
-  'alhamdullilah': 'Alhamdulillah',
-  'alhamdulilah': 'Alhamdulillah',
-  'alhamduillah': 'Alhamdulillah',
-  'alhamdulliah': 'Alhamdulillah',
-  'alhamduliah': 'Alhamdulillah',
-  'mashallah': 'Masha Allah',
-  'mashaallah': 'Masha Allah',
-  'inshallah': 'Insha Allah',
-  'inshaallah': 'Insha Allah',
-  
-  // Courtesy variations
-  'courtesay': 'courtesy',
-  'courtsey': 'courtesy',
-  'courtesey': 'courtesy',
-  'curtesy': 'courtesy',
-  'cortesy': 'courtesy',
-  'courtisy': 'courtesy',
-  
-  // Wedding related
-  'weding': 'wedding',
-  'weddin': 'wedding',
-  'weddng': 'wedding',
-  'weeding': 'wedding',
-  'mariage': 'marriage',
-  'marrage': 'marriage',
-  'marriag': 'marriage',
-  'marraige': 'marriage',
-  'anniversery': 'anniversary',
-  'aniversary': 'anniversary',
-  'anniversay': 'anniversary',
-  'aniversery': 'anniversary',
-  'anniverary': 'anniversary',
-  
-  // Congratulations variations
-  'congradulations': 'congratulations',
-  'congatulations': 'congratulations',
-  'congrats': 'congratulations',
-  'congratualations': 'congratulations',
-  'congraulatons': 'congratulations',
-  'congradulation': 'congratulations',
-  'congrads': 'congratulations',
-  
-  // Names/Titles
-  'fiance': 'fiancÃ©',
-  'fiancee': 'fiancÃ©e',
-  'fianc': 'fiancÃ©',
-  
-  // Event terms
-  'recpetion': 'reception',
-  'recepton': 'reception',
-  'recption': 'reception',
-  'receptions': 'reception',
-  'cereomny': 'ceremony',
-  'cermony': 'ceremony',
-  'ceremoney': 'ceremony',
-  'ceremmony': 'ceremony',
-  'cerimony': 'ceremony',
-  
-  // Common words
-  'beautifull': 'beautiful',
-  'beautful': 'beautiful',
-  'beutiful': 'beautiful',
-  'happyness': 'happiness',
-  'hapiness': 'happiness',
-  'occassion': 'occasion',
-  'ocasion': 'occasion',
-  'occation': 'occasion',
-  'celabration': 'celebration',
-  'celebraton': 'celebration',
-  'celebraion': 'celebration',
-  'blessings': 'blessings',
-  'blesings': 'blessings',
-  'blssings': 'blessings',
-  'togather': 'together',
-  'togehter': 'together',
-  'togeter': 'together',
-  'speciall': 'special',
-  'specail': 'special',
-  'speical': 'special',
-  'wonderfull': 'wonderful',
-  'wonderfule': 'wonderful',
-  'wonerful': 'wonderful',
-  
-  // Family terms
-  'familly': 'family',
-  'famaly': 'family',
-  'famliy': 'family',
-  
-  // Date/Time related
-  'januray': 'January',
-  'janurary': 'January',
-  'febuary': 'February',
-  'feburary': 'February',
-  'febrary': 'February',
-  'wendsday': 'Wednesday',
-  'wensday': 'Wednesday',
-  'wedensday': 'Wednesday',
-  'saturday': 'Saturday',
-  'saterday': 'Saturday',
-  'satuday': 'Saturday',
-  
-  // Action words
-  'plese': 'please',
-  'pleasse': 'please',
-  'pls': 'please',
-  'thankyou': 'thank you',
-  'thnks': 'thanks',
-  'thanx': 'thanks'
-}
-
-// Dictionary words for fuzzy matching (correct spellings)
-const dictionaryWords = Object.values(commonMisspellings).filter((v, i, a) => a.indexOf(v) === i)
-
-// Find best fuzzy match for a word
-function findFuzzyMatch(word: string, threshold: number = 0.3): string | null {
-  const lowerWord = word.toLowerCase()
-  
-  // First check exact match in misspellings dictionary
-  if (commonMisspellings[lowerWord]) {
-    return commonMisspellings[lowerWord]
-  }
-  
-  // Skip if word is too short (less than 4 chars) to avoid false positives
-  if (lowerWord.length < 4) return null
-  
-  // Skip if word is a common English word that shouldn't be corrected
-  const skipWords = ['and', 'the', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'her', 'was', 'one', 'our', 'out', 'day', 'had', 'has', 'his', 'how', 'its', 'may', 'new', 'now', 'old', 'see', 'way', 'who', 'boy', 'did', 'get', 'him', 'let', 'put', 'say', 'she', 'too', 'use']
-  if (skipWords.includes(lowerWord)) return null
-  
-  let bestMatch: string | null = null
-  let bestDistance = Infinity
-  
-  // Check against all dictionary words
-  for (const dictWord of dictionaryWords) {
-    const distance = levenshteinDistance(lowerWord, dictWord.toLowerCase())
-    const maxLength = Math.max(lowerWord.length, dictWord.length)
-    const similarity = 1 - (distance / maxLength)
-    
-    // Only consider if similarity is above threshold
-    if (similarity >= (1 - threshold) && distance < bestDistance) {
-      bestDistance = distance
-      bestMatch = dictWord
-    }
-  }
-  
-  // Also check against all misspelling keys
-  for (const [misspelled, correct] of Object.entries(commonMisspellings)) {
-    const distance = levenshteinDistance(lowerWord, misspelled)
-    const maxLength = Math.max(lowerWord.length, misspelled.length)
-    const similarity = 1 - (distance / maxLength)
-    
-    if (similarity >= (1 - threshold) && distance < bestDistance) {
-      bestDistance = distance
-      bestMatch = correct
-    }
-  }
-  
-  return bestMatch
-}
-
-// Function to correct common misspellings with fuzzy matching
-function correctSpelling(text: string): { corrected: string; suggestions: string[]; intentResult?: IntentResult } {
-  let corrected = text
-  const suggestions: string[] = []
-
-  // Split into words while preserving punctuation positions
-  const wordPattern = /\b([a-zA-Z]+)\b/g
-  let match
-
-  while ((match = wordPattern.exec(text)) !== null) {
-    const word = match[1]
-    const cleanWord = word.toLowerCase()
-    
-    // First try exact match
-    if (commonMisspellings[cleanWord]) {
-      const correctWord = commonMisspellings[cleanWord]
-      // Preserve original case if word was capitalized
-      const replacement = word[0] === word[0].toUpperCase() 
-        ? correctWord.charAt(0).toUpperCase() + correctWord.slice(1)
-        : correctWord
-      corrected = corrected.replace(new RegExp(`\\b${word}\\b`, 'g'), replacement)
-      suggestions.push(`"${word}" â†’ "${replacement}"`)
-    } else {
-      // Try fuzzy matching
-      const fuzzyMatch = findFuzzyMatch(word, 0.25) // 25% difference threshold
-      if (fuzzyMatch && fuzzyMatch.toLowerCase() !== cleanWord) {
-        // Preserve original case
-        const replacement = word[0] === word[0].toUpperCase()
-          ? fuzzyMatch.charAt(0).toUpperCase() + fuzzyMatch.slice(1)
-          : fuzzyMatch.toLowerCase()
-        corrected = corrected.replace(new RegExp(`\\b${word}\\b`, 'g'), replacement)
-        suggestions.push(`"${word}" â†’ "${replacement}" (fuzzy)`)
-      }
-    }
-  }
-
-  // Also run intent detection
-  const intentResult = detectIntent(corrected)
-
-  return { corrected, suggestions, intentResult }
-}
-
-// Extract names from text inside brackets ()
-function extractNamesFromBrackets(text: string): string | null {
-  // Pattern to match text inside parentheses
-  const bracketPattern = /\(([^)]+)\)/
-  const match = text.match(bracketPattern)
-
-  if (match && match[1]) {
-    const bracketContent = match[1].trim()
-    // Check if it looks like names (contains & or "and")
-    if (bracketContent.includes('&') || bracketContent.toLowerCase().includes(' and ')) {
-      return bracketContent
-    }
-    // Could also be a single name
-    if (/^[A-Za-z\s]+$/.test(bracketContent)) {
-      return bracketContent
-    }
-  }
-
-  return null
-}
-
-// Parse all-in-one message to extract names, date, and courtesy
-function parseAllInOneMessage(text: string): {
-  names: { name1: string | null; name2: string | null };
-  date: string | null;
-  courtesy: string | null;
-} {
-  console.log('ðŸ” parseAllInOneMessage input:', text)
-  
-  // First try to extract names from brackets
-  const bracketNames = extractNamesFromBrackets(text)
-  let names = { name1: null as string | null, name2: null as string | null }
-
-  if (bracketNames) {
-    // Parse the bracket content for two names
-    const andPattern = /(.+?)\s*(?:and|&)\s*(.+)/i
-    const andMatch = bracketNames.match(andPattern)
-    if (andMatch) {
-      names.name1 = andMatch[1].trim()
-      names.name2 = andMatch[2].trim()
-    } else {
-      names.name1 = bracketNames
-    }
-    console.log('ðŸ” Names from brackets:', names)
-  } else {
-    // Fall back to regular name extraction
-    names = extractNamesFromResponse(text)
-    console.log('ðŸ” Names from response:', names)
-  }
-
-  const date = extractDateFromText(text)
-  console.log('ðŸ” Date extracted:', date)
-  
-  const courtesy = extractCourtesyFromText(text)
-  console.log('ðŸ” Courtesy extracted:', courtesy)
-
-  console.log('ðŸ” parseAllInOneMessage result:', { names, date, courtesy })
-  return { names, date, courtesy }
-}
-
-// Title/Heading detection patterns
-const titlePatterns = [
-  /congratulation[s]?\s+on\s+your\s+wedding/i,
-  /congratulation[s]?\s+on\s+your\s+wedding\s+ceremony/i,
-  /congratulation[s]?\s+on\s+your\s+(?:qur'?anic\s+)?(?:walima|walimah|walimat|walmia|walmiah|wamima|wamimat|wamimah)/i,
-  /beautiful\s+beginning/i,
-  /conjugal\s+bliss/i,
-  /save\s+the\s+date/i,
-  /alhamdulillah[i]?\s+on\s+your\s+wedding/i,
-  /alhamdulillah[i]?\s+on\s+your\s+wedding\s+ceremony/i,
-  /alhamdulillah[i]?\s+on\s+your\s+(?:qur'?anic\s+)?walima/i,
-  /alhamdulillah[i]?\s+on\s+your\s+(?:qur'?anic\s+)?graduation/i,
-  /thank[s]?\s+for\s+attending/i,
-  /best\s+wishes/i,
-  /happy\s+wedding/i,
-  /with\s+love/i
-]
-
-// Map of patterns to their display titles
-const titlePhraseMap: { pattern: RegExp; display: string }[] = [
-  { pattern: /congratulation[s]?\s+on\s+your\s+wedding\s+ceremony/i, display: 'Congratulations On Your Wedding Ceremony' },
-  { pattern: /congratulation[s]?\s+on\s+your\s+wedding/i, display: 'Congratulations On Your Wedding' },
-  { pattern: /congratulation[s]?\s+on\s+your\s+qur'?anic\s+(?:walima|walimah|walimat|walmia|walmiah|wamima|wamimat|wamimah)/i, display: "Congratulations On Your Qur'anic Walima" },
-  { pattern: /congratulation[s]?\s+on\s+your\s+(?:walima|walimah|walimat|walmia|walmiah|wamima|wamimat|wamimah)/i, display: 'Congratulations On Your Walima' },
-  { pattern: /beautiful\s+beginning/i, display: 'Beautiful Beginning' },
-  { pattern: /conjugal\s+bliss/i, display: 'Conjugal Bliss' },
-  { pattern: /save\s+the\s+date/i, display: 'Save The Date' },
-  { pattern: /alhamdulillah[i]?\s+on\s+your\s+qur'?anic\s+walima/i, display: "Alhamdulillahi On Your Qur'anic Walima" },
-  { pattern: /alhamdulillah[i]?\s+on\s+your\s+qur'?anic\s+graduation/i, display: "Alhamdulillahi On Your Qur'anic Graduation" },
-  { pattern: /alhamdulillah[i]?\s+on\s+your\s+wedding\s+ceremony/i, display: 'Alhamdulillahi On Your Wedding Ceremony' },
-  { pattern: /alhamdulillah[i]?\s+on\s+your\s+wedding/i, display: 'Alhamdulillahi On Your Wedding' },
-  { pattern: /thank[s]?\s+for\s+attending/i, display: 'Thanks For Attending' },
-  { pattern: /best\s+wishes/i, display: 'Best Wishes' },
-  { pattern: /happy\s+wedding/i, display: 'Happy Wedding' },
-  { pattern: /with\s+love/i, display: 'With Love' },
-]
-
-function isPotentialTitle(text: string): boolean {
-  const lower = text.toLowerCase().trim()
-  return titlePatterns.some(pattern => pattern.test(lower))
-}
-
-// Extract title phrase from text and return the formatted display version
-function extractTitleFromText(text: string): string | null {
-  const lower = text.toLowerCase().trim()
-  for (const { pattern, display } of titlePhraseMap) {
-    if (pattern.test(lower)) {
-      return display
-    }
-  }
-  return null
-}
-
-const aiResponseHelper = {
-  // Random picker helper
-  pick: (arr: string[]) => arr[Math.floor(Math.random() * arr.length)],
-
-  // Short, clean greetings - just ask for information
-  greetings: {
-    morning: [
-      "Good morning! Please provide your information."
-    ],
-    afternoon: [
-      "Good afternoon! Please provide your information."
-    ],
-    evening: [
-      "Good evening! Please provide your information."
-    ],
-    general: [
-      "Hello! Please provide your information."
-    ],
-    salam: [
-      "Wa alaikum assalam! Please provide your information."
-    ]
-  },
-
-  // Professional confirmations
-  confirmations: [
-    "Got it!",
-    "Noted!",
-    "Perfect!",
-    "Received!",
-    "Understood!",
-    "Great!"
-  ],
-
-  // Processing messages
-  processing: [
-    "Creating your design...",
-    "Generating your sticker...",
-    "Almost ready..."
-  ],
-
-  // Asking for names
-  askNames: [
-    "Please provide the names.",
-    "What are the names?"
-  ],
-
-  // Asking for date
-  askDate: [
-    "What's the date?",
-    "Please provide the date."
-  ],
-
-  // Asking for courtesy
-  askCourtesy: [
-    "Please provide the courtesy.",
-    "Who is it from?"
-  ],
-
-  // Success messages
-  success: [
-    "Your sticker is ready!",
-    "Design complete!",
-    "Done! Here's your sticker!"
-  ],
-
-  // Picture-related responses
-  pictureAsk: [
-    "Would you like to add a photo?"
-  ],
-
-  pictureReceived: [
-    "Photo received!",
-    "Great! Adding photo to design."
-  ],
-
-  // Size-related
-  sizeAsk: [
-    "What size? (e.g., 3x3 or 4x4 inches)"
-  ],
-
-  sizeConfirm: (size: string) => [
-    `Size set to ${size}!`
-  ],
-
-  // Multiple images detected
-  multipleImages: [
-    "Multiple pictures! Use FIRST or NEW one?"
-  ],
-
-  // Error handling
-  errors: {
-    noInfo: [
-      "Please provide: names, date, and courtesy."
-    ],
-    unclear: [
-      "Please provide: names, date, and courtesy."
-    ],
-    patience: [
-      "Just a moment!",
-      "Creating your design..."
-    ]
-  },
-
-  // Fun responses for casual chat
-  jokes: [
-    "Love is in the air! ðŸ’•"
-  ],
-
-  // Casual responses
-  casual: {
-    thanks: [
-      "You're welcome!",
-      "Glad to help!"
-    ],
-    howAreYou: [
-      "Ready to help!",
-      "What can I create for you?"
-    ],
-    goodbye: [
-      "Goodbye!",
-      "See you later!"
-    ]
-  },
-
-  // Get appropriate greeting
-  getGreeting: (message: string, userName: string): string => {
-    const lower = message.toLowerCase()
-    const h = aiResponseHelper
-
-    if (lower.includes('salam') || lower.includes('assalam')) {
-      return h.pick(h.greetings.salam)
-    }
-    if (lower.includes('good morning')) {
-      return h.pick(h.greetings.morning)
-    }
-    if (lower.includes('good afternoon')) {
-      return h.pick(h.greetings.afternoon)
-    }
-    if (lower.includes('good evening')) {
-      return h.pick(h.greetings.evening)
-    }
-
-    const greeting = h.pick(h.greetings.general)
-    return greeting.replace('{name}', userName)
-  }
-}
 
 const scrollToBottom = () => {
   // Use the component's scrollToBottom method if available
@@ -4429,7 +2303,7 @@ function buildWeddingChatTranscriptForAI(maxMessages = 10): string {
 }
 
 function parseSizeToInches(size: string): { w: number; h: number } | null {
-  const m = size.trim().match(/(\d+(?:\.\d+)?)\s*[xÃ—]\s*(\d+(?:\.\d+)?)/i)
+  const m = size.trim().match(/(\d+(?:\.\d+)?)\s*[x�]\s*(\d+(?:\.\d+)?)/i)
   if (!m) return null
   const w = Number(m[1])
   const h = Number(m[2])
@@ -4569,7 +2443,7 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
   const isAuthed = !!authStore.isAuthenticated
   const lowerMsg = lastUserMessage.trim().toLowerCase()
 
-  // â”€â”€â”€ Quick greeting shortcut (avoid Ollama call for simple greetings) â”€â”€â”€
+  // --- Quick greeting shortcut (avoid Ollama call for simple greetings) ---
   const isSimpleGreeting = /^(hi+|hello+|hey+|hiya|yo|good\s*(morning|afternoon|evening|day)|assalamualaikum|salam|greetings?)[\s!.?]*$/i.test(lowerMsg)
   if (isSimpleGreeting) {
     isAnalyzing.value = false
@@ -4586,13 +2460,13 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
     
     let responseText = ''
     if (hasName && hasDate) {
-      responseText = `${greet} 😊 Welcome back! I still have your details saved. Would you like me to generate your sticker?`
+      responseText = `${greet} ?? Welcome back! I still have your details saved. Would you like me to generate your sticker?`
     } else if (hasName || hasDate) {
       const have = hasName ? `the names (${extractedInfo.value.names.name1}${extractedInfo.value.names.name2 ? ' & ' + extractedInfo.value.names.name2 : ''})` : `the date (${extractedInfo.value.date})`
       const need = !hasName ? 'the bride\'s and groom\'s names' : 'the wedding date'
-      responseText = `${greet} 😊 I remember ${have}. Just need ${need} to create your sticker!`
+      responseText = `${greet} ?? I remember ${have}. Just need ${need} to create your sticker!`
     } else {
-      responseText = `${greet} 😊 I'm here to help create your wedding sticker!\n\nJust tell me the couple's names and wedding date, and I'll design something beautiful for you!`
+      responseText = `${greet} ?? I'm here to help create your wedding sticker!\n\nJust tell me the couple's names and wedding date, and I'll design something beautiful for you!`
     }
 
     chatMessages.value.push({
@@ -4611,7 +2485,7 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
     isAnalyzing.value = false
     chatMessages.value.push({
       id: Date.now(),
-      text: `Hey there! 👋 I'm your wedding sticker assistant!\n\nTell me the couple's names and when the big day is — I'll create a beautiful sticker design for you! 💒`,
+      text: `Hey there! ?? I'm your wedding sticker assistant!\n\nTell me the couple's names and when the big day is ? I'll create a beautiful sticker design for you! ??`,
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     } as any)
@@ -4624,9 +2498,9 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
   if (isHowAreYou) {
     isAnalyzing.value = false
     const responses = [
-      `I'm doing wonderful, thanks for asking! 😊 Ready to help create something special for you!`,
-      `Great, thank you! 💕 So excited to help with your wedding sticker today!`,
-      `Feeling creative and ready to help! 😊 Got a wedding to celebrate?`
+      `I'm doing wonderful, thanks for asking! ?? Ready to help create something special for you!`,
+      `Great, thank you! ?? So excited to help with your wedding sticker today!`,
+      `Feeling creative and ready to help! ?? Got a wedding to celebrate?`
     ]
     const randomResponse = responses[Math.floor(Math.random() * responses.length)]
     chatMessages.value.push({
@@ -4645,7 +2519,7 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
     isAnalyzing.value = false
     chatMessages.value.push({
       id: Date.now(),
-      text: `I create beautiful wedding stickers! 💒✨\n\nJust share:\n• The couple's names\n• Wedding date\n\nI'll design a gorgeous sticker you can download and share! You can also pick colors or styles if you'd like.`,
+      text: `I create beautiful wedding stickers! ???\n\nJust share:\n? The couple's names\n? Wedding date\n\nI'll design a gorgeous sticker you can download and share! You can also pick colors or styles if you'd like.`,
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     } as any)
@@ -4658,9 +2532,9 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
   if (isNonWeddingRequest && !/wedding/i.test(lowerMsg)) {
     isAnalyzing.value = false
     const friendlyResponses = [
-      `I appreciate you thinking of me! 😊 But I specialize only in wedding stickers.\n\nIf you have a wedding coming up, I'd love to help create something beautiful!`,
-      `That sounds like a lovely project! Unfortunately, I only create wedding stickers. 💒\n\nGot a wedding to celebrate? I'm your assistant!`,
-      `I wish I could help with that! But my specialty is wedding stickers only. 😊\n\nKnow someone getting married? I'd love to help!`
+      `I appreciate you thinking of me! ?? But I specialize only in wedding stickers.\n\nIf you have a wedding coming up, I'd love to help create something beautiful!`,
+      `That sounds like a lovely project! Unfortunately, I only create wedding stickers. ??\n\nGot a wedding to celebrate? I'm your assistant!`,
+      `I wish I could help with that! But my specialty is wedding stickers only. ??\n\nKnow someone getting married? I'd love to help!`
     ]
     const randomResponse = friendlyResponses[Math.floor(Math.random() * friendlyResponses.length)]
     chatMessages.value.push({
@@ -4679,7 +2553,7 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
     isAnalyzing.value = false
     chatMessages.value.push({
       id: Date.now(),
-      text: `I'd love to create something beautiful for you! 💕\n\nJust tell me:\n• Who's getting married? (couple's names)\n• When's the wedding?`,
+      text: `I'd love to create something beautiful for you! ??\n\nJust tell me:\n? Who's getting married? (couple's names)\n? When's the wedding?`,
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     } as any)
@@ -4697,17 +2571,17 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
     
     let responseText = ''
     if (showWeddingStickerPreview.value) {
-      responseText = 'Your sticker is ready! You can download it or make edits. 😊'
+      responseText = 'Your sticker is ready! You can download it or make edits. ??'
     } else if (hasName1 && hasDate) {
-      responseText = 'Got it! Generating your wedding sticker now... 😊'
+      responseText = 'Got it! Generating your wedding sticker now... ??'
       setTimeout(() => generateWeddingPreview(), 100)
     } else {
       const missing: string[] = []
       if (!hasName1) missing.push('bride\'s and groom\'s names')
       if (!hasDate) missing.push('wedding date')
       responseText = missing.length > 0 
-        ? `I still need: ${missing.join(' and ')}. 😊`
-        : 'Let\'s create your wedding sticker!\n\nTell me:\n• Bride\'s name\n• Groom\'s name\n• Wedding date'
+        ? `I still need: ${missing.join(' and ')}. ??`
+        : 'Let\'s create your wedding sticker!\n\nTell me:\n? Bride\'s name\n? Groom\'s name\n? Wedding date'
     }
     
     chatMessages.value.push({
@@ -4753,7 +2627,7 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
     isAnalyzing.value = false
     chatMessages.value.push({
       id: Date.now(),
-      text: 'No problem! Just let me know whenever you\'re ready to create a wedding sticker. I\'m here to help! 😊',
+      text: 'No problem! Just let me know whenever you\'re ready to create a wedding sticker. I\'m here to help! ??',
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     } as any)
@@ -4785,7 +2659,7 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
     isAnalyzing.value = false
     chatMessages.value.push({
       id: Date.now(),
-      text: `Happy to help! 😊 Here's how it works:\n\n1️⃣ Tell me the couple's names (e.g., "John & Sarah")\n2️⃣ Share the wedding date\n3️⃣ I'll create a beautiful sticker!\n\nYou can also add a custom message or pick your favorite colors. Ready when you are! 💒`,
+      text: `Happy to help! ?? Here's how it works:\n\n1?? Tell me the couple's names (e.g., "John & Sarah")\n2?? Share the wedding date\n3?? I'll create a beautiful sticker!\n\nYou can also add a custom message or pick your favorite colors. Ready when you are! ??`,
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     } as any)
@@ -4812,7 +2686,7 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
     
     let responseText = ''
     if (hasName && hasDate) {
-      responseText = `Great! 😊\n• Bride: ${extractedInfo.value.names.name1}\n• Groom: ${extractedInfo.value.names.name2 || 'Not specified'}\n• Date: ${extractedInfo.value.date}\n\nGenerating your sticker now...`
+      responseText = `Great! ??\n? Bride: ${extractedInfo.value.names.name1}\n? Groom: ${extractedInfo.value.names.name2 || 'Not specified'}\n? Date: ${extractedInfo.value.date}\n\nGenerating your sticker now...`
       // Auto-generate preview
       setTimeout(() => generateWeddingPreview(), 500)
     } else {
@@ -4831,8 +2705,8 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
       if (!hasDate) missing.push('wedding date')
       
       responseText = collected.length > 0 
-        ? `Got it! 😊\n• ${collected.join('\n• ')}\n\nI still need: ${missing.join(' and ')}.`
-        : `To create your sticker, I need:\n• Bride's name\n• Groom's name\n• Wedding date`
+        ? `Got it! ??\n? ${collected.join('\n? ')}\n\nI still need: ${missing.join(' and ')}.`
+        : `To create your sticker, I need:\n? Bride's name\n? Groom's name\n? Wedding date`
     }
     
     chatMessages.value.push({
@@ -4876,16 +2750,16 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
     const direct = safeJsonParse<any>(aiText)
     if (direct.ok) {
       rawDecision = direct.value
-      console.log('âœ… Direct JSON parse succeeded')
+      console.log('? Direct JSON parse succeeded')
     } else {
-      console.log('âš ï¸ Direct parse failed, trying extraction...')
+      console.log('?? Direct parse failed, trying extraction...')
       const extracted = extractFirstJsonBlock(aiText)
-      console.log('ðŸ“¦ Extracted JSON block:', extracted)
+      console.log('?? Extracted JSON block:', extracted)
       if (extracted) {
         const parsed = safeJsonParse<any>(extracted)
         if (parsed.ok) {
           rawDecision = parsed.value
-          console.log('âœ… Extracted JSON parse succeeded')
+          console.log('? Extracted JSON parse succeeded')
         }
       }
     }
@@ -4896,7 +2770,7 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
     // If JSON parsing failed, try to extract just the message from the text
     if (!rawDecision) {
       isAnalyzing.value = false
-      console.log('âŒ No valid JSON found, using fallback')
+      console.log('? No valid JSON found, using fallback')
       // Try to find a quoted message in the response
       const msgMatch = aiText.match(/"message"\s*:\s*"([^"]+)"/i)
       let fallbackText = msgMatch?.[1] || ''
@@ -4948,7 +2822,7 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
       buttons: (rawDecision?.buttons ?? rawDecision?.button ?? undefined) as any
     }
 
-    // Enforce authentication UI rules (donâ€™t allow login button spam)
+    // Enforce authentication UI rules (don�t allow login button spam)
     const modelButtons = Array.isArray(decision.buttons) ? decision.buttons : []
     if (isAuthed) {
       decision.buttons = modelButtons.filter(b => (b as any)?.type !== 'login')
@@ -5013,7 +2887,7 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
     }
     
     const _unused =
-      'Iâ€™m here â€” tell me what you want to design.'
+      'I�m here � tell me what you want to design.'
     chatMessages.value.push({
       id: Date.now(),
       text: msgText,
@@ -5076,7 +2950,7 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
     }
   } catch (e) {
     if (reqId !== weddingChatRequestId) return
-    console.log('⚠️ Ollama unavailable, using local extraction')
+    console.log('?? Ollama unavailable, using local extraction')
     
     // Try local extraction when Ollama fails
     const localResult = tryLocalExtraction(lastUserMessage)
@@ -5114,9 +2988,9 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
       if (!hasCourtesy) missing.push('courtesy message')
       
       if (hasName && hasDate && hasCourtesy) {
-        responseText = `Got it! I've noted:\n• ${noted.join('\n• ')}\n\nReady to generate your wedding sticker?`
+        responseText = `Got it! I've noted:\n? ${noted.join('\n? ')}\n\nReady to generate your wedding sticker?`
       } else {
-        responseText = `Got it! I've noted:\n• ${noted.join('\n• ')}\n\nI still need: ${missing.join(', ')}.`
+        responseText = `Got it! I've noted:\n? ${noted.join('\n? ')}\n\nI still need: ${missing.join(', ')}.`
       }
     } else {
       // Nothing extracted - provide guidance
@@ -5179,16 +3053,16 @@ const throttledScrollToBottom = useThrottleFn(() => {
 }, 100)
 
 async function handleSizeChange(widthInches: number, heightInches: number) {
-  console.log(`ðŸ“ Resizing to ${widthInches}x${heightInches} inches`)
+  console.log(`?? Resizing to ${widthInches}x${heightInches} inches`)
 
   if (!weddingPreviewContainer.value) {
-    console.error('âŒ weddingPreviewContainer not available for resize')
+    console.error('? weddingPreviewContainer not available for resize')
     return
   }
 
   const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
   if (!svgElement) {
-    console.error('âŒ SVG element not found for resize')
+    console.error('? SVG element not found for resize')
     return
   }
 
@@ -5261,8 +3135,8 @@ async function handleSizeChange(widthInches: number, heightInches: number) {
   svgElement.style.maxWidth = '100%'
   svgElement.style.display = 'block'
 
-  console.log(`ðŸ“ Original: ${origWidth}x${origHeight}, New viewBox: ${newViewBoxWidth.toFixed(0)}x${newViewBoxHeight.toFixed(0)}`)
-  console.log(`ðŸ“ Export: ${widthPixels}x${heightPixels}px (${widthInches}x${heightInches}" at ${DPI} DPI)`)
+  console.log(`?? Original: ${origWidth}x${origHeight}, New viewBox: ${newViewBoxWidth.toFixed(0)}x${newViewBoxHeight.toFixed(0)}`)
+  console.log(`?? Export: ${widthPixels}x${heightPixels}px (${widthInches}x${heightInches}" at ${DPI} DPI)`)
 
   // 7. Calculate content offset to center it in the new viewBox
   const contentOffsetX = (newViewBoxWidth - origWidth) / 2
@@ -5340,18 +3214,18 @@ async function handleSizeChange(widthInches: number, heightInches: number) {
     const newClipWidth = origClipWidth * scaleX
     const newClipHeight = newViewBoxHeight // Span full SVG height
     
-    console.log(`ðŸ“ Updating clip-path rect:`)
-    console.log(`   x: ${origClipX} â†’ ${newClipX.toFixed(1)}`)
-    console.log(`   y: ${origClipY} â†’ ${newClipY}`)
-    console.log(`   width: ${origClipWidth} â†’ ${newClipWidth.toFixed(1)}`)
-    console.log(`   height: ${origClipHeight} â†’ ${newClipHeight.toFixed(1)}`)
+    console.log(`?? Updating clip-path rect:`)
+    console.log(`   x: ${origClipX} ? ${newClipX.toFixed(1)}`)
+    console.log(`   y: ${origClipY} ? ${newClipY}`)
+    console.log(`   width: ${origClipWidth} ? ${newClipWidth.toFixed(1)}`)
+    console.log(`   height: ${origClipHeight} ? ${newClipHeight.toFixed(1)}`)
     
     clipPathRect.setAttribute('x', String(newClipX))
     clipPathRect.setAttribute('y', String(newClipY))
     clipPathRect.setAttribute('width', String(newClipWidth))
     clipPathRect.setAttribute('height', String(newClipHeight))
   } else {
-    console.warn('âš ï¸ clipPath#imageClip rect not found')
+    console.warn('?? clipPath#imageClip rect not found')
   }
 
   // 12. Scale the wave paths to extend to the new SVG height
@@ -5359,7 +3233,7 @@ async function handleSizeChange(widthInches: number, heightInches: number) {
   const wavePaths = svgElement.querySelectorAll('path[fill="#FFCC29"], path[fill="url(#g1)"], path[fill="#507C95"], path[fill="#104C6E"]')
   if (wavePaths.length > 0) {
     const heightRatio = newViewBoxHeight / origHeight
-    console.log(`ðŸŒŠ Scaling ${wavePaths.length} wave paths by height ratio: ${heightRatio.toFixed(2)}`)
+    console.log(`?? Scaling ${wavePaths.length} wave paths by height ratio: ${heightRatio.toFixed(2)}`)
     
     wavePaths.forEach((path, index) => {
       const d = path.getAttribute('d')
@@ -5394,7 +3268,7 @@ async function handleSizeChange(widthInches: number, heightInches: number) {
   if (heightDelta > 0) {
     // Move text down by only 30% of the height increase - enough to adjust but not too far
     const textOffset = heightDelta * 0.3
-    console.log(`ðŸ“ Repositioning text elements by ${textOffset.toFixed(1)}px (30% of ${heightDelta.toFixed(1)}px)`)
+    console.log(`?? Repositioning text elements by ${textOffset.toFixed(1)}px (30% of ${heightDelta.toFixed(1)}px)`)
     
     // Move date text down slightly
     const dateTextEl = svgElement.querySelector('#date-text') as SVGTextElement
@@ -5402,7 +3276,7 @@ async function handleSizeChange(widthInches: number, heightInches: number) {
       const currentY = parseFloat(dateTextEl.getAttribute('y') || '1480')
       const newY = currentY + textOffset
       dateTextEl.setAttribute('y', String(newY))
-      console.log(`   Date text: y ${currentY} â†’ ${newY}`)
+      console.log(`   Date text: y ${currentY} ? ${newY}`)
     }
     
     // Move courtesy text down slightly
@@ -5411,7 +3285,7 @@ async function handleSizeChange(widthInches: number, heightInches: number) {
       const currentY = parseFloat(courtesyTextEl.getAttribute('y') || '1600')
       const newY = currentY + textOffset
       courtesyTextEl.setAttribute('y', String(newY))
-      console.log(`   Courtesy text: y ${currentY} â†’ ${newY}`)
+      console.log(`   Courtesy text: y ${currentY} ? ${newY}`)
     }
     
     // Move wedding names group down slightly
@@ -5426,7 +3300,7 @@ async function handleSizeChange(widthInches: number, heightInches: number) {
         const newY = currentY + textOffset
         const newTransform = transform.replace(/translate\([^)]+\)/, `translate(${currentX}, ${newY})`)
         weddingNamesGroup.setAttribute('transform', newTransform)
-        console.log(`   Names group: translate y ${currentY} â†’ ${newY}`)
+        console.log(`   Names group: translate y ${currentY} ? ${newY}`)
       }
     }
   }
@@ -5438,7 +3312,7 @@ async function handleSizeChange(widthInches: number, heightInches: number) {
     bgImage.setAttribute('height', String(newViewBoxHeight))
     bgImage.setAttribute('x', '0')
     bgImage.setAttribute('y', '0')
-    console.log(`ðŸŽ¨ Updated background image to ${newViewBoxWidth}x${newViewBoxHeight}`)
+    console.log(`?? Updated background image to ${newViewBoxWidth}x${newViewBoxHeight}`)
   }
 
   // Force refresh
@@ -5450,7 +3324,7 @@ async function handleSizeChange(widthInches: number, heightInches: number) {
   // Update the chat preview container with the resized SVG
   updateChatPreviewSVG()
 
-  console.log(`âœ… Size change complete: ${widthInches}x${heightInches} inches`)
+  console.log(`? Size change complete: ${widthInches}x${heightInches} inches`)
 }
 
 async function analyzeMessage(lastUserMessage: string) {
@@ -5512,11 +3386,11 @@ const imageSlots = ref<Array<{ file: File; preview: string } | null>>([
 ])
 
 function selectCategory(categoryId: string) {
-  console.log('ðŸŽ¯ Category selected:', categoryId)
+  console.log('?? Category selected:', categoryId)
   
   selectedCategory.value = categoryId
-  console.log('âœ… selectedCategory.value set to:', selectedCategory.value)
-  console.log('ðŸ“‹ Should show form now:', !!selectedCategory.value)
+  console.log('? selectedCategory.value set to:', selectedCategory.value)
+  console.log('?? Should show form now:', !!selectedCategory.value)
   // Load category-specific template
   loadCategoryTemplate(categoryId)
 }
@@ -5646,17 +3520,17 @@ function goBack() {
 // Wedding Sticker Functions
 async function loadWeddingStickerTemplate() {
   if (!weddingPreviewContainer.value) {
-    console.error('âŒ weddingPreviewContainer.value is null!')
+    console.error('? weddingPreviewContainer.value is null!')
     return
   }
 
-  console.log('ðŸ”„ Loading wedding sticker template...')
+  console.log('?? Loading wedding sticker template...')
 
   try {
     // Reset replacement state when loading new template
     resetReplacement()
 
-    // ðŸ”¥ INLINE SVG TEMPLATE - No server fetch needed
+    // ?? INLINE SVG TEMPLATE - No server fetch needed
     const svgText = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2996.9 1685.75" preserveAspectRatio="xMidYMid meet">
   
   <defs>
@@ -5717,14 +3591,14 @@ async function loadWeddingStickerTemplate() {
 </svg>`
 
     const successSource = 'Inline Template'
-    console.log(`âœ… Using inline SVG template`)
+    console.log(`? Using inline SVG template`)
 
-    console.log('ðŸ“ SVG text length:', svgText.length)
-    console.log('ðŸ“ First 200 chars:', svgText.substring(0, 200))
+    console.log('?? SVG text length:', svgText.length)
+    console.log('?? First 200 chars:', svgText.substring(0, 200))
 
     // Insert SVG into container
     weddingPreviewContainer.value.innerHTML = svgText
-    console.log('âœ… SVG inserted into container')
+    console.log('? SVG inserted into container')
     
     // Force immediate DOM update
     await nextTick()
@@ -5739,12 +3613,12 @@ async function loadWeddingStickerTemplate() {
     const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
     
     if (!svgElement) {
-      console.error('âŒ SVG element not found after insertion!')
+      console.error('? SVG element not found after insertion!')
       console.error('Container HTML:', weddingPreviewContainer.value.innerHTML.substring(0, 200))
       return
     }
     
-    console.log('âœ… SVG element found:', svgElement)
+    console.log('? SVG element found:', svgElement)
     
     if (svgElement) {
       // Set responsive dimensions based on viewBox aspect ratio (NOT fixed 400x400)
@@ -5760,7 +3634,7 @@ async function loadWeddingStickerTemplate() {
           svgElement.removeAttribute('height') // Let aspect ratio determine height
           // Store original dimensions for export
           svgElement.setAttribute('data-original-viewbox', viewBox)
-          console.log(`ðŸ“ SVG viewBox: ${vbWidth}x${vbHeight} (aspect: ${(vbWidth/vbHeight).toFixed(2)})`)
+          console.log(`?? SVG viewBox: ${vbWidth}x${vbHeight} (aspect: ${(vbWidth/vbHeight).toFixed(2)})`)
         }
       } else if (!svgElement.hasAttribute('viewBox')) {
         // Only set default viewBox if none exists
@@ -5775,8 +3649,8 @@ async function loadWeddingStickerTemplate() {
       const textToMatch = customHeading.value || accumulatedDescription.value || formData.description || 'wedding'
       const matchedTitle = findMatchingTitle(textToMatch)
       
-      console.log('ðŸ” SVG Element before handleReplacement:', svgElement)
-      console.log('ðŸ” SVG Element IDs found:', {
+      console.log('?? SVG Element before handleReplacement:', svgElement)
+      console.log('?? SVG Element IDs found:', {
         blessingText: !!svgElement.querySelector('#blessing-text'),
         occasionText: !!svgElement.querySelector('#occasion-text'),
         eventTypeText: !!svgElement.querySelector('#event-type-text'),
@@ -5786,11 +3660,11 @@ async function loadWeddingStickerTemplate() {
       try {
         // Get title color based on current background
         const titleColor = getTitleColorForBackground()
-        console.log('ðŸŽ¨ Title color for current background:', titleColor)
+        console.log('?? Title color for current background:', titleColor)
         
         if (matchedTitle) {
-          console.log('ðŸŽ¯ Title Library match found:', matchedTitle.fallbackText)
-          console.log('ðŸŽ¯ Using SVG:', matchedTitle.svgPath)
+          console.log('?? Title Library match found:', matchedTitle.fallbackText)
+          console.log('?? Using SVG:', matchedTitle.svgPath)
           
           // Pre-render SVG to PNG for reliable export (allows color changes)
           await replaceTitleWithImage(svgElement, {
@@ -5801,7 +3675,7 @@ async function loadWeddingStickerTemplate() {
             color: titleColor
           })
         } else {
-          console.log('âš ï¸ No title match, using default wedding title')
+          console.log('?? No title match, using default wedding title')
           // Use default SVG title
           await replaceTitleWithImage(svgElement, {
             svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
@@ -5811,14 +3685,14 @@ async function loadWeddingStickerTemplate() {
             color: titleColor
           })
         }
-        console.log('âœ… handleReplacement completed successfully')
-        console.log('ðŸ” Title replacement group exists:', !!svgElement.querySelector('#wedding-title-replacement'))
+        console.log('? handleReplacement completed successfully')
+        console.log('?? Title replacement group exists:', !!svgElement.querySelector('#wedding-title-replacement'))
         
         // Insert flourish above names with matching color
         const flourishColor = getFlourishColorForBackground()
         await insertFlourishAboveNames(svgElement, flourishColor)
       } catch (handleReplacementError) {
-        console.error('âŒ handleReplacement failed:', handleReplacementError)
+        console.error('? handleReplacement failed:', handleReplacementError)
       }
 
       // Apply current description if any (for names, date, etc.)
@@ -5829,7 +3703,7 @@ async function loadWeddingStickerTemplate() {
       // Note: Don't show a toast here; this runs during generation and would be noisy.
     }
   } catch (error) {
-    console.error('âŒ Failed to load wedding sticker template:', error)
+    console.error('? Failed to load wedding sticker template:', error)
     authStore.showNotification({
       title: 'Template Load Failed',
       message: 'Failed to load wedding sticker template. Please check the console for details.',
@@ -5843,7 +3717,7 @@ async function loadWeddingStickerTemplate() {
 
 // Helper function to update only date and courtesy (not names) when title SVG is active
 function updateDateAndCourtesy(description: string, svgElements: any) {
-  console.log('ðŸ” updateDateAndCourtesy called with:', { description, svgElements: !!svgElements })
+  console.log('?? updateDateAndCourtesy called with:', { description, svgElements: !!svgElements })
   // Extract date from description
   const extractDate = (desc: string): string | null => {
     // Match patterns like "15th March 2025", "March 15, 2025", "2025-03-15"
@@ -5878,20 +3752,20 @@ function updateDateAndCourtesy(description: string, svgElements: any) {
   const dateText = extractDate(description)
   if (dateText && svgElements.dateText) {
     svgElements.dateText.textContent = dateText
-    console.log('ðŸ“… Date updated:', dateText)
+    console.log('?? Date updated:', dateText)
   }
 
   // Update courtesy if found
   const courtesyData = extractCourtesy(description)
   if (courtesyData && svgElements.courtesyText) {
     svgElements.courtesyText.textContent = `${courtesyData.prefix} ${courtesyData.text}`
-    console.log('ðŸŽ­ Courtesy updated:', courtesyData)
+    console.log('?? Courtesy updated:', courtesyData)
   }
 }
 
 // Helper function to handle names when title SVG is active (use decorative name02.svg)
 async function handleNamesWithTitleSVG(description: string, svgElements: any) {
-  console.log('ðŸ” handleNamesWithTitleSVG called with:', { description })
+  console.log('?? handleNamesWithTitleSVG called with:', { description })
   
   // Always call updateStickerText to ensure date and courtesy are updated
   // regardless of whether names are present or not
@@ -5903,7 +3777,7 @@ async function handleNamesWithTitleSVG(description: string, svgElements: any) {
   if (nameMatch) {
     const names = nameMatch.split(/\s*[&and]+\s*/i).map(name => name.trim())
     if (names.length === 2 && svgElements?.weddingNamesGroup) {
-      console.log('âœ… Two names detected, decorative SVG injection handled by updateStickerText')
+      console.log('? Two names detected, decorative SVG injection handled by updateStickerText')
     }
   }
   
@@ -5926,7 +3800,7 @@ function handleDescriptionKeydown(event: KeyboardEvent) {
       textarea.selectionStart = cursorPos + 1
       textarea.selectionEnd = cursorPos + 1
     }, 0)
-    console.log('âœ… Auto-paired parentheses')
+    console.log('? Auto-paired parentheses')
   }
   
   // Auto-complete courtesy keywords
@@ -5963,7 +3837,7 @@ function handleDescriptionKeydown(event: KeyboardEvent) {
         textarea.selectionEnd = newPos
       }, 0)
       
-      console.log(`âœ… Auto-completed "${lastWord}" to "${match.complete}"`)
+      console.log(`? Auto-completed "${lastWord}" to "${match.complete}"`)
     }
   }
 }
@@ -6027,7 +3901,7 @@ function applyCustomHeadingAndFont(svgElement: SVGSVGElement) {
       if (ceremonyText) ceremonyText.textContent = ''
     }
 
-    console.log('ðŸ“ Applied custom heading:', customHeading.value)
+    console.log('?? Applied custom heading:', customHeading.value)
   }
 
   // Apply selected font if set
@@ -6044,12 +3918,12 @@ function applyCustomHeadingAndFont(svgElement: SVGSVGElement) {
       }
     })
 
-    console.log('ðŸŽ¨ Applied heading font:', selectedHeadingFont.value, fontFamily)
+    console.log('?? Applied heading font:', selectedHeadingFont.value, fontFamily)
   }
 }
 
 async function processDescriptionInput() {
-  console.log('ðŸ”„ processDescriptionInput triggered:', { 
+  console.log('?? processDescriptionInput triggered:', { 
     description: formData.description, 
     category: selectedCategory.value, 
     hasSvgElements: !!svgElements 
@@ -6077,7 +3951,7 @@ async function processDescriptionInput() {
       
       // Get title color based on current background
       const titleColor = getTitleColorForBackground()
-      console.log('ðŸŽ¨ Title color for current background:', titleColor)
+      console.log('?? Title color for current background:', titleColor)
 
       const headingElementIds = ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text']
       const hasCustomHeading = customHeadingText.length > 0
@@ -6118,8 +3992,8 @@ async function processDescriptionInput() {
         lastWeddingTitleRenderKey = titleCacheKey
 
         if (matchedTitle) {
-        console.log('ðŸŽ¯ Using Title Library match:', matchedTitle.fallbackText)
-        console.log('ðŸŽ¯ SVG Path:', matchedTitle.svgPath)
+        console.log('?? Using Title Library match:', matchedTitle.fallbackText)
+        console.log('?? SVG Path:', matchedTitle.svgPath)
         
         // Pre-render SVG to PNG for reliable export (allows color changes)
         await replaceTitleWithImage(svgElement, {
@@ -6131,7 +4005,7 @@ async function processDescriptionInput() {
         })
         } else {
           // No match found - use default wedding title
-          console.log('âš ï¸ No title match, using default wedding title')
+          console.log('?? No title match, using default wedding title')
           await replaceTitleWithImage(svgElement, {
             svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
             targetElementIds: headingElementIds,
@@ -6141,7 +4015,7 @@ async function processDescriptionInput() {
           })
         }
       } else {
-        console.log('âš¡ Title unchanged, skipping re-render')
+        console.log('? Title unchanged, skipping re-render')
       }
       }
       
@@ -6153,7 +4027,7 @@ async function processDescriptionInput() {
         lastWeddingFlourishRenderKey = flourishCacheKey
         await insertFlourishAboveNames(svgElement, flourishColor)
       } else {
-        console.log('âš¡ Flourish unchanged, skipping re-render')
+        console.log('? Flourish unchanged, skipping re-render')
       }
       
       // Update names, date, and courtesy
@@ -6299,7 +4173,7 @@ async function handleCropComplete(data: { dataUrl: string; blob: Blob; width: nu
             // Has everything - generate!
             chatMessages.value.push({
               id: Date.now(),
-              text: "Perfect! Your image is ready! Let me create your sticker now! ðŸŽ¨",
+              text: "Perfect! Your image is ready! Let me create your sticker now! ??",
               sender: 'ai',
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             })
@@ -6310,7 +4184,7 @@ async function handleCropComplete(data: { dataUrl: string; blob: Blob; width: nu
             // Has names, date, courtesy but needs size
             chatMessages.value.push({
               id: Date.now(),
-              text: "Perfect! Your image is ready! ðŸ“¸\n\nWhat size would you like the sticker? (e.g., '3x3' or 'default' for 4x4 inches)",
+              text: "Perfect! Your image is ready! ??\n\nWhat size would you like the sticker? (e.g., '3x3' or 'default' for 4x4 inches)",
               sender: 'ai',
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             })
@@ -6320,7 +4194,7 @@ async function handleCropComplete(data: { dataUrl: string; blob: Blob; width: nu
             // Still missing some info
             chatMessages.value.push({
               id: Date.now(),
-              text: "Perfect! Your image is ready! ðŸ“¸\n\nðŸ’¡ **Tip:** You can drag the image to reposition it after the design is generated!",
+              text: "Perfect! Your image is ready! ??\n\n?? **Tip:** You can drag the image to reposition it after the design is generated!",
               sender: 'ai',
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             })
@@ -6801,7 +4675,7 @@ function updateSVGWithImages() {
 
   const images = svgImageManager.images.value
   
-  console.log('ðŸ”„ updateSVGWithImages called:', {
+  console.log('?? updateSVGWithImages called:', {
     imagesCount: images.length,
     hasImages: images.length > 0,
     firstImageDataUrlLength: images[0]?.dataUrl?.length || 0
@@ -6873,7 +4747,7 @@ function updateSVGWithImages() {
       frameWidth = origFrameWidth * scaleX
       frameHeight = origFrameHeight * scaleY
       
-      console.log(`ðŸ“¸ Frame scaled: x=${frameX.toFixed(0)}, y=${frameY.toFixed(0)}, w=${frameWidth.toFixed(0)}, h=${frameHeight.toFixed(0)}`)
+      console.log(`?? Frame scaled: x=${frameX.toFixed(0)}, y=${frameY.toFixed(0)}, w=${frameWidth.toFixed(0)}, h=${frameHeight.toFixed(0)}`)
     } else {
       // Use centered position for fallback/smaller templates
       // Default to 50% width/height centered
@@ -6943,12 +4817,12 @@ function updateSVGWithImages() {
         clipPathRect.setAttribute('y', clipY.toString())
         clipPathRect.setAttribute('width', clipWidth.toString())
         clipPathRect.setAttribute('height', clipHeight.toString())
-        console.log(`ðŸ“ Clip-path adjusted: x=${clipX.toFixed(0)}, y=${clipY}, w=${clipWidth.toFixed(0)}, h=${clipHeight.toFixed(1)}`)
+        console.log(`?? Clip-path adjusted: x=${clipX.toFixed(0)}, y=${clipY}, w=${clipWidth.toFixed(0)}, h=${clipHeight.toFixed(1)}`)
       }
     }
     
-    console.log(`ðŸ–¼ï¸ Image update: x=${adjustedX.toFixed(1)}, y=${adjustedY.toFixed(1)}, w=${adjustedWidth.toFixed(1)}, h=${adjustedHeight.toFixed(1)}`)
-    console.log(`ðŸ–¼ï¸ Image dataUrl length: ${img.dataUrl?.length || 0}`)
+    console.log(`??? Image update: x=${adjustedX.toFixed(1)}, y=${adjustedY.toFixed(1)}, w=${adjustedWidth.toFixed(1)}, h=${adjustedHeight.toFixed(1)}`)
+    console.log(`??? Image dataUrl length: ${img.dataUrl?.length || 0}`)
     
     userImageElement.setAttribute('x', adjustedX.toString())
     userImageElement.setAttribute('y', adjustedY.toString())
@@ -7068,6 +4942,9 @@ function updateSVGWithImages() {
   })
 }
 
+// Wire up forward reference for Background Manager composable
+_updateSVGWithImages = updateSVGWithImages
+
 async function exportWeddingSticker(format: 'svg' | 'png') {
   if (!weddingPreviewContainer.value) {
     authStore.showNotification({
@@ -7094,7 +4971,7 @@ async function exportWeddingSticker(format: 'svg' | 'png') {
     // Validate SVG is properly configured for export
     const validation = validateForExport(svgElement)
     if (!validation.valid) {
-      console.warn('âš ï¸ SVG validation issues:', validation.issues)
+      console.warn('?? SVG validation issues:', validation.issues)
       // Continue anyway but log the issues
     }
 
@@ -7106,7 +4983,7 @@ async function exportWeddingSticker(format: 'svg' | 'png') {
     const originalStyleWidth = svgElement.style.width
     const originalStyleHeight = svgElement.style.height
 
-    console.log('ðŸ“¤ Starting export:', {
+    console.log('?? Starting export:', {
       format,
       imagesCount: svgImageManager.images.value.length,
       hasDataUrl: svgImageManager.images.value[0]?.dataUrl?.length || 0,
@@ -7123,7 +5000,7 @@ async function exportWeddingSticker(format: 'svg' | 'png') {
       // Remove CSS constraints that might interfere with the export canvas sizing
       svgElement.style.width = ''
       svgElement.style.height = ''
-      console.log(`ðŸ“ Set export dimensions: ${exportWidthPx} Ã— ${exportHeightPx}px`)
+      console.log(`?? Set export dimensions: ${exportWidthPx} � ${exportHeightPx}px`)
     } else if (exportWidth && exportHeight) {
       // Fallback to inch dimensions
       svgElement.setAttribute('width', exportWidth)
@@ -7145,7 +5022,7 @@ async function exportWeddingSticker(format: 'svg' | 'png') {
         svgElement.setAttribute('height', String(calculatedHeight))
         svgElement.style.width = ''
         svgElement.style.height = ''
-        console.log(`ðŸ“ Calculated export from viewBox: ${calculatedWidth} Ã— ${calculatedHeight}px (viewBox: ${vbWidth}x${vbHeight})`)
+        console.log(`?? Calculated export from viewBox: ${calculatedWidth} � ${calculatedHeight}px (viewBox: ${vbWidth}x${vbHeight})`)
       }
     }
 
@@ -7761,7 +5638,7 @@ onBeforeUnmount(() => {
 }
 
 .warning-list-item:before {
-  content: "â€¢";
+  content: "�";
   position: absolute;
   left: 8px;
   color: #fbbf24;

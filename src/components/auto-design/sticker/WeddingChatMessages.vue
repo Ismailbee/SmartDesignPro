@@ -101,6 +101,13 @@
 
           <!-- Text Message -->
           <template v-else>
+            <img
+              v-if="msg.image"
+              :src="msg.image"
+              class="message-image"
+              alt="Uploaded image"
+              loading="lazy"
+            />
             <p class="message-text" v-html="formatMessage(msg.text)"></p>
             
             <!-- Action Buttons -->
@@ -148,6 +155,7 @@ export interface ChatMessage {
   text: string
   sender: 'user' | 'ai'
   time: string
+  image?: string
   type?: 'preview' | 'text'
   isLoading?: boolean
   actions?: Array<{
@@ -251,6 +259,16 @@ defineExpose({
   flex-direction: column;
   background: var(--bg-primary, white);
   scroll-behavior: smooth;
+}
+
+.message-image {
+  display: block;
+  width: 100%;
+  max-width: 220px;
+  height: auto;
+  border-radius: 12px;
+  border: 1px solid var(--border-primary);
+  margin-bottom: 8px;
 }
 
 /* Welcome Screen */

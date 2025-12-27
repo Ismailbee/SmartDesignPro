@@ -29,5 +29,5 @@ if (!(Test-Path "auto-design-uploads")) {
 # Start the server
 Write-Host "Starting server on http://localhost:3003..." -ForegroundColor Cyan
 Write-Host ""
-node auto-design-server.cjs
+node servers/auto-design-server.cjs
 

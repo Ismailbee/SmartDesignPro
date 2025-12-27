@@ -72,7 +72,7 @@ Write-Host ""
 Write-Host "📝 Next Steps:" -ForegroundColor Cyan
 Write-Host "1. Update .env file with your Paystack keys" -ForegroundColor White
 Write-Host "2. Get Paystack keys from: https://dashboard.paystack.com/#/settings/developer" -ForegroundColor White
-Write-Host "3. Start the server: node payment-server.js" -ForegroundColor White
+Write-Host "3. Start the server: node servers/payment-server.js" -ForegroundColor White
 Write-Host "4. Test the server: http://localhost:3006/health" -ForegroundColor White
 Write-Host ""
 Write-Host "🔗 Useful Links:" -ForegroundColor Cyan

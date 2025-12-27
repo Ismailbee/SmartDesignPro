@@ -28,9 +28,9 @@ Write-Host ""
 Write-Host "✅ Setup complete!" -ForegroundColor Green
 Write-Host ""
 Write-Host "To start the server, run:" -ForegroundColor Cyan
-Write-Host "  node auto-design-server.js" -ForegroundColor Yellow
+Write-Host "  node servers/auto-design-server.js" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "Or for development with auto-reload:" -ForegroundColor Cyan
-Write-Host "  npx nodemon auto-design-server.js" -ForegroundColor Yellow
+Write-Host "  npx nodemon servers/auto-design-server.js" -ForegroundColor Yellow
 Write-Host ""
 

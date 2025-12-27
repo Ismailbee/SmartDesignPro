@@ -1,2 +1,2 @@
-web: node payment-server.cjs
+web: node servers/payment-server.cjs
 
