@@ -305,7 +305,6 @@ import type { ChatMessage, Category, ExtractedInfo } from './sticker'
 // Import extracted composables
 import { useTextExtraction } from '@/composables/useTextExtraction'
 import { useAiChatResponses } from '@/composables/useAiChatResponses'
-import { useWeddingChat } from '@/composables/useWeddingChat'
 import { useStickerExport } from '@/composables/useStickerExport'
 
 // Import sticker composables (title, flourish, background management, spell correction, intent detection)
