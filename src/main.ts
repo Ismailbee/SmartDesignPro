@@ -6,6 +6,7 @@ import router from './router'
 import './style.css'
 import './styles/theme.css'
 import './styles/wedding-fonts.css'
+import './styles/calendar-styles.css'
 import App from './App.vue'
 import { useThemeStore } from './stores/theme'
 
