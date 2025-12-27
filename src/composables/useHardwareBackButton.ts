@@ -3,10 +3,9 @@
  * Handles Android hardware back button navigation
  */
 
-import { App } from '@capacitor/app'
-import { useRouter } from 'vue-router'
-import { onMounted, onUnmounted, ref } from 'vue'
-import { useToast } from './useToast'
+import { useRouter } from 'vue-router';
+import { onMounted, onUnmounted, ref } from 'vue';
+import { useToast } from './useToast';
 
 export function useHardwareBackButton() {
   const router = useRouter()
@@ -79,7 +78,19 @@ export function useHardwareBackButton() {
     if (exitRoutes.includes(currentRoute.path)) {
       // Double-tap to exit logic
       if (currentTime - lastBackPress.value < doubleBackToExitInterval) {
-        App.exitApp()
+        // Try to detect if we're in a Capacitor native app
+        if (window.location.protocol === 'capacitor:' || (window as any).Capacitor) {
+          // Dynamically import and use App.exitApp
+          import('@capacitor/app').then(({ App }) => {
+            App.exitApp();
+          }).catch(() => {
+            // Fallback if import fails
+            window.close();
+          });
+        } else {
+          // On web, just close the window
+          window.close()
+        }
       } else {
         lastBackPress.value = currentTime
         // Show toast message
@@ -134,8 +145,25 @@ export function useHardwareBackButton() {
 
   const setupBackButtonHandler = async () => {
     try {
-      // Always set up the handler (works on web too for testing)
-      backButtonListener = await App.addListener('backButton', handleBackButton)
+      // Check if we're in a Capacitor native app
+      if (window.location.protocol === 'capacitor:' || (window as any).Capacitor) {
+        // Dynamically import Capacitor App for native platforms
+        const { App } = await import('@capacitor/app');
+        backButtonListener = await App.addListener('backButton', handleBackButton)
+      } else {
+        // Fallback: Set up keyboard handler for web testing
+        const handleKeydown = (event: KeyboardEvent) => {
+          if (event.key === 'Escape' || (event.altKey && event.key === 'ArrowLeft')) {
+            handleBackButton()
+          }
+        }
+        
+        document.addEventListener('keydown', handleKeydown)
+        
+        return () => {
+          document.removeEventListener('keydown', handleKeydown)
+        }
+      }
     } catch (error) {
       console.error('❌ Failed to set up hardware back button handler:', error)
       
