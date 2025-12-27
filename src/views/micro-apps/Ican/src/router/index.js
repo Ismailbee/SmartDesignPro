@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHashHistory } from 'vue-router';
 import HomePage from '../pages/HomePage.vue';
 import SignUp from '../pages/SignUp.vue';
 import SettingsPage from '../pages/SettingsPage.vue';
@@ -23,7 +23,7 @@ import PreviewIcanReceipt from '../pages/ReceiptIcan/PreviewIcanReceipt.vue';
 const routes = [
   {
     path: '/',
-    redirect: '/splash'
+    redirect: '/splash'  // Show splash screen first
   },
   {
     path: '/splash',
@@ -148,7 +148,7 @@ const routes = [
 ];
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHashHistory(),
   routes,
 });
 

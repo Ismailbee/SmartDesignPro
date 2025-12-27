@@ -5,6 +5,7 @@ import App from './App.vue';
 import router from './router';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import { Capacitor } from '@capacitor/core';
 
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/vue/css/core.css';
@@ -40,6 +41,10 @@ console.log('🚀 Starting ICAN app...');
 
 const initApp = async () => {
   try {
+    // CRITICAL: Initialize Firebase FIRST (now that Capacitor is ready)
+    // Firebase will auto-initialize from the main config module
+    console.log('🔥 Firebase initialization handled by config module');
+    
     // Don't show Capacitor splash - let Vue handle it
     try {
       await SplashScreen.hide();
@@ -59,4 +64,27 @@ const initApp = async () => {
   }
 };
 
-initApp();
+// CRITICAL FIX for APK: Wait for Capacitor platform to be ready
+if (Capacitor.getPlatform() === 'android' || Capacitor.getPlatform() === 'ios') {
+  console.log('📱 Running on native platform:', Capacitor.getPlatform());
+  console.log('⏳ Waiting for deviceready event...');
+  
+  // Wait for Capacitor to be fully ready before initializing app
+  document.addEventListener('deviceready', () => {
+    console.log('✅ Capacitor device ready!');
+    initApp();
+  }, false);
+  
+  // Fallback timeout - if deviceready doesn't fire in 3 seconds, try anyway
+  setTimeout(() => {
+    const appElement = document.querySelector('#app');
+    if (appElement && !appElement.__vue_app__) {
+      console.warn('⚠️ deviceready timeout - initializing anyway');
+      initApp();
+    }
+  }, 3000);
+} else {
+  console.log('🌐 Running on web platform');
+  // On web, initialize immediately
+  initApp();
+}

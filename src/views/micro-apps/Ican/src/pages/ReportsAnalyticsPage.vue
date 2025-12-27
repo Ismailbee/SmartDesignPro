@@ -858,41 +858,13 @@ export default defineComponent({
       refreshData();
     }, { immediate: true });
 
-    // Android back button handler
-    let backButtonListener = null;
-
     onMounted(async () => {
       if (branchName.value) {
         refreshData();
       }
-      
-      // Handle Android hardware back button
-      const handleAndroidBackButton = async () => {
-        console.log('🔙 Android back button pressed on Reports & Analytics');
-        // Navigate back to dashboard
-        router.push({ path: '/ican/dashboard', query: { branch: branchName.value } });
-      };
-      
-      // Register Android back button listener
-      try {
-        const { App } = await import('@capacitor/app');
-        backButtonListener = App.addListener('backButton', handleAndroidBackButton);
-        console.log('✅ Android back button listener registered for Reports & Analytics');
-      } catch (error) {
-        console.log('ℹ️ Not running on Android or Capacitor not available:', error);
-      }
     });
 
-    onUnmounted(async () => {
-      if (backButtonListener) {
-        try {
-          await backButtonListener.remove();
-          console.log('✅ Android back button listener removed from Reports & Analytics');
-        } catch (error) {
-          console.log('ℹ️ Error removing back button listener:', error);
-        }
-      }
-    });
+
 
     return {
       branchName,

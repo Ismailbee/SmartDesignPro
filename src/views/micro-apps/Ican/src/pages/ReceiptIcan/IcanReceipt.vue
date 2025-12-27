@@ -434,9 +434,6 @@ export default defineComponent({
     // Dynamic Branches Management
     const additionalBranches = ref([]);
     
-    // Android back button handler
-    let backButtonListener = null;
-    
     // Page-based data management
     const pageData = ref({});
     
@@ -1649,32 +1646,6 @@ export default defineComponent({
       // Ensure page data exists for current page
       ensurePageData(currentPage.value);
 
-      // Handle Android hardware back button
-      const handleAndroidBackButton = async () => {
-        console.log('🔙 Android back button pressed on Receipt page');
-        // Navigate back to dashboard instead of exiting app
-        const branch = route.query.branch || '';
-        router.push({ name: 'Dashboard', query: { branch } });
-      };
-      
-      // Register Android back button listener with proper cleanup
-      if (Capacitor.isNativePlatform()) {
-        (async () => {
-          try {
-            // Remove any existing listener first
-            if (backButtonListener) {
-              await backButtonListener.remove();
-            }
-            
-            const { App } = await import('@capacitor/app');
-            backButtonListener = await App.addListener('backButton', handleAndroidBackButton);
-            console.log('✅ Android back button listener registered for Receipt');
-          } catch (error) {
-            console.log('ℹ️ Error registering back button listener:', error);
-          }
-        })();
-      }
-
       // Save data when the user is about to leave the page
       window.addEventListener('beforeunload', saveFormData);
       
@@ -1714,17 +1685,6 @@ export default defineComponent({
     onBeforeUnmount(async () => {
       // Remove click outside listener
       document.removeEventListener('click', handleClickOutside);
-      
-      // Remove Android back button listener
-      if (backButtonListener && typeof backButtonListener.remove === 'function') {
-        try {
-          await backButtonListener.remove();
-          backButtonListener = null;
-          console.log('🧹 Android back button listener removed from Receipt');
-        } catch (error) {
-          console.log('⚠️ Error removing back button listener:', error);
-        }
-      }
       
       window.removeEventListener('beforeunload', saveFormData);
       window.removeEventListener('storage', handleStorageChange);

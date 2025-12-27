@@ -1,26 +1,20 @@
 <template>
   <div id="app" class="min-h-screen">
-    <MainLayout>
-      <router-view />
-    </MainLayout>
+    <router-view />
   </div>
 </template>
 
 <script>
 import { defineComponent, onMounted } from 'vue';
-import MainLayout from './layouts/MainLayout.vue';
 import { SplashScreen } from '@capacitor/splash-screen';
 
 export default defineComponent({
   name: 'App',
-  components: {
-    MainLayout,
-  },
   setup() {
     onMounted(async () => {
       console.log('🚀 App component mounted');
       
-      // Ensure splash screen is hidden
+      // Ensure splash screen is hidden after a delay
       setTimeout(async () => {
         try {
           await SplashScreen.hide();
@@ -28,7 +22,7 @@ export default defineComponent({
         } catch (err) {
           console.log('ℹ️ Splash screen already hidden or not available');
         }
-      }, 200);
+      }, 500);
     });
 
     return {};

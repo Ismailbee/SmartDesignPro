@@ -425,9 +425,6 @@ const currentPage = ref(1)
 const itemsPerPage = ref(12)
 const currentBranch = ref('')
 
-// Android back button handler
-let backButtonListener = null
-
 // Load current branch
 onMounted(async () => {
   const memberData = localStorage.getItem('authenticatedMember')
@@ -436,31 +433,9 @@ onMounted(async () => {
     currentBranch.value = member.branch || 'Unknown'
   }
   loadInvoices()
-  
-  // Handle Android hardware back button
-  const handleAndroidBackButton = async () => {
-    console.log('🔙 Android back button pressed on Saved Invoices')
-    // Navigate back to dashboard
-    router.push({ path: '/ican/dashboard', query: { branch: currentBranch.value } })
-  }
-  
-  // Register Android back button listener
-  try {
-    const { App } = await import('@capacitor/app')
-    backButtonListener = App.addListener('backButton', handleAndroidBackButton)
-    console.log('✅ Android back button listener registered for Saved Invoices')
-  } catch (error) {
-    console.log('ℹ️ Not running on Android or Capacitor not available:', error)
-  }
 })
 
-// Cleanup
-onUnmounted(() => {
-  if (backButtonListener && typeof backButtonListener.remove === 'function') {
-    backButtonListener.remove()
-    console.log('✅ Android back button listener removed from Saved Invoices')
-  }
-})
+
 
 // Load ICAN invoices from Firebase/localStorage
 const loadInvoices = async () => {

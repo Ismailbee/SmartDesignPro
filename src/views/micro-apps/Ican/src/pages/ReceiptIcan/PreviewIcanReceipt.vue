@@ -649,8 +649,8 @@
               >
                 <span class="text-xl group-hover:scale-110 transition-transform">💾</span>
                 <div>
-                  <div class="text-sm font-medium text-slate-700 dark:text-slate-200">Download JPG</div>
-                  <div class="text-[10px] text-slate-500 dark:text-slate-400">Save to device</div>
+                  <div class="text-sm font-medium text-slate-700 dark:text-slate-200">Save as JPG</div>
+                  <div class="text-[10px] text-slate-500 dark:text-slate-400">Choose save location</div>
                 </div>
               </button>
             </div>
@@ -705,11 +705,15 @@
     >
       <!-- Wrapper - maintains actual size, uses zoom controls only -->
       <div 
+        ref="zoomWrapperRef"
         class="flex items-center justify-center min-h-full" 
         :style="{ 
           transform: `scale(${effectiveZoomLevel})`, 
-          transformOrigin: 'top center',
-          paddingBottom: '20px'
+          transformOrigin: 'center center',
+          paddingBottom: '20px',
+          touchAction: 'pinch-zoom',
+          userSelect: 'none',
+          WebkitUserSelect: 'none'
         }"
       >
         <div
@@ -855,11 +859,11 @@
                 data-text-id="org-name"
                 :style="{ 
                   color: colorStyles.accentColor,
-                  fontFamily: 'Impact, \'Trebuchet MS\', Arial, sans-serif',
-                  fontWeight: '600',
+                  fontFamily: '\'Arial Black\', Arial, \'Helvetica\', sans-serif',
+                  fontWeight: '500',
                   fontSize: organizationNameFontSize,
-                  letterSpacing: '1.5px',
-                  lineHeight: '1.2',
+                  letterSpacing: '2px',
+                  lineHeight: '1.0',
                   textTransform: 'uppercase !important',
                   textAlign: 'center',
                   marginBottom: '0px',
@@ -1021,7 +1025,7 @@
               <input
                 v-model="receivedFrom"
                 class="flex-1 bg-transparent border-b-2 border-solid border-black focus:outline-none"
-                style="font-family: 'Georgia, serif'; font-size: 22px; font-style: italic; -webkit-text-size-adjust: 100%; text-size-adjust: 100%;"
+                style="font-family: 'Georgia, serif'; font-size: 19px; font-style: italic; -webkit-text-size-adjust: 100%; text-size-adjust: 100%;"
               />
             </div>
 
@@ -1032,7 +1036,7 @@
                 v-model="sumOf"
                 @input="handleSumOfOverflow"
                 class="flex-1 bg-transparent border-b-2 border-solid border-black focus:outline-none"
-                style="font-family: 'Georgia, serif'; font-size: 22px; font-style: italic; -webkit-text-size-adjust: 100%; text-size-adjust: 100%;"
+                style="font-family: 'Georgia, serif'; font-size: 19px; font-style: italic; -webkit-text-size-adjust: 100%; text-size-adjust: 100%;"
               />
             </div>
 
@@ -1043,7 +1047,7 @@
                 type="text"
                 @input="handleSumOf2Input"
                 class="flex-1 bg-transparent border-b-2 border-solid border-black focus:outline-none"
-                style="font-family: 'Georgia, serif'; font-size: 22px; font-style: italic; -webkit-text-size-adjust: 100%; text-size-adjust: 100%;"
+                style="font-family: 'Georgia, serif'; font-size: 19px; font-style: italic; -webkit-text-size-adjust: 100%; text-size-adjust: 100%;"
               />
               <div class="flex items-center gap-1 pt-1">
                 <span class="font-medium" style="font-size: 16px;">Naira</span>
@@ -1061,7 +1065,7 @@
                 v-model="paymentFor"
                 @input="handlePaymentForOverflow"
                 class="flex-1 bg-transparent border-b-2 border-solid border-black focus:outline-none"
-                style="font-family: 'Georgia, serif'; font-size: 22px; font-style: italic; -webkit-text-size-adjust: 100%; text-size-adjust: 100%;"
+                style="font-family: 'Georgia, serif'; font-size: 19px; font-style: italic; -webkit-text-size-adjust: 100%; text-size-adjust: 100%;"
                 />
             </div>
 
@@ -1072,7 +1076,7 @@
                 v-model="paymentFor2"
                 @input="handlePaymentFor2Input"
                 class="flex-1 bg-transparent border-b-2 border-solid border-black focus:outline-none"
-                style="font-family: 'Georgia, serif'; font-size: 22px; font-style: italic; -webkit-text-size-adjust: 100%; text-size-adjust: 100%;"
+                style="font-family: 'Georgia, serif'; font-size: 19px; font-style: italic; -webkit-text-size-adjust: 100%; text-size-adjust: 100%;"
                 />
             </div>
           </div>
@@ -1153,7 +1157,6 @@ import { withFirebaseErrorHandling } from '@/utils/firebase-error-handler.js';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
-import { App } from '@capacitor/app';
 
 export default defineComponent({
   name: 'InvoicePreviewPage',
@@ -1172,6 +1175,7 @@ export default defineComponent({
     const invoiceRef = ref(null);
     const contentWrapperRef = ref(null);
     const previewContainerRef = ref(null);
+    const zoomWrapperRef = ref(null);
     const exportDropdownRef = ref(null);
     const mobileExportDropdownRef = ref(null);
     const desktopExportDropdownRef = ref(null);
@@ -1267,11 +1271,58 @@ export default defineComponent({
       }
     };
     
-    // Android back button handler
-    let backButtonListener = null;
+    // Pinch-to-zoom gesture variables
+    let initialDistance = 0;
+    let initialZoom = 1;
+    
+    // Calculate distance between two touch points
+    const getDistance = (touch1, touch2) => {
+      const dx = touch2.clientX - touch1.clientX;
+      const dy = touch2.clientY - touch1.clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    };
+    
+    // Handle pinch gesture start
+    const handleTouchStart = (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        initialDistance = getDistance(e.touches[0], e.touches[1]);
+        initialZoom = zoomLevel.value;
+      }
+    };
+    
+    // Handle pinch gesture move
+    const handleTouchMove = (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const currentDistance = getDistance(e.touches[0], e.touches[1]);
+        const scale = currentDistance / initialDistance;
+        const newZoom = initialZoom * scale;
+        
+        // Clamp zoom between min and max
+        zoomLevel.value = Math.max(minZoom, Math.min(maxZoom, newZoom));
+      }
+    };
+    
+    // Handle pinch gesture end
+    const handleTouchEnd = (e) => {
+      if (e.touches.length < 2) {
+        initialDistance = 0;
+        initialZoom = zoomLevel.value;
+      }
+    };
     
     onMounted(() => {
       window.addEventListener('resize', updateWindowDimensions);
+      
+      // Add pinch-to-zoom gesture listeners
+      if (zoomWrapperRef.value) {
+        zoomWrapperRef.value.addEventListener('touchstart', handleTouchStart, { passive: false });
+        zoomWrapperRef.value.addEventListener('touchmove', handleTouchMove, { passive: false });
+        zoomWrapperRef.value.addEventListener('touchend', handleTouchEnd, { passive: false });
+        console.log('✅ Pinch-to-zoom gestures enabled');
+      }
+      
       // Initial dimension update - wait for DOM to fully paint
       nextTick(() => {
         // Add small delay to ensure browser has completed layout
@@ -1283,64 +1334,6 @@ export default defineComponent({
           }, 100);
         }, 50);
       });
-      
-      // Handle Android hardware back button
-      const handleAndroidBackButton = async (event) => {
-        console.log('🔙 Android back button pressed on PreviewIcanReceipt');
-        
-        // Prevent multiple navigation attempts
-        if (isExporting.value) {
-          console.log('⏸️ Export in progress, ignoring back button');
-          return;
-        }
-        
-        try {
-          // Prevent default back button behavior to avoid app exit
-          if (event) {
-            event.preventDefault?.();
-          }
-          
-          // Clean up any ongoing processes
-          isExporting.value = false;
-          
-          // Use router.go(-1) for natural back navigation
-          if (router.options.history.state.back) {
-            await router.go(-1);
-            console.log('✅ Navigated back using router.go(-1)');
-          } else {
-            // Fallback: Navigate to dashboard if no history
-            const branch = route.query.branch || '';
-            await router.push({ path: '/ican/dashboard', query: { branch } });
-            console.log('✅ Navigated to dashboard (no history)');
-          }
-        } catch (navError) {
-          console.error('❌ Navigation error:', navError);
-          // Final fallback: try to go to dashboard
-          try {
-            const branch = route.query.branch || '';
-            await router.push({ path: '/ican/dashboard', query: { branch } });
-          } catch (fallbackError) {
-            console.error('❌ Fallback navigation failed:', fallbackError);
-          }
-        }
-      };
-      
-      // Register Android back button listener with proper cleanup
-      if (Capacitor.isNativePlatform()) {
-        (async () => {
-          try {
-            // Remove any existing listener first
-            if (backButtonListener) {
-              await backButtonListener.remove();
-            }
-            
-            backButtonListener = await App.addListener('backButton', handleAndroidBackButton);
-            console.log('✅ Android back button listener registered for PreviewIcanReceipt');
-          } catch (error) {
-            console.log('ℹ️ Error registering back button listener:', error);
-          }
-        })();
-      }
     });
     
     // Debounced quick save function for settings changes - declare before onUnmounted
@@ -1350,23 +1343,17 @@ export default defineComponent({
       window.removeEventListener('resize', updateWindowDimensions);
       window.removeEventListener('storage', handleStorageChange);
       
+      // Remove pinch-to-zoom gesture listeners
+      if (zoomWrapperRef.value) {
+        zoomWrapperRef.value.removeEventListener('touchstart', handleTouchStart);
+        zoomWrapperRef.value.removeEventListener('touchmove', handleTouchMove);
+        zoomWrapperRef.value.removeEventListener('touchend', handleTouchEnd);
+      }
+      
       // Clear any pending save timeouts to prevent memory leaks
       if (saveQuickSettingsTimeout) {
         clearTimeout(saveQuickSettingsTimeout);
         saveQuickSettingsTimeout = null;
-      }
-      
-      // Remove back button listener with proper error handling
-      if (backButtonListener && typeof backButtonListener.remove === 'function') {
-        (async () => {
-          try {
-            await backButtonListener.remove();
-            backButtonListener = null;
-            console.log('✅ Android back button listener removed from PreviewIcanReceipt');
-          } catch (error) {
-            console.log('⚠️ Error removing back button listener:', error);
-          }
-        })();
       }
     });
     
@@ -1845,6 +1832,7 @@ export default defineComponent({
       let parentOriginalWidth = '';
       let parentOriginalHeight = '';
       let parentOriginalMaxHeight = '';
+      let orgOriginalStyles = {};
       
       try {
         isExporting.value = true;
@@ -1876,7 +1864,6 @@ export default defineComponent({
         
         // Preserve organization name styles before export
         const orgElement = invoiceRef.value.querySelector('.organization-name');
-        let orgOriginalStyles = {};
         if (orgElement) {
           orgOriginalStyles = {
             fontFamily: orgElement.style.fontFamily || window.getComputedStyle(orgElement).fontFamily,
@@ -1897,9 +1884,11 @@ export default defineComponent({
         
         // Force organization name font to ensure it stays consistent
         if (orgElement) {
-          orgElement.style.fontFamily = 'Impact, "Arial Black", "Helvetica Neue", Helvetica, Arial, sans-serif !important';
+          orgElement.style.fontFamily = 'Anton, "Arial Black", "Helvetica Neue", Helvetica, Arial, sans-serif !important';
           orgElement.style.fontWeight = '900 !important';
-          orgElement.style.fontStretch = 'condensed !important';
+          orgElement.style.fontStretch = 'normal !important';
+          orgElement.style.textTransform = 'uppercase !important';
+          orgElement.style.letterSpacing = '0.02em !important';
         }
         
         // Capture and lock table row heights before export
@@ -1973,29 +1962,29 @@ export default defineComponent({
         if (isNative) {
           // For APK: Use Capacitor Filesystem and Share
           try {
-            const fileName = `receipt-${currentReceiptNumber.value.replace('/', '-')}-${Date.now()}.jpg`;
+            const fileName = `receipt-${currentInvoiceNumber.value.replace('/', '-')}-${Date.now()}.jpg`;
             // Remove data URL prefix for Capacitor Filesystem
             const base64 = dataUrl.split(',')[1];
             
-            // Save to External storage for sharing
+            // Save to Cache first, then share so user can save anywhere
             const savedFile = await Filesystem.writeFile({
               path: fileName,
               data: base64,
-              directory: Directory.External,
+              directory: Directory.Cache,
               recursive: true
             });
             
-            console.log('✅ File saved for sharing:', savedFile.uri);
+            console.log('✅ File saved to cache:', savedFile.uri);
             
-            // Share the image using Capacitor Share API
+            // Share so user can save to Downloads, Drive, etc.
             await Share.share({
-              title: shareText,
-              text: shareText,
+              title: 'Save Receipt JPEG',
+              text: `Save ${fileName} to your device`,
               url: savedFile.uri,
-              dialogTitle: 'Share Receipt'
+              dialogTitle: 'Save Receipt JPEG'
             });
             
-            console.log('✅ Receipt shared successfully!');
+            console.log('✅ File shared - user can now save to Downloads');
             
           } catch (error) {
             console.error('Capacitor share error:', error);
@@ -2826,33 +2815,26 @@ export default defineComponent({
     
     // Dynamic font sizes based on invoice height - Fixed to prevent small text issue
     const organizationNameFontSize = computed(() => {
-      const height = invoiceHeight.value;
       const nameLength = (organizationName.value || '').length;
       
-      // Base size calculation with aggressive length consideration to prevent truncation
-      let baseSize = 45;
+      // Fixed size calculation for consistency across all platforms
+      // Use simple breakpoints based on name length only
+      let baseSize = 30; // Default size
       
-      // More aggressive size reduction for long names to ensure everything fits in 2 lines without truncation
       if (nameLength > 60) {
-        baseSize = 24; // Very small for extremely long names
+        baseSize = 16; // Very small for extremely long names
       } else if (nameLength > 50) {
-        baseSize = 28; // Small for very long names
+        baseSize = 18; // Small for very long names
       } else if (nameLength > 40) {
-        baseSize = 32; // Smaller for long names
+        baseSize = 22; // Smaller for long names
       } else if (nameLength > 30) {
-        baseSize = 37; // Medium-small for moderately long names
+        baseSize = 26; // Medium for moderately long names
       } else if (nameLength > 20) {
-        baseSize = 41; // Medium for average names
+        baseSize = 29; // Medium for average names
       }
       
-      // Scale proportionally with invoice height
-      const baseHeight = 8;
-      const scaleFactor = Math.max(0.8, height / baseHeight); // Minimum scale factor
-      const scaledSize = baseSize * scaleFactor;
-      
-      // Ensure minimum readable size and reasonable maximum
-      const finalSize = Math.max(18, Math.min(44, scaledSize));
-      return `${finalSize}px`;
+      // Return fixed size - no scaling based on height for consistency
+      return `${baseSize}px`;
     });
     
     const organizationSubFontSize = computed(() => {
@@ -5035,10 +5017,12 @@ export default defineComponent({
             throw new Error('Canvas capture failed - zero dimensions');
           }
 
+          // Determine orientation based on receipt dimensions
+          const isLandscape = invoiceWidth.value > invoiceHeight.value;
           const pdf = new jsPDF({
             unit: 'in',
             format: [invoiceWidth.value, invoiceHeight.value],
-            orientation: 'portrait',
+            orientation: isLandscape ? 'landscape' : 'portrait',
             compress: false // Don't compress to maintain CMYK conversion quality
           });
 
@@ -5199,10 +5183,12 @@ export default defineComponent({
         isExporting.value = true;
         console.log('Starting CMYK export...', { exportType, customName });
         
+        // Determine orientation based on receipt dimensions
+        const isLandscape = invoiceWidth.value > invoiceHeight.value;
         const pdf = new jsPDF({
           unit: 'in',
           format: [invoiceWidth.value, invoiceHeight.value],
-          orientation: 'portrait'
+          orientation: isLandscape ? 'landscape' : 'portrait'
         });
         
         console.log('PDF created with dimensions:', invoiceWidth.value, 'x', invoiceHeight.value);
@@ -5773,12 +5759,35 @@ export default defineComponent({
           parentWrapper.style.maxHeight = 'none';
         }
         
+        // Preserve organization name styles before export
+        const orgElement = invoiceRef.value.querySelector('.organization-name');
+        let orgOriginalStyles = {};
+        if (orgElement) {
+          orgOriginalStyles = {
+            fontFamily: orgElement.style.fontFamily || window.getComputedStyle(orgElement).fontFamily,
+            fontWeight: orgElement.style.fontWeight || window.getComputedStyle(orgElement).fontWeight,
+            fontSize: orgElement.style.fontSize || window.getComputedStyle(orgElement).fontSize,
+            letterSpacing: orgElement.style.letterSpacing || window.getComputedStyle(orgElement).letterSpacing,
+            textTransform: orgElement.style.textTransform || window.getComputedStyle(orgElement).textTransform
+          };
+        }
+        
         // Temporarily apply print styles and fix position
         invoiceRef.value.style.transform = 'none';
         invoiceRef.value.style.position = 'relative';
         invoiceRef.value.style.left = '0';
         invoiceRef.value.style.top = '0';
-        invoiceRef.value.style.margin = '0 auto';
+        invoiceRef.value.style.margin = '0';
+        invoiceRef.value.style.width = `${invoiceWidth.value}in`;
+        
+        // Force organization name font to ensure it stays consistent
+        if (orgElement) {
+          orgElement.style.fontFamily = 'Anton, "Arial Black", "Helvetica Neue", Helvetica, Arial, sans-serif !important';
+          orgElement.style.fontWeight = '900 !important';
+          orgElement.style.fontStretch = 'normal !important';
+          orgElement.style.textTransform = 'uppercase !important';
+          orgElement.style.letterSpacing = '0.02em !important';
+        }
         
         // Capture and lock table row heights before export
         const tableRows = invoiceRef.value.querySelectorAll('table tbody tr');
@@ -5856,10 +5865,12 @@ export default defineComponent({
           
           try {
             // Create PDF instance - Remove default first page since we'll add our own
+            // Determine orientation based on receipt dimensions
+            const isLandscape = invoiceWidth.value > invoiceHeight.value;
             const pdf = new jsPDF({
               unit: 'in',
               format: [invoiceWidth.value, invoiceHeight.value],
-              orientation: 'portrait'
+              orientation: isLandscape ? 'landscape' : 'portrait'
             });
             
             // Add CMYK color profile information to PDF metadata
@@ -5915,8 +5926,9 @@ export default defineComponent({
                 height: targetElement.scrollHeight
               });
               
-              // Add new page to PDF for each page
-              pdf.addPage([invoiceWidth.value, invoiceHeight.value], 'portrait');
+              // Add new page to PDF for each page with correct orientation
+              const isLandscape = invoiceWidth.value > invoiceHeight.value;
+              pdf.addPage([invoiceWidth.value, invoiceHeight.value], isLandscape ? 'landscape' : 'portrait');
               pdf.addImage(imgData, 'JPEG', 0, 0, invoiceWidth.value, invoiceHeight.value);
               
               // Add color information as metadata annotation for the first page
@@ -5950,47 +5962,33 @@ export default defineComponent({
             const isNative = Capacitor.isNativePlatform();
             
             if (isNative) {
-              // For Android/iOS: Save PDF to Documents directory
+              // For Android/iOS: Save PDF to Cache then share
               try {
                 const pdfBase64 = pdf.output('datauri');
                 const base64Data = pdfBase64.split(',')[1];
                 
+                // Save to Cache first, then share so user can save anywhere
                 const savedFile = await Filesystem.writeFile({
                   path: filename,
                   data: base64Data,
-                  directory: Directory.External,
+                  directory: Directory.Cache,
                   recursive: true
                 });
                 
-                console.log('✅ Multi-page PDF saved to:', savedFile.uri);
-                alert(`✅ PDF saved successfully!\\n\\nFile: ${filename}\\nPages: ${pagesToExport}\\nLocation: File Manager`);
-              } catch (error) {
-                console.error('Filesystem save error:', error);
+                console.log('✅ File saved to cache:', savedFile.uri);
                 
-                // Fallback: Try Cache directory
-                try {
-                  const pdfBase64 = pdf.output('datauri');
-                  const base64Data = pdfBase64.split(',')[1];
-                  const fallbackFile = await Filesystem.writeFile({
-                    path: filename,
-                    data: base64Data,
-                    directory: Directory.Cache,
-                    recursive: true
-                  });
-                  
-                  console.log('✅ Fallback PDF save successful:', fallbackFile.uri);
-                  
-                  // Try to share the cached file
-                  await Share.share({
-                    title: 'Share Invoice PDF',
-                    text: `Invoice with ${pagesToExport} pages`,
-                    url: fallbackFile.uri,
-                    dialogTitle: 'Share Invoice PDF'
-                  });
-                } catch (fallbackError) {
-                  console.error('Fallback PDF save failed:', fallbackError);
-                  alert('❌ Failed to save PDF to device.\n\nPlease check the following:\n• Allow Storage permissions in Android Settings\n• Ensure Downloads folder is accessible\n• Try restarting the app');
-                }
+                // Share so user can save to Downloads, Drive, etc.
+                await Share.share({
+                  title: 'Save Receipt PDF',
+                  text: `Save ${filename} (${pagesToExport} pages) to your device`,
+                  url: savedFile.uri,
+                  dialogTitle: 'Save Receipt PDF'
+                });
+                
+                console.log('✅ File shared - user can now save to Downloads');
+              } catch (error) {
+                console.error('PDF save/share error:', error);
+                alert('❌ Failed to save/share PDF. Please try again.');
               }
             } else {
               // For Web/Desktop: Traditional download
@@ -6046,10 +6044,12 @@ export default defineComponent({
           height: targetElement.scrollHeight
         });
         
+        // Determine orientation based on receipt dimensions
+        const isLandscape = invoiceWidth.value > invoiceHeight.value;
         const pdf = new jsPDF({
           unit: 'in',
           format: [invoiceWidth.value, invoiceHeight.value],
-          orientation: 'portrait'
+          orientation: isLandscape ? 'landscape' : 'portrait'
         });
         
         // Add CMYK color profile information to PDF metadata
@@ -6078,47 +6078,33 @@ export default defineComponent({
         pdf.addImage(imgData, 'JPEG', 0, 0, invoiceWidth.value, invoiceHeight.value);
         
         if (isNative) {
-          // For Android/iOS: Save PDF to Documents directory
+          // For Android/iOS: Save PDF to Cache then share
           try {
             const pdfBase64 = pdf.output('datauri');
             const base64Data = pdfBase64.split(',')[1];
             
+            // Save to Cache first, then share so user can save anywhere
             const savedFile = await Filesystem.writeFile({
               path: filename,
               data: base64Data,
-              directory: Directory.External,
+              directory: Directory.Cache,
               recursive: true
             });
             
-            console.log('✅ PDF saved to:', savedFile.uri);
-            alert(`✅ PDF saved successfully!\\n\\nFile: ${filename}\\nLocation: File Manager`);
-          } catch (error) {
-            console.error('Filesystem save error:', error);
+            console.log('✅ File saved to cache:', savedFile.uri);
             
-            // Fallback: Try Cache directory
-            try {
-              const pdfBase64 = pdf.output('datauri');
-              const base64Data = pdfBase64.split(',')[1];
-              const fallbackFile = await Filesystem.writeFile({
-                path: filename,
-                data: base64Data,
-                directory: Directory.Cache,
-                recursive: true
-              });
-              
-              console.log('✅ Fallback PDF save successful:', fallbackFile.uri);
-              
-              // Try to share the cached file
-              await Share.share({
-                title: 'Share Invoice PDF',
-                text: `Invoice ${currentInvoiceNumber.value}`,
-                url: fallbackFile.uri,
-                dialogTitle: 'Share Invoice PDF'
-              });
-            } catch (fallbackError) {
-              console.error('Fallback PDF save failed:', fallbackError);
-              alert('❌ Failed to save PDF to device.\\n\\nPlease check the following:\\n• Allow Storage permissions in Android Settings\\n• Ensure Downloads folder is accessible\\n• Try restarting the app');
-            }
+            // Share so user can save to Downloads, Drive, etc.
+            await Share.share({
+              title: 'Save Receipt PDF',
+              text: `Save ${filename} to your device`,
+              url: savedFile.uri,
+              dialogTitle: 'Save Receipt PDF'
+            });
+            
+            console.log('✅ File shared - user can now save to Downloads');
+          } catch (error) {
+            console.error('PDF save/share error:', error);
+            alert('❌ Failed to save/share PDF. Please try again.');
           }
         } else {
           // For Web/Desktop: Traditional download
@@ -6165,20 +6151,32 @@ export default defineComponent({
           });
         });
         
-        // Restore original styles
+        // Restore all original styles including organization name
+        if (invoiceRef.value) {
+          invoiceRef.value.style.transform = originalTransform;
+          invoiceRef.value.style.position = originalPosition;
+          invoiceRef.value.style.left = originalLeft;
+          invoiceRef.value.style.top = originalTop;
+          invoiceRef.value.style.margin = originalMargin;
+          invoiceRef.value.style.width = originalWidth;
+          
+          // Restore organization name styles
+          const orgElement = invoiceRef.value.querySelector('.organization-name');
+          if (orgElement && orgOriginalStyles) {
+            orgElement.style.fontFamily = orgOriginalStyles.fontFamily || '';
+            orgElement.style.fontWeight = orgOriginalStyles.fontWeight || '';
+            orgElement.style.fontSize = orgOriginalStyles.fontSize || '';
+            orgElement.style.letterSpacing = orgOriginalStyles.letterSpacing || '';
+            orgElement.style.textTransform = orgOriginalStyles.textTransform || '';
+          }
+        }
+        
         if (parentWrapper) {
           parentWrapper.style.transform = parentOriginalTransform;
           parentWrapper.style.width = parentOriginalWidth;
           parentWrapper.style.height = parentOriginalHeight;
           parentWrapper.style.maxHeight = parentOriginalMaxHeight;
         }
-        
-        invoiceRef.value.style.transform = originalTransform;
-        invoiceRef.value.style.position = originalPosition;
-        invoiceRef.value.style.left = originalLeft;
-        invoiceRef.value.style.top = originalTop;
-        invoiceRef.value.style.margin = originalMargin;
-        invoiceRef.value.style.width = originalWidth;
         
         // Log export activity
         const member = JSON.parse(safeLocalStorage.getItem('ican_authenticated_member') || '{}');
@@ -6278,6 +6276,19 @@ export default defineComponent({
           parentWrapper.style.maxHeight = 'none';
         }
         
+        // Preserve organization name styles before export
+        const orgElement = invoiceRef.value.querySelector('.organization-name');
+        let orgOriginalStyles = {};
+        if (orgElement) {
+          orgOriginalStyles = {
+            fontFamily: orgElement.style.fontFamily || window.getComputedStyle(orgElement).fontFamily,
+            fontWeight: orgElement.style.fontWeight || window.getComputedStyle(orgElement).fontWeight,
+            fontSize: orgElement.style.fontSize || window.getComputedStyle(orgElement).fontSize,
+            letterSpacing: orgElement.style.letterSpacing || window.getComputedStyle(orgElement).letterSpacing,
+            textTransform: orgElement.style.textTransform || window.getComputedStyle(orgElement).textTransform
+          };
+        }
+        
         // Temporarily apply print styles and fix position
         invoiceRef.value.style.transform = 'none';
         invoiceRef.value.style.position = 'relative';
@@ -6285,6 +6296,15 @@ export default defineComponent({
         invoiceRef.value.style.top = '0';
         invoiceRef.value.style.margin = '0';
         invoiceRef.value.style.width = `${invoiceWidth.value}in`;
+        
+        // Force organization name font to ensure it stays consistent
+        if (orgElement) {
+          orgElement.style.fontFamily = 'Anton, "Arial Black", "Helvetica Neue", Helvetica, Arial, sans-serif !important';
+          orgElement.style.fontWeight = '900 !important';
+          orgElement.style.fontStretch = 'normal !important';
+          orgElement.style.textTransform = 'uppercase !important';
+          orgElement.style.letterSpacing = '0.02em !important';
+        }
         
         // Capture and lock table row heights before export
         const tableRows = invoiceRef.value.querySelectorAll('table tbody tr');
@@ -6376,25 +6396,62 @@ export default defineComponent({
           const isNative = Capacitor.isNativePlatform();
           
           if (isNative) {
-            // For Android/iOS: Save all files to Documents directory
+            // For Android/iOS: Try to save directly to Documents, fallback to sharing
             try {
               const savedFiles = [];
+              let directDownloadsSucceeded = 0;
+              
               for (const download of downloads) {
-                const savedFile = await Filesystem.writeFile({
-                  path: download.filename,
-                  data: download.dataUrl,
-                  directory: Directory.Documents,
-                  recursive: true
-                });
-                savedFiles.push(savedFile.uri);
+                // Extract base64 from data URL
+                const base64Data = download.dataUrl.split(',')[1];
+                
+                // Try direct save to Documents first
+                try {
+                  const savedFile = await Filesystem.writeFile({
+                    path: download.filename,
+                    data: base64Data,
+                    directory: Directory.Documents,
+                    recursive: true
+                  });
+                  savedFiles.push({ uri: savedFile.uri, filename: download.filename, method: 'direct' });
+                  directDownloadsSucceeded++;
+                } catch (downloadError) {
+                  // Fallback: Save to Cache for sharing
+                  const savedFile = await Filesystem.writeFile({
+                    path: download.filename,
+                    data: base64Data,
+                    directory: Directory.Cache,
+                    recursive: true
+                  });
+                  savedFiles.push({ uri: savedFile.uri, filename: download.filename, method: 'share' });
+                }
               }
               
-              console.log('✅ All files saved:', savedFiles);
-              alert(`✅ Successfully saved ${downloads.length} images!\n\nLocation: Documents folder\n\nYou can find them in your file manager.`);
+              console.log(`✅ ${directDownloadsSucceeded} files saved directly to Documents`);
+              
+              // Share files that couldn't be saved directly
+              const filesToShare = savedFiles.filter(f => f.method === 'share');
+              if (filesToShare.length > 0) {
+                for (let i = 0; i < filesToShare.length; i++) {
+                  await Share.share({
+                    title: `Save Receipt JPEG (${i + 1}/${filesToShare.length})`,
+                    text: `Save ${filesToShare[i].filename} to your device`,
+                    url: filesToShare[i].uri,
+                    dialogTitle: `Save Receipt JPEG (${i + 1}/${filesToShare.length})`
+                  });
+                  
+                  // Small delay between shares
+                  if (i < filesToShare.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                  }
+                }
+              }
+              
+              alert(`✅ ${directDownloadsSucceeded} JPEG files saved to Documents folder. ${filesToShare.length} files shared for manual save.`);
               
             } catch (error) {
-              console.error('Filesystem save error:', error);
-              alert('❌ Failed to save images. Please try again.');
+              console.error('JPEG save/share error:', error);
+              alert('❌ Failed to save/share images. Please try again.');
             }
           } else {
             // For Web/Desktop: Download all files with staggered timing
@@ -6434,49 +6491,50 @@ export default defineComponent({
           const isNative = Capacitor.isNativePlatform();
           
           if (isNative) {
-            // For Android/iOS: Save to Documents directory
+            // For Android/iOS: Try to save directly to Downloads, fallback to sharing
             try {
               // Remove data URL prefix for Capacitor Filesystem
               const base64Data = dataUrl.split(',')[1];
               
-              const savedFile = await Filesystem.writeFile({
-                path: filename,
-                data: base64Data,
-                directory: Directory.External,
-                recursive: true
-              });
-              
-              console.log('✅ File saved to:', savedFile.uri);
-              
-              // For APK, show success message for direct download
-              alert(`✅ JPEG image saved successfully to Downloads!\n\nFile: ${filename}\nYou can find it in your File Manager`);
-            } catch (error) {
-              console.error('Filesystem save error:', error);
-              
-              // Fallback: Try External directory first, then Cache
+              // Try to save directly to Downloads directory first
               try {
-                const base64Data = dataUrl.split(',')[1];
-                const fallbackFile = await Filesystem.writeFile({
+                const savedFile = await Filesystem.writeFile({
+                  path: filename,
+                  data: base64Data,
+                  directory: Directory.Documents, // Use Documents instead of Downloads for better compatibility
+                  recursive: true
+                });
+                
+                console.log('✅ File saved to Documents:', savedFile.uri);
+                alert(`✅ JPEG saved to Documents folder: ${filename}`);
+                
+              } catch (downloadError) {
+                console.log('Direct download failed, using share method:', downloadError);
+                
+                // Fallback: Save to Cache then share
+                const savedFile = await Filesystem.writeFile({
                   path: filename,
                   data: base64Data,
                   directory: Directory.Cache,
                   recursive: true
                 });
                 
-                console.log('✅ Fallback save successful:', fallbackFile.uri);
+                console.log('✅ File saved to cache:', savedFile.uri);
                 
-                // Try to share the cached file directly without confirmation
+                // Share so user can save to Downloads, Drive, etc.
                 await Share.share({
-                  title: 'Share Invoice',
-                  text: `Invoice ${currentInvoiceNumber.value}`,
-                  url: fallbackFile.uri,
-                  dialogTitle: 'Share Invoice Image'
+                  title: 'Save Receipt JPEG',
+                  text: `Save ${filename} to your device`,
+                  url: savedFile.uri,
+                  dialogTitle: 'Save Receipt JPEG'
                 });
-                alert('✅ Image downloaded to cache and shared!\n\nYou can find it in your file manager.');
-              } catch (fallbackError) {
-                console.error('Fallback save failed:', fallbackError);
-                alert('❌ Failed to save image to device.\n\nPlease check the following:\n• Allow Storage permissions in Android Settings\n• Ensure Downloads folder is accessible\n• Try restarting the app');
+                
+                console.log('✅ File shared - user can now save to Downloads');
               }
+              
+            } catch (error) {
+              console.error('JPEG save/share error:', error);
+              alert('❌ Failed to save/share image. Please try again.');
             }
           } else {
             // For Web/Desktop: Use traditional download
@@ -6524,20 +6582,32 @@ export default defineComponent({
           });
         });
         
-        // Restore original styles
+        // Restore all original styles including organization name
+        if (invoiceRef.value) {
+          invoiceRef.value.style.transform = originalTransform;
+          invoiceRef.value.style.position = originalPosition;
+          invoiceRef.value.style.left = originalLeft;
+          invoiceRef.value.style.top = originalTop;
+          invoiceRef.value.style.margin = originalMargin;
+          invoiceRef.value.style.width = originalWidth;
+          
+          // Restore organization name styles
+          const orgElement = invoiceRef.value.querySelector('.organization-name');
+          if (orgElement && orgOriginalStyles) {
+            orgElement.style.fontFamily = orgOriginalStyles.fontFamily || '';
+            orgElement.style.fontWeight = orgOriginalStyles.fontWeight || '';
+            orgElement.style.fontSize = orgOriginalStyles.fontSize || '';
+            orgElement.style.letterSpacing = orgOriginalStyles.letterSpacing || '';
+            orgElement.style.textTransform = orgOriginalStyles.textTransform || '';
+          }
+        }
+        
         if (parentWrapper) {
           parentWrapper.style.transform = parentOriginalTransform;
           parentWrapper.style.width = parentOriginalWidth;
           parentWrapper.style.height = parentOriginalHeight;
           parentWrapper.style.maxHeight = parentOriginalMaxHeight;
         }
-        
-        invoiceRef.value.style.transform = originalTransform;
-        invoiceRef.value.style.position = originalPosition;
-        invoiceRef.value.style.left = originalLeft;
-        invoiceRef.value.style.top = originalTop;
-        invoiceRef.value.style.margin = originalMargin;
-        invoiceRef.value.style.width = originalWidth;
         
         // Log export activity
         const member = JSON.parse(safeLocalStorage.getItem('ican_authenticated_member') || '{}');
@@ -7482,15 +7552,16 @@ export default defineComponent({
 
 <style scoped>
 /* Additional font loading for APK compatibility */
-@import url('https://fonts.googleapis.com/css2?family=Impact&display=swap');
+/* Anton font is similar to Impact but available on Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
 
 /* Error Boundary Styles */
 /* Export stability fixes */
 .organization-name {
-  font-family: 'Impact', 'Arial Black', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+  font-family: 'Anton', 'Arial Black', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
   font-weight: 900 !important;
-  font-stretch: condensed !important;
-  letter-spacing: -0.02em;
+  font-stretch: normal !important;
+  letter-spacing: 0.02em;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -7555,13 +7626,13 @@ h1, h2, h3, h4, h5, h6, p, span, div {
 /* Export stability fixes */
 
 .organization-name {
-  font-family: 'Impact', 'Arial Black', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+  font-family: 'Anton', 'Arial Black', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
   font-weight: 900 !important;
-  font-stretch: condensed !important;
-  letter-spacing: -0.02em;
+  font-stretch: normal !important;
+  letter-spacing: 0.02em;
   text-rendering: optimizeLegibility;
   /* Enhanced APK font rendering */
-  text-transform: none !important;
+  text-transform: uppercase !important;
   -webkit-text-stroke: 0.1px;
 }
 
@@ -7949,3 +8020,4 @@ section::-webkit-scrollbar-thumb:hover {
   --tertiary-cmyk: v-bind('colorMode === "three-color" ? `cmyk(${customColor3CMYK.c}%, ${customColor3CMYK.m}%, ${customColor3CMYK.y}%, ${customColor3CMYK.k}%)` : "cmyk(0%, 0%, 100%, 0%)"');
 }
 </style>
+

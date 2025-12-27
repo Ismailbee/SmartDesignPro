@@ -18,7 +18,7 @@
 
        
       </div>
-    </header>
+    </header> 
     
     <main class="flex-grow ">
       <slot />

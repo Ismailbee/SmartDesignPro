@@ -65,28 +65,29 @@ export default defineComponent({
         await router.isReady();
         console.log('✅ Router is ready');
         
-        // Use path-based navigation (most reliable in micro-app context)
+        // Use explicit hash navigation for mobile
+        window.location.hash = '#/home';
+        console.log('✅ Hash navigation to #/home');
+        
+        // Fallback to router navigation
         await router.replace('/home');
-        console.log('✅ Navigation successful');
+        console.log('✅ Router navigation successful');
         
       } catch (error) {
         console.error('❌ Navigation failed:', error);
-        
-        // Try push as fallback
-        try {
-          await router.push('/home');
-          console.log('✅ Push navigation successful');
-        } catch (pushError) {
-          console.error('❌ Push failed, using window redirect');
-          window.location.href = '/home';
-        }
+        // Force hash navigation as last resort
+        window.location.hash = '#/home';
       }
     };
 
     onMounted(async () => {
-      // Always show splash screen for 2.5 seconds
-      console.log('🎬 Showing splash screen for 2.5 seconds...');
-      setTimeout(navigateToHome, 2500);
+      console.log('🎬 Splash screen mounted');
+      
+      // Immediate navigation after short delay
+      setTimeout(() => {
+        console.log('🚀 Navigating to home...');
+        window.location.hash = '#/home';
+      }, 1000);
     });
 
     return {};

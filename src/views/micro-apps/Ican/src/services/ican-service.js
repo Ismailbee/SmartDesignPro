@@ -6,7 +6,7 @@
 
 // Import from MAIN SmartDesignPro Firebase config
 // Using relative path from ICAN services to main config
-import { db, auth } from '../../../../../config/firebase'
+import { db, auth, initializeFirebaseServices } from '../../../../../config/firebase'
 import { 
   collection, 
   doc, 
@@ -34,20 +34,8 @@ const COLLECTIONS = {
 };
 
 console.log('✅ ICAN Service using MAIN SmartDesignPro Firebase');
-console.log('📦 Firebase DB:', db ? 'Connected' : 'Not initialized');
-console.log('🔐 Firebase Auth:', auth ? 'Available' : 'Not initialized');
-
-// Validate Firebase initialization
-if (!db) {
-  console.error('❌ CRITICAL: Firebase DB not initialized! Check main Firebase config at src/config/firebase.ts');
-  console.error('Make sure .env file has valid Firebase credentials');
-  throw new Error('Firebase Firestore (db) is not initialized. Please check your Firebase configuration.');
-}
-
-if (!auth) {
-  console.error('❌ CRITICAL: Firebase Auth not initialized! Check main Firebase config at src/config/firebase.ts');
-  throw new Error('Firebase Auth is not initialized. Please check your Firebase configuration.');
-}
+// DO NOT initialize Firebase here - it will be initialized by main.js after deviceready
+console.log('ℹ️ Waiting for Firebase to be initialized by main.js...');
 
 // --- Helper Functions ---
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -58,6 +46,8 @@ const requireOnline = () => {
     throw new Error('🔴 No internet connection. ICAN requires an active internet connection to function.');
   }
 };
+
+// No need for lazy getters - Firebase will be ready when methods are actually called
 
 const getStorage = (key, defaultVal = []) => {
   // Deprecated - localStorage no longer used for main data

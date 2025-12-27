@@ -448,9 +448,6 @@ export default defineComponent({
       }
     };
 
-    // Android back button handler
-    let backButtonListener = null;
-
     onMounted(async () => {
       // Persist branch to localStorage when dashboard loads
       if (branchName.value) {
@@ -460,34 +457,9 @@ export default defineComponent({
       // Load stats first, then activities to avoid simultaneous Firebase calls
       await fetchBranchStats();
       loadActivities();
-      
-      // Handle Android hardware back button
-      const handleAndroidBackButton = async () => {
-        console.log('🔙 Android back button pressed on Dashboard');
-        // Navigate to home page
-        router.push({ path: '/ican/home', query: { branch: branchName.value } });
-      };
-      
-      // Register Android back button listener
-      try {
-        const { App } = await import('@capacitor/app');
-        backButtonListener = App.addListener('backButton', handleAndroidBackButton);
-        console.log('✅ Android back button listener registered for Dashboard');
-      } catch (error) {
-        console.log('ℹ️ Not running on Android or Capacitor not available:', error);
-      }
     });
 
-    onUnmounted(async () => {
-      if (backButtonListener) {
-        try {
-          await backButtonListener.remove();
-          console.log('✅ Android back button listener removed from Dashboard');
-        } catch (error) {
-          console.log('ℹ️ Error removing back button listener:', error);
-        }
-      }
-    });
+
 
     const loadActivities = async () => {
       // Load activities from main SmartDesignPro Firebase (localStorage)

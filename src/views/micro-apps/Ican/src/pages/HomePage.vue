@@ -322,8 +322,8 @@
             
             <div v-else class="space-y-2 pr-2">
               <button
-                v-for="branch in filteredBranches"
-                :key="branch"
+                v-for="(branch, index) in filteredBranches"
+                :key="`branch-${index}-${branch}`"
                 @click="selectBranch(branch)"
                 @keydown.enter="handleBranchKeyDown(branch, $event)"
                 :disabled="!isBranchAccessible(branch)"
@@ -366,8 +366,8 @@
                             ? 'text-blue-700 dark:text-blue-300' 
                             : 'text-slate-800 dark:text-slate-200'
                         ]"
+                        v-html="highlightMatch(branch, branchSearchQuery)"
                       >
-                        {{ branch }}
                       </p>
                       <p 
                         v-if="!isBranchAccessible(branch)"
@@ -792,10 +792,32 @@ export default defineComponent({
       if (!branchSearchQuery.value) {
         return branches.value;
       }
-      return branches.value.filter(branch => 
-        branch.toLowerCase().includes(branchSearchQuery.value.toLowerCase())
-      );
+      const query = branchSearchQuery.value.toLowerCase().trim();
+      if (!query) return branches.value;
+      
+      // Filter and sort branches: prioritize matches at start of name
+      return branches.value
+        .filter(branch => branch.toLowerCase().includes(query))
+        .sort((a, b) => {
+          const aLower = a.toLowerCase();
+          const bLower = b.toLowerCase();
+          const aStarts = aLower.startsWith(query);
+          const bStarts = bLower.startsWith(query);
+          
+          // Prioritize branches that start with the query
+          if (aStarts && !bStarts) return -1;
+          if (!aStarts && bStarts) return 1;
+          
+          // Then sort alphabetically
+          return a.localeCompare(b);
+        });
     });
+
+    const highlightMatch = (text, query) => {
+      if (!query) return text;
+      const regex = new RegExp(`(${query})`, 'gi');
+      return text.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-600 text-slate-900 dark:text-white px-0.5 rounded">$1</mark>');
+    };
 
     const selectBranch = (branch) => {
       if (isBranchAccessible(branch)) {
@@ -878,11 +900,15 @@ export default defineComponent({
           console.log('📌 No branches found, seeding...');
           await ICANSeedService.forceReseedAllNigerianStates();
           const newBranchList = await ICANBranchService.getAllBranches();
-          branches.value = newBranchList.map(branch => branch.name);
-          console.log('✅ Branches seeded:', branches.value.length);
+          const branchNames = newBranchList.map(branch => branch.name);
+          // Remove duplicates using Set
+          branches.value = [...new Set(branchNames)];
+          console.log('✅ Branches seeded:', branches.value.length, 'unique branches');
         } else {
-          // Directly map branches - faster
-          branches.value = branchList.map(branch => branch.name);
+          // Map and remove duplicates
+          const branchNames = branchList.map(branch => branch.name);
+          branches.value = [...new Set(branchNames)];
+          console.log('✅ Loaded', branches.value.length, 'unique branches (removed', branchList.length - branches.value.length, 'duplicates)');
         }
         
         if (branches.value.length === 0) {
@@ -1323,6 +1349,7 @@ export default defineComponent({
       showBranchModal,
       branchSearchQuery,
       filteredBranches,
+      highlightMatch,
       selectBranch,
       confirmBranchSelection,
       handleBranchKeyDown,

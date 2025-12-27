@@ -486,9 +486,6 @@ export default defineComponent({
     // Dynamic Branches Management
     const additionalBranches = ref([]);
     
-    // Android back button handler
-    let backButtonListener = null;
-    
     // Invoice Items Management
     const MAX_ITEMS = 20;
     const items = ref([
@@ -1464,32 +1461,6 @@ export default defineComponent({
       // Load signatures from Firebase
       await loadSignatures();
 
-      // Handle Android hardware back button
-      const handleAndroidBackButton = async () => {
-        console.log('🔙 Android back button pressed');
-        // Navigate back to dashboard instead of exiting app
-        const branch = route.query.branch || '';
-        router.push({ name: 'Dashboard', query: { branch } });
-      };
-      
-      // Register Android back button listener with proper cleanup
-      if (Capacitor.isNativePlatform()) {
-        (async () => {
-          try {
-            // Remove any existing listener first
-            if (backButtonListener) {
-              await backButtonListener.remove();
-            }
-            
-            const { App } = await import('@capacitor/app');
-            backButtonListener = await App.addListener('backButton', handleAndroidBackButton);
-            console.log('✅ Android back button listener registered for Invoice');
-          } catch (error) {
-            console.log('ℹ️ Error registering back button listener:', error);
-          }
-        })();
-      }
-
       // Save data when the user is about to leave the page
       window.addEventListener('beforeunload', saveFormData);
       
@@ -1534,17 +1505,6 @@ export default defineComponent({
       if (saveFormDataTimeout) {
         clearTimeout(saveFormDataTimeout);
         saveFormDataTimeout = null;
-      }
-      
-      // Remove Android back button listener
-      if (backButtonListener && typeof backButtonListener.remove === 'function') {
-        try {
-          await backButtonListener.remove();
-          backButtonListener = null;
-          console.log('🧹 Android back button listener removed from Invoice');
-        } catch (error) {
-          console.log('⚠️ Error removing back button listener:', error);
-        }
       }
       
       // Save form data immediately when navigating away

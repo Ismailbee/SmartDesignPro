@@ -266,9 +266,6 @@ const loadSignatures = async () => {
   }
 };
 
-// Android back button handler
-let backButtonListener = null;
-
 // Initialize canvas
 onMounted(async () => {
   // Initialize canvas context - CRITICAL for drawing to work!
@@ -337,46 +334,9 @@ onMounted(async () => {
   }
   
   await loadSignatures();
-  
-  // Handle Android hardware back button
-  const handleAndroidBackButton = async () => {
-    console.log('🔙 Android back button pressed on Signature Page');
-    // Navigate back based on where user came from
-    const branch = authenticatedMember.value?.branch || route.query.branch || '';
-    if (route.query.from) {
-      router.push({ path: `/ican/${route.query.from}`, query: { branch } });
-    } else {
-      router.push({ path: '/ican/dashboard', query: { branch } });
-    }
-  };
-  
-  // Register Android back button listener
-  try {
-    const { App } = await import('@capacitor/app');
-    backButtonListener = App.addListener('backButton', handleAndroidBackButton);
-    console.log('✅ Android back button listener registered for Signature Page');
-  } catch (error) {
-    console.log('ℹ️ Not running on Android or Capacitor not available:', error);
-  }
 });
 
-// Cleanup
-onUnmounted(async () => {
-  if (backButtonListener) {
-    try {
-      // Check if remove method exists and is a function
-      if (typeof backButtonListener.remove === 'function') {
-        await backButtonListener.remove();
-        console.log('✅ Android back button listener removed from Signature Page');
-      } else {
-        console.log('ℹ️ Back button listener does not have remove method');
-      }
-    } catch (error) {
-      console.log('ℹ️ Error removing back button listener:', error);
-    }
-    backButtonListener = null;
-  }
-});
+
 
 // Drawing functions
 function startDrawing(event: MouseEvent | TouchEvent) {
