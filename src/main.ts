@@ -1,4 +1,30 @@
-console.log('🚀 main.ts is loading...')
+// Suppress console messages BEFORE any imports
+const originalWarn = console.warn
+console.warn = (...args: any[]) => {
+  const message = args[0]?.toString?.() || ''
+  if (message.includes('Datadog') || message.includes('No storage available')) {
+    return // Suppress Datadog warnings
+  }
+  originalWarn.apply(console, args)
+}'./styles/calendar-styles.css'
+import 
+
+const originalLog = console.log
+console.log = (...args: any[]) => {
+  if (args[0]?.includes?.('Datadog Browser SDK')) {
+    return // Suppress Datadog logs
+  }
+  originalLog.apply(console, args)
+}
+
+const originalError = console.error
+console.error = (...args: any[]) => {
+  const errorMsg = args[0]?.toString?.() || ''
+  if (errorMsg.includes('service worker') || errorMsg.includes('ServiceWorker')) {
+    return // Suppress service worker errors in dev
+  }
+  originalError.apply(console, args)
+}
 
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
@@ -6,19 +32,8 @@ import router from './router'
 import './style.css'
 import './styles/theme.css'
 import './styles/wedding-fonts.css'
-import './styles/calendar-styles.css'
 import App from './App.vue'
 import { useThemeStore } from './stores/theme'
-
-// Development console filter
-if (import.meta.env.DEV) {
-  import('./utils/console-filter').then(module => {
-    module.default.enable();
-  });
-  
-  // Aggressive browser warning suppression
-  import('./utils/browser-warning-suppressor');
-}
 
 // Capacitor imports
 import { App as CapacitorApp } from '@capacitor/app'
@@ -26,121 +41,111 @@ import { App as CapacitorApp } from '@capacitor/app'
 // Ionic Vue imports
 import { IonicVue } from '@ionic/vue'
 import '@ionic/vue/css/core.css'
-/* ... other ionic css imports ... */
+import '@ionic/vue/css/normalize.css'
+import '@ionic/vue/css/structure.css'
+import '@ionic/vue/css/typography.css'
+import '@ionic/vue/css/padding.css'
+import '@ionic/vue/css/float-elements.css'
+import '@ionic/vue/css/text-alignment.css'
+import '@ionic/vue/css/text-transformation.css'
+import '@ionic/vue/css/flex-utils.css'
+import '@ionic/vue/css/display.css'
 
-// Suppress Datadog Browser SDK warning safely
-const originalWarn = console.warn
-console.warn = (...args: any[]) => {
-  try {
-    if (typeof args[0] === 'string' && args[0].includes('Datadog Browser SDK')) {
-      return
-    }
-  } catch (e) {
-    // fall through to normal warn
-  }
-  originalWarn.apply(console, args)
-}
+// Vue Konva imports
+import VueKonva from 'vue-konva'
 
-// FontAwesome imports
+// Font Awesome imports
 import { library } from '@fortawesome/fontawesome-svg-core'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-/* icons import truncated for brevity in snippet; keep your original list */
+import {
+  faImages,
+  faUpload,
+  faShapes,
+  faFont,
+  faEyeSlash,
+  faFilter,
+  faCrop,
+  faQrcode,
+  faChevronLeft,
+  faChevronRight,
+  faChevronDown,
+  faPalette,
+  faWandMagicSparkles,
+  faCloudArrowUp,
+  faEdit,
+  faLayerGroup,
+  faBars,
+  faUserCircle,
+  faCog,
+  faSignOutAlt,
+  faUndo,
+  faRedo,
+  faArrowsAltH,
+  faTimes,
+  faCheck,
+  faTh,
+  faMagnet,
+  faSearchMinus,
+  faSearchPlus,
+  faDownload,
+  faSave,
+  faFolderOpen
+} from '@fortawesome/free-solid-svg-icons'
 
-library.add(/* ...your icons... */)
+// Add icons to the library
+library.add(
+  faImages,
+  faUpload,
+  faShapes,
+  faFont,
+  faEyeSlash,
+  faFilter,
+  faCrop,
+  faQrcode,
+  faChevronLeft,
+  faChevronRight,
+  faChevronDown,
+  faPalette,
+  faWandMagicSparkles,
+  faCloudArrowUp,
+  faEdit,
+  faLayerGroup,
+  faBars,
+  faUserCircle,
+  faCog,
+  faSignOutAlt,
+  faUndo,
+  faRedo,
+  faArrowsAltH,
+  faTimes,
+  faCheck,
+  faTh,
+  faMagnet,
+  faSearchMinus,
+  faSearchPlus,
+  faDownload,
+  faSave,
+  faFolderOpen
+)
 
-async function timeoutPromise<T>(p: Promise<T>, ms: number, label = 'operation') {
-  let timer: any
-  const t = new Promise<T>((_, rej) => {
-    timer = setTimeout(() => rej(new Error(`${label} timed out after ${ms}ms`)), ms)
-  })
-  return Promise.race([p, t]) as Promise<T>
-}
+const app = createApp(App)
+const pinia = createPinia()
 
-async function unregisterServiceWorkersDev() {
-  if ('serviceWorker' in navigator) {
-    try {
-      const regs = await navigator.serviceWorker.getRegistrations()
-      await Promise.all(regs.map(r => r.unregister()))
-      console.log('🧹 Service workers unregistered (dev)')
-    } catch (err) {
-      console.warn('Could not unregister service workers:', err)
-    }
-  }
-}
+// Register Ionic Vue
+app.use(IonicVue)
 
-async function bootstrap() {
-  console.log('🔧 creating app + pinia + plugins...')
-  const app = createApp(App)
-  const pinia = createPinia()
+// Register Vue Konva
+app.use(VueKonva)
 
-  // global error/warn handlers
-  app.config.errorHandler = (err, instance, info) => {
-    console.error('🔴 Vue Error:', err)
-    console.error('Component:', instance?.$options?.name || 'Unknown')
-    console.error('Info:', info)
-    const appDiv = document.getElementById('app')
-    if (appDiv && !appDiv.innerHTML.includes('Failed to mount')) {
-      appDiv.innerHTML = `<div style="padding: 20px; color: red; font-family: monospace; background: #ffe0e0; border: 1px solid red; border-radius: 4px;">
-        <h2>Vue Error</h2>
-        <p><strong>Error:</strong> ${String(err)}</p>
-        <p><strong>Component:</strong> ${instance?.$options?.name || 'Unknown'}</p>
-        <p><strong>Info:</strong> ${info}</p>
-      </div>`
-    }
-  }
-  app.config.warnHandler = (msg, instance, trace) => {
-    console.warn('🟡 Vue Warning:', msg)
-    console.warn('Trace:', trace)
-  }
+// Register Font Awesome component globally
+app.component('font-awesome-icon', FontAwesomeIcon)
 
-  app.use(IonicVue)
-  app.component('font-awesome-icon', FontAwesomeIcon)
-  app.use(pinia)
-  app.use(router)
+// Use Pinia and Router
+app.use(pinia)
+app.use(router)
 
-  // Initialize theme with a timeout & error handling
-  const themeStore = useThemeStore()
-  try {
-    console.log('🟢 Initializing theme (initTheme)...')
-    // If initTheme is sync this will still work. We guard with a 5s timeout.
-    await timeoutPromise(
-      Promise.resolve(themeStore.initTheme && themeStore.initTheme()),
-      5000,
-      'themeStore.initTheme'
-    )
-    console.log('🟢 Theme initialized')
-  } catch (err) {
-    console.error('⚠️ theme init failed or timed out:', err)
-  }
+// Initialize theme
+const themeStore = useThemeStore()
+themeStore.initTheme()
 
-  // Wait for router to be ready (prevents some blank-screen race conditions)
-  try {
-    console.log('⏳ Waiting for router to be ready...')
-    await Promise.race([
-      router.isReady(),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('router.isReady() timed out')), 5000))
-    ])
-    console.log('✅ Router is ready')
-  } catch (err) {
-    console.warn('Router readiness issue (continuing to mount anyway):', err)
-  }
-
-  console.log('🚀 Mounting Vue app to #app...')
-  try {
-    app.mount('#app')
-    console.log('✅ Vue app mounted successfully')
-  } catch (err) {
-    console.error('❌ Failed to mount Vue app:', err)
-    const appDiv = document.getElementById('app')
-    if (appDiv) {
-      appDiv.innerHTML = `<div style="padding: 20px; color: red; font-family: monospace;">
-        <h2>Failed to mount app</h2>
-        <pre>${String(err)}</pre>
-      </div>`
-    }
-  }
-}
-
-bootstrap().catch(err => {
-  console.error('Fatal bootstrap error:', err)
-})
+app.mount('#app')

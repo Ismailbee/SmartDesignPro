@@ -3,18 +3,64 @@
 // Endpoints: 
 //   - POST /api/imposition/process (single file)
 //   - POST /api/imposition/merge (multiple files)
+//   - POST /api/imposition/convert (convert images/docs to PDF)
 
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
 import { PDFDocument, degrees } from 'pdf-lib';
+import mammoth from 'mammoth';
+import puppeteer from 'puppeteer';
+import { createWorker } from 'tesseract.js';
 
 const app = express();
 const PORT = 3001;
 
+// Reusable browser instance for better performance
+let sharedBrowser = null;
+let browserInitPromise = null;
+
+// Get or create browser instance
+async function getBrowser() {
+  if (sharedBrowser && sharedBrowser.isConnected()) {
+    return sharedBrowser;
+  }
+  
+  // If browser is being initialized, wait for it
+  if (browserInitPromise) {
+    return await browserInitPromise;
+  }
+  
+  // Start browser initialization
+  browserInitPromise = puppeteer.launch({ 
+    headless: 'new',
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  }).then(browser => {
+    console.log('✅ Browser instance initialized');
+    sharedBrowser = browser;
+    browserInitPromise = null;
+    return browser;
+  }).catch(err => {
+    console.error('❌ Failed to launch browser:', err);
+    browserInitPromise = null;
+    throw err;
+  });
+  
+  return await browserInitPromise;
+}
+
+// Cleanup on server shutdown
+process.on('SIGINT', async () => {
+  console.log('Shutting down server...');
+  if (sharedBrowser) {
+    await sharedBrowser.close();
+  }
+  process.exit(0);
+});
+
 // Configure CORS
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
   credentials: true
 }));
 
@@ -193,6 +239,1058 @@ app.post('/api/imposition/merge', upload.array('files', 10), async (req, res) =>
     });
   }
 });
+
+// Convert images and documents to PDF
+app.post('/api/imposition/convert', upload.array('files', 50), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    console.log(`Converting ${req.files.length} file(s) to PDF`);
+
+    const {
+      pageSize = 'auto',
+      orientation = 'portrait',
+      customWidth,
+      customHeight
+    } = req.body;
+
+    const outputDoc = await PDFDocument.create();
+    let browser;
+
+    try {
+      // Check if we need Puppeteer (only for DOCX/TXT files)
+      const needsBrowser = req.files.some(file => {
+        const type = file.mimetype.toLowerCase();
+        return type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+               type === 'text/plain';
+      });
+
+      // Only get browser if needed (reuses existing instance for speed)
+      if (needsBrowser) {
+        browser = await getBrowser();
+      }
+
+      for (const file of req.files) {
+        try {
+          const fileType = file.mimetype.toLowerCase();
+
+          // Image files
+          if (fileType === 'image/jpeg' || fileType === 'image/jpg') {
+            await processImageFile(outputDoc, file, 'jpg', { pageSize, orientation, customWidth, customHeight });
+          } else if (fileType === 'image/png') {
+            await processImageFile(outputDoc, file, 'png', { pageSize, orientation, customWidth, customHeight });
+          } else if (fileType === 'image/gif' || fileType === 'image/tiff' || fileType === 'image/bmp' || fileType === 'image/webp') {
+            // Convert other image formats to PNG first, then embed
+            await processOtherImageFile(outputDoc, file, { pageSize, orientation, customWidth, customHeight });
+          } 
+          // Word documents
+          else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+            await processDocxFile(outputDoc, file, browser, { pageSize, orientation, customWidth, customHeight });
+          } else if (fileType === 'application/msword') {
+            console.warn(`Legacy .doc files require LibreOffice/Word installed. Skipping ${file.originalname}`);
+            continue;
+          }
+          // PowerPoint files
+          else if (fileType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+                   fileType === 'application/vnd.ms-powerpoint') {
+            console.warn(`PowerPoint files (.pptx/.ppt) require conversion software. Skipping ${file.originalname}`);
+            continue;
+          }
+          // Excel files
+          else if (fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                   fileType === 'application/vnd.ms-excel') {
+            console.warn(`Excel files (.xlsx/.xls) require conversion software. Skipping ${file.originalname}`);
+            continue;
+          }
+          // Plain text files
+          else if (fileType === 'text/plain') {
+            await processTextFile(outputDoc, file, browser, { pageSize, orientation, customWidth, customHeight });
+          }
+          else {
+            console.warn(`Unsupported file type: ${fileType} for file ${file.originalname}`);
+            continue;
+          }
+
+        } catch (fileError) {
+          console.error(`Failed to process file ${file.originalname}:`, fileError.message);
+          // Continue with other files
+        }
+      }
+
+    } finally {
+      // Don't close the shared browser - it's reused across requests
+      // Browser will be closed on server shutdown
+    }
+
+    if (outputDoc.getPageCount() === 0) {
+      return res.status(400).json({ error: 'No valid files could be processed' });
+    }
+
+    const pdfBytes = await outputDoc.save();
+
+    console.log(`Converted PDF has ${outputDoc.getPageCount()} pages, ${pdfBytes.length} bytes`);
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="converted-${Date.now()}.pdf"`,
+      'Content-Length': pdfBytes.length
+    });
+
+    res.send(Buffer.from(pdfBytes));
+
+  } catch (error) {
+    console.error('Convert error:', error);
+    res.status(500).json({ 
+      error: 'Failed to convert files to PDF',
+      details: error.message 
+    });
+  }
+});
+
+// Export PDF to other formats (JPEG, PNG, DOC)
+app.post('/api/imposition/export', upload.array('files', 10), async (req, res) => {
+  console.log('🔄 Export request received:', {
+    fileCount: req.files?.length || 0,
+    exportFormat: req.body.exportFormat
+  });
+  
+  try {
+    if (!req.files || req.files.length === 0) {
+      console.error('❌ Export error: No files uploaded');
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    const { exportFormat } = req.body;
+    
+    if (!exportFormat || !['jpeg', 'png', 'doc'].includes(exportFormat)) {
+      console.error('❌ Export error: Invalid export format:', exportFormat);
+      return res.status(400).json({ error: 'Invalid export format. Use: jpeg, png, or doc' });
+    }
+
+    console.log(`✅ Exporting ${req.files.length} PDF(s) to ${exportFormat.toUpperCase()}`);
+
+    const file = req.files[0]; // Take first file for now
+    
+    if (exportFormat === 'jpeg' || exportFormat === 'png') {
+      // Convert PDF to images using Puppeteer with PDF.js viewer
+      console.log('🖼️ Converting PDF to image...');
+      
+      const pdfDoc = await PDFDocument.load(file.buffer);
+      const pages = pdfDoc.getPages();
+      
+      if (pages.length === 0) {
+        return res.status(400).json({ error: 'PDF has no pages' });
+      }
+
+      // Get first page dimensions
+      const page = pages[0];
+      const { width, height } = page.getSize();
+      
+      console.log(`📄 PDF dimensions: ${width}x${height}`);
+      
+      // Use Puppeteer to render PDF to image
+      const browser = await getBrowser();
+      const browserPage = await browser.newPage();
+      
+      // Set viewport to PDF dimensions with scale factor
+      const scaleFactor = 2; // For higher quality
+      await browserPage.setViewport({
+        width: Math.round(width * scaleFactor),
+        height: Math.round(height * scaleFactor),
+        deviceScaleFactor: 1
+      });
+      
+      // Convert PDF to base64
+      const pdfBase64 = file.buffer.toString('base64');
+      
+      // Create an HTML page with embedded PDF using canvas rendering
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { margin: 0; padding: 0; background: white; }
+            canvas { display: block; width: 100%; height: auto; }
+          </style>
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+        </head>
+        <body>
+          <canvas id="pdf-canvas"></canvas>
+          <script>
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            
+            const pdfData = atob('${pdfBase64}');
+            const pdfArray = new Uint8Array(pdfData.length);
+            for (let i = 0; i < pdfData.length; i++) {
+              pdfArray[i] = pdfData.charCodeAt(i);
+            }
+            
+            pdfjsLib.getDocument({data: pdfArray}).promise.then(function(pdf) {
+              pdf.getPage(1).then(function(page) {
+                const scale = ${scaleFactor};
+                const viewport = page.getViewport({scale: scale});
+                
+                const canvas = document.getElementById('pdf-canvas');
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                
+                const renderContext = {
+                  canvasContext: context,
+                  viewport: viewport
+                };
+                
+                page.render(renderContext).promise.then(function() {
+                  document.body.setAttribute('data-loaded', 'true');
+                });
+              });
+            });
+          </script>
+        </body>
+        </html>
+      `;
+      
+      // Load the HTML with embedded PDF
+      await browserPage.setContent(htmlContent, { waitUntil: 'networkidle0' });
+      
+      // Wait for PDF to render
+      await browserPage.waitForSelector('[data-loaded="true"]', { timeout: 10000 });
+      
+      // Take screenshot of the canvas
+      const canvas = await browserPage.$('#pdf-canvas');
+      const imageBuffer = await canvas.screenshot({
+        type: exportFormat === 'png' ? 'png' : 'jpeg',
+        quality: exportFormat === 'jpeg' ? 95 : undefined,
+        omitBackground: exportFormat === 'png'
+      });
+      
+      await browserPage.close();
+      
+      console.log(`✅ Image generated: ${imageBuffer.length} bytes`);
+      
+      const mimeType = exportFormat === 'png' ? 'image/png' : 'image/jpeg';
+      const extension = exportFormat === 'png' ? 'png' : 'jpg';
+      
+      res.set({
+        'Content-Type': mimeType,
+        'Content-Disposition': `attachment; filename="converted-${Date.now()}.${extension}"`,
+        'Content-Length': imageBuffer.length
+      });
+      
+      res.send(imageBuffer);
+      
+    } else if (exportFormat === 'doc') {
+      // PDF to DOC conversion - Extract text using PDF.js
+      console.log('📄 Converting PDF to DOC...');
+      
+      try {
+        const pdfDoc = await PDFDocument.load(file.buffer);
+        const pages = pdfDoc.getPages();
+        
+        if (pages.length === 0) {
+          console.error('❌ PDF has no pages to convert');
+          return res.status(400).json({ error: 'PDF has no pages to convert' });
+        }
+
+        console.log(`📄 Extracting text from ${pages.length} page(s)...`);
+        
+        // Use Puppeteer with PDF.js to extract text
+        const browser = await getBrowser();
+        const browserPage = await browser.newPage();
+        
+        // Convert PDF to base64
+        const pdfBase64 = file.buffer.toString('base64');
+        
+        // Create an HTML page to extract text using PDF.js
+        const htmlContent = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+          </head>
+          <body>
+            <pre id="text-content"></pre>
+            <script>
+              pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+              
+              const pdfData = atob('${pdfBase64}');
+              const pdfArray = new Uint8Array(pdfData.length);
+              for (let i = 0; i < pdfData.length; i++) {
+                pdfArray[i] = pdfData.charCodeAt(i);
+              }
+              
+              pdfjsLib.getDocument({data: pdfArray}).promise.then(async function(pdf) {
+                let formattedData = [];
+                let imagesByPage = {};
+                
+                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                  const page = await pdf.getPage(pageNum);
+                  const textContent = await page.getTextContent();
+                  const viewport = page.getViewport({scale: 2.0});
+                  
+                  if (pageNum > 1) {
+                    formattedData.push({type: 'pagebreak'});
+                  }
+                  
+                  // Extract images from page with positions
+                  const ops = await page.getOperatorList();
+                  const pageImages = [];
+                  
+                  for (let i = 0; i < ops.fnArray.length; i++) {
+                    if (ops.fnArray[i] === pdfjsLib.OPS.paintImageXObject) {
+                      try {
+                        const imgName = ops.argsArray[i][0];
+                        const img = await page.objs.get(imgName);
+                        
+                        if (img && img.data) {
+                          // Render image to canvas
+                          const canvas = document.createElement('canvas');
+                          canvas.width = img.width;
+                          canvas.height = img.height;
+                          const ctx = canvas.getContext('2d');
+                          
+                          // Handle different image formats
+                          if (img.kind === 1) { // Grayscale
+                            const imgData = ctx.createImageData(img.width, img.height);
+                            for (let j = 0; j < img.data.length; j++) {
+                              const k = j * 4;
+                              imgData.data[k] = img.data[j];
+                              imgData.data[k + 1] = img.data[j];
+                              imgData.data[k + 2] = img.data[j];
+                              imgData.data[k + 3] = 255;
+                            }
+                            ctx.putImageData(imgData, 0, 0);
+                          } else {
+                            const imgData = ctx.createImageData(img.width, img.height);
+                            imgData.data.set(img.data);
+                            ctx.putImageData(imgData, 0, 0);
+                          }
+                          
+                          // Convert to base64
+                          const base64 = canvas.toDataURL('image/png').split(',')[1];
+                          
+                          // Get transform matrix to find position
+                          const transform = ops.argsArray[i - 1] || [1, 0, 0, 1, 0, 0];
+                          const yPos = transform[5] || 0;
+                          
+                          pageImages.push({
+                            data: base64,
+                            width: img.width,
+                            height: img.height,
+                            y: yPos,
+                            pageNum: pageNum
+                          });
+                        }
+                      } catch (imgError) {
+                        console.warn('Could not extract image:', imgError);
+                      }
+                    }
+                  }
+                  
+                  imagesByPage[pageNum] = pageImages;
+                  
+                  // Sort items by Y position (top to bottom) then X position (left to right)
+                  let items = textContent.items.sort((a, b) => {
+                    const yDiff = Math.abs(a.transform[5] - b.transform[5]);
+                    if (yDiff > 5) {
+                      return b.transform[5] - a.transform[5]; // Top to bottom
+                    }
+                    return a.transform[4] - b.transform[4]; // Left to right
+                  });
+                  
+                  let lastY = null;
+                  let lastGap = 0;
+                  let lineItems = [];
+                  let lineStartX = null;
+                  
+                  items.forEach((item, idx) => {
+                    const y = item.transform[5];
+                    const x = item.transform[4];
+                    const fontSize = Math.round(item.transform[0]);
+                    const fontName = item.fontName || '';
+                    
+                    // Extract actual font family name
+                    let fontFamily = 'Times New Roman';
+                    if (fontName.includes('Arial') || fontName.includes('Helvetica')) {
+                      fontFamily = 'Arial';
+                    } else if (fontName.includes('Courier')) {
+                      fontFamily = 'Courier New';
+                    } else if (fontName.includes('Times')) {
+                      fontFamily = 'Times New Roman';
+                    }
+                    
+                    // Detect text style
+                    let isBold = fontName.toLowerCase().includes('bold');
+                    let isItalic = fontName.toLowerCase().includes('italic') || fontName.toLowerCase().includes('oblique');
+                    
+                    if (lineStartX === null) lineStartX = x;
+                    
+                    // Calculate gap between lines
+                    const currentGap = lastY !== null ? Math.abs(lastY - y) : 0;
+                    
+                    // New line if Y position changed significantly
+                    if (lastY !== null && currentGap > 5) {
+                      if (lineItems.length > 0) {
+                        // Detect alignment based on X position
+                        const pageWidth = viewport.width;
+                        
+                        let alignment = 'justify'; // Default to justify for better formatting
+                        if (lineStartX > pageWidth * 0.4 && lineStartX < pageWidth * 0.6) {
+                          alignment = 'center';
+                        } else if (lineStartX > pageWidth * 0.7) {
+                          alignment = 'right';
+                        }
+                        
+                        // Determine if this is paragraph break (larger gap) or line break
+                        const isParagraphBreak = currentGap > fontSize * 1.5;
+                        
+                        // Check if there's an image near this Y position
+                        const nearbyImage = pageImages.find(img => Math.abs(img.y - lastY) < 100);
+                        
+                        formattedData.push({
+                          type: 'line',
+                          items: lineItems,
+                          y: lastY,
+                          alignment: alignment,
+                          isParagraph: isParagraphBreak,
+                          gap: currentGap,
+                          image: nearbyImage
+                        });
+                        
+                        lastGap = currentGap;
+                      }
+                      lineItems = [];
+                      lineStartX = x;
+                    }
+                    
+                    lineItems.push({
+                      text: item.str,
+                      fontSize: fontSize,
+                      fontFamily: fontFamily,
+                      isBold: isBold,
+                      isItalic: isItalic,
+                      x: x
+                    });
+                    
+                    lastY = y;
+                  });
+                  
+                  // Add last line
+                  if (lineItems.length > 0) {
+                    const pageWidth = viewport.width;
+                    let alignment = 'left';
+                    if (lineStartX > pageWidth * 0.4 && lineStartX < pageWidth * 0.6) {
+                      alignment = 'center';
+                    } else if (lineStartX > pageWidth * 0.7) {
+                      alignment = 'right';
+                    }
+                    
+                    const nearbyImage = pageImages.find(img => Math.abs(img.y - lastY) < 100);
+                    
+                    formattedData.push({
+                      type: 'line',
+                      items: lineItems,
+                      y: lastY,
+                      alignment: alignment,
+                      isParagraph: true,
+                      image: nearbyImage
+                    });
+                  }
+                }
+                
+                document.getElementById('text-content').setAttribute('data-formatted', JSON.stringify(formattedData));
+                document.getElementById('text-content').setAttribute('data-images', JSON.stringify(imagesByPage));
+                document.getElementById('text-content').textContent = 'FORMATTED_DATA_AVAILABLE';
+                document.body.setAttribute('data-loaded', 'true');
+              }).catch(function(error) {
+                console.error('PDF.js error:', error);
+                document.getElementById('text-content').textContent = 'ERROR_EXTRACTING_TEXT';
+                document.body.setAttribute('data-loaded', 'true');
+              });
+            </script>
+          </body>
+          </html>
+        `;
+        
+        await browserPage.setContent(htmlContent, { waitUntil: 'networkidle0' });
+        
+        // Wait for text extraction to complete
+        await browserPage.waitForSelector('[data-loaded="true"]', { timeout: 15000 });
+        
+        // Get extracted text and formatted data
+        let extractedResult = await browserPage.evaluate(() => {
+          const textContent = document.getElementById('text-content').textContent;
+          const formattedAttr = document.getElementById('text-content').getAttribute('data-formatted');
+          const imagesAttr = document.getElementById('text-content').getAttribute('data-images');
+          return {
+            text: textContent,
+            formatted: formattedAttr ? JSON.parse(formattedAttr) : null,
+            images: imagesAttr ? JSON.parse(imagesAttr) : []
+          };
+        });
+        
+        await browserPage.close();
+        
+        let extractedText = extractedResult.text;
+        let formattedData = extractedResult.formatted;
+        let pdfImages = extractedResult.images;
+        
+        console.log(`✅ Extracted data:`, { 
+          textLength: extractedText.length, 
+          hasFormatting: !!formattedData,
+          items: formattedData?.length,
+          imageCount: pdfImages.length
+        });
+        
+        // Check if extraction failed or resulted in empty text - try OCR
+        if (extractedText === 'ERROR_EXTRACTING_TEXT' || (!formattedData && extractedText.trim().length < 10)) {
+          console.warn('⚠️ Text extraction failed or resulted in minimal text. Attempting OCR...');
+          
+          try {
+            // This appears to be a scanned PDF - use OCR
+            console.log('📸 Starting OCR process for scanned PDF...');
+            
+            const worker = await createWorker('eng');
+            let ocrText = '';
+            
+            // Convert each PDF page to image and run OCR
+            for (let pageNum = 1; pageNum <= pages.length; pageNum++) {
+              console.log(`🔍 OCR processing page ${pageNum}/${pages.length}...`);
+              
+              // Render page to image using the same method as JPEG conversion
+              const ocrBrowser = await getBrowser();
+              const ocrPage = await ocrBrowser.newPage();
+              
+              const page = pdfDoc.getPages()[pageNum - 1];
+              const { width, height } = page.getSize();
+              
+              await ocrPage.setViewport({
+                width: Math.round(width * 2),
+                height: Math.round(height * 2),
+                deviceScaleFactor: 1
+              });
+              
+              const pdfBase64 = file.buffer.toString('base64');
+              
+              const ocrHtml = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                  <style>body { margin: 0; padding: 0; background: white; }</style>
+                  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+                </head>
+                <body>
+                  <canvas id="pdf-canvas"></canvas>
+                  <script>
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                    const pdfData = atob('${pdfBase64}');
+                    const pdfArray = new Uint8Array(pdfData.length);
+                    for (let i = 0; i < pdfData.length; i++) pdfArray[i] = pdfData.charCodeAt(i);
+                    pdfjsLib.getDocument({data: pdfArray}).promise.then(function(pdf) {
+                      pdf.getPage(${pageNum}).then(function(page) {
+                        const viewport = page.getViewport({scale: 2});
+                        const canvas = document.getElementById('pdf-canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+                        page.render({canvasContext: context, viewport: viewport}).promise.then(function() {
+                          document.body.setAttribute('data-loaded', 'true');
+                        });
+                      });
+                    });
+                  </script>
+                </body>
+                </html>
+              `;
+              
+              await ocrPage.setContent(ocrHtml, { waitUntil: 'networkidle0' });
+              await ocrPage.waitForSelector('[data-loaded="true"]', { timeout: 10000 });
+              
+              const canvas = await ocrPage.$('#pdf-canvas');
+              const imageBuffer = await canvas.screenshot({ type: 'png' });
+              await ocrPage.close();
+              
+              // Run OCR on the image
+              const { data: { text } } = await worker.recognize(imageBuffer);
+              
+              if (pageNum > 1) {
+                ocrText += '\n\n';
+              }
+              ocrText += text.trim();
+              
+              console.log(`✅ OCR page ${pageNum} complete (${text.length} chars)`);
+            }
+            
+            await worker.terminate();
+            
+            if (ocrText.trim().length > 10) {
+              console.log(`✅ OCR successful! Extracted ${ocrText.length} characters`);
+              extractedText = ocrText;
+            } else {
+              console.warn('⚠️ OCR returned minimal text');
+              extractedText = `PDF to Word Conversion\n\n` +
+                             `This document was converted from a PDF file.\n` +
+                             `Original PDF contained ${pages.length} page(s).\n\n` +
+                             `Note: OCR was attempted but yielded minimal results. The PDF may contain complex graphics, non-text content, or very low-quality scans.\n` +
+                             `For best results, use a higher quality scan or the original digital document.`;
+            }
+          } catch (ocrError) {
+            console.error('❌ OCR failed:', ocrError);
+            extractedText = `PDF to Word Conversion\n\n` +
+                           `This document was converted from a PDF file.\n` +
+                           `Original PDF contained ${pages.length} page(s).\n\n` +
+                           `Note: The PDF may contain images, scanned content, or complex formatting that cannot be extracted as text.\n` +
+                           `For best results, use the original PDF file or a PDF with selectable text.`;
+          }
+        }
+        
+        // Generate RTF with formatting
+        let rtfContent;
+        
+        if (formattedData && formattedData.length > 0) {
+          console.log(`📝 Generating formatted RTF with inline images...`);
+          
+          // Build font table with actual fonts used
+          let fontTable = '{\\fonttbl\n';
+          fontTable += '{\\f0\\fswiss\\fcharset0 Arial;}\n';
+          fontTable += '{\\f1\\froman\\fcharset0 Times New Roman;}\n';
+          fontTable += '{\\f2\\fmodern\\fcharset0 Courier New;}\n';
+          fontTable += '}\n';
+          
+          // Map font names to font numbers
+          const fontMap = {
+            'Arial': '\\f0',
+            'Times New Roman': '\\f1',
+            'Courier New': '\\f2'
+          };
+          
+          // Build RTF with preserved formatting
+          let rtfBody = '';
+          let lastWasParagraph = false;
+          
+          formattedData.forEach((item, itemIdx) => {
+            if (item.type === 'pagebreak') {
+              rtfBody += '\\page\n';
+            } else if (item.type === 'line') {
+              // Add paragraph with alignment
+              const alignCmd = {
+                'left': '\\ql',
+                'center': '\\qc',
+                'right': '\\qr',
+                'justify': '\\qj'
+              }[item.alignment || 'left'];
+              
+              // Only add spacing after paragraph breaks
+              let spacing = '';
+              if (item.isParagraph) {
+                spacing = '\\sa180 '; // Paragraph spacing (9pt after)
+              }
+              
+              rtfBody += `\\pard${alignCmd}${spacing}`;
+              
+              // Add inline image if present
+              if (item.image) {
+                const img = item.image;
+                // Convert base64 image to hex for RTF
+                const imageBuffer = Buffer.from(img.data, 'base64');
+                let hex = imageBuffer.toString('hex');
+                // Limit hex string size for performance (max ~100KB)
+                if (hex.length > 200000) {
+                  hex = hex.substring(0, 200000);
+                }
+                
+                // Scale image to fit (max width 6 inches = 8640 twips)
+                // 1 pixel = 20 twips for proper aspect ratio
+                const maxWidthTwips = 8640;
+                const imageWidthTwips = img.width * 20;
+                const imageHeightTwips = img.height * 20;
+                
+                // Scale down if too wide
+                let displayWidthTwips = imageWidthTwips;
+                let displayHeightTwips = imageHeightTwips;
+                if (imageWidthTwips > maxWidthTwips) {
+                  const scale = maxWidthTwips / imageWidthTwips;
+                  displayWidthTwips = maxWidthTwips;
+                  displayHeightTwips = Math.round(imageHeightTwips * scale);
+                }
+                
+                rtfBody += `{\\pict\\pngblip\\picw${img.width}\\pich${img.height}\\picwgoal${displayWidthTwips}\\pichgoal${displayHeightTwips} ${hex}}\\par\n`;
+              }
+              
+              // Process each text item in the line with its own formatting
+              item.items.forEach((textItem, idx) => {
+                const text = textItem.text || '';
+                if (!text.trim()) {
+                  if (idx < item.items.length - 1) rtfBody += ' ';
+                  return;
+                }
+                
+                // Calculate RTF font size (half-points, so 12pt = 24)
+                const rtfFontSize = Math.max(textItem.fontSize * 2, 20);
+                
+                // Apply font family
+                const fontCmd = fontMap[textItem.fontFamily] || '\\f1';
+                rtfBody += fontCmd + ' ';
+                
+                // Apply formatting
+                if (textItem.isBold) rtfBody += '\\b ';
+                if (textItem.isItalic) rtfBody += '\\i ';
+                rtfBody += `\\fs${rtfFontSize} `;
+                
+                // Escape special characters for RTF
+                const escaped = text
+                  .replace(/\\/g, '\\\\')
+                  .replace(/{/g, '\\{')
+                  .replace(/}/g, '\\}')
+                  .replace(/[^\x00-\x7F]/g, (char) => {
+                    const code = char.charCodeAt(0);
+                    return code > 255 ? `\\u${code}?` : char;
+                  });
+                
+                rtfBody += escaped;
+                
+                // Reset formatting
+                if (textItem.isBold) rtfBody += '\\b0 ';
+                if (textItem.isItalic) rtfBody += '\\i0 ';
+                
+                // Add space between items if needed
+                if (idx < item.items.length - 1 && !text.endsWith(' ')) {
+                  rtfBody += ' ';
+                }
+              });
+              rtfBody += '\\par\n';
+            }
+          });
+          
+          rtfContent = `{\\rtf1\\ansi\\ansicpg1252\\deff1
+${fontTable}
+{\\*\\generator SmartDesignPro PDF to DOC Converter;}
+\\viewkind4\\uc1
+${rtfBody}
+}`;
+        } else {
+          console.log('📝 Generating plain text RTF (no formatting data)...');
+          
+          // Fallback to plain text formatting
+          extractedText = extractedText
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0)
+            .join('\n');
+          
+          rtfContent = `{\\rtf1\\ansi\\ansicpg1252\\deff0
+{\\fonttbl
+{\\f0\\fswiss\\fcharset0 Arial;}
+{\\f1\\froman\\fcharset0 Times New Roman;}
+}
+{\\*\\generator SmartDesignPro PDF to DOC Converter;}
+\\viewkind4\\uc1
+\\pard\\f1\\fs22
+${extractedText.split('\n').map(line => {
+  if (line.trim() === '') return '\\par';
+  const escaped = line
+    .replace(/\\/g, '\\\\')
+    .replace(/{/g, '\\{')
+    .replace(/}/g, '\\}')
+    .replace(/[^\x00-\x7F]/g, (char) => {
+      const code = char.charCodeAt(0);
+      return code > 255 ? `\\u${code}?` : char;
+    });
+  return escaped + '\\par';
+}).join('\n')}
+}`;
+        }
+        
+        const docBuffer = Buffer.from(rtfContent, 'utf8');
+        
+        res.set({
+          'Content-Type': 'application/rtf',
+          'Content-Disposition': `attachment; filename="converted-${Date.now()}.rtf"`,
+          'Content-Length': docBuffer.length
+        });
+        
+        res.send(docBuffer);
+        
+        console.log(`✅ Successfully converted PDF to RTF (${pages.length} pages, ${docBuffer.length} bytes)`);
+        
+      } catch (pdfError) {
+        console.error('PDF processing error:', pdfError);
+        
+        // Fallback: create a basic RTF document with error message
+        const fallbackContent = `{\\rtf1\\ansi\\deff0
+{\\fonttbl{\\f0\\fnil\\fcharset0 Arial;}}
+{\\*\\generator SmartDesignPro;}
+\\viewkind4\\uc1\\pard\\f0\\fs24
+PDF to Word Conversion\\par
+\\par
+There was an issue processing the original PDF file.\\par
+This document serves as a placeholder for the conversion.\\par
+\\par
+Please verify that the uploaded file is a valid PDF document.\\par
+}`;
+        
+        const fallbackBuffer = Buffer.from(fallbackContent, 'utf8');
+        
+        res.set({
+          'Content-Type': 'application/rtf',
+          'Content-Disposition': `attachment; filename="converted-error-${Date.now()}.rtf"`,
+          'Content-Length': fallbackBuffer.length
+        });
+        
+        res.send(fallbackBuffer);
+      }
+    }
+
+  } catch (error) {
+    console.error('Export error:', error);
+    res.status(500).json({ 
+      error: 'Failed to export PDF',
+      details: error.message 
+    });
+  }
+});
+
+// Helper function to process image files
+async function processImageFile(outputDoc, file, imageType, options) {
+  const { pageSize, orientation, customWidth, customHeight } = options;
+  
+  let image;
+  if (imageType === 'jpg') {
+    image = await outputDoc.embedJpg(file.buffer);
+  } else if (imageType === 'png') {
+    image = await outputDoc.embedPng(file.buffer);
+  }
+
+  const { width: imgWidth, height: imgHeight } = image.scale(1);
+
+  // Determine page dimensions
+  const { pageWidth, pageHeight } = getPageDimensions(pageSize, orientation, customWidth, customHeight, imgWidth, imgHeight);
+
+  // Create a page with the determined dimensions
+  const page = outputDoc.addPage([pageWidth, pageHeight]);
+
+  // Calculate scaling to fit image on page while maintaining aspect ratio
+  const scaleX = pageWidth / imgWidth;
+  const scaleY = pageHeight / imgHeight;
+  const scale = Math.min(scaleX, scaleY);
+
+  const scaledWidth = imgWidth * scale;
+  const scaledHeight = imgHeight * scale;
+
+  // Center the image on the page
+  const x = (pageWidth - scaledWidth) / 2;
+  const y = (pageHeight - scaledHeight) / 2;
+
+  page.drawImage(image, {
+    x,
+    y,
+    width: scaledWidth,
+    height: scaledHeight,
+  });
+
+  console.log(`Added image ${file.originalname}: ${imgWidth}x${imgHeight} scaled to ${scaledWidth.toFixed(0)}x${scaledHeight.toFixed(0)} on ${pageWidth}x${pageHeight} page`);
+}
+
+// Helper function to process DOCX files
+async function processDocxFile(outputDoc, file, browser, options) {
+  const { pageSize, orientation, customWidth, customHeight } = options;
+  
+  // Convert DOCX to HTML
+  const result = await mammoth.convertToHtml({ buffer: file.buffer });
+  const html = result.value;
+  
+  if (result.messages.length > 0) {
+    console.log('DOCX conversion messages:', result.messages);
+  }
+
+  // Create a styled HTML page
+  const styledHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { 
+          font-family: 'Times New Roman', serif; 
+          line-height: 1.6; 
+          margin: 40px;
+          color: #333;
+        }
+        p { margin-bottom: 12px; }
+        h1, h2, h3, h4, h5, h6 { margin-top: 24px; margin-bottom: 12px; }
+        ul, ol { margin-bottom: 12px; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 12px; }
+        td, th { border: 1px solid #ddd; padding: 8px; }
+      </style>
+    </head>
+    <body>
+      ${html}
+    </body>
+    </html>
+  `;
+
+  // Determine page dimensions
+  const { pageWidth, pageHeight } = getPageDimensions(pageSize, orientation, customWidth, customHeight, 612, 792);
+
+  // Create PDF from HTML using Puppeteer
+  const page = await browser.newPage();
+  await page.setContent(styledHtml);
+  
+  const pdfBuffer = await page.pdf({
+    format: pageSize === 'custom' ? undefined : (pageSize === 'auto' ? 'Letter' : pageSize.toUpperCase()),
+    width: pageSize === 'custom' ? `${pageWidth}pt` : undefined,
+    height: pageSize === 'custom' ? `${pageHeight}pt` : undefined,
+    landscape: orientation === 'landscape',
+    margin: {
+      top: '0.5in',
+      right: '0.5in',
+      bottom: '0.5in',
+      left: '0.5in',
+    },
+  });
+
+  await page.close();
+
+  // Load the generated PDF and copy pages to output document
+  const docPdf = await PDFDocument.load(pdfBuffer);
+  const pages = await outputDoc.copyPages(docPdf, docPdf.getPageIndices());
+  pages.forEach(page => outputDoc.addPage(page));
+
+  console.log(`Added DOCX document ${file.originalname}: ${pages.length} pages`);
+}
+
+// Helper function to process other image formats (GIF, TIFF, BMP, WEBP)
+async function processOtherImageFile(outputDoc, file, options) {
+  const { pageSize, orientation, customWidth, customHeight } = options;
+  
+  try {
+    // For now, we'll use a workaround: convert to base64 and embed as PNG
+    // Note: pdf-lib has limited support for some formats
+    const sharp = await import('sharp');
+    
+    // Convert image to PNG buffer
+    const pngBuffer = await sharp.default(file.buffer)
+      .png()
+      .toBuffer();
+    
+    // Create a temporary file object with PNG mime type
+    const pngFile = {
+      ...file,
+      buffer: pngBuffer,
+      mimetype: 'image/png'
+    };
+    
+    // Process as PNG
+    await processImageFile(outputDoc, pngFile, 'png', options);
+    console.log(`Converted ${file.originalname} to PNG and added to PDF`);
+  } catch (error) {
+    console.error(`Failed to process ${file.originalname}:`, error.message);
+    console.warn(`Attempting fallback method for ${file.originalname}`);
+    // Fallback: try to embed directly if it's a supported format
+    throw error;
+  }
+}
+
+// Helper function to process plain text files
+async function processTextFile(outputDoc, file, browser, options) {
+  const { pageSize, orientation, customWidth, customHeight } = options;
+  
+  // Convert text to HTML
+  const textContent = file.buffer.toString('utf-8');
+  const htmlContent = textContent
+    .split('\n')
+    .map(line => `<p>${line.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`)
+    .join('');
+  
+  // Create a styled HTML page
+  const styledHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { 
+          font-family: 'Courier New', monospace; 
+          line-height: 1.4; 
+          margin: 40px;
+          color: #000;
+          font-size: 12px;
+        }
+        p { margin: 0; white-space: pre-wrap; }
+      </style>
+    </head>
+    <body>
+      ${htmlContent}
+    </body>
+    </html>
+  `;
+
+  // Determine page dimensions
+  const { pageWidth, pageHeight } = getPageDimensions(pageSize, orientation, customWidth, customHeight, 612, 792);
+
+  // Create PDF from HTML using Puppeteer
+  const page = await browser.newPage();
+  await page.setContent(styledHtml);
+  
+  const pdfBuffer = await page.pdf({
+    format: pageSize === 'custom' ? undefined : (pageSize === 'auto' ? 'Letter' : pageSize.toUpperCase()),
+    width: pageSize === 'custom' ? `${pageWidth}pt` : undefined,
+    height: pageSize === 'custom' ? `${pageHeight}pt` : undefined,
+    landscape: orientation === 'landscape',
+    margin: {
+      top: '0.5in',
+      right: '0.5in',
+      bottom: '0.5in',
+      left: '0.5in',
+    },
+  });
+
+  await page.close();
+
+  // Load the generated PDF and copy pages to output document
+  const docPdf = await PDFDocument.load(pdfBuffer);
+  const pages = await outputDoc.copyPages(docPdf, docPdf.getPageIndices());
+  pages.forEach(page => outputDoc.addPage(page));
+
+  console.log(`Added text file ${file.originalname}: ${pages.length} pages`);
+}
+
+// Helper function to get page dimensions
+function getPageDimensions(pageSize, orientation, customWidth, customHeight, defaultWidth = 612, defaultHeight = 792) {
+  let pageWidth, pageHeight;
+
+  if (pageSize === 'auto') {
+    // Use provided dimensions (typically from original image/document)
+    pageWidth = defaultWidth;
+    pageHeight = defaultHeight;
+    // Don't apply orientation transformation for auto mode - use original dimensions
+    return { pageWidth, pageHeight };
+  } else if (pageSize === 'custom' && customWidth && customHeight) {
+    pageWidth = parseFloat(customWidth) * 72; // Convert inches to points
+    pageHeight = parseFloat(customHeight) * 72;
+  } else {
+    // Standard page sizes (in points: 1 inch = 72 points)
+    const sizes = {
+      'letter': [612, 792],
+      'legal': [612, 1008],
+      'a4': [595, 842],
+      'a3': [842, 1191],
+      'tabloid': [792, 1224]
+    };
+    [pageWidth, pageHeight] = sizes[pageSize.toLowerCase()] || [612, 792];
+  }
+
+  // Apply orientation (only for non-auto page sizes)
+  if (orientation === 'landscape' && pageHeight > pageWidth) {
+    [pageWidth, pageHeight] = [pageHeight, pageWidth];
+  }
+
+  return { pageWidth, pageHeight };
+}
 
 // Imposition helper functions
 
@@ -2355,6 +3453,7 @@ app.listen(PORT, () => {
   console.log(`≡ƒôä Endpoints:`);
   console.log(`   POST /api/imposition/process - Process single PDF`);
   console.log(`   POST /api/imposition/merge - Merge multiple PDFs`);
+  console.log(`   POST /api/imposition/convert - Convert images to PDF`);
   console.log(`   GET  /health - Health check`);
 }).on('error', (err) => {
   console.error('Γ¥î Server error:', err);

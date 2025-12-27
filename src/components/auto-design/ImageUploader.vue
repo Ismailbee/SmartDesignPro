@@ -32,15 +32,37 @@
       />
 
       <div class="upload-content">
-        <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-        </svg>
-        <p class="upload-text">
-          <span class="font-semibold">Click to upload</span> or drag and drop
-        </p>
-        <p class="upload-hint">
-          PNG, JPG, GIF up to 10MB (Max 99 images)
-        </p>
+        <div class="upload-icon-wrapper">
+          <div class="upload-icon-bg"></div>
+          <div class="upload-icon-orbit">
+            <div class="orbit-dot orbit-dot-1"></div>
+            <div class="orbit-dot orbit-dot-2"></div>
+            <div class="orbit-dot orbit-dot-3"></div>
+          </div>
+          <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+        </div>
+        <div class="upload-text-section">
+          <p class="upload-text">
+            <span class="upload-primary">Drop your images here</span>
+          </p>
+          <p class="upload-subtitle">
+            or <span class="upload-action">click to browse</span> from your device
+          </p>
+          <p class="upload-hint">
+            Supports <span class="format-highlight">PNG, JPEG, GIF, WEBP</span> up to <strong>10MB</strong> each
+          </p>
+          <p class="upload-limit">
+            Maximum <strong>{{ 99 - images.length }}</strong> more images
+          </p>
+        </div>
+        <div class="supported-formats-compact">
+          <span class="format-badge-compact image">PNG</span>
+          <span class="format-badge-compact image">JPG</span>
+          <span class="format-badge-compact image">GIF</span>
+          <span class="format-badge-compact image">WEBP</span>
+        </div>
       </div>
     </div>
 
@@ -172,36 +194,289 @@ function clearAll() {
 }
 
 .upload-area {
-  @apply relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center cursor-pointer transition-all duration-200;
+  position: relative;
+  border: 2px dashed #e2e8f0;
+  border-radius: 20px;
+  padding: 48px 32px;
+  text-align: center;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: pointer;
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.upload-area::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6, #06b6d4, #3b82f6);
+  background-size: 300% 300%;
+  opacity: 0;
+  z-index: -1;
+  transition: opacity 0.4s ease;
+  animation: gradientRotate 4s ease infinite;
+}
+
+.upload-area::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
+  z-index: -1;
+  transition: all 0.4s ease;
+}
+
+@keyframes gradientRotate {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }
 
 .upload-area:hover:not(.disabled) {
-  @apply border-cyan-500 dark:border-cyan-400 bg-cyan-50 dark:bg-cyan-900/10;
+  border-color: transparent;
+  transform: translateY(-4px);
+  box-shadow: 
+    0 0 0 1px rgba(59, 130, 246, 0.1),
+    0 4px 8px rgba(59, 130, 246, 0.08),
+    0 16px 32px rgba(59, 130, 246, 0.12);
+}
+
+.upload-area:hover:not(.disabled)::before {
+  opacity: 1;
+}
+
+.upload-area:hover:not(.disabled)::after {
+  background: linear-gradient(180deg, #ffffff 0%, #eff6ff 50%, #dbeafe 100%);
 }
 
 .upload-area.dragging {
-  @apply border-cyan-500 bg-cyan-50 dark:bg-cyan-900/20 scale-105;
+  border-color: transparent;
+  transform: scale(1.02);
+  box-shadow: 
+    0 0 0 4px rgba(59, 130, 246, 0.2),
+    0 8px 16px rgba(59, 130, 246, 0.15),
+    0 32px 64px rgba(59, 130, 246, 0.2);
+}
+
+.upload-area.dragging::before {
+  opacity: 1;
+  animation: gradientRotate 1s ease infinite;
+}
+
+.upload-area.dragging::after {
+  background: linear-gradient(180deg, #dbeafe 0%, #bfdbfe 50%, #93c5fd 100%);
 }
 
 .upload-area.disabled {
-  @apply opacity-50 cursor-not-allowed;
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
 }
 
 .upload-content {
-  @apply flex flex-col items-center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  animation: fadeInScale 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 1;
+}
+
+@keyframes fadeInScale {
+  from { 
+    opacity: 0; 
+    transform: scale(0.9) translateY(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: scale(1) translateY(0); 
+  }
+}
+
+.upload-icon-wrapper {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.upload-icon-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #06b6d4 100%);
+  border-radius: 50%;
+  opacity: 0.1;
+  animation: breathe 3s ease-in-out infinite;
+}
+
+.upload-icon-orbit {
+  position: absolute;
+  inset: -15px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #3b82f6, #8b5cf6, #06b6d4, #3b82f6);
+  background-clip: padding-box;
+  animation: rotate 6s linear infinite;
+  opacity: 0.3;
+}
+
+.orbit-dot {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  top: -3px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.orbit-dot-1 {
+  animation: orbitDot 3s ease-in-out infinite;
+  animation-delay: 0s;
+}
+
+.orbit-dot-2 {
+  animation: orbitDot 3s ease-in-out infinite;
+  animation-delay: -1s;
+}
+
+.orbit-dot-3 {
+  animation: orbitDot 3s ease-in-out infinite;
+  animation-delay: -2s;
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.1; }
+  50% { transform: scale(1.15); opacity: 0.2; }
+}
+
+@keyframes rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes orbitDot {
+  0%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
+  50% { opacity: 0.3; transform: translateX(-50%) scale(1.5); }
 }
 
 .upload-icon {
-  @apply w-12 h-12 text-gray-400 dark:text-gray-500 mb-3;
+  width: 48px;
+  height: 48px;
+  color: #3b82f6;
+  z-index: 2;
+  filter: drop-shadow(0 4px 16px rgba(59, 130, 246, 0.3));
+  animation: floatIcon 4s ease-in-out infinite;
+}
+
+@keyframes floatIcon {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-8px) rotate(-2deg); }
+  75% { transform: translateY(-4px) rotate(2deg); }
+}
+
+.upload-text-section {
+  text-align: center;
+  max-width: 320px;
 }
 
 .upload-text {
-  @apply text-sm text-gray-600 dark:text-gray-400 mb-1;
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.upload-primary {
+  background: linear-gradient(135deg, #1e293b 0%, #475569 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+}
+
+.upload-subtitle {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.upload-action {
+  color: #3b82f6;
+  font-weight: 600;
 }
 
 .upload-hint {
-  @apply text-xs text-gray-500 dark:text-gray-500;
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.4;
 }
+
+.format-highlight {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 600;
+}
+
+.upload-limit {
+  margin: 0;
+  font-size: 12px;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+.upload-limit strong {
+  color: #3b82f6;
+}
+
+.supported-formats-compact {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.format-badge-compact {
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.format-badge-compact.image {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border-color: #93c5fd;
+  color: #1e40af;
+}
+
+.format-badge-compact:hover {
+  transform: translateY(-1px) scale(1.05);
+}
+
+.format-badge-compact.image:hover {
+  background: linear-gradient(135deg, #bfdbfe 0%, #93c5fd 100%);
+  border-color: #60a5fa;
+  color: #1d4ed8;
+}
+</style>
 
 .image-carousel-container {
   @apply mt-4;

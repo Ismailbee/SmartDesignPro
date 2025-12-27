@@ -14,6 +14,40 @@
   </head>
   <body>
     <div id="app"></div>
+    
+    <!-- Suppress Datadog warnings before any scripts load -->
+    <script>
+      (function() {
+        const originalWarn = console.warn;
+        const originalLog = console.log;
+        const originalError = console.error;
+        
+        console.warn = function(...args) {
+          const msg = args[0] && args[0].toString ? args[0].toString() : '';
+          if (msg.includes('Datadog') || msg.includes('No storage available')) {
+            return;
+          }
+          originalWarn.apply(console, args);
+        };
+        
+        console.log = function(...args) {
+          const msg = args[0] && args[0].toString ? args[0].toString() : '';
+          if (msg.includes('Datadog') || msg.includes('No storage available')) {
+            return;
+          }
+          originalLog.apply(console, args);
+        };
+        
+        console.error = function(...args) {
+          const msg = args[0] && args[0].toString ? args[0].toString() : '';
+          if (msg.includes('service worker') || msg.includes('ServiceWorker') || msg.includes('Datadog Browser SDK')) {
+            return;
+          }
+          originalError.apply(console, args);
+        };
+      })();
+    </script>
+    
     <script type="module" src="/src/main.ts"></script>
 
     <!-- Paystack Inline JS for payment processing -->
