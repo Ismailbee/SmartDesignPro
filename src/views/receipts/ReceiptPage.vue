@@ -388,8 +388,8 @@
 <script>
 import { defineComponent, ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import DocumentHistoryModal from '@/components/DocumentHistoryModal.vue';
-import LogoCropper from '@/components/LogoCropper.vue';
+import DocumentHistoryModal from '@/components/modals/DocumentHistoryModal.vue';
+import LogoCropper from '@/components/image/LogoCropper.vue';
 import { storeToRefs } from 'pinia';
 import html2pdf from 'html2pdf.js';
 import * as htmlToImage from 'html-to-image';

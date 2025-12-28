@@ -282,7 +282,7 @@ import { useImageRetouch } from '@/composables/useImageRetouch'
 import { getBackgroundRefsCached } from '@/services/background/background-catalog.service'
 
 // Lazy load heavy components for better performance
-const ImageCropModal = defineAsyncComponent(() => import('@/components/ImageCropModal.vue'))
+const ImageCropModal = defineAsyncComponent(() => import('@/components/modals/ImageCropModal.vue'))
 const SmartCameraInput = defineAsyncComponent(() => import('./SmartCameraInput.vue'))
 const SmartTextarea = defineAsyncComponent(() => import('./SmartTextarea.vue'))
 

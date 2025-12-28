@@ -547,8 +547,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import BaseButton from '@/components/BaseButton.vue'
-import LogoCropper from '@/components/LogoCropper.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import LogoCropper from '@/components/image/LogoCropper.vue'
 import html2pdf from 'html2pdf.js'
 import * as htmlToImage from 'html-to-image'
 

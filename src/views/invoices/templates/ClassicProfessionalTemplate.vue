@@ -364,7 +364,7 @@
 
 <script>
 import { defineComponent, ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
-import LogoCropper from '@/components/LogoCropper.vue';
+import LogoCropper from '@/components/image/LogoCropper.vue';
 import { useRouter, useRoute } from 'vue-router';
 import { safeLocalStorage } from '@/utils/storage.utils';
 

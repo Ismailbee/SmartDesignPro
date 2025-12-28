@@ -340,7 +340,7 @@
 
 <script>
 import { defineComponent, ref, computed, watch, onMounted } from 'vue';
-import LogoCropper from '@/components/LogoCropper.vue';
+import LogoCropper from '@/components/image/LogoCropper.vue';
 import UploadPreviewBox from '@/components/common/UploadPreviewBox.vue';
 import { useRouter } from 'vue-router';
 

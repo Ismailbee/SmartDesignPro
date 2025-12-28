@@ -456,7 +456,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import type { AssetItem, ColorPalette } from '@/types'
-import ImageCropperModal from './ImageCropperModal.vue'
+import ImageCropperModal from '@/components/modals/ImageCropperModal.vue'
 
 // Props
 const props = defineProps<{

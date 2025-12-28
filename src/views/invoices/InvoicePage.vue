@@ -509,9 +509,9 @@
 
 <script>
 import { defineComponent, ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
-import BaseButton from '@/components/BaseButton.vue';
-import DocumentHistoryModal from '@/components/DocumentHistoryModal.vue';
-import LogoCropper from '@/components/LogoCropper.vue';
+import BaseButton from '@/components/ui/BaseButton.vue';
+import DocumentHistoryModal from '@/components/modals/DocumentHistoryModal.vue';
+import LogoCropper from '@/components/image/LogoCropper.vue';
 import html2pdf from 'html2pdf.js';
 import * as htmlToImage from 'html-to-image';
 // const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
