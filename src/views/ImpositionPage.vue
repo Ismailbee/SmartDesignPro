@@ -818,7 +818,7 @@ import {
   IonInput,
   IonAlert,
 } from '@ionic/vue';
-import { backendApi } from '@/services/backendApi.js';
+import { backendApi } from '@/services/api/backendApi.js';
 import {
   cloudUploadOutline,
   documentOutline,

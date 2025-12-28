@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { collaborationSocket } from '@/services/collaboration-socket'
+import { collaborationSocket } from '@/services/socket/collaboration-socket'
 import { CollaborationEvent } from '@/types/collaboration'
 import type {
   CollaboratorUser,

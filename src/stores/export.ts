@@ -23,7 +23,7 @@ import {
   createShareLink,
   getProjectShareLinks,
   revokeShareLink,
-} from '@/services/export-api'
+} from '@/services/api/export-api'
 
 export const useExportStore = defineStore('export', () => {
   // State

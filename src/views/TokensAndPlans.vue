@@ -313,7 +313,7 @@ import {
 import { useUserStore } from '@/stores/user.store'
 import { useAuthStore } from '@/stores/auth'
 import { TOKEN_PACKAGES, PLAN_CONFIGS, type TokenPackage, type PlanConfig, type PlanType } from '@/types/payment.types'
-import { purchaseTokens, upgradePlan, verifyPayment } from '@/services/payment.service'
+import { purchaseTokens, upgradePlan, verifyPayment } from '@/services/user/payment.service'
 
 // Router
 const router = useRouter()

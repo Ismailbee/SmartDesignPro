@@ -13,7 +13,7 @@ import type {
   PasswordResetRequest,
   AuthModalView
 } from '@/types/auth'
-import * as firebaseAuth from '@/services/firebase-auth'
+import * as firebaseAuth from '@/services/firebase/firebase-auth'
 import { FEATURES, OFFLINE_USER, isNativePlatform } from '@/config/environment'
 // import router from '@/router' - Removed to avoid circular dependency
 

@@ -5,7 +5,7 @@
  * Import and use these throughout your app to send notifications easily
  */
 
-import { createNotification, type CreateNotificationInput } from '@/services/notification.service'
+import { createNotification, type CreateNotificationInput } from '@/services/user/notification.service'
 import { useAuthStore } from '@/stores/auth'
 
 /**

@@ -279,7 +279,7 @@ import { useDynamicSVG } from '@/composables/useDynamicSVG'
 import { useSVGTextReplacement } from '@/composables/useSVGTextReplacement'
 import { useBackgroundRemoval } from '@/composables/useBackgroundRemoval'
 import { useImageRetouch } from '@/composables/useImageRetouch'
-import { getBackgroundRefsCached } from '@/services/background-catalog.service'
+import { getBackgroundRefsCached } from '@/services/background/background-catalog.service'
 
 // Lazy load heavy components for better performance
 const ImageCropModal = defineAsyncComponent(() => import('@/components/ImageCropModal.vue'))

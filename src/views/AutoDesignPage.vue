@@ -575,7 +575,7 @@ const StickerTemplatePanel = defineAsyncComponent({
 const ImageUploader = defineAsyncComponent(() => import('@/components/auto-design/ImageUploader.vue'))
 const BackgroundSelectionPopup = defineAsyncComponent(() => import('@/components/auto-design/BackgroundSelectionPopup.vue'))
 const DesignPreviewModal = defineAsyncComponent(() => import('@/components/auto-design/DesignPreviewModal.vue'))
-import * as autoDesignApi from '@/services/auto-design-api'
+import * as autoDesignApi from '@/services/api/auto-design-api'
 const route = useRoute()
 const router = useRouter()
 const autoDesignStore = useAutoDesignStore()

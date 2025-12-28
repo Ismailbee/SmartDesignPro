@@ -232,7 +232,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useExportStore } from '@/stores/export'
 import { storeToRefs } from 'pinia'
 import { SOCIAL_PLATFORMS } from '@/types/export'
-import { shareToSocial as shareToSocialAPI, copyToClipboard, sendEmailShare } from '@/services/export-api'
+import { shareToSocial as shareToSocialAPI, copyToClipboard, sendEmailShare } from '@/services/api/export-api'
 import type { SocialPlatform, SharePermission } from '@/types/export'
 
 const props = defineProps<{

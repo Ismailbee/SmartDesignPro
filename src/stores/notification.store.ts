@@ -5,7 +5,7 @@ markNotificationAsRead,
 markAllNotificationsAsRead,
 formatTimestamp,
 type NotificationData
-} from '@/services/notification.service'
+} from '@/services/user/notification.service'
 import type { Unsubscribe } from 'firebase/firestore'
 
 export interface NotificationItem {

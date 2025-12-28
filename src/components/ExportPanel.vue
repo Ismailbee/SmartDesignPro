@@ -263,7 +263,7 @@ import { ref, computed, watch } from 'vue'
 import { useExportStore } from '@/stores/export'
 import { storeToRefs } from 'pinia'
 import { EXPORT_FORMATS, RESOLUTION_PRESETS, getFormatConfig } from '@/types/export'
-import { estimateFileSize, formatFileSize } from '@/services/export-utils'
+import { estimateFileSize, formatFileSize } from '@/services/export/export-utils'
 import type { ExportFormat, BackgroundType } from '@/types/export'
 
 const props = defineProps<{

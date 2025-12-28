@@ -7,8 +7,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { User, PlanType, ReferralStats, TierColor } from '@/types/payment.types'
-import { getUser, deductTokens } from '@/services/user.service'
-import { getReferralStats, applyReferralCode as applyReferral } from '@/services/referral.service'
+import { getUser, deductTokens } from '@/services/user/user.service'
+import { getReferralStats, applyReferralCode as applyReferral } from '@/services/user/referral.service'
 import { FEATURES, OFFLINE_USER } from '@/config/environment'
 
 export const useUserStore = defineStore('user', () => {

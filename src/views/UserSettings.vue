@@ -466,7 +466,7 @@ import { useAuthStore } from '@/stores/auth'
 import LogoCropper from '@/components/LogoCropper.vue'
 import type { UserSettings, ProfileUpdateData } from '@/types/auth'
 import { safeLocalStorage } from '@/utils/storage.utils.ts'
-import { getLinkedProviders, hasPasswordProvider, hasGoogleProvider, linkEmailPassword } from '@/services/firebase-auth'
+import { getLinkedProviders, hasPasswordProvider, hasGoogleProvider, linkEmailPassword } from '@/services/firebase/firebase-auth'
 
 const router = useRouter()
 const authStore = useAuthStore()

@@ -6,8 +6,7 @@ console.warn = (...args: any[]) => {
     return // Suppress Datadog warnings
   }
   originalWarn.apply(console, args)
-}'./styles/calendar-styles.css'
-import 
+}
 
 const originalLog = console.log
 console.log = (...args: any[]) => {
@@ -32,6 +31,7 @@ import router from './router'
 import './style.css'
 import './styles/theme.css'
 import './styles/wedding-fonts.css'
+import './styles/calendar-styles.css'
 import App from './App.vue'
 import { useThemeStore } from './stores/theme'
 

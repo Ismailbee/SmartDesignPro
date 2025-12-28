@@ -14,7 +14,7 @@
  */
 
 import { ref, nextTick, type Ref } from 'vue'
-import { getBackgroundRefsCached } from '@/services/background-catalog.service'
+import { getBackgroundRefsCached } from '@/services/background/background-catalog.service'
 
 // ============================================================================
 // Types & Interfaces

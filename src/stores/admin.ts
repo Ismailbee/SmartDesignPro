@@ -28,7 +28,7 @@ import type {
   AdminSettings,
   PaginationMeta
 } from '@/types/admin'
-import * as adminApi from '@/services/admin-api'
+import * as adminApi from '@/services/api/admin-api'
 
 export const useAdminStore = defineStore('admin', () => {
   // ============================================================
