@@ -5,11 +5,11 @@
 
 import { useRouter } from 'vue-router';
 import { onMounted, onUnmounted, ref } from 'vue';
-import { useToast } from './useToast';
+import { useAuthStore } from '@/stores/auth'
 
 export function useHardwareBackButton() {
   const router = useRouter()
-  const { showExitToast: showToastMessage } = useToast()
+  const authStore = useAuthStore()
   let backButtonListener: { remove(): Promise<void> } | null = null
   const lastBackPress = ref(0)
   const doubleBackToExitInterval = 2000 // 2 seconds
@@ -55,7 +55,6 @@ export function useHardwareBackButton() {
       '/mockup': () => router.push('/home'),
       '/videos': () => router.push('/home'),
       '/letterhead': () => router.push('/home'),
-      '/letterhead-templates': () => router.push('/home'),
       
       // Subscription and tokens
       '/subscription': () => router.push('/home'),
@@ -93,8 +92,13 @@ export function useHardwareBackButton() {
         }
       } else {
         lastBackPress.value = currentTime
-        // Show toast message
-        showToastMessage()
+        // Show exit prompt
+        authStore.showNotification({
+          title: 'Exit',
+          message: 'Press back again to exit',
+          type: 'info',
+          duration: 2000
+        })
       }
       return
     }
@@ -140,8 +144,6 @@ export function useHardwareBackButton() {
       router.push('/home')
     }
   }
-
-  const showExitToast = showToastMessage
 
   const setupBackButtonHandler = async () => {
     try {
@@ -205,6 +207,6 @@ export function useHardwareBackButton() {
     setupBackButtonHandler,
     removeBackButtonHandler,
     handleBackButton,
-    showExitToast
+    // previously returned toast helper; now uses authStore.showNotification
   }
 }

@@ -11,53 +11,64 @@ import { Capacitor } from '@capacitor/core'
 const isNative = Capacitor.isNativePlatform()
 
 // Lazy load components for better performance
-const HomePage = () => import('@/components/HomePage.vue')
-const LoginPage = () => import('@/views/LoginPage.vue')
-const RegisterPage = () => import('@/views/RegisterPage.vue')
-const UserSettings = () => import('@/views/UserSettings.vue')
-const AutoDesignPage = () => import('@/views/AutoDesignPage.vue')
-const InvoiceReceiptPage = () => import('@/views/invoices/InvoiceReceiptPage.vue')
-const SignaturePage = () => import('@/views/SignaturePage.vue')
-const InvoiceDashboard = () => import('@/views/invoices/InvoiceDashboard.vue')
-const InvoiceTemplatesPage = () => import('@/views/invoices/InvoiceTemplatesPage.vue')
-const CustomerInvoiceTemplatesPage = () => import('@/views/invoices/CustomerInvoiceTemplatesPage.vue')
-const InvoicePage = () => import('@/views/invoices/InvoicePage.vue')
-const GenerateInvoicePage = () => import('@/views/invoices/GenerateInvoicePage.vue')
-const CustomerInvoicePage = () => import('@/views/invoices/CustomerInvoicePage.vue')
-const InvoicePreviewPage = () => import('@/views/invoices/InvoicePreviewPage.vue')
-const ReceiptDashboard = () => import('@/views/receipts/ReceiptDashboard.vue')
-const ReceiptTemplatesPage = () => import('@/views/receipts/ReceiptTemplatesPage.vue')
-const GenerateReceiptPage = () => import('@/views/receipts/GenerateReceiptPage.vue')
-const CustomerReceiptPage = () => import('@/views/receipts/CustomerReceiptPage.vue')
-const CustomerReceiptTemplatesPage = () => import('@/views/receipts/CustomerReceiptTemplatesPage.vue')
-const ReceiptPage = () => import('@/views/receipts/ReceiptPage.vue')
-const ReceiptPreviewPage = () => import('@/views/receipts/ReceiptPreviewPage.vue')
+const HomePage = () => import('@/components/home/HomePage.vue')
 
-// Invoice Template Pages
-const ClassicProfessionalTemplate = () => import('@/views/invoices/templates/ClassicProfessionalTemplate.vue')
-const PreviewClassicProfessionalTemplate = () => import('@/views/invoices/templates/PreviewClassicProfessionalTemplate.vue')
-const LetterHeadPage = () => import('@/views/LetterHeadPage.vue')
-const LetterHeadDashboard = () => import('@/views/LetterHeadDashboard.vue')
-const TokensAndPlans = () => import('@/views/TokensAndPlans.vue')
-const ReferralPage = () => import('@/views/ReferralPage.vue')
-const SubscriptionPage = () => import('@/views/SubscriptionPage.vue')
+// Auth Pages
+const LoginPage = () => import('@/views/auth/LoginPage.vue')
+const RegisterPage = () => import('@/views/auth/RegisterPage.vue')
 
-// New Pages
-const SchedulingPage = () => import('@/views/SchedulingPage.vue')
-const ImpositionPage = () => import('@/views/ImpositionPage.vue')
-const MockupPage = () => import('@/views/MockupPage.vue')
-const VideosPage = () => import('@/views/VideosPage.vue')
-const PrivacySettings = () => import('@/views/PrivacySettings.vue')
-const SmartTemplateDesigner = () => import('@/components/SmartTemplateDesigner.vue')
+// User Pages
+const UserSettings = () => import('@/views/user/UserSettings.vue')
+const TokensAndPlans = () => import('@/views/user/TokensAndPlans.vue')
+const ReferralPage = () => import('@/views/user/ReferralPage.vue')
+const SubscriptionPage = () => import('@/views/user/SubscriptionPage.vue')
+const PrivacySettings = () => import('@/views/user/PrivacySettings.vue')
+const NotificationsPage = () => import('@/views/user/NotificationsPage.vue')
 
-// Help & Support Pages
-const HelpCenterPage = () => import('@/views/HelpCenterPage.vue')
-const SupportPage = () => import('@/views/SupportPage.vue')
-const FAQPage = () => import('@/views/FAQPage.vue')
-const AboutPage = () => import('@/views/AboutPage.vue')
-const CookiesPage = () => import('@/views/CookiesPage.vue')
-const NotificationsPage = () => import('@/views/NotificationsPage.vue')
-const SuggestFeaturePage = () => import('@/views/SuggestFeaturePage.vue')
+// Auto-Design Pages (all design tools)
+const AutoDesignPage = () => import('@/components/auto-design/AutoDesignPage.vue')
+const SmartTemplateDesigner = () => import('@/components/auto-design/SmartTemplateDesigner.vue')
+
+// Letterhead
+const ConversationalLetterHeadPage = () => import('@/components/auto-design/letterhead/ConversationalLetterHeadPage.vue')
+
+// Invoice
+const InvoiceReceiptPage = () => import('@/components/auto-design/invoice/InvoiceReceiptPage.vue')
+const InvoiceDashboard = () => import('@/components/auto-design/invoice/InvoiceDashboard.vue')
+const InvoiceTemplatesPage = () => import('@/components/auto-design/invoice/InvoiceTemplatesPage.vue')
+const CustomerInvoiceTemplatesPage = () => import('@/components/auto-design/invoice/CustomerInvoiceTemplatesPage.vue')
+const InvoicePage = () => import('@/components/auto-design/invoice/InvoicePage.vue')
+const GenerateInvoicePage = () => import('@/components/auto-design/invoice/GenerateInvoicePage.vue')
+const CustomerInvoicePage = () => import('@/components/auto-design/invoice/CustomerInvoicePage.vue')
+const InvoicePreviewPage = () => import('@/components/auto-design/invoice/InvoicePreviewPage.vue')
+const ClassicProfessionalTemplate = () => import('@/components/auto-design/invoice/templates/ClassicProfessionalTemplate.vue')
+const PreviewClassicProfessionalTemplate = () => import('@/components/auto-design/invoice/templates/PreviewClassicProfessionalTemplate.vue')
+
+// Receipt
+const ReceiptDashboard = () => import('@/components/auto-design/receipt/ReceiptDashboard.vue')
+const ReceiptTemplatesPage = () => import('@/components/auto-design/receipt/ReceiptTemplatesPage.vue')
+const GenerateReceiptPage = () => import('@/components/auto-design/receipt/GenerateReceiptPage.vue')
+const CustomerReceiptPage = () => import('@/components/auto-design/receipt/CustomerReceiptPage.vue')
+const CustomerReceiptTemplatesPage = () => import('@/components/auto-design/receipt/CustomerReceiptTemplatesPage.vue')
+const ReceiptPage = () => import('@/components/auto-design/receipt/ReceiptPage.vue')
+const ReceiptPreviewPage = () => import('@/components/auto-design/receipt/ReceiptPreviewPage.vue')
+
+// Mockup, Imposition, Signature, Scheduling
+const MockupPage = () => import('@/components/auto-design/mockup/MockupPage.vue')
+const ImpositionPage = () => import('@/components/auto-design/imposition/ImpositionPage.vue')
+const SignaturePage = () => import('@/components/auto-design/signature/SignaturePage.vue')
+const SchedulingPage = () => import('@/components/auto-design/scheduling/SchedulingPage.vue')
+
+// Info Pages
+const HelpCenterPage = () => import('@/views/info/HelpCenterPage.vue')
+const SupportPage = () => import('@/views/info/SupportPage.vue')
+const FAQPage = () => import('@/views/info/FAQPage.vue')
+const AboutPage = () => import('@/views/info/AboutPage.vue')
+const CookiesPage = () => import('@/views/info/CookiesPage.vue')
+const SuggestFeaturePage = () => import('@/views/info/SuggestFeaturePage.vue')
+
+// Misc Pages
+const VideosPage = () => import('@/views/misc/VideosPage.vue')
 
 // Legal Pages
 const PrivacyPolicy = () => import('@/views/legal/PrivacyPolicy.vue')
@@ -232,7 +243,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/invoices/saved',
     name: 'saved-invoices',
-    component: () => import('@/views/invoices/SavedInvoicesPage.vue'),
+    component: () => import('@/components/auto-design/invoice/SavedInvoicesPage.vue'),
     meta: {
       title: 'Saved Invoices - SmartDesignPro',
       requiresAuth: true
@@ -332,19 +343,9 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/letterhead',
     name: 'letterhead',
-    component: LetterHeadPage,
+    component: ConversationalLetterHeadPage,
     meta: {
       title: 'Letter Head Designer - SmartDesignPro',
-      requiresAuth: true
-    }
-  },
-
-  {
-    path: '/letterhead-templates',
-    name: 'letterhead-templates',
-    component: LetterHeadDashboard,
-    meta: {
-      title: 'Letter Head Templates - SmartDesignPro',
       requiresAuth: true
     }
   },
@@ -692,7 +693,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
-    component: () => import('@/views/NotFound.vue'),
+    component: () => import('@/views/misc/NotFound.vue'),
     meta: {
       title: '404 - Page Not Found'
     }

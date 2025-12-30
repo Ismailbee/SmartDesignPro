@@ -155,7 +155,8 @@ import {
   IonHeader, IonToolbar, IonTitle, IonButtons, IonTextarea, IonToast 
 } from '@ionic/vue';
 import { camera, image, chatbubbles, close, send, sparkles } from 'ionicons/icons';
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+// Lazy load Camera plugin - only load when user takes photo
+import { loadCamera } from '@/composables/useCapacitorPlugins';
 import { useOCR } from '@/composables/useOCR';
 import { useDeepSeek } from '@/composables/useDeepSeek';
 
@@ -224,6 +225,9 @@ const handleSmartScanClick = () => {
 
 const takePicture = async () => {
   try {
+    // Lazy load Camera plugin when needed
+    const { Camera, CameraResultType, CameraSource } = await loadCamera();
+    
     const image = await Camera.getPhoto({
       quality: 80, // Reduced quality for better performance
       allowEditing: true,

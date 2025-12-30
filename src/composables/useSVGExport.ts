@@ -1148,9 +1148,16 @@ export function useSVGExport() {
 
   /**
    * Download file - works on both web and mobile/native platforms
+   * On native platforms, saves file to device storage first, then offers share option
    */
   async function downloadFile(content: string | Blob, filename: string, mimeType: string) {
     const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType })
+
+    const lowerFilename = filename.toLowerCase()
+    const isSvg = mimeType.includes('image/svg') || lowerFilename.endsWith('.svg')
+    const isPdf = mimeType.includes('application/pdf') || lowerFilename.endsWith('.pdf')
+    const isRasterImage =
+      mimeType.startsWith('image/') && !isSvg && (lowerFilename.endsWith('.png') || lowerFilename.endsWith('.jpg') || lowerFilename.endsWith('.jpeg') || lowerFilename.endsWith('.webp'))
     
     // Check if we're on a native Capacitor platform
     const isNativePlatform = typeof (window as any).Capacitor !== 'undefined' && 
@@ -1163,29 +1170,109 @@ export function useSVGExport() {
     console.log('📥 Download initiated:', { filename, mimeType, isNativePlatform, isMobileBrowser })
     
     if (isNativePlatform) {
-      // For native Capacitor apps, use Share API
+      // For native Capacitor apps, save to device storage using Filesystem
       try {
+        const { Filesystem, Directory } = await import('@capacitor/filesystem')
         const { Share } = await import('@capacitor/share')
         
-        // Convert blob to base64 data URL for sharing
-        const base64 = await new Promise<string>((resolve, reject) => {
+        // Convert blob to base64 string (without data URL prefix)
+        const base64Data = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader()
-          reader.onload = () => resolve(reader.result as string)
+          reader.onload = () => {
+            const result = reader.result as string
+            // Remove the data URL prefix (e.g., "data:image/png;base64,")
+            const base64 = result.split(',')[1] || result
+            resolve(base64)
+          }
           reader.onerror = reject
           reader.readAsDataURL(blob)
         })
         
-        await Share.share({
-          title: filename,
-          text: 'Your wedding sticker design',
-          url: base64,
-          dialogTitle: 'Save or Share Your Design'
-        })
-        console.log('✅ Native share completed')
+        // Generate unique filename with timestamp
+        const timestamp = Date.now()
+        const uniqueFilename = filename.replace(/(\.[^.]+)$/, `-${timestamp}$1`)
+
+        // Save to an appropriate public folder.
+        // - Raster images (png/jpg/webp): Pictures/DCIM so it appears in Gallery
+        // - SVG/PDF/others: Download/Documents so user can find it in Files app
+        let savedFile
+        try {
+          // First attempt: best-known public folder per file type
+          const primaryPath = isRasterImage
+            ? `Pictures/SmartDesignPro/${uniqueFilename}`
+            : `Download/SmartDesignPro/${uniqueFilename}`
+
+          savedFile = await Filesystem.writeFile({
+            path: primaryPath,
+            data: base64Data,
+            directory: Directory.ExternalStorage,
+            recursive: true
+          })
+          console.log('✅ File saved:', savedFile.uri)
+        } catch (picturesError) {
+          console.warn('Primary folder failed, trying fallback folders:', picturesError)
+          try {
+            // Fallback: for images, DCIM; for other files, Documents
+            const fallbackPath = isRasterImage
+              ? `DCIM/SmartDesignPro/${uniqueFilename}`
+              : `Documents/SmartDesignPro/${uniqueFilename}`
+
+            savedFile = await Filesystem.writeFile({
+              path: fallbackPath,
+              data: base64Data,
+              directory: Directory.ExternalStorage,
+              recursive: true
+            })
+            console.log('✅ File saved (fallback):', savedFile.uri)
+          } catch (dcimError) {
+            console.warn('Fallback folder failed, trying External:', dcimError)
+            // Final fallback to External directory
+            savedFile = await Filesystem.writeFile({
+              path: `SmartDesignPro/${uniqueFilename}`,
+              data: base64Data,
+              directory: Directory.External,
+              recursive: true
+            })
+            console.log('✅ File saved to External storage:', savedFile.uri)
+          }
+        }
+        
+        // Trigger media scanner only for raster images (Gallery)
+        if (isRasterImage) {
+          try {
+            // @ts-ignore - Native bridge call
+            if ((window as any).Capacitor?.Plugins?.MediaScanner) {
+              await (window as any).Capacitor.Plugins.MediaScanner.scanFile({ path: savedFile.uri })
+            }
+          } catch (scanError) {
+            console.log('Media scan not available, image will appear in gallery after refresh')
+          }
+        }
+        
+        const locationHint = isRasterImage
+          ? 'Photos/Gallery app'
+          : (isSvg || isPdf ? 'Files app (Downloads)' : 'Files app')
+
+        // Show success alert with option to share
+        const confirmShare = confirm(
+          `✅ File saved successfully!\n\nFile: ${uniqueFilename}\n\nCheck your ${locationHint}.\n\nWould you like to share it?`
+        )
+        
+        if (confirmShare) {
+          await Share.share({
+            title: filename,
+            text: 'My wedding sticker design from SmartDesignPro',
+            url: savedFile.uri,
+            dialogTitle: 'Share Your Design'
+          })
+          console.log('✅ Design shared successfully')
+        }
+        
         return
-      } catch (shareError) {
-        console.warn('Native share failed, trying fallback:', shareError)
-        // Fallback to download link
+      } catch (error) {
+        console.error('Native save failed:', error)
+        alert('❌ Failed to save design. Please check app storage permissions and try again.')
+        return
       }
     }
     

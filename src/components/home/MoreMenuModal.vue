@@ -27,7 +27,7 @@
             <!-- Modal Content Grid -->
             <div class="modal-content">
               <!-- Micro-Apps Section -->
-              <div class="menu-section">
+              <div v-if="!isNative" class="menu-section">
                 <div class="section-header">
                   <div class="section-icon-wrapper micro-apps">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -314,8 +314,12 @@
 <script setup lang="ts">
 import { watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { Capacitor } from '@capacitor/core'
 
 const router = useRouter()
+
+// In the APK build, micro-apps should not be shown.
+const isNative = Capacitor.isNativePlatform()
 
 const props = defineProps<{
   isOpen: boolean
@@ -338,6 +342,9 @@ const handleMenuClick = (action: string) => {
 
 const handleMicroAppClick = (appName: string) => {
   console.log('Micro-app clicked:', appName);
+
+  // Safety: micro-apps are not supported in native builds.
+  if (isNative) return
   
   // Close the modal first
   closeModal();

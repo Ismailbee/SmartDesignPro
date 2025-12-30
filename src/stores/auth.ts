@@ -14,7 +14,7 @@ import type {
   AuthModalView
 } from '@/types/auth'
 import * as firebaseAuth from '@/services/firebase/firebase-auth'
-import { FEATURES, OFFLINE_USER, isNativePlatform } from '@/config/environment'
+import { API_CONFIG, FEATURES, OFFLINE_USER, isNativePlatform } from '@/config/environment'
 // import router from '@/router' - Removed to avoid circular dependency
 
 const USER_KEY = 'user'
@@ -23,8 +23,8 @@ const USER_KEY = 'user'
 // Enable explicitly with VITE_DEV_BYPASS_AUTH=true
 const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true'
 
-// 📱 OFFLINE MODE: Automatically enabled when Firebase is disabled or on mobile
-const USE_OFFLINE_MODE = !FEATURES.FIREBASE_AUTH_ENABLED || isNativePlatform()
+// 📱 OFFLINE MODE: Controlled by env/feature flags (do not force just because it's native)
+const USE_OFFLINE_MODE = API_CONFIG.OFFLINE_MODE || !FEATURES.FIREBASE_AUTH_ENABLED
 
 export const useAuthStore = defineStore('auth', () => {
   // State
@@ -45,7 +45,8 @@ export const useAuthStore = defineStore('auth', () => {
   const successNotificationData = ref({
     title: '',
     message: '',
-    type: 'success' as 'success' | 'error' | 'info'
+    type: 'success' as 'success' | 'error' | 'info',
+    duration: 5000
   })
 
   // Password Reset State
@@ -499,11 +500,18 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
-   * Show success notification
+   * Show success notification - DISABLED for cleaner mobile UX
+   * Notifications are disabled to reduce visual clutter on mobile devices
    */
-  function showNotification(data: { title: string; message: string; type: 'success' | 'error' | 'info' }) {
-    successNotificationData.value = data
-    showSuccessNotification.value = true
+  function showNotification(data: { title: string; message: string; type: 'success' | 'error' | 'info'; duration?: number }) {
+    // Notifications disabled - only log to console for debugging
+    console.log(`[${data.type.toUpperCase()}] ${data.title}: ${data.message}`)
+    // Uncomment below to re-enable notifications:
+    // successNotificationData.value = {
+    //   ...data,
+    //   duration: typeof data.duration === 'number' ? data.duration : 5000
+    // }
+    // showSuccessNotification.value = true
   }
 
   /**

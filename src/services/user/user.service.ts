@@ -4,15 +4,28 @@
  */
 
 import type { User, DeductTokensRequest, DeductTokensResponse } from '@/types/payment.types'
+import { getPaymentApiBaseUrlOrThrow } from '@/config/apiUrls'
 
-const API_BASE_URL = import.meta.env.VITE_PAYMENT_API_URL || 'http://localhost:3006'
 const isDevelopment = import.meta.env.DEV
+
+function getApiBase(): string {
+  return getPaymentApiBaseUrlOrThrow('Tokens')
+}
+
+function normalizeUser(raw: any): User {
+  // Backend historically used planExpiry; UI expects planExpiryDate.
+  if (raw && raw.planExpiry && !raw.planExpiryDate) {
+    raw.planExpiryDate = raw.planExpiry
+  }
+  return raw as User
+}
 
 /**
  * Get user data
  */
 export async function getUser(userId: string, email?: string, name?: string): Promise<User> {
   const isDevelopment = import.meta.env.DEV
+  const API_BASE_URL = getApiBase()
   
   // In development mode, if backend is not available, return mock data
   if (isDevelopment) {
@@ -36,7 +49,7 @@ export async function getUser(userId: string, email?: string, name?: string): Pr
             throw new Error(error.error || 'Failed to fetch user data')
           }
 
-          return response.json()
+          return normalizeUser(await response.json())
           
         } catch (error: any) {
           // In development, fail fast and use mock data
@@ -90,7 +103,7 @@ export async function getUser(userId: string, email?: string, name?: string): Pr
         throw new Error(error.error || 'Failed to fetch user data')
       }
 
-      return response.json()
+      return normalizeUser(await response.json())
       
     } catch (error: any) {
       // Only log the first attempt and final failure to reduce noise
@@ -127,12 +140,15 @@ export async function deductTokens(
   userId: string,
   amount: number
 ): Promise<DeductTokensResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/users/${userId}/tokens`, {
-    method: 'PATCH',
+  const API_BASE_URL = getApiBase()
+
+  // Backend endpoint implemented in functions/index.js (api): POST /api/users/:userId/deduct-tokens
+  const response = await fetch(`${API_BASE_URL}/api/users/${userId}/deduct-tokens`, {
+    method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ deduct: amount } as DeductTokensRequest)
+    body: JSON.stringify({ amount } as unknown as DeductTokensRequest)
   })
 
   if (!response.ok) {
@@ -140,6 +156,17 @@ export async function deductTokens(
     throw new Error(error.error || 'Failed to deduct tokens')
   }
 
-  return response.json()
+  const data = await response.json()
+  // Normalize possible response shapes
+  if (typeof data?.tokens === 'number') {
+    return data as DeductTokensResponse
+  }
+  if (typeof data?.newBalance === 'number') {
+    return {
+      tokens: data.newBalance,
+      totalDesignsGenerated: data.totalDesignsGenerated ?? 0
+    }
+  }
+  throw new Error('Unexpected deduct tokens response')
 }
 

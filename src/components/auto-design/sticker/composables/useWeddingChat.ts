@@ -57,9 +57,13 @@ export interface UseWeddingChatOptions {
   showPreview: Ref<boolean>
   hasPhoto?: Ref<boolean>
   awaitingPictureDecision?: Ref<boolean>
+  awaitingSizeDecision?: Ref<boolean>
+  awaitingBackgroundRemovalDecision?: Ref<boolean>
   onGenerate: () => void
   onScrollToBottom: () => void
   onUploadPicture?: () => void
+  onSetSize?: (size: string) => void
+  onBackgroundRemovalDecision?: (removeBackground: boolean) => void
 }
 
 export function useWeddingChat(options: UseWeddingChatOptions) {
@@ -70,9 +74,13 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
     showPreview,
     hasPhoto,
     awaitingPictureDecision,
+    awaitingSizeDecision,
+    awaitingBackgroundRemovalDecision,
     onGenerate,
     onScrollToBottom,
     onUploadPicture,
+    onSetSize,
+    onBackgroundRemovalDecision,
   } = options
 
   // Track request ID to ignore stale responses
@@ -212,8 +220,62 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
         return true
       }
       
+      // If awaiting background removal decision, "yes" means user wants to remove background
+      if (awaitingBackgroundRemovalDecision?.value) {
+        awaitingBackgroundRemovalDecision.value = false
+        if (onBackgroundRemovalDecision) {
+          onBackgroundRemovalDecision(true)
+        }
+        return true
+      }
+      
       // Otherwise, normal affirmative response
       addMessage(getAffirmativeResponse(ctx, onGenerate))
+      return true
+    }
+
+    // Size input - handle when user provides size like "3x3", "4x4", "4 by 2.5", "default"
+    // Matches: "3x3", "4X4", "4 by 2.5", "3.5x4", "4 x 3", etc.
+    const sizeMatch = message.match(/^(\d+(?:\.\d+)?)\s*(?:[xX×]|by)\s*(\d+(?:\.\d+)?)$/i)
+    if (sizeMatch || lowerMsg === 'default') {
+      await offlineDelay()
+      if (reqId !== requestId) return true
+      isAnalyzing.value = false
+      
+      // Always handle size input if it matches the pattern
+      // (this prevents it from being treated as courtesy)
+      // Normalize size format to "WxH"
+      let sizeValue: string
+      if (lowerMsg === 'default') {
+        sizeValue = '4x4'
+      } else if (sizeMatch) {
+        sizeValue = `${sizeMatch[1]}x${sizeMatch[2]}`
+      } else {
+        sizeValue = message.trim()
+      }
+      
+      // Reset the awaiting flag if it was set
+      if (awaitingSizeDecision?.value) {
+        awaitingSizeDecision.value = false
+      }
+      
+      // Call the size handler
+      if (onSetSize) {
+        onSetSize(sizeValue)
+      }
+      
+      addMessage({
+        id: Date.now(),
+        text: `Perfect! Size set to ${sizeValue} inches. Creating your sticker now! ✨`,
+        sender: 'ai',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })
+      
+      // Trigger generation after a short delay
+      setTimeout(() => {
+        onGenerate()
+      }, 500)
+      
       return true
     }
 
@@ -232,6 +294,16 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
       await offlineDelay()
       if (reqId !== requestId) return true
       isAnalyzing.value = false
+      
+      // If awaiting background removal decision, "no" means user wants to keep background
+      if (awaitingBackgroundRemovalDecision?.value) {
+        awaitingBackgroundRemovalDecision.value = false
+        if (onBackgroundRemovalDecision) {
+          onBackgroundRemovalDecision(false)
+        }
+        return true
+      }
+      
       addMessage(getNegativeResponse(ctx, onGenerate))
       return true
     }
@@ -291,7 +363,8 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
         await offlineDelay()
         if (reqId !== requestId) return true
         isAnalyzing.value = false
-        addMessage(getTitleOnlyResponse(extraction.title))
+        const updatedCtx = getContext()
+        addMessage(getTitleOnlyResponse(extraction.title, updatedCtx))
         return true
       }
     }
@@ -335,6 +408,8 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
       // All details complete - ask about picture
       const hasAnyPhoto = !!hasPhoto?.value
       if (!hasAnyPhoto) {
+        // Set flag so "yes" response triggers picture upload
+        if (awaitingPictureDecision) awaitingPictureDecision.value = true
         addMessage({
           id: Date.now(),
           text: `Got the courtesy: "${message.trim()}". All details received! Would you like to add a picture?`,
@@ -382,11 +457,13 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
       // Get updated context after applying extraction
       const updatedCtx = getContext()
       
-      // Check if we have all required details (title + names + date + courtesy)
+      // Check if we have all required details (title is optional if explicitly skipped)
       if (updatedCtx.hasTitle && updatedCtx.hasName && updatedCtx.hasDate && updatedCtx.hasCourtesy) {
         // All details complete - ask about picture
         const hasAnyPhoto = !!hasPhoto?.value
         if (!hasAnyPhoto) {
+          // Set flag so "yes" response triggers picture upload
+          if (awaitingPictureDecision) awaitingPictureDecision.value = true
           addMessage({
             id: Date.now(),
             text: 'All details received! Would you like to add a picture?',
@@ -447,10 +524,12 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
     // Get updated context
     const updatedCtx = getContext()
 
-    // Check if all required details are present (including courtesy)
+    // Check if all required details are present (title is optional if explicitly skipped)
     if (updatedCtx.hasTitle && updatedCtx.hasName && updatedCtx.hasDate && updatedCtx.hasCourtesy && !updatedCtx.hasPreview) {
       const hasAnyPhoto = !!hasPhoto?.value
       if (!hasAnyPhoto) {
+        // Set flag so "yes" response triggers picture upload
+        if (awaitingPictureDecision) awaitingPictureDecision.value = true
         // Ask about picture
         addMessage({
           id: Date.now(),

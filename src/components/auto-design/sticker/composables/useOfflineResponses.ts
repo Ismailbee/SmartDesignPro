@@ -29,22 +29,50 @@ function randomFrom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]
 }
 
+// Helper: choose the next thing to ask for (more human than listing everything)
+function getNextQuestion(ctx: OfflineResponseContext): string {
+  if (!ctx.hasTitle) {
+    return 'What title/heading should I put at the top? (Example: “Wedding Ceremony”)'
+  }
+  if (!ctx.hasName) {
+    return 'Who are the two names on the sticker? (Example: “Aisha & Suleiman”)'
+  }
+  if (!ctx.hasDate) {
+    return 'What date should I put? (Example: “6th Jan 2026”)'
+  }
+  if (!ctx.hasCourtesy) {
+    return 'What courtesy should I add at the bottom? (Example: “Courtesy of the family”)'
+  }
+  return 'Everything looks ready — want to generate your sticker now?'
+}
+
 /**
  * Check if message is ONLY a title/heading (no names, date, or courtesy)
  * e.g., "wedding ceremony", "graduation", "happy birthday"
  */
 export function isTitleOnly(msg: string): boolean {
   const titlePatterns = [
+    // Wedding patterns (including all walima variations)
     /^(alhamdulillah[i]?\s*(on\s+your\s+)?(wedding\s+ceremony|wedding\s+nikkah|wedding|graduation|birthday|naming\s+ceremony)?)[\s!.?]*$/i,
     /^(congratulations?\s*(on\s+your\s+)?(wedding\s+ceremony|wedding\s+nikkah|wedding|graduation\s+ceremony|graduation|birthday|naming\s+ceremony|freedom)?)[\s!.?]*$/i,
     /^(wedding\s+ceremony|wedding\s+nikkah|wedding)[\s!.?]*$/i,
     /^(graduation\s+ceremony|graduation)[\s!.?]*$/i,
     /^(happy\s+birthday|birthday\s+ceremony|birthday)[\s!.?]*$/i,
     /^(naming\s+ceremony|naming)[\s!.?]*$/i,
-    /^(quranic\s+walimat|walimat)[\s!.?]*$/i,
+    // Walima variations (walima, walimah, walimat, walmia, walmiah, wamima, wamimat, wamimah)
+    /^(qur'?anic\s+)?(walima|walimah|walimat|walmia|walmiah|wamima|wamimat|wamimah)[\s!.?]*$/i,
+    /^(congratulations?\s*(on\s+your\s+)?(qur'?anic\s+)?(walima|walimah|walimat|walmia|walmiah|wamima|wamimat|wamimah))[\s!.?]*$/i,
+    /^(alhamdulillah[i]?\s*(on\s+your\s+)?(qur'?anic\s+)?(walima|walimah|walimat|walmia|walmiah|wamima|wamimat|wamimah))[\s!.?]*$/i,
     /^(nikkah\s+ceremony|nikkah)[\s!.?]*$/i,
     /^(conjugal\s+bliss)[\s!.?]*$/i,
     /^(together\s+for\s*ever)[\s!.?]*$/i,
+    // Additional title patterns from useTitleDetection
+    /^(beautiful\s+beginning)[\s!.?]*$/i,
+    /^(save\s+the\s+date)[\s!.?]*$/i,
+    /^(best\s+wishes)[\s!.?]*$/i,
+    /^(happy\s+wedding)[\s!.?]*$/i,
+    /^(with\s+love)[\s!.?]*$/i,
+    /^(thank[s]?\s+for\s+attending)[\s!.?]*$/i,
   ]
   const hasNames = /\b[A-Z][a-z]+\s*(&|and|with)\s*[A-Z][a-z]+\b/i.test(msg)
   const hasDate = /\d{1,2}(st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(msg)
@@ -55,15 +83,14 @@ export function isTitleOnly(msg: string): boolean {
 /**
  * Get response for title-only message - confirm and ask for rest
  */
-export function getTitleOnlyResponse(title: string) {
-  return createMessage(
-    `Would you like to use "${title}" as your title? If yes, please also provide the names, date, and courtesy.`,
-    [{ type: 'confirm_title', label: 'Yes, use this title', variant: 'primary' }]
-  )
+export function getTitleOnlyResponse(title: string, ctx: OfflineResponseContext) {
+  // Callers typically apply extraction before responding; keep this as confirmation + the next single question.
+  const nextCtx: OfflineResponseContext = { ...ctx, hasTitle: true, title }
+  return createMessage(`Perfect — I’ll use "${title}" as the title. ${getNextQuestion(nextCtx)}`)
 }
 
 /**
- * Check if message is ONLY names (no title, date, or courtesy)
+ * Check if message is ONLY names (without title, date, or courtesy)
  * e.g., "Suleiman & Aisha", "John and Mary"
  */
 export function isNamesOnly(msg: string): boolean {
@@ -79,13 +106,7 @@ export function isNamesOnly(msg: string): boolean {
  * Get response for names-only message - confirm and ask for rest
  */
 export function getNamesOnlyResponse(name1: string, name2: string, ctx: OfflineResponseContext) {
-  const missing: string[] = []
-  if (!ctx.hasTitle) missing.push('title/heading')
-  missing.push('date')
-  missing.push('courtesy')
-  return createMessage(
-    `Excellent! I've got the names: ${name1} & ${name2}. Please provide the ${missing.join(', ')}.`
-  )
+  return createMessage(`Excellent! I've got the names: ${name1} & ${name2}. ${getNextQuestion(ctx)}`)
 }
 
 /**
@@ -104,13 +125,7 @@ export function isDateOnly(msg: string): boolean {
  * Get response for date-only message
  */
 export function getDateOnlyResponse(date: string, ctx: OfflineResponseContext) {
-  const missing: string[] = []
-  if (!ctx.hasTitle) missing.push('title/heading')
-  if (!ctx.hasName) missing.push('names')
-  missing.push('courtesy')
-  return createMessage(
-    `Got the date: ${date}. Please provide the ${missing.join(', ')}.`
-  )
+  return createMessage(`Got the date: ${date}. ${getNextQuestion(ctx)}`)
 }
 
 /**
@@ -121,7 +136,10 @@ export function isCourtesyOnly(msg: string, ctx: OfflineResponseContext): boolea
   if (!ctx.hasTitle || !ctx.hasName || !ctx.hasDate) return false
   const hasNames = /\b[A-Z][a-z]+\s*(&|and|with)\s*[A-Z][a-z]+\b/i.test(msg)
   const hasDate = /\d{1,2}(st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(msg)
-  if (hasNames || hasDate) return false
+  // Check if it looks like a size (e.g., "3x3", "4 by 2.5", "default")
+  const looksLikeSize = /^(\d+(?:\.\d+)?)\s*(?:[xX×]|by)\s*(\d+(?:\.\d+)?)$/i.test(msg) || 
+                        msg.trim().toLowerCase() === 'default'
+  if (hasNames || hasDate || looksLikeSize) return false
   // Short text likely a courtesy
   return msg.trim().length >= 3 && msg.trim().length < 60
 }
@@ -144,15 +162,13 @@ export function getGreetingResponse(msg: string, ctx: OfflineResponseContext) {
   else if (hour >= 17 && hour < 21) greet = 'Good evening!'
   if (/salam/i.test(msg)) greet = 'Wa alaikum assalam!'
 
-  let responseText = ''
   if (ctx.hasTitle && ctx.hasName && ctx.hasDate && ctx.hasCourtesy) {
-    responseText = `${greet} You can generate your sticker now.`
-  } else {
-    const missing = getMissingFields(ctx)
-    responseText = `${greet} Please provide: ${missing.join(', ')}.`
+    return createMessage(`${greet} You can generate your sticker now.`)
   }
 
-  return createMessage(responseText)
+  // Be more human: ask only the next question.
+  const next = getNextQuestion(ctx)
+  return createMessage(`${greet} ${next}`)
 }
 
 // Helper to get list of missing required fields
@@ -173,7 +189,7 @@ export function isWhoAreYou(msg: string): boolean {
 }
 
 export function getWhoAreYouResponse() {
-  return createMessage("I create stickers for weddings, graduations, birthdays, naming ceremonies, and more. Send: title/heading, names, date, and courtesy.")
+  return createMessage("I'm your sticker assistant! Send me your information and I'll create a beautiful sticker for you.")
 }
 
 /**
@@ -200,7 +216,7 @@ export function isCapabilityQuestion(msg: string): boolean {
 }
 
 export function getCapabilityResponse() {
-  return createMessage("I create stickers for weddings, graduations, birthdays, naming ceremonies, and more. Send: title/heading, names, date, and courtesy. You can also add a picture.")
+  return createMessage("I create stickers for weddings, graduations, birthdays, naming ceremonies, and more! Just send me your information.")
 }
 
 /**
@@ -215,7 +231,7 @@ export function isNonWeddingRequest(msg: string): boolean {
 }
 
 export function getNonWeddingResponse() {
-  return createMessage("I create stickers for weddings, graduations, birthdays, naming ceremonies, and more. Please provide: title/heading, names, date, and courtesy.")
+  return createMessage("I create stickers for weddings, graduations, birthdays, naming ceremonies, and more. Please provide your information.")
 }
 
 /**
@@ -226,7 +242,7 @@ export function isVagueDesignRequest(msg: string): boolean {
 }
 
 export function getVagueDesignResponse() {
-  return createMessage(`Lovely! 💕 Please provide: title/heading, names, date, and courtesy.`)
+  return createMessage(`Lovely! 💕 Please provide your information.`)
 }
 
 /**
@@ -247,8 +263,8 @@ export function getAffirmativeResponse(ctx: OfflineResponseContext, shouldGenera
   } else {
     const missing: string[] = []
     if (!ctx.hasTitle) missing.push('title/heading')
-    if (!ctx.hasName) missing.push("couple's names")
-    if (!ctx.hasDate) missing.push('wedding date')
+    if (!ctx.hasName) missing.push('names')
+    if (!ctx.hasDate) missing.push('date')
     if (!ctx.hasCourtesy) missing.push('courtesy')
     responseText = missing.length > 0 
       ? `I still need: ${missing.join(', ')}. 😊`
@@ -316,7 +332,7 @@ export function getThanksResponse(hasPreview: boolean) {
       ]
     : [
         'You\'re welcome! Ready to create your sticker whenever you are! 😊',
-        'Anytime! Let me know the couple\'s names and date when you\'re ready! 💒',
+        'Anytime! Let me know when you\'re ready! 💒',
         'Happy to help! Just share the details and I\'ll design something beautiful!'
       ]
   return createMessage(randomFrom(responses))
@@ -330,7 +346,16 @@ export function isHelp(msg: string): boolean {
 }
 
 export function getHelpResponse() {
-  return createMessage("Send: title/heading, names, date, and courtesy. You can also add a picture.")
+  return createMessage(
+    `Here’s how to do it:\n\n1) Send the title/heading\n2) Send the two names (e.g., “Aisha & Suleiman”)\n3) Send the date\n4) Send a short courtesy line\n\n${getNextQuestion({
+      hasTitle: false,
+      hasName: false,
+      hasDate: false,
+      hasCourtesy: false,
+      hasPreview: false,
+    })}`,
+    [{ type: 'open_help', label: 'Show tips', variant: 'secondary' }]
+  )
 }
 
 /**
@@ -342,7 +367,13 @@ export function isStartRequest(msg: string): boolean {
 
 export function getStartResponse() {
   return createMessage(
-    "Please provide your sticker details: title/heading, names, date, and courtesy. If you're not sure about the title, tell me and I'll help you choose one."
+    `Let’s do it. ${getNextQuestion({
+      hasTitle: false,
+      hasName: false,
+      hasDate: false,
+      hasCourtesy: false,
+      hasPreview: false,
+    })}`
   )
 }
 
@@ -354,35 +385,38 @@ export function isPricingQuestion(msg: string): boolean {
 }
 
 export function getPricingResponse() {
-  return createMessage(`Creating stickers is free! 🎉 Send the title/heading, names, date, and courtesy — and I'll design it for you.`)
+  return createMessage(`Creating stickers is free! 🎉 Just send me your information and I'll design it for you.`)
 }
 
 /**
  * Check if message shows confusion
  */
 export function isConfused(msg: string): boolean {
-  return /\b(i\s*don'?t\s*(understand|get\s*it|know)|confused|what\s*do\s*i\s*do|how\s*do\s*i\s*start|what\s*should\s*i\s*say|what\s*now)\b/i.test(msg)
+  return /^\s*how\s*\??\s*$/i.test(msg) ||
+    /\b(i\s*don'?t\s*(understand|get\s*it|know)|confused|what\s*do\s*i\s*do|how\s*do\s*i\s*start|what\s*should\s*i\s*say|what\s*now)\b/i.test(msg)
 }
 
 export function getConfusedResponse() {
-  return createMessage("Just send your details: title/heading, couple's names, wedding date, and courtesy.")
+  return createMessage(
+    `No worries — we’ll do it step by step. ${getNextQuestion({
+      hasTitle: false,
+      hasName: false,
+      hasDate: false,
+      hasCourtesy: false,
+      hasPreview: false,
+    })}`
+  )
 }
 
 /**
  * Generate a fallback response when nothing was extracted
  */
 export function getFallbackResponse(ctx: OfflineResponseContext) {
-  const missing: string[] = []
-  if (!ctx.hasTitle) missing.push('title/heading')
-  if (!ctx.hasName) missing.push('names')
-  if (!ctx.hasDate) missing.push('date')
-  if (!ctx.hasCourtesy) missing.push('courtesy')
-  
-  const responseText = missing.length > 0 
-    ? `Please provide the ${missing.join(', ')} for your sticker.`
-    : 'All details received! Would you like to add a picture?'
-  
-  return createMessage(responseText)
+  if (ctx.hasTitle && ctx.hasName && ctx.hasDate && ctx.hasCourtesy) {
+    return createMessage('All details received! Would you like to add a picture?')
+  }
+  const next = getNextQuestion(ctx)
+  return createMessage(next)
 }
 
 /**
@@ -393,12 +427,6 @@ export function getExtractionSuccessResponse(
   ctx: OfflineResponseContext
 ) {
   const needsExactDay = !!extracted.dateIsPartial
-  
-  const missing: string[] = []
-  if (!ctx.hasTitle) missing.push('title/heading')
-  if (!ctx.hasName) missing.push('names')
-  if (!ctx.hasDate || needsExactDay) missing.push('date')
-  if (!ctx.hasCourtesy) missing.push('courtesy')
   
   const complete = ctx.hasTitle && ctx.hasName && ctx.hasDate && ctx.hasCourtesy && !needsExactDay
 
@@ -412,6 +440,9 @@ export function getExtractionSuccessResponse(
   if (extracted.date) found.push(`date "${extracted.date}"`)
   if (extracted.courtesy) found.push(`courtesy`)
   
-  const prefix = found.length > 0 ? `Excellent! Got the ${found.join(', ')}. ` : 'Got it. '
-  return createMessage(`${prefix}Please provide the ${missing.join(', ')}.`)
+  const prefix = found.length > 0 ? `Perfect — I got ${found.join(', ')}. ` : 'Got it. '
+  const next = needsExactDay
+    ? 'Could you share the exact day too? (Example: “6th Jan 2026”)'
+    : getNextQuestion(ctx)
+  return createMessage(`${prefix}${next}`)
 }

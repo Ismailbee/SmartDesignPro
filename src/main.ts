@@ -37,6 +37,7 @@ import { useThemeStore } from './stores/theme'
 
 // Capacitor imports
 import { App as CapacitorApp } from '@capacitor/app'
+import { Capacitor } from '@capacitor/core'
 
 // Ionic Vue imports
 import { IonicVue } from '@ionic/vue'
@@ -51,8 +52,7 @@ import '@ionic/vue/css/text-transformation.css'
 import '@ionic/vue/css/flex-utils.css'
 import '@ionic/vue/css/display.css'
 
-// Vue Konva imports
-import VueKonva from 'vue-konva'
+
 
 // Font Awesome imports
 import { library } from '@fortawesome/fontawesome-svg-core'
@@ -134,9 +134,6 @@ const pinia = createPinia()
 // Register Ionic Vue
 app.use(IonicVue)
 
-// Register Vue Konva
-app.use(VueKonva)
-
 // Register Font Awesome component globally
 app.component('font-awesome-icon', FontAwesomeIcon)
 
@@ -149,3 +146,13 @@ const themeStore = useThemeStore()
 themeStore.initTheme()
 
 app.mount('#app')
+
+// Register SW only for production web builds (Capacitor native uses filesystem cache).
+// In dev, avoid SW caching to prevent stale bundles and confusing runtime errors.
+if (import.meta.env.PROD && !Capacitor.isNativePlatform()) {
+  import('./pwa')
+    .then((m) => m.registerPWA())
+    .catch(() => {
+      // ignore
+    })
+}

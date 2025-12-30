@@ -32,7 +32,8 @@ unsubscribe: null
 }),
 getters: {
 unreadCount: (state) => state.items.filter(n => !n.read).length,
-sorted: (state) => [...state.items].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+// Items are stored in newest-first order to avoid re-sorting on every render.
+sorted: (state) => state.items
 },
 actions: {
 /**
@@ -46,7 +47,7 @@ return
 try {
 this.unsubscribe = subscribeToNotifications(userId, (notifications) => {
 // Convert Firebase notifications to store format
-this.items = notifications.map((notif: NotificationData) => ({
+const mapped = notifications.map((notif: NotificationData) => ({
 id: notif.id,
 title: notif.title,
 message: notif.message,
@@ -55,6 +56,10 @@ read: notif.read,
 createdAt: formatTimestamp(notif.createdAt),
 link: notif.link
 }))
+
+// Keep newest-first ordering once, here.
+mapped.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+this.items = mapped
 })
 
 this.isSubscribed = true

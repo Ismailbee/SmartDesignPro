@@ -85,7 +85,7 @@ export function useTitleLibrary() {
       }
     }
     
-    console.log('⚠️ No title match found for:', input)
+    console.log('⚠️ No title library match found for:', input)
     return null
   }
 

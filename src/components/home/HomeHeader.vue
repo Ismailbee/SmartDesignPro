@@ -103,6 +103,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { Capacitor } from '@capacitor/core'
 import { useAuthStore } from '@/stores/auth'
 import ThemeToggle from '@/components/ui/ThemeToggle.vue'
 import HeaderTokenDisplay from '@/components/ui/HeaderTokenDisplay.vue'
@@ -112,6 +113,7 @@ import MoreMenuModal from './MoreMenuModal.vue'
 import AvatarUploader from '@/components/common/AvatarUploader.vue'
 
 const router = useRouter()
+const isNative = Capacitor.isNativePlatform()
 const authStore = useAuthStore()
 
 // State for More Menu Modal
@@ -240,8 +242,9 @@ const handleMoreMenuNavigate = (action: string) => {
 const handleMicroAppNavigate = (appName: string) => {
   switch (appName) {
     case 'ican':
-      // Check if user has special access before navigation
-      if (checkSpecialAccess()) {
+      // Micro-apps are not included in native (APK) builds.
+      if (isNative) return
+      if (hasMicroAppAccess()) {
         router.push('/ican')
       } else {
         showAccessDeniedAlert('ICAN Portal')

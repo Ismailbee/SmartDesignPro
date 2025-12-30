@@ -120,9 +120,96 @@ export function useStickerExport() {
   }
   
   /**
-   * Download exported image
+   * Download exported image - works on both web and mobile/native platforms
    */
-  function downloadImage(dataUrl: string, filename: string) {
+  async function downloadImage(dataUrl: string, filename: string) {
+    // Check if we're on a native Capacitor platform
+    const isNativePlatform = typeof (window as any).Capacitor !== 'undefined' && 
+      (window as any).Capacitor.isNativePlatform && 
+      (window as any).Capacitor.isNativePlatform()
+    
+    console.log('📥 Sticker download initiated:', { filename, isNativePlatform })
+    
+    if (isNativePlatform) {
+      // For native Capacitor apps, save to device storage using Filesystem
+      try {
+        const { Filesystem, Directory } = await import('@capacitor/filesystem')
+        const { Share } = await import('@capacitor/share')
+        
+        // Extract base64 data (remove data URL prefix)
+        const base64Data = dataUrl.split(',')[1] || dataUrl
+        
+        // Generate unique filename with timestamp
+        const timestamp = Date.now()
+        const uniqueFilename = filename.replace(/(\.[^.]+)$/, `-${timestamp}$1`)
+        
+        // Save to Pictures folder so it appears in Gallery
+        let savedFile
+        try {
+          // First try Pictures/SmartDesignPro (appears in Gallery)
+          savedFile = await Filesystem.writeFile({
+            path: `Pictures/SmartDesignPro/${uniqueFilename}`,
+            data: base64Data,
+            directory: Directory.ExternalStorage,
+            recursive: true
+          })
+          console.log('✅ Sticker saved to Pictures (Gallery):', savedFile.uri)
+        } catch (picturesError) {
+          console.warn('Pictures folder failed, trying DCIM:', picturesError)
+          try {
+            // Fallback to DCIM/SmartDesignPro (also appears in Gallery)
+            savedFile = await Filesystem.writeFile({
+              path: `DCIM/SmartDesignPro/${uniqueFilename}`,
+              data: base64Data,
+              directory: Directory.ExternalStorage,
+              recursive: true
+            })
+            console.log('✅ Sticker saved to DCIM (Gallery):', savedFile.uri)
+          } catch (dcimError) {
+            console.warn('DCIM failed, trying External:', dcimError)
+            // Final fallback to External directory
+            savedFile = await Filesystem.writeFile({
+              path: `SmartDesignPro/${uniqueFilename}`,
+              data: base64Data,
+              directory: Directory.External,
+              recursive: true
+            })
+            console.log('✅ Sticker saved to External storage:', savedFile.uri)
+          }
+        }
+        
+        // Trigger media scanner to make image appear in gallery immediately
+        try {
+          // @ts-ignore - Native bridge call
+          if ((window as any).Capacitor?.Plugins?.MediaScanner) {
+            await (window as any).Capacitor.Plugins.MediaScanner.scanFile({ path: savedFile.uri })
+          }
+        } catch (scanError) {
+          console.log('Media scan not available, image will appear in gallery after refresh')
+        }
+        
+        // Show success alert with option to share
+        const confirmShare = confirm(`✅ Sticker saved to Gallery!\n\nFile: ${uniqueFilename}\n\nCheck your Photos/Gallery app.\n\nWould you like to share it?`)
+        
+        if (confirmShare) {
+          await Share.share({
+            title: filename,
+            text: 'My wedding sticker design from SmartDesignPro',
+            url: savedFile.uri,
+            dialogTitle: 'Share Your Sticker'
+          })
+          console.log('✅ Sticker shared successfully')
+        }
+        
+        return
+      } catch (error) {
+        console.error('Native save failed:', error)
+        alert('❌ Failed to save sticker. Please check app storage permissions and try again.')
+        return
+      }
+    }
+    
+    // For web/desktop, use standard download
     const link = document.createElement('a')
     link.href = dataUrl
     link.download = filename
@@ -142,7 +229,7 @@ export function useStickerExport() {
     const dataUrl = await exportToPng(svgElement, options)
     
     if (dataUrl) {
-      downloadImage(dataUrl, filename)
+      await downloadImage(dataUrl, filename)
       return true
     }
     

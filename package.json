@@ -22,6 +22,8 @@
     "sync:android": "npx cap sync android",
     "open:android": "npx cap open android",
     "type-check": "vue-tsc --noEmit",
+    "type-check:scoped": "vue-tsc --noEmit -p tsconfig.scoped.json",
+    "type-check:backgrounds": "tsc -p tsconfig.backgrounds.json --noEmit",
     "preview": "vite preview",
     "lint": "eslint --ext .ts,.vue src",
     "test": "vitest",
@@ -45,6 +47,8 @@
     "@capacitor/camera": "^7.0.2",
     "@capacitor/cli": "^7.4.4",
     "@capacitor/core": "^7.4.4",
+    "@capacitor/filesystem": "^7.0.2",
+    "@capacitor/preferences": "^7.0.2",
     "@capacitor/share": "^7.0.2",
     "@floating-ui/dom": "^1.7.4",
     "@floating-ui/vue": "^1.1.9",
@@ -114,6 +118,7 @@
     "tailwindcss": "^3.3.6",
     "typescript": "^5.2.2",
     "vite": "^7.2.7",
+    "vite-plugin-pwa": "^1.0.3",
     "vue-tsc": "^2.2.12"
   }
 }

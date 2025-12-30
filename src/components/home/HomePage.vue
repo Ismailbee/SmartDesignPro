@@ -90,7 +90,7 @@ const TeamSection = defineAsyncComponent(() => import('@/components/home/TeamSec
 const TestimonialsSection = defineAsyncComponent(() => import('@/components/home/TestimonialsSection.vue'))
 const ContactSection = defineAsyncComponent(() => import('@/components/home/ContactSection.vue'))
 const HomeFooter = defineAsyncComponent(() => import('@/components/home/HomeFooter.vue'))
-const InteractiveGuide = defineAsyncComponent(() => import('@/components/InteractiveGuideEnhanced.vue'))
+const InteractiveGuide = defineAsyncComponent(() => import('@/components/onboarding/InteractiveGuideEnhanced.vue'))
 
 const router = useRouter()
 const authStore = useAuthStore()

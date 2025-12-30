@@ -39,8 +39,8 @@ class SafeStorage {
       }
       return true;
       
-    } catch (error: any) {
-      if (error.name === 'QuotaExceededError') {
+    } catch (error: unknown) {
+      if (error instanceof DOMException && error.name === 'QuotaExceededError') {
         console.warn('💾 Storage quota exceeded, attempting cleanup...');
         
         // Try cleanup and retry once

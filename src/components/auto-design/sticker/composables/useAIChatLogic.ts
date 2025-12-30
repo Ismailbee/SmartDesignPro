@@ -513,7 +513,7 @@ export function useAIChatLogic(options: UseAIChatLogicOptions) {
       isAnalyzing.value = false
       chatMessages.value.push({
         id: Date.now(),
-        text: "Please send your wedding sticker details: title/heading, couple's names, wedding date, and courtesy.",
+        text: "No worries — we’ll do it step by step. First, what title/heading should I put at the top? (Example: ‘Wedding Ceremony’)",
         sender: 'ai',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       })
@@ -536,7 +536,7 @@ export function useAIChatLogic(options: UseAIChatLogicOptions) {
       isAnalyzing.value = false
       chatMessages.value.push({
         id: Date.now(),
-        text: "Please provide your wedding sticker details: title/heading, couple's names, wedding date, and courtesy. If you're not sure about the title, tell me and I'll suggest one.",
+        text: "Hi! 😊 Let’s start — what title/heading should I put at the top? (Example: ‘Wedding Ceremony’)",
         sender: 'ai',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       })

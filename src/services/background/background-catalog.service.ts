@@ -1,11 +1,13 @@
 import { collection, getDocs, limit, query, where } from '@/config/firebase'
 import { db } from '@/config/firebase'
+import type { BackgroundItem } from './background.types'
+import { inferPaletteKeyFromText, normalizeWeight } from './background-utils'
 
 export type BackgroundRef = string
 
 type CachedPayload = {
   ts: number
-  refs: BackgroundRef[]
+  items: BackgroundItem[]
 }
 
 function cacheKey(category: string) {
@@ -17,16 +19,16 @@ function safeReadCache(category: string): CachedPayload | null {
     const raw = localStorage.getItem(cacheKey(category))
     if (!raw) return null
     const parsed = JSON.parse(raw) as CachedPayload
-    if (!parsed || typeof parsed.ts !== 'number' || !Array.isArray(parsed.refs)) return null
+    if (!parsed || typeof parsed.ts !== 'number' || !Array.isArray(parsed.items)) return null
     return parsed
   } catch {
     return null
   }
 }
 
-function safeWriteCache(category: string, refs: BackgroundRef[]) {
+function safeWriteCache(category: string, items: BackgroundItem[]) {
   try {
-    const payload: CachedPayload = { ts: Date.now(), refs }
+    const payload: CachedPayload = { ts: Date.now(), items }
     localStorage.setItem(cacheKey(category), JSON.stringify(payload))
   } catch {
     // ignore
@@ -42,7 +44,7 @@ export function clearBackgroundCatalogCache(category: string) {
 }
 
 /**
- * Loads a small pool of background references from Firestore and caches it.
+ * Loads a small pool of background items from Firestore and caches it.
  *
  * Cost control:
  * - returns cached values until TTL expires
@@ -52,20 +54,23 @@ export function clearBackgroundCatalogCache(category: string) {
  * - category: string
  * - active: boolean
  * - fullUrl or url: string (public https URL)
+ * - name?: string
+ * - paletteKey?: 'light'|'dark'|'redGold'|'unknown'
+ * - weight?: number
  */
-export async function getBackgroundRefsCached(
+export async function getBackgroundItemsCached(
   category: string,
   options?: {
     ttlMs?: number
     limit?: number
   }
-): Promise<BackgroundRef[]> {
+): Promise<BackgroundItem[]> {
   const ttlMs = options?.ttlMs ?? 12 * 60 * 60 * 1000 // 12 hours
   const maxDocs = options?.limit ?? 50
 
   const cached = safeReadCache(category)
-  if (cached && Date.now() - cached.ts < ttlMs && cached.refs.length > 0) {
-    return cached.refs
+  if (cached && Date.now() - cached.ts < ttlMs && cached.items.length > 0) {
+    return cached.items
   }
 
   try {
@@ -77,18 +82,48 @@ export async function getBackgroundRefsCached(
     )
 
     const snap = await getDocs(q)
-    const refs: BackgroundRef[] = []
+    const items: BackgroundItem[] = []
 
     snap.forEach((docSnap) => {
       const data = docSnap.data() as any
       const url = (data?.fullUrl || data?.url) as unknown
-      if (typeof url === 'string' && url.length > 0) refs.push(url)
+      if (typeof url !== 'string' || url.length === 0) return
+
+      const name = typeof data?.name === 'string' ? data.name : undefined
+      const paletteKey = typeof data?.paletteKey === 'string'
+        ? (data.paletteKey as any)
+        : inferPaletteKeyFromText(name || url)
+
+      const weight = normalizeWeight(data?.weight, 1)
+
+      items.push({
+        id: docSnap.id,
+        category,
+        name,
+        paletteKey,
+        weight,
+        src: { type: 'remote', ref: url },
+      })
     })
 
-    if (refs.length > 0) safeWriteCache(category, refs)
-    return refs
+    if (items.length > 0) safeWriteCache(category, items)
+    return items
   } catch {
     // If Firestore fails/offline, fall back to whatever cache we had
-    return cached?.refs ?? []
+    return cached?.items ?? []
   }
+}
+
+/**
+ * Backward-compatible helper: returns just the URLs.
+ */
+export async function getBackgroundRefsCached(
+  category: string,
+  options?: {
+    ttlMs?: number
+    limit?: number
+  }
+): Promise<BackgroundRef[]> {
+  const items = await getBackgroundItemsCached(category, options)
+  return items.map((it) => it.src.ref)
 }

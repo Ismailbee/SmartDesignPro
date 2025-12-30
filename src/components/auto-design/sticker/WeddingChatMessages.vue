@@ -69,6 +69,9 @@
           <!-- Preview Message -->
           <template v-else-if="msg.type === 'preview'">
             <div class="preview-wrapper" ref="previewContainers">
+              <div class="preview-placeholder">
+                <!-- SVG preview will be injected here -->
+              </div>
               <div class="preview-actions">
                 <button @click="$emit('action', { type: 'edit' })" class="preview-btn edit">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -92,9 +95,6 @@
                   </svg>
                   New
                 </button>
-              </div>
-              <div class="preview-placeholder">
-                <!-- SVG preview will be injected here -->
               </div>
             </div>
           </template>
@@ -135,13 +135,10 @@
       </div>
     </TransitionGroup>
 
-    <!-- Generating Preview -->
+    <!-- Single Generating Preview Indicator (simplified for mobile performance) -->
     <div v-if="isGeneratingPreview" class="generating-state">
-      <div class="generating-animation">
-        <div class="ring"></div>
-        <span class="generating-icon">✨</span>
-      </div>
-      <p class="generating-text">Creating your design...</p>
+      <div class="simple-spinner"></div>
+      <p class="generating-text">{{ generatingMessage || 'Creating your design...' }}</p>
     </div>
   </div>
 </template>
@@ -173,6 +170,7 @@ const props = defineProps<{
   isAuthenticated: boolean
   userName?: string
   tokens: number
+  generatingMessage?: string
 }>()
 
 // Emits
@@ -238,6 +236,13 @@ function scrollToBottom() {
 // Watch messages and scroll
 watch(() => props.messages.length, () => {
   scrollToBottom()
+})
+
+// Watch for generating preview to scroll
+watch(() => props.isGeneratingPreview, (isGenerating) => {
+  if (isGenerating) {
+    scrollToBottom()
+  }
 })
 
 // Expose methods
@@ -400,6 +405,11 @@ defineExpose({
   animation: slideIn 0.3s ease;
 }
 
+/* Allow preview messages to be wider */
+.message:has(.preview-wrapper) {
+  max-width: 95%;
+}
+
 @keyframes slideIn {
   from {
     opacity: 0;
@@ -500,13 +510,16 @@ defineExpose({
   border: 1px solid var(--border-primary);
   border-radius: 16px;
   overflow: hidden;
+  max-width: 100%;
+  margin: 0 auto;
 }
 
 .preview-actions {
   display: flex;
+  justify-content: center;
   gap: 8px;
   padding: 12px;
-  border-bottom: 1px solid var(--border-primary);
+  border-top: 1px solid var(--border-primary);
   background: var(--bg-secondary);
 }
 
@@ -548,7 +561,16 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 16px;
+  background: var(--bg-tertiary);
+}
+
+.preview-placeholder :deep(svg) {
+  max-width: 100%;
+  max-height: 400px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
 }
 
 /* Message Actions */
@@ -579,48 +601,36 @@ defineExpose({
   border-color: var(--color-primary);
 }
 
-/* Generating State */
+/* Generating State - Simplified for mobile performance */
 .generating-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px;
-  gap: 20px;
+  padding: 30px;
+  gap: 16px;
 }
 
-.generating-animation {
-  position: relative;
-  width: 80px;
-  height: 80px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.ring {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border: 3px solid transparent;
-  border-top-color: var(--color-primary);
+/* Simple CSS-only spinner - GPU accelerated, no JS */
+.simple-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e5e7eb;
+  border-top-color: var(--color-primary, #3b82f6);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: spin 0.8s linear infinite;
+  will-change: transform;
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
-.generating-icon {
-  font-size: 2rem;
-  animation: pulse 1s ease-in-out infinite;
-}
-
 .generating-text {
-  font-size: 1rem;
-  color: var(--text-secondary);
+  font-size: 0.9rem;
+  color: var(--text-secondary, #6b7280);
   font-weight: 500;
+  text-align: center;
 }
 
 /* Transitions */
@@ -630,5 +640,80 @@ defineExpose({
 
 .message-leave-active {
   animation: slideIn 0.3s ease reverse;
+}
+
+/* Mobile Responsive */
+@media (max-width: 480px) {
+  .chat-container {
+    padding: 20px;
+  }
+  
+  .message {
+    max-width: 95%;
+    gap: 8px;
+  }
+  
+  .message:has(.preview-wrapper) {
+    max-width: 100%;
+  }
+  
+  .message-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 0.9rem;
+  }
+  
+  .message-text {
+    padding: 10px 14px;
+    font-size: 0.9rem;
+  }
+  
+  .preview-wrapper {
+    border-radius: 12px;
+  }
+  
+  .preview-placeholder {
+    padding: 12px;
+    min-height: 150px;
+  }
+  
+  .preview-placeholder :deep(svg) {
+    max-height: 300px;
+  }
+  
+  .preview-actions {
+    padding: 10px;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .preview-btn {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    gap: 4px;
+  }
+  
+  .preview-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .welcome-icon {
+    font-size: 48px;
+  }
+  
+  .welcome-title {
+    font-size: 1.4rem;
+  }
+  
+  .welcome-subtitle {
+    font-size: 0.9rem;
+  }
+  
+  .suggestion-chip {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+  }
 }
 </style>

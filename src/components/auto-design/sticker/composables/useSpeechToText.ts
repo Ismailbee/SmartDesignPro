@@ -427,8 +427,11 @@ export function useSpeechToText(options: SpeechToTextOptions) {
       if (typeof window !== 'undefined' && window.speechSynthesis) {
         window.speechSynthesis.cancel()
       }
-      // Stop native TTS (Capacitor) if available - lazy loaded
-      loadTextToSpeech().then(TTS => TTS?.stop?.()).catch(() => {})
+      // Stop native TTS (Capacitor) only on actual native platform
+      const isNative = (window as any).Capacitor?.isNativePlatform?.()
+      if (isNative) {
+        loadTextToSpeech().then(TTS => TTS?.stop?.()).catch(() => {})
+      }
     } catch (e) {
       // Ignore errors
     }
@@ -463,20 +466,21 @@ export function useSpeechToText(options: SpeechToTextOptions) {
       .replace(/\s+/g, ' ')                    // Clean up extra whitespace
       .trim()
     
-    // On mobile (Android/iOS via Capacitor), try native TTS first since Web Speech API
-    // often doesn't work properly in WebView
-    const isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-                     (typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.())
+    // Only use Capacitor TTS on actual native platform (APK/IPA), not web
+    // Checking isNativePlatform() to avoid "not implemented on web" errors
+    const isNativePlatform = typeof window !== 'undefined' &&
+                              (window as any).Capacitor?.isNativePlatform &&
+                              (window as any).Capacitor.isNativePlatform()
     
-    if (isMobile) {
-      // Try native TTS first on mobile
+    if (isNativePlatform) {
+      // Try native TTS on actual Capacitor app
       tryNativeTTS(cleanText).catch(() => {
         // Fallback to web speech if native TTS fails
         console.log('Native TTS failed, trying web speech...')
         tryWebSpeech(cleanText)
       })
     } else {
-      // On desktop, use web speech synthesis
+      // On web/desktop, use web speech synthesis
       tryWebSpeech(cleanText)
     }
   }

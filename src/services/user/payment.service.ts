@@ -4,7 +4,9 @@
  */
 
 import { Capacitor } from '@capacitor/core'
-import { Browser } from '@capacitor/browser'
+// Lazy load Browser plugin - only needed when opening payment page
+import { loadBrowser } from '@/composables/useCapacitorPlugins'
+import { getPaymentApiBaseUrlOrThrow } from '@/config/apiUrls'
 import type {
   InitializePaymentRequest,
   InitializePaymentResponse,
@@ -13,7 +15,9 @@ import type {
   PaymentConfig
 } from '@/types/payment.types'
 
-const API_BASE_URL = import.meta.env.VITE_PAYMENT_API_URL || 'http://localhost:3006'
+function getApiBase(): string {
+  return getPaymentApiBaseUrlOrThrow('Payments')
+}
 
 /**
  * Initialize a payment with Paystack
@@ -21,7 +25,9 @@ const API_BASE_URL = import.meta.env.VITE_PAYMENT_API_URL || 'http://localhost:3
 export async function initializePayment(
   request: InitializePaymentRequest
 ): Promise<InitializePaymentResponse> {
-  // Use standalone function
+  const API_BASE_URL = getApiBase()
+
+  // Firebase Functions endpoint (see functions/index.js: export const initializePayment)
   const response = await fetch(`${API_BASE_URL}/initializePayment`, {
     method: 'POST',
     headers: {
@@ -42,7 +48,9 @@ export async function initializePayment(
  * Verify a payment
  */
 export async function verifyPayment(reference: string): Promise<VerifyPaymentResponse> {
-  // Use standalone function (POST)
+  const API_BASE_URL = getApiBase()
+
+  // Firebase Functions endpoint (see functions/index.js: export const verifyPayment)
   const response = await fetch(`${API_BASE_URL}/verifyPayment`, {
     method: 'POST',
     headers: {
@@ -56,7 +64,21 @@ export async function verifyPayment(reference: string): Promise<VerifyPaymentRes
     throw new Error(error.error || 'Failed to verify payment')
   }
 
-  return response.json()
+  const raw = await response.json()
+
+  // Normalize multiple backend shapes into the app's VerifyPaymentResponse
+  // Expected cloud function shape: { success, message, data: { status, amount, metadata, paidAt } }
+  const paymentData = raw?.data || raw
+  const metadata = paymentData?.metadata || {}
+
+  return {
+    status: paymentData?.status,
+    amount: Number(paymentData?.amount ?? 0),
+    type: metadata?.type,
+    tokens: metadata?.tokens ? Number(metadata.tokens) : undefined,
+    plan: metadata?.plan,
+    verifiedAt: paymentData?.paidAt || paymentData?.verifiedAt
+  } as VerifyPaymentResponse
 }
 
 /**
@@ -72,6 +94,7 @@ export async function getPaymentHistory(
     endDate?: string
   }
 ): Promise<PaymentHistory> {
+  const API_BASE_URL = getApiBase()
   const params = new URLSearchParams()
   
   if (filters?.page) params.append('page', filters.page.toString())
@@ -103,6 +126,8 @@ export async function openPaystackPopup(config: PaymentConfig): Promise<void> {
     if (!config.authorizationUrl) {
       throw new Error('Authorization URL is required for mobile payment')
     }
+    // Lazy load Browser plugin when needed
+    const Browser = await loadBrowser()
     await Browser.open({ url: config.authorizationUrl })
     
     // Note: Payment verification needs to be handled via webhook or manual check

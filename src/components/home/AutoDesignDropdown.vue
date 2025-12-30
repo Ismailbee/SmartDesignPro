@@ -24,9 +24,11 @@
             v-for="category in categories"
             :key="category"
             class="dropdown-item"
+            :class="{ 'is-loading': loadingCategory === category }"
+            :disabled="loadingCategory !== null"
             @click="selectCategory(category)"
           >
-            
+            <span v-if="loadingCategory === category" class="item-spinner"></span>
             <span class="category-name">{{ category }}</span>
           </button>
         </div>
@@ -42,6 +44,7 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 const isOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
+const loadingCategory = ref<string | null>(null)
 
 const categories = [
   'Naming Ceremony',
@@ -74,6 +77,9 @@ const toggleDropdown = () => {
 }
 
 const selectCategory = (category: string) => {
+  // Show immediate loading feedback
+  loadingCategory.value = category
+  
   console.log('🎯 Selected category:', category)
   const formattedCategory = category.toLowerCase().replace(/\s+/g, '-').replace(/\//g, '-')
   console.log('🔀 Formatted category:', formattedCategory)
@@ -84,7 +90,12 @@ const selectCategory = (category: string) => {
     path: '/auto-design',
     query: { category: formattedCategory }
   })
-  isOpen.value = false
+  
+  // Close dropdown after short delay to show the loading state
+  setTimeout(() => {
+    isOpen.value = false
+    loadingCategory.value = null
+  }, 150)
 }
 
 // Close dropdown when clicking outside
@@ -200,6 +211,30 @@ onUnmounted(() => {
 
 .dropdown-item:hover {
   background: rgba(6, 182, 212, 0.1);
+}
+
+.dropdown-item.is-loading {
+  background: rgba(6, 182, 212, 0.15);
+  pointer-events: none;
+}
+
+.dropdown-item:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.item-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #06b6d4;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .category-icon {

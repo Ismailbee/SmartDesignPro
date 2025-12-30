@@ -362,8 +362,17 @@ import { useAuthStore } from '@/stores/auth'
 import AdminSidebar from '@/components/admin/AdminSidebar.vue'
 import AdminHeader from '@/components/admin/AdminHeader.vue'
 import StatsCard from '@/components/admin/StatsCard.vue'
-import Chart from 'chart.js/auto'
 import type { UserActivity } from '@/types/admin'
+
+// Lazy load Chart.js - only loaded when dashboard is viewed
+let ChartJS: typeof import('chart.js/auto').default | null = null
+const loadChartJS = async () => {
+  if (!ChartJS) {
+    const module = await import('chart.js/auto')
+    ChartJS = module.default
+  }
+  return ChartJS
+}
 
 const adminStore = useAdminStore()
 const authStore = useAuthStore()
@@ -373,10 +382,10 @@ const userGrowthChart = ref<HTMLCanvasElement | null>(null)
 const planDistributionChart = ref<HTMLCanvasElement | null>(null)
 const revenueChart = ref<HTMLCanvasElement | null>(null)
 
-// Chart instances
-let userGrowthChartInstance: Chart | null = null
-let planDistributionChartInstance: Chart | null = null
-let revenueChartInstance: Chart | null = null
+// Chart instances (typed as any since Chart is lazy loaded)
+let userGrowthChartInstance: any = null
+let planDistributionChartInstance: any = null
+let revenueChartInstance: any = null
 
 // State
 const userGrowthPeriod = ref<'daily' | 'weekly' | 'monthly'>('daily')
@@ -453,8 +462,10 @@ watch(revenueChartType, () => {
   updateRevenueChart()
 })
 
-// Initialize charts with enhanced styling
-function initializeCharts() {
+// Initialize charts with enhanced styling - lazy loads Chart.js
+async function initializeCharts() {
+  const Chart = await loadChartJS()
+  
   if (userGrowthChart.value) {
     userGrowthChartInstance = new Chart(userGrowthChart.value, {
       type: 'line',

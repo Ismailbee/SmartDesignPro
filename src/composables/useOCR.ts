@@ -1,5 +1,14 @@
 import { ref } from 'vue';
-import { createWorker } from 'tesseract.js';
+
+// Lazy load tesseract.js - only loads when OCR is actually used
+let createWorkerFn: any = null;
+const loadTesseract = async () => {
+  if (!createWorkerFn) {
+    const tesseract = await import('tesseract.js');
+    createWorkerFn = tesseract.createWorker;
+  }
+  return createWorkerFn;
+};
 
 // Singleton worker instance
 let worker: any = null;
@@ -17,6 +26,8 @@ export function useOCR() {
 
     workerLoadingPromise = (async () => {
       try {
+        // Lazy load tesseract.js
+        const createWorker = await loadTesseract();
         // Use 'tessdata_fast' for better performance on mobile devices
         const newWorker = await createWorker('eng', 1, {
           langPath: 'https://tesseract.js.org/tessdata_fast', 

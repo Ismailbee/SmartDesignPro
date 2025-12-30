@@ -27,9 +27,9 @@ const TITLE_PATTERNS = [
   // Naming ceremony patterns
   /(alhamdulillah[i]?)\s*(on\s+your\s+)?(naming\s+ceremony|naming)/i,
   /(congratulations?)\s*(on\s+your\s+)?(naming\s+ceremony|naming)/i,
-  // Quranic walimat / nikkah
-  /(congratulations?)\s*(on\s+your\s+)?(quranic\s+walimat|walimat)/i,
-  /(alhamdulillah[i]?)\s*(on\s+your\s+)?(quranic\s+walimat|walimat)/i,
+  // Quranic walima / nikkah (all walima variations)
+  /(congratulations?)\s*(on\s+your\s+)?(qur'?anic\s+)?(walima|walimah|walimat|walmia|walmiah|wamima|wamimat|wamimah)/i,
+  /(alhamdulillah[i]?)\s*(on\s+your\s+)?(qur'?anic\s+)?(walima|walimah|walimat|walmia|walmiah|wamima|wamimat|wamimah)/i,
   // Freedom patterns
   /(congratulations?)\s*(on\s+your\s+)?freedom/i,
   /(alhamdulillah[i]?)\s*(on\s+your\s+)?freedom/i,
@@ -37,6 +37,12 @@ const TITLE_PATTERNS = [
   /\b(conjugal\s+bliss)\b/i,
   /\b(together\s+for\s*ever)\b/i,
   /\b(toget+her\s+for\s*ever)\b/i,
+  // Additional title patterns from useTitleDetection
+  /\b(beautiful\s+beginning)\b/i,
+  /\b(save\s+the\s+date)\b/i,
+  /\b(happy\s+wedding)\b/i,
+  /\b(thank[s]?\s+for\s+attending)\b/i,
+  /\b(with\s+love)\b/i,
 ]
 
 // Name patterns (supports full names like "Yahaya Suleiman & Haruna Mohammed")

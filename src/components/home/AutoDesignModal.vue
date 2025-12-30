@@ -130,7 +130,7 @@ const selectCategory = (category: string) => {
   } 
   // Special handling for Letter Head - route to templates dashboard
   else if (category === 'Letter Head') {
-    router.push({ path: '/letterhead-templates' })
+    router.push({ path: '/letterhead' })
   } 
   else {
     router.push({ path: '/auto-design', query: { category: slugify(category) } })

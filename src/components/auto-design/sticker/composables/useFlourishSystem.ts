@@ -7,6 +7,7 @@
 
 import { ref, type Ref } from 'vue'
 import { useTitleLibrary } from './useTitleLibrary'
+import type { BackgroundPaletteKey } from '@/services/background/background.types'
 
 // ========================================
 // TYPES
@@ -31,7 +32,10 @@ const DEFAULT_FLOURISH_CONFIG: FlourishConfig = {
 // ========================================
 // COMPOSABLE
 // ========================================
-export function useFlourishSystem(currentBackgroundFileName?: Ref<string>) {
+export function useFlourishSystem(
+  currentBackgroundFileName?: Ref<string>,
+  currentBackgroundPaletteKey?: Ref<BackgroundPaletteKey>
+) {
   const { renderSvgToPng } = useTitleLibrary()
   
   /**
@@ -47,11 +51,17 @@ export function useFlourishSystem(currentBackgroundFileName?: Ref<string>) {
    * Get flourish color based on current background
    * Returns a color that complements the background
    */
-  function getFlourishColorForBackground(backgroundFileName?: string): string {
+  function getFlourishColorForBackground(backgroundFileName?: string, paletteKey?: BackgroundPaletteKey): string {
     const bgFile = backgroundFileName || currentBackgroundFileName?.value || ''
+    const pk = paletteKey || currentBackgroundPaletteKey?.value
     if (!bgFile) {
       return '#FFD700' // Default gold
     }
+
+    // If we know the palette, prefer it (works for remote URLs too)
+    if (pk === 'dark') return '#FFD700' // Gold pops on dark
+    if (pk === 'light') return '#B8860B' // Dark goldenrod on light
+    if (pk === 'redGold') return '#FFD700' // Gold
     
     const lowerName = bgFile.toLowerCase()
     

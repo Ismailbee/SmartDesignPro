@@ -76,3 +76,104 @@ ion-item {
   --color: #1a202c !important;
 }
 
+/* =====================
+   Lightweight micro-interactions
+   (CSS-only, no new colors, respects reduced motion)
+   ===================== */
+
+.ui-pressable {
+  transition: transform 140ms ease, filter 140ms ease;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-pressable {
+    transition: none;
+  }
+}
+
+.ui-pressable:active {
+  transform: translateY(1px) scale(0.985);
+}
+
+.ui-focusable:focus-visible {
+  outline: 2px solid var(--ion-color-primary, currentColor);
+  outline-offset: 2px;
+}
+
+@keyframes ui-success-pulse {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+.ui-success-pulse {
+  animation: ui-success-pulse 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* =====================
+   PERFORMANCE OPTIMIZATIONS FOR MOBILE
+   ===================== */
+
+/* GPU-accelerated transforms for animations */
+.gpu-accelerated,
+.splash-screen,
+.route-loading-overlay,
+.modal,
+.sidebar,
+.dropdown {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Optimize scroll performance on mobile */
+.scroll-container,
+.chat-messages,
+.template-grid,
+.invoice-preview {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Use transform instead of top/left for animations */
+.slide-enter-active,
+.slide-leave-active,
+.fade-enter-active,
+.fade-leave-active {
+  will-change: transform, opacity;
+}
+
+/* Disable hover effects on touch devices to prevent sticky hover states */
+@media (hover: none) and (pointer: coarse) {
+  .hover\:scale-105:hover,
+  .hover\:bg-gray-100:hover,
+  .hover\:border-cyan-500:hover {
+    transform: none !important;
+    background-color: inherit !important;
+    border-color: inherit !important;
+  }
+}
+
+/* Optimize images */
+img {
+  content-visibility: auto;
+}
+
+/* Contain paint for large components */
+.sticker-template-panel,
+.invoice-preview,
+.receipt-preview {
+  contain: layout style paint;
+}

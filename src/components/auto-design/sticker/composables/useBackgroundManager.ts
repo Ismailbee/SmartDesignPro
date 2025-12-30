@@ -14,7 +14,11 @@
  */
 
 import { ref, nextTick, type Ref } from 'vue'
-import { getBackgroundRefsCached } from '@/services/background/background-catalog.service'
+import { getBackgroundItemsCached } from '@/services/background/background-catalog.service'
+import type { BackgroundItem, BackgroundPaletteKey } from '@/services/background/background.types'
+import { backgroundDisplayName, backgroundPersistKey } from '@/services/background/background.types'
+import { decodeMaybe, inferPaletteKeyFromText, normalizeWeight, resolvePaletteKey } from '@/services/background/background-utils'
+import { resolveBackgroundImageUrl } from '@/services/background/background-image-cache'
 
 // ============================================================================
 // Types & Interfaces
@@ -42,9 +46,12 @@ export interface BackgroundColorConfig {
  * Background manifest item from backgrounds.json
  */
 export interface BackgroundManifestItem {
+  id?: string
   file: string
   category?: string
   name?: string
+  paletteKey?: BackgroundPaletteKey
+  weight?: number
 }
 
 // ============================================================================
@@ -104,6 +111,54 @@ const FALLBACK_BACKGROUNDS = [
   'Red and Gold Simple Elegant Islamic Background Poster.png',
 ]
 
+const MAX_BUNDLED_FALLBACK_BACKGROUNDS = 100
+
+function slugify(input: string): string {
+  return (input || '')
+    .toLowerCase()
+    .replace(/\.[a-z0-9]+$/i, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function toBundledItem(category: string, manifest: BackgroundManifestItem): BackgroundItem {
+  const id = manifest.id || slugify(manifest.name || manifest.file)
+  const name = manifest.name
+  const paletteKey = manifest.paletteKey || inferPaletteKeyFromText(name || manifest.file)
+  const weight = normalizeWeight(manifest.weight, 1)
+  const refPath = encodeURI(`/svg/background/${manifest.file}`)
+
+  return {
+    id,
+    category,
+    name,
+    paletteKey,
+    weight,
+    src: { type: 'bundled', ref: refPath },
+    fileName: manifest.file,
+  }
+}
+
+function toBundledFallbackItem(category: string, fileName: string): BackgroundItem {
+  return toBundledItem(category, { file: fileName, name: fileName })
+}
+
+function isPersistKey(value: string): boolean {
+  return /^(bundled|remote|custom):/.test(value)
+}
+
+function dedupeItems(items: BackgroundItem[]): BackgroundItem[] {
+  const seen = new Set<string>()
+  const out: BackgroundItem[] = []
+  for (const it of items) {
+    const k = backgroundPersistKey(it)
+    if (seen.has(k)) continue
+    seen.add(k)
+    out.push(it)
+  }
+  return out
+}
+
 // ============================================================================
 // Composable Factory
 // ============================================================================
@@ -144,7 +199,9 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
   // ============================================================================
 
   /** Available backgrounds loaded from manifest and Firebase */
-  const availableBackgrounds = ref<string[]>([...FALLBACK_BACKGROUNDS])
+  const availableBackgrounds = ref<BackgroundItem[]>(
+    FALLBACK_BACKGROUNDS.map((f) => toBundledFallbackItem('wedding', f))
+  )
 
   /** Promise for loading backgrounds (prevents duplicate loads) */
   let weddingBackgroundsLoadPromise: Promise<void> | null = null
@@ -154,6 +211,9 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
 
   /** Track current background filename for color detection */
   const currentBackgroundFileName = ref<string>('')
+
+  /** Track current palette for background-driven styling (works for remote URLs too) */
+  const currentBackgroundPaletteKey = ref<BackgroundPaletteKey>('unknown')
 
   /** Track used backgrounds to avoid repetition in session */
   const usedBackgroundsInSession = ref<number[]>([])
@@ -187,12 +247,58 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
   /**
    * Set persisted wedding background to localStorage
    */
-  function setPersistedWeddingBackground(fileName: string): void {
+  function setPersistedWeddingBackground(background: BackgroundItem | string): void {
     try {
-      localStorage.setItem(getPersistenceKey(), fileName)
+      const value = typeof background === 'string' ? background : backgroundPersistKey(background)
+      localStorage.setItem(getPersistenceKey(), value)
     } catch {
       // ignore (private mode, storage disabled)
     }
+  }
+
+  /**
+   * Clear persisted wedding background from localStorage
+   */
+  function clearPersistedWeddingBackground(): void {
+    try {
+      localStorage.removeItem(getPersistenceKey())
+    } catch {
+      // ignore
+    }
+  }
+
+  /**
+   * Resolve a persisted background string (new key or legacy value) to a BackgroundItem.
+   */
+  function resolvePersistedBackground(persisted: string | null): BackgroundItem | null {
+    if (!persisted) return null
+    const value = persisted.trim()
+    const list = availableBackgrounds.value
+
+    // New format: "bundled:<id>" or "remote:<id>"
+    if (isPersistKey(value)) {
+      const [type, ...rest] = value.split(':')
+      const id = rest.join(':')
+      const found = list.find((it) => it.src.type === (type as any) && it.id === id)
+      return found || null
+    }
+
+    // Legacy format: previously stored plain filename or URL
+    const decoded = decodeMaybe(value)
+    return (
+      list.find((it) => it.fileName === value || it.fileName === decoded) ||
+      list.find((it) => it.src.ref === value || it.src.ref === decoded) ||
+      null
+    )
+  }
+
+  /**
+   * Select a background (updates current refs + persistence). Safe before SVG exists.
+   */
+  function selectBackground(background: BackgroundItem): void {
+    currentBackgroundFileName.value = backgroundDisplayName(background)
+    currentBackgroundPaletteKey.value = resolvePaletteKey(background)
+    setPersistedWeddingBackground(background)
   }
 
   // ============================================================================
@@ -211,20 +317,24 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
         const res = await fetch('/svg/background/backgrounds.json', { cache: 'no-store' })
         if (!res.ok) throw new Error(`Failed to load backgrounds.json (${res.status})`)
         const items = (await res.json()) as BackgroundManifestItem[]
-        const weddingFiles = (items || [])
+        const bundled = (items || [])
           .filter((it) => !it.category || it.category === 'wedding')
-          .map((it) => it.file)
-          .filter(Boolean)
-        const firebaseRefs = await getBackgroundRefsCached('wedding', { ttlMs: 12 * 60 * 60 * 1000, limit: 50 })
-        const merged = [...weddingFiles, ...firebaseRefs]
-        const deduped = Array.from(new Set(merged))
-        if (deduped.length > 0) availableBackgrounds.value = deduped
+          .slice(0, MAX_BUNDLED_FALLBACK_BACKGROUNDS)
+          .map((it) => toBundledItem('wedding', it))
+
+        const remote = await getBackgroundItemsCached('wedding', { ttlMs: 12 * 60 * 60 * 1000, limit: 50 })
+
+        const merged = dedupeItems([...bundled, ...remote])
+        if (merged.length > 0) availableBackgrounds.value = merged
       } catch (e) {
         console.warn('⚠️ Could not load /svg/background/backgrounds.json. Using fallback list.', e)
         // Still try Firebase in case local manifest fails
-        const firebaseRefs = await getBackgroundRefsCached('wedding', { ttlMs: 12 * 60 * 60 * 1000, limit: 50 })
-        const merged = [...FALLBACK_BACKGROUNDS, ...firebaseRefs]
-        availableBackgrounds.value = Array.from(new Set(merged))
+        const remote = await getBackgroundItemsCached('wedding', { ttlMs: 12 * 60 * 60 * 1000, limit: 50 })
+        const bundledFallback = FALLBACK_BACKGROUNDS
+          .slice(0, MAX_BUNDLED_FALLBACK_BACKGROUNDS)
+          .map((f) => toBundledFallbackItem('wedding', f))
+
+        availableBackgrounds.value = dedupeItems([...bundledFallback, ...remote])
       }
     })()
 
@@ -430,6 +540,12 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
       console.log('🎨 Red bg (modern chinese) -> WHITE')
       return '#FFFFFF' // White
     }
+
+    // If we have a paletteKey (bundled manifest or Firestore metadata), use it as a clean fallback.
+    const palette = backgroundFileName ? inferPaletteKeyFromText(bgFile) : currentBackgroundPaletteKey.value
+    if (palette === 'light') return '#000000'
+    if (palette === 'dark') return '#FFFFFF'
+    if (palette === 'redGold') return '#FFE4B5'
     
     // === FALLBACK DETECTION ===
     console.log('🔍 Using fallback detection for:', lowerName)
@@ -461,13 +577,27 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
   // Random Background Selection
   // ============================================================================
 
+  function pickWeightedIndex(indices: number[]): number {
+    const list = availableBackgrounds.value
+    const weights = indices.map((i) => normalizeWeight(list[i]?.weight, 1))
+    const total = weights.reduce((s, w) => s + w, 0)
+    if (total <= 0) return indices[Math.floor(Math.random() * indices.length)]
+
+    let r = Math.random() * total
+    for (let j = 0; j < indices.length; j++) {
+      r -= weights[j]
+      if (r <= 0) return indices[j]
+    }
+    return indices[indices.length - 1]
+  }
+
   /**
    * Get a random background (different from current)
    * Uses Fisher-Yates style selection to ensure variety
    */
-  function getRandomBackground(): string {
+  function getRandomBackground(): BackgroundItem | null {
     const backgrounds = availableBackgrounds.value
-    if (backgrounds.length === 0) return ''
+    if (backgrounds.length === 0) return null
     if (backgrounds.length === 1) return backgrounds[0]
     
     // Get list of unused backgrounds in this session
@@ -481,19 +611,19 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
       const availableIndices = backgrounds
         .map((_, index) => index)
         .filter(index => index !== currentBackgroundIndex.value)
-      const newIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)]
+      const newIndex = pickWeightedIndex(availableIndices)
       currentBackgroundIndex.value = newIndex
       usedBackgroundsInSession.value.push(newIndex)
-      console.log(`🎲 Background cycle reset. Selected: ${backgrounds[newIndex]}`)
+      console.log(`🎲 Background cycle reset. Selected: ${backgroundDisplayName(backgrounds[newIndex])}`)
       return backgrounds[newIndex]
     }
     
     // Pick a random unused background
-    const randomUnusedIndex = unusedIndices[Math.floor(Math.random() * unusedIndices.length)]
+    const randomUnusedIndex = pickWeightedIndex(unusedIndices)
     currentBackgroundIndex.value = randomUnusedIndex
     usedBackgroundsInSession.value.push(randomUnusedIndex)
     
-    console.log(`🎲 Random background selected: ${backgrounds[randomUnusedIndex]} (index: ${randomUnusedIndex})`)
+    console.log(`🎲 Random background selected: ${backgroundDisplayName(backgrounds[randomUnusedIndex])} (index: ${randomUnusedIndex})`)
     return backgrounds[randomUnusedIndex]
   }
 
@@ -505,7 +635,13 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
    * Apply a new background to the SVG template
    * Updates background image, element colors, and layer ordering
    */
-  async function applyNewBackground(backgroundFileName: string): Promise<void> {
+  async function applyNewBackground(background: BackgroundItem): Promise<void> {
+    console.log('🎨 applyNewBackground called with:', { 
+      id: background.id, 
+      type: background.src?.type, 
+      refLength: background.src?.ref?.length || 0 
+    })
+    
     if (!weddingPreviewContainer.value) {
       console.error('❌ weddingPreviewContainer not available')
       return
@@ -513,28 +649,20 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
 
     const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
     if (!svgElement) {
-      console.error('❌ SVG element not found')
+      console.error('❌ SVG element not found in weddingPreviewContainer')
       return
     }
+    
+    console.log('✅ Found SVG element:', { 
+      viewBox: svgElement.getAttribute('viewBox'),
+      childCount: svgElement.children.length 
+    })
 
-    // Handle backgrounds from different sources:
-    // - Remote URLs (Firebase Storage download URLs): use as-is
-    // - Absolute paths: use as-is
-    // - Relative paths with '/': treat as under /svg/
-    // - Plain filenames: treat as under /svg/background/
-    const isRemoteUrl = /^https?:\/\//i.test(backgroundFileName)
-    const backgroundUrl = isRemoteUrl
-      ? backgroundFileName
-      : backgroundFileName.startsWith('/')
-        ? backgroundFileName
-        : backgroundFileName.includes('/')
-          ? encodeURI(`/svg/${backgroundFileName}`)
-          : encodeURI(`/svg/background/${backgroundFileName}`)
+    const backgroundUrl = await resolveBackgroundImageUrl(background)
     console.log(`🖼️ Applying new background: ${backgroundUrl}`)
     
     // Track current background filename for title color detection
-    currentBackgroundFileName.value = backgroundFileName
-    setPersistedWeddingBackground(backgroundFileName)
+    selectBackground(background)
     
     // Clear title cache to force re-render with new background color
     if (clearTitleImageCache) {
@@ -587,10 +715,15 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
     if (existingBgImage) {
       // Update existing background image with new URL and dimensions
       existingBgImage.setAttribute('href', backgroundUrl)
-      existingBgImage.setAttribute('xlink:href', backgroundUrl)
+      existingBgImage.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', backgroundUrl)
       existingBgImage.setAttribute('width', String(svgWidth))
       existingBgImage.setAttribute('height', String(svgHeight))
-      console.log('🔄 Updated existing background image')
+      // Ensure visibility
+      existingBgImage.setAttribute('opacity', '1')
+      existingBgImage.removeAttribute('style')
+      ;(existingBgImage as SVGImageElement).style.display = 'block'
+      ;(existingBgImage as SVGImageElement).style.visibility = 'visible'
+      console.log('🔄 Updated existing background image:', backgroundUrl.substring(0, 100))
     } else {
       // Create new background image element
       const bgImage = document.createElementNS('http://www.w3.org/2000/svg', 'image')
@@ -600,8 +733,12 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
       bgImage.setAttribute('width', String(svgWidth))
       bgImage.setAttribute('height', String(svgHeight))
       bgImage.setAttribute('href', backgroundUrl)
-      bgImage.setAttribute('xlink:href', backgroundUrl)
+      bgImage.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', backgroundUrl)
       bgImage.setAttribute('preserveAspectRatio', 'xMidYMid slice')
+      // Ensure visibility
+      bgImage.setAttribute('opacity', '1')
+      bgImage.style.display = 'block'
+      bgImage.style.visibility = 'visible'
 
       // Insert as the first child after defs (before other elements)
       const defs = svgElement.querySelector('defs')
@@ -610,11 +747,18 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
       } else {
         svgElement.insertBefore(bgImage, svgElement.firstChild)
       }
+      console.log('✅ Created new background image:', backgroundUrl.substring(0, 100))
     }
 
     // Update title colors based on background type
     // Get the appropriate color configuration for this background
-    const colorConfig = getBackgroundColorConfig(backgroundFileName)
+    const palette = resolvePaletteKey(background)
+    const legacyLabel = background.fileName || background.name || background.id
+    const colorConfig =
+      palette === 'dark' ? DARK_BG_COLORS :
+      palette === 'redGold' ? RED_GOLD_BG_COLORS :
+      palette === 'light' ? LIGHT_BG_COLORS :
+      getBackgroundColorConfig(legacyLabel)
     
     const blessingText = svgElement.querySelector('#blessing-text') as SVGTextElement
     const occasionText = svgElement.querySelector('#occasion-text') as SVGTextElement
@@ -703,7 +847,7 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
 
     // Adjust title position for specific backgrounds
     // backgroundColour.svg needs titles moved up slightly
-    const lowerBgName = backgroundFileName.toLowerCase()
+    const lowerBgName = legacyLabel.toLowerCase()
     if (lowerBgName.includes('backgroundcolour')) {
       // Move all title elements up by 30 pixels for this background
       const titleElements = [blessingText, occasionText, eventTypeText, ceremonyText]
@@ -742,7 +886,7 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
       }
     })
     
-    console.log(`🎨 Applied colors for background: ${backgroundFileName}`, colorConfig)
+    console.log(`🎨 Applied colors for background: ${backgroundDisplayName(background)}`, colorConfig)
 
     // Ensure proper element ordering: background -> user image -> text elements
     // This ensures user image shows above background but text shows above everything
@@ -793,20 +937,104 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
     updateChatPreviewSVG()
     
     // Update title PNG color based on new background
-    const titleColor = getTitleColorForBackground(backgroundFileName)
-    console.log(`🎨 Updating title color to: ${titleColor} for background: ${backgroundFileName}`)
+    const titleColor =
+      palette === 'light' ? '#000000' :
+      palette === 'dark' ? '#FFFFFF' :
+      palette === 'redGold' ? '#FFE4B5' :
+      getTitleColorForBackground(legacyLabel)
+    console.log(`🎨 Updating title color to: ${titleColor} for background: ${backgroundDisplayName(background)}`)
     if (updateTitleColor) {
       await updateTitleColor(svgElement, titleColor)
     }
     
     // Update flourish color based on new background
     if (flourishSystem) {
-      const flourishColor = flourishSystem.getFlourishColorForBackground(backgroundFileName)
-      console.log(`🌺 Updating flourish color to: ${flourishColor} for background: ${backgroundFileName}`)
+      const flourishColor = flourishSystem.getFlourishColorForBackground(legacyLabel)
+      console.log(`🌺 Updating flourish color to: ${flourishColor} for background: ${backgroundDisplayName(background)}`)
       await flourishSystem.updateFlourishColor(svgElement, flourishColor)
     }
     
-    console.log(`✅ Background applied successfully: ${backgroundFileName}`)
+    console.log(`✅ Background applied successfully: ${backgroundDisplayName(background)}`)
+  }
+
+  /**
+   * Remove/hide all background layers so the design is effectively transparent.
+   * This is used when you want the generated design to have no background by default.
+   */
+  async function clearBackgroundFromDesign(): Promise<void> {
+    if (!weddingPreviewContainer.value) return
+    const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
+    if (!svgElement) return
+
+    // Clear current background metadata (treat as light/transparent)
+    currentBackgroundFileName.value = ''
+    currentBackgroundPaletteKey.value = 'light'
+
+    if (clearTitleImageCache) {
+      clearTitleImageCache()
+    }
+
+    // Remove any previously inserted background image
+    const existingBgImage = svgElement.querySelector('#background-image')
+    if (existingBgImage) {
+      existingBgImage.remove()
+    }
+
+    // Hide template background rect + wave paths (same selectors as applyNewBackground)
+    const existingBgRect = svgElement.querySelector('rect[fill="#F8F8F8"]')
+    const wavePaths = svgElement.querySelectorAll(
+      'path[fill="#FFCC29"], path[fill="url(#g1)"], path[fill="#507C95"], path[fill="#104C6E"], path[d*="776.51"], path[d*="539.04"], path[d*="616.09"]'
+    )
+
+    wavePaths.forEach((path) => {
+      const pathEl = path as SVGPathElement
+      pathEl.style.display = 'none'
+      pathEl.style.visibility = 'hidden'
+      pathEl.setAttribute('opacity', '0')
+    })
+
+    if (existingBgRect) {
+      const rectEl = existingBgRect as SVGRectElement
+      rectEl.style.display = 'none'
+      rectEl.style.visibility = 'hidden'
+      rectEl.setAttribute('opacity', '0')
+    }
+
+    // Use light palette text colors by default on transparent background
+    const colorConfig = LIGHT_BG_COLORS
+    const blessingText = svgElement.querySelector('#blessing-text') as SVGTextElement
+    const occasionText = svgElement.querySelector('#occasion-text') as SVGTextElement
+    const eventTypeText = svgElement.querySelector('#event-type-text') as SVGTextElement
+    const ceremonyText = svgElement.querySelector('#ceremony-text') as SVGTextElement
+    const dateText = svgElement.querySelector('#date-text') as SVGTextElement
+    const courtesyText = svgElement.querySelector('#courtesy-text') as SVGTextElement
+
+    const name1First = svgElement.querySelector('#name1-first') as SVGTextElement
+    const name2First = svgElement.querySelector('#name2-first') as SVGTextElement
+    const nameSeparator = svgElement.querySelector('#name-separator') as SVGTextElement
+    const namesGroup = svgElement.querySelector('#wedding-names-group')
+    const name1InGroup = namesGroup?.querySelector('text:nth-child(1)') as SVGTextElement
+    const name2InGroup = namesGroup?.querySelector('text:nth-child(2)') as SVGTextElement
+    const separatorInGroup = namesGroup?.querySelector('text:nth-child(3)') as SVGTextElement
+
+    if (blessingText) blessingText.setAttribute('fill', colorConfig.titleColor)
+    if (occasionText) occasionText.setAttribute('fill', colorConfig.titleColor)
+    if (eventTypeText) eventTypeText.setAttribute('fill', colorConfig.eventTypeColor)
+    if (ceremonyText) ceremonyText.setAttribute('fill', colorConfig.ceremonyColor)
+
+    ;[name1First, name1InGroup].filter(Boolean).forEach((el) => el.setAttribute('fill', colorConfig.name1Color))
+    ;[name2First, name2InGroup].filter(Boolean).forEach((el) => el.setAttribute('fill', colorConfig.name2Color))
+    ;[nameSeparator, separatorInGroup].filter(Boolean).forEach((el) => el.setAttribute('fill', colorConfig.separatorColor))
+
+    if (dateText) dateText.setAttribute('fill', colorConfig.dateColor)
+    if (courtesyText) courtesyText.setAttribute('fill', colorConfig.courtesyColor)
+
+    await nextTick()
+    updateChatPreviewSVG()
+
+    if (updateTitleColor) {
+      await updateTitleColor(svgElement, '#000000')
+    }
   }
 
   // ============================================================================
@@ -825,10 +1053,17 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
     const masterSvg = weddingPreviewContainer.value.querySelector('svg')
     if (!masterSvg) return
 
+    // Debug: log what we're about to clone
+    const bgInMaster = masterSvg.querySelector('#background-image')
+    console.log('🔄 updateChatPreviewSVG: master has background?', !!bgInMaster, bgInMaster?.getAttribute('href')?.substring(0, 50))
+
     previewContainers.forEach((container) => {
       if (container) {
+        // Find the preview-placeholder div to inject SVG into (not the wrapper which contains buttons)
+        const placeholderDiv = container.querySelector('.preview-placeholder') as HTMLElement || container
+        
         // Clone the master SVG to update chat preview
-        const existingSvg = container.querySelector('svg')
+        const existingSvg = placeholderDiv.querySelector('svg')
         if (existingSvg) {
           existingSvg.remove()
         }
@@ -843,8 +1078,8 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
             const vbHeight = parseFloat(parts[3])
             const aspectRatio = vbWidth / vbHeight
             
-            // Set container aspect ratio to match SVG
-            container.style.aspectRatio = String(aspectRatio)
+            // Set placeholder aspect ratio to match SVG
+            placeholderDiv.style.aspectRatio = String(aspectRatio)
           }
         }
         
@@ -854,7 +1089,8 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
         clonedSvg.style.maxWidth = '100%'
         clonedSvg.style.display = 'block'
         
-        container.appendChild(clonedSvg)
+        placeholderDiv.appendChild(clonedSvg)
+        console.log('✅ updateChatPreviewSVG: cloned SVG to preview placeholder')
       }
     })
   }
@@ -868,12 +1104,16 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
     availableBackgrounds,
     currentBackgroundIndex,
     currentBackgroundFileName,
+    currentBackgroundPaletteKey,
     usedBackgroundsInSession,
     
     // Persistence
     getPersistedWeddingBackground,
     setPersistedWeddingBackground,
+    clearPersistedWeddingBackground,
     getPersistenceKey,
+    resolvePersistedBackground,
+    selectBackground,
     
     // Loading
     loadWeddingBackgroundManifest,
@@ -885,6 +1125,7 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
     // Background Selection & Application
     getRandomBackground,
     applyNewBackground,
+    clearBackgroundFromDesign,
     updateChatPreviewSVG,
     
     // Constants (exported for external use if needed)

@@ -121,8 +121,9 @@ export const useUserStore = defineStore('user', () => {
       console.log('👤 fetchUser response:', fetchedUser)
       user.value = fetchedUser
       console.log('👤 user.value updated:', user.value)
-    } catch (err: any) {
-      error.value = err.message || 'Failed to fetch user data'
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch user data'
+      error.value = message
       console.error('❌ Fetch user error:', err)
     } finally {
       loading.value = false
@@ -158,8 +159,9 @@ export const useUserStore = defineStore('user', () => {
       user.value.totalDesignsGenerated = response.totalDesignsGenerated
       
       return response
-    } catch (err: any) {
-      error.value = err.message || 'Failed to deduct tokens'
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to deduct tokens'
+      error.value = message
       throw err
     }
   }
@@ -184,8 +186,9 @@ export const useUserStore = defineStore('user', () => {
 
     try {
       referralStats.value = await getReferralStats(userId)
-    } catch (err: any) {
-      error.value = err.message || 'Failed to fetch referral statistics'
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch referral statistics'
+      error.value = message
       console.error('Fetch referral stats error:', err)
     } finally {
       loading.value = false
@@ -206,8 +209,9 @@ export const useUserStore = defineStore('user', () => {
       }
 
       return response
-    } catch (err: any) {
-      error.value = err.message || 'Failed to apply referral code'
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to apply referral code'
+      error.value = message
       throw err
     } finally {
       loading.value = false

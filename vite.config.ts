@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 import os from 'os'
 
@@ -8,7 +9,57 @@ const tempDir = path.join(os.tmpdir(), 'vite-cache-design-editor')
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    VitePWA({
+      // We register manually from main.ts so we can skip SW on Capacitor.
+      injectRegister: null,
+      registerType: 'autoUpdate',
+      includeAssets: ['vite.svg'],
+      manifest: {
+        name: 'SmartDesignPro',
+        short_name: 'SmartDesignPro',
+        description: 'Professional design editor with AI capabilities',
+        start_url: '/',
+        display: 'standalone',
+        background_color: '#ffffff',
+        theme_color: '#ffffff',
+        icons: [
+          {
+            src: '/vite.svg',
+            sizes: 'any',
+            type: 'image/svg+xml',
+            purpose: 'any maskable',
+          },
+        ],
+      },
+      workbox: {
+        // Default is 2 MiB; our ONNX runtime WASM binaries are much larger.
+        // Without this, `vite build` fails during SW generation.
+        maximumFileSizeToCacheInBytes: 40 * 1024 * 1024,
+        // Cache remote images (e.g., CloudFront/S3 backgrounds) for offline.
+        runtimeCaching: [
+          {
+            urlPattern: ({ request, url }) => {
+              if (request.destination !== 'image') return false
+              return url.origin !== self.location.origin
+            },
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'remote-images',
+              expiration: {
+                maxEntries: 200,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+        ],
+      },
+    }),
+  ],
   // Use temp directory for cache to avoid OneDrive conflicts
   cacheDir: tempDir,
   resolve: {
@@ -21,7 +72,6 @@ export default defineConfig({
       'onnxruntime-web', 
       '@capacitor/app', 
       '@capacitor/core',
-      'vue-konva',
       'konva',
       'ionicons/icons'
     ],
@@ -58,17 +108,19 @@ export default defineConfig({
 
           // Ionic - UI framework (separate from Vue core)
           if (id.includes('@ionic') || id.includes('ionicons') || id.includes('@stencil')) return 'ionic'
+
+          // Speech/TTS - Lazy loaded (only when user uses voice)
+          if (id.includes('text-to-speech') || id.includes('speech')) return 'speech'
           
           // Konva standalone (without vue-konva)
           if (id.includes('node_modules/konva/') && !id.includes('vue-konva')) return 'konva'
 
-          // Vue ecosystem - Core framework INCLUDING vue-konva to avoid initialization issues
+          // Vue ecosystem - Core framework
           if (id.includes('node_modules/vue/') || 
               id.includes('node_modules/@vue/') || 
               id.includes('vue-router') ||
               id.includes('pinia') || 
               id.includes('@vueuse') ||
-              id.includes('vue-konva') ||
               id.includes('vue3-lottie')) return 'vue-vendor'
         }
       }
