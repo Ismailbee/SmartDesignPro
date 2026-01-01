@@ -240,6 +240,11 @@ export const useAuthStore = defineStore('auth', () => {
       if (!authCallbackFired) {
         console.warn('⚠️ Firebase auth callback did not fire within 3 seconds, marking auth as ready')
         isAuthReady.value = true
+        // IMPORTANT: Also set authInitialized to true so router guards don't get stuck waiting
+        if (!authInitialized.value) {
+          authInitialized.value = true
+          console.warn('⚠️ Auth initialized via timeout fallback')
+        }
       }
     }, 3000)
   }

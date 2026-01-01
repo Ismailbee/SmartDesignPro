@@ -37,6 +37,14 @@ export {
   getConfusedResponse,
   getFallbackResponse,
   getExtractionSuccessResponse,
+  // Title-only, Names-only, Date-only detection
+  isTitleOnly,
+  getTitleOnlyResponse,
+  isNamesOnly,
+  getNamesOnlyResponse,
+  isDateOnly,
+  getDateOnlyResponse,
+  isCourtesyOnly,
 } from './useOfflineResponses'
 
 // Local extraction
@@ -44,6 +52,8 @@ export {
   extractWeddingDetails,
   hasWeddingDetails,
 } from './useLocalExtraction'
+
+export type { LocalExtractionResult } from '../types'
 
 // Main wedding chat composable
 export {
