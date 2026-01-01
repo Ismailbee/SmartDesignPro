@@ -68,6 +68,11 @@ export function useTitleLibrary() {
    * More specific matches (more keywords) take priority
    */
   function findMatchingTitle(input: string): TitleEntry | null {
+    // Ensure input is a string
+    if (!input || typeof input !== 'string') {
+      console.log('⚠️ findMatchingTitle called with invalid input:', input)
+      return null
+    }
     const normalizedInput = input.toLowerCase()
     
     // Sort by number of keywords (descending) to prioritize more specific matches
@@ -75,9 +80,10 @@ export function useTitleLibrary() {
     
     for (const entry of sortedLibrary) {
       // Check if ALL keywords are present in the input
-      const allKeywordsMatch = entry.keywords.every(keyword => 
-        normalizedInput.includes(keyword.toLowerCase())
-      )
+      const allKeywordsMatch = entry.keywords.every(keyword => {
+        const kw = typeof keyword === 'string' ? keyword : String((keyword as any) ?? '')
+        return normalizedInput.includes(kw.toLowerCase())
+      })
       
       if (allKeywordsMatch) {
         console.log('🎯 Title Library Match:', entry.fallbackText, 'for input:', input)

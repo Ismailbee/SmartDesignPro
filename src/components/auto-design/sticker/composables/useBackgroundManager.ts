@@ -114,7 +114,7 @@ const FALLBACK_BACKGROUNDS = [
 const MAX_BUNDLED_FALLBACK_BACKGROUNDS = 100
 
 function slugify(input: string): string {
-  return (input || '')
+  return String((input as any) ?? '')
     .toLowerCase()
     .replace(/\.[a-z0-9]+$/i, '')
     .replace(/[^a-z0-9]+/g, '-')
@@ -350,7 +350,10 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
    * Returns appropriate colors for titles, names, dates, etc.
    */
   function getBackgroundColorConfig(backgroundFileName: string): BackgroundColorConfig {
-    const lowerName = backgroundFileName.toLowerCase()
+    const safeName = typeof backgroundFileName === 'string'
+      ? backgroundFileName
+      : String((backgroundFileName as any) ?? '')
+    const lowerName = safeName.toLowerCase()
     
     // Deep Green - dark background, needs light text everywhere
     if (lowerName.includes('deep green')) {
@@ -476,7 +479,8 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
    * Light backgrounds: BLACK
    */
   function getTitleColorForBackground(backgroundFileName?: string): string {
-    const bgFile = backgroundFileName || currentBackgroundFileName.value
+    const bgRaw: any = backgroundFileName ?? currentBackgroundFileName.value
+    const bgFile = typeof bgRaw === 'string' ? bgRaw : String(bgRaw ?? '')
     console.log('🎨 getTitleColorForBackground called with:', bgFile)
     
     if (!bgFile) {
@@ -847,7 +851,7 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
 
     // Adjust title position for specific backgrounds
     // backgroundColour.svg needs titles moved up slightly
-    const lowerBgName = legacyLabel.toLowerCase()
+    const lowerBgName = (typeof legacyLabel === 'string' ? legacyLabel : String((legacyLabel as any) ?? '')).toLowerCase()
     if (lowerBgName.includes('backgroundcolour')) {
       // Move all title elements up by 30 pixels for this background
       const titleElements = [blessingText, occasionText, eventTypeText, ceremonyText]

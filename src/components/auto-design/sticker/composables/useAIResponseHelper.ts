@@ -167,6 +167,7 @@ export const casualResponses = {
  * @returns A contextually appropriate greeting
  */
 export function getGreeting(message: string, _userName: string): string {
+  if (!message || typeof message !== 'string') return pick(greetings.general)
   const lower = message.toLowerCase()
 
   if (lower.includes('salam') || lower.includes('assalam')) {

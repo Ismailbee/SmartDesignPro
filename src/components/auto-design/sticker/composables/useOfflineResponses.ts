@@ -134,7 +134,8 @@ export function getDateOnlyResponse(date: string, ctx: OfflineResponseContext) {
 export function isCourtesyOnly(msg: string, ctx: OfflineResponseContext): boolean {
   // Only treat as courtesy if we already have title, names, and date
   if (!ctx.hasTitle || !ctx.hasName || !ctx.hasDate) return false
-  
+
+  if (!msg || typeof msg !== 'string') return false
   const trimmed = msg.trim()
   const lower = trimmed.toLowerCase()
   

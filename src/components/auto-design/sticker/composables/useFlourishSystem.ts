@@ -52,7 +52,8 @@ export function useFlourishSystem(
    * Returns a color that complements the background
    */
   function getFlourishColorForBackground(backgroundFileName?: string, paletteKey?: BackgroundPaletteKey): string {
-    const bgFile = backgroundFileName || currentBackgroundFileName?.value || ''
+    const bgRaw: any = backgroundFileName ?? currentBackgroundFileName?.value
+    const bgFile = typeof bgRaw === 'string' ? bgRaw : String(bgRaw ?? '')
     const pk = paletteKey || currentBackgroundPaletteKey?.value
     if (!bgFile) {
       return '#FFD700' // Default gold

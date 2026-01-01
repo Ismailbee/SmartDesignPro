@@ -223,6 +223,7 @@ export function useWeddingStickerUpdater() {
    * NOTE: This is now deprecated in favor of extractFirstWord()
    */
   const hasCongratulations = (description: string): boolean => {
+    if (!description || typeof description !== 'string') return false
     const lowerDesc = description.toLowerCase()
     // Match variations and common misspellings
     return /congr[ae]t[us]?l?[aeiou]*t?[io]*[on]*s?/i.test(lowerDesc) ||
@@ -662,6 +663,7 @@ export function useWeddingStickerUpdater() {
    * Check if description contains wedding-related keywords
    */
   const isWeddingRelated = (description: string): boolean => {
+    if (!description || typeof description !== 'string') return false
     const lowerDesc = description.toLowerCase()
     return lowerDesc.includes('congratulation') ||
            lowerDesc.includes('wedding') ||
@@ -1131,6 +1133,9 @@ export function useWeddingStickerUpdater() {
    * Update SVG text elements based on description
    */
   const updateStickerText = async (description: string, elements: WeddingStickerElements): Promise<WeddingStickerData> => {
+    // Ensure description is always a string
+    const safeDescription = typeof description === 'string' ? description : String(description || '')
+    
     // Default data used ONLY when description is empty
     const defaultData: WeddingStickerData = {
       blessing: 'Alhamdulillahi',
@@ -1143,7 +1148,7 @@ export function useWeddingStickerUpdater() {
       courtesy: 'CUT-CEE: Maijama family'
     }
 
-    if (!description || description.trim() === '') {
+    if (!safeDescription || safeDescription.trim() === '') {
       return defaultData
     }
 

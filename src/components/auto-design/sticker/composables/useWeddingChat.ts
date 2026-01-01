@@ -124,6 +124,11 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
    */
   async function processMessage(message: string): Promise<boolean> {
     const reqId = ++requestId
+    // Ensure message is a string before calling trim/toLowerCase
+    if (!message || typeof message !== 'string') {
+      console.error('processMessage called with non-string:', message)
+      return false
+    }
     const lowerMsg = message.trim().toLowerCase()
     const ctx = getContext()
 

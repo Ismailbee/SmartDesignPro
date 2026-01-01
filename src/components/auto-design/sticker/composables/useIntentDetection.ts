@@ -102,12 +102,17 @@ const PATTERNS = {
  * @returns IntentResult with intent type, confidence, and detected entities
  */
 export function detectIntent(message: string): IntentResult {
-  const lowerMsg = message.toLowerCase().trim()
   const result: IntentResult = {
     intent: 'provide_info',
     confidence: 0.5,
     entities: {}
   }
+
+  if (!message || typeof message !== 'string') {
+    return result
+  }
+
+  const lowerMsg = message.toLowerCase().trim()
 
   // PRIORITY 1: Detect greeting intent FIRST (before confirmation check)
   // This ensures "hi", "hello", "hey" are treated as greetings, not confirmations

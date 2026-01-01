@@ -56,17 +56,23 @@ export function useSVGTextReplacement() {
    * Check if description contains all required keywords (case-insensitive)
    */
   const hasAllKeywords = (description: string, keywords: string[]): boolean => {
-    if (!description || keywords.length === 0) {
-      console.log(`❌ hasAllKeywords: Invalid input - description: "${description}", keywords:`, keywords)
+    const safeDesc = typeof description === 'string' ? description : String((description as any) ?? '')
+    const safeKeywords = Array.isArray(keywords)
+      ? keywords.map(k => (typeof k === 'string' ? k : String((k as any) ?? '')))
+      : []
+
+    if (!safeDesc || safeKeywords.length === 0) {
+      console.log(`❌ hasAllKeywords: Invalid input - description: "${safeDesc}", keywords:`, safeKeywords)
       return false
     }
-    
-    const lowerDesc = description.toLowerCase()
+
+    const lowerDesc = safeDesc.toLowerCase()
     console.log(`🔍 hasAllKeywords checking description: "${lowerDesc}"`)
-    console.log(`🔍 Keywords to check:`, keywords)
+    console.log(`🔍 Keywords to check:`, safeKeywords)
     
-    const result = keywords.every(keyword => {
-      const found = lowerDesc.includes(keyword.toLowerCase())
+    const result = safeKeywords.every(keyword => {
+      const keywordLower = keyword.toLowerCase()
+      const found = lowerDesc.includes(keywordLower)
       console.log(`  - Checking keyword "${keyword}": ${found ? '✅ FOUND' : '❌ NOT FOUND'}`)
       return found
     })

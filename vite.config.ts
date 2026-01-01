@@ -83,8 +83,8 @@ export default defineConfig({
     ],
     exclude: [
       '@imgly/background-removal',
-      // Exclude Ican folder from dependency optimization
-      '**/micro-apps/Ican/**'
+      // Note: optimizeDeps.exclude must be package ids (not glob paths).
+      // The Ican micro-app is excluded at bundling time via rollupOptions.external.
     ],
     // Force optimization to avoid OneDrive sync issues
     force: true

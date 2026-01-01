@@ -152,6 +152,8 @@ export function extractWeddingDetails(
   existingInfo?: { hasName?: boolean; hasDate?: boolean }
 ): LocalExtractionResult {
   const result: LocalExtractionResult = { foundSomething: false }
+  // Ensure message is a string
+  if (!message || typeof message !== 'string') return result
   const msg = message.trim()
   const lower = msg.toLowerCase()
   

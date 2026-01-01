@@ -610,11 +610,61 @@ function handleMessageAction(action: { type: string; label?: string; route?: str
     case 'generate_preview':
     case 'generate':
       // Generate the sticker (used by useWeddingChat composable)
-      generateWeddingPreview()
+      requestWeddingPreviewGeneration()
       break
     default:
       console.log('Unknown action:', action.type)
   }
+}
+
+function hasConfirmedWeddingSize(): boolean {
+  const size = String((extractedInfo as any)?.value?.size ?? '').trim()
+  return !!(sizeStepComplete as any)?.value || !!size
+}
+
+function promptForWeddingSize(): void {
+  if ((awaitingSizeDecision as any)?.value) return
+  ;(awaitingSizeDecision as any).value = true
+  ;(isAnalyzing as any).value = false
+
+  ;(chatMessages as any).value.push({
+    id: Date.now(),
+    text: "What size would you like the sticker? (e.g., '3x3' or type 'default' for 4x4 inches)",
+    sender: 'ai',
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  })
+  scrollToBottom()
+}
+
+function setWeddingSize(sizeRaw: string): void {
+  const normalized = String(sizeRaw ?? '').trim()
+  ;(extractedInfo as any).value.size = normalized || null
+  ;(formData as any).customSize = normalized
+  ;(sizeStepComplete as any).value = !!normalized
+  ;(awaitingSizeDecision as any).value = false
+
+  // Keep chat summary in sync
+  try {
+    syncWeddingDescriptionFromState()
+  } catch {
+    // no-op
+  }
+
+  // If preview already exists, apply the resize immediately.
+  if ((showWeddingStickerPreview as any)?.value) {
+    const parsed = parseSizeToInches(normalized)
+    if (parsed) {
+      handleSizeChange(parsed.w, parsed.h)
+    }
+  }
+}
+
+function requestWeddingPreviewGeneration(): void {
+  if (!hasConfirmedWeddingSize()) {
+    promptForWeddingSize()
+    return
+  }
+  generateWeddingPreview()
 }
 
 // Token deduction helper function
@@ -1141,8 +1191,16 @@ function handleChatClick() {
 }
 
 async function generateWeddingPreview() {
+  console.log('🔷 generateWeddingPreview called')
+  console.log('   - authStore.isAuthenticated:', authStore.isAuthenticated)
+  console.log('   - authStore.user?.id:', authStore.user?.id)
+  console.log('   - formData.description:', formData.description)
+  console.log('   - accumulatedDescription:', accumulatedDescription.value)
+  console.log('   - extractedInfo:', JSON.stringify(extractedInfo.value))
+  
   // Check if user is logged in FIRST before doing anything else
   if (!authStore.isAuthenticated || !authStore.user?.id) {
+    console.log('❌ Generation blocked: User not authenticated')
     authStore.showNotification({
       title: 'Login Required',
       message: 'Please login or create an account to generate designs.',
@@ -1150,7 +1208,7 @@ async function generateWeddingPreview() {
     })
     chatMessages.value.push({
       id: Date.now(),
-      text: "Hold on!\n\nYou need to login or create a free account to generate your design.\n\nWhy sign up?\n� Get 100 FREE tokens instantly!\n� Save and download your designs\n� Access premium features",
+      text: "Hold on!\n\nYou need to login or create a free account to generate your design.\n\nWhy sign up?\n💎 Get 100 FREE tokens instantly!\n💾 Save and download your designs\n🎨 Access premium features",
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       actions: [
@@ -1163,8 +1221,10 @@ async function generateWeddingPreview() {
 
   // Chat flow often builds `accumulatedDescription`; prefer that if form input is empty.
   const resolvedDescription = (formData.description || '').trim() || (accumulatedDescription.value || '').trim()
+  console.log('   - resolvedDescription:', resolvedDescription)
 
   if (!resolvedDescription) {
+    console.log('❌ Generation blocked: No description')
     chatMessages.value.push({
       id: Date.now(),
       text: "Please provide your details first.\n\nExample:\n(John & Mary) 8th March 2025 courtesy: Smith family",
@@ -1179,12 +1239,22 @@ async function generateWeddingPreview() {
   formData.description = resolvedDescription
   accumulatedDescription.value = resolvedDescription
 
+  // Require size confirmation before generating.
+  if (!hasConfirmedWeddingSize()) {
+    console.log('❌ Generation paused: size not confirmed')
+    promptForWeddingSize()
+    return
+  }
+
   // Check requirements: Must have names OR a picture
   const { name1, name2 } = extractNames(formData.description)
+  console.log('   - extractNames result:', { name1, name2 })
   const hasNames = !!(name1 || name2)
   const hasPicture = !!preGeneratedImageFile.value
+  console.log('   - hasNames:', hasNames, ', hasPicture:', hasPicture)
 
   if (!hasNames && !hasPicture) {
+    console.log('❌ Generation blocked: No names and no picture')
     authStore.showNotification({
       title: 'Missing Information',
       message: 'Please include at least a Name in the description or upload a Picture to generate the preview.',
@@ -1198,6 +1268,8 @@ async function generateWeddingPreview() {
     return
   }
 
+  console.log('✅ All checks passed, proceeding with generation...')
+  
   // Deduct tokens for initial design generation (15 tokens) if not already generated
   if (!hasDesignBeenGenerated.value) {
     const canProceed = await deductTokensForAction(TOKEN_COST_GENERATE_DESIGN, 'Generate initial design')
@@ -1363,10 +1435,24 @@ async function generateWeddingPreview() {
           // Ensure opacity is set to 1
           if (!imgElement.getAttribute('opacity') || imgElement.getAttribute('opacity') === '0') {
             imgElement.setAttribute('opacity', '1')
-            console.log('?? Fixed: Set userImage opacity to 1')
+            console.log('🔧 Fixed: Set userImage opacity to 1')
+          }
+          
+          // CRITICAL FIX: If href is still empty, directly set from svgImageManager
+          const currentHref = imgElement.getAttribute('href')
+          if (!currentHref || currentHref === '') {
+            const latestImage = svgImageManager.images.value[svgImageManager.images.value.length - 1]
+            if (latestImage?.dataUrl) {
+              console.log('🔧 CRITICAL FIX: Setting image href directly from svgImageManager')
+              imgElement.setAttribute('href', latestImage.dataUrl)
+              imgElement.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', latestImage.dataUrl)
+              console.log('✅ Image href set, length:', latestImage.dataUrl.length)
+            } else {
+              console.error('❌ No image data available in svgImageManager')
+            }
           }
         } else {
-          console.warn('?? No image element found in SVG after updateSVGWithImages')
+          console.warn('⚠️ No image element found in SVG after updateSVGWithImages')
         }
       }
     }
@@ -2302,9 +2388,11 @@ weddingChatProcessor = useWeddingChat({
   showPreview: showWeddingStickerPreview,
   hasPhoto: computed(() => !!preGeneratedImageFile.value || svgImageManager.images.value.length > 0),
   awaitingPictureDecision: awaitingImageChoice,
-  onGenerate: () => generateWeddingPreview(),
+  awaitingSizeDecision,
+  onGenerate: () => requestWeddingPreviewGeneration(),
   onScrollToBottom: scrollToBottom,
   onUploadPicture: () => triggerImageUpload(),
+  onSetSize: (size: string) => setWeddingSize(size),
 })
 
 type WeddingAssistantActionName =
@@ -2398,6 +2486,11 @@ function parseSizeToInches(size: string): { w: number; h: number } | null {
 let weddingChatRequestId = 0
 
 async function analyzeMessageWithOllama(lastUserMessage: string) {
+  // Ensure message is a string
+  if (!lastUserMessage || typeof lastUserMessage !== 'string') {
+    console.error('analyzeMessageWithOllama called with non-string:', lastUserMessage)
+    return
+  }
   const reqId = ++weddingChatRequestId
   const context = buildWeddingChatContextForAI()
   const transcript = buildWeddingChatTranscriptForAI()
@@ -2619,8 +2712,13 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
     if (showWeddingStickerPreview.value) {
       responseText = 'Your sticker is ready! You can download it or make edits. 🎉'
     } else if (hasName1 && hasDate) {
-      responseText = 'Got it! Generating your wedding sticker now... 🎨'
-      setTimeout(() => generateWeddingPreview(), 100)
+      if (!hasConfirmedWeddingSize()) {
+        responseText = "What size would you like the sticker? (e.g., '3x3' or type 'default' for 4x4 inches)"
+        awaitingSizeDecision.value = true
+      } else {
+        responseText = 'Got it! Generating your wedding sticker now... 🎨'
+        setTimeout(() => generateWeddingPreview(), 100)
+      }
     } else {
       const missing: string[] = []
       if (!hasName1) missing.push('bride\'s and groom\'s names')
@@ -3011,10 +3109,9 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
     if (actionName === 'set_size') {
       const size = (actionArgs as any).size as string | undefined
       if (size) {
-        const parsed = parseSizeToInches(size)
-        if (parsed) {
-          await handleSizeChange(parsed.w, parsed.h)
-        }
+        setWeddingSize(size)
+        const parsed = parseSizeToInches(String(size))
+        if (parsed) await handleSizeChange(parsed.w, parsed.h)
       }
       return
     }
@@ -3025,7 +3122,7 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
       const hasDate = !!extractedInfo.value.date
       const hasCourtesy = !!extractedInfo.value.courtesy
       if (!hasNames || !hasDate || !hasCourtesy) return
-      await generateWeddingPreview()
+      requestWeddingPreviewGeneration()
       return
     }
 
@@ -3634,6 +3731,10 @@ function resetWeddingState() {
   accumulatedDescription.value = ''
   formData.description = ''
   formData.customSize = ''
+
+  // Require size again for a fresh start
+  sizeStepComplete.value = false
+  awaitingSizeDecision.value = false
   
   // Clear chat messages
   chatMessages.value = []
@@ -3920,14 +4021,16 @@ function updateDateAndCourtesy(description: string, svgElements: any) {
 
 // Helper function to handle names when title SVG is active (use decorative name02.svg)
 async function handleNamesWithTitleSVG(description: string, svgElements: any) {
-  console.log('?? handleNamesWithTitleSVG called with:', { description })
+  // Ensure description is a string
+  const safeDescription = typeof description === 'string' ? description : String(description || '')
+  console.log('🔍 handleNamesWithTitleSVG called with:', { description: safeDescription })
   
   // Always call updateStickerText to ensure date and courtesy are updated
   // regardless of whether names are present or not
-  const data = await updateStickerText(description, svgElements)
+  const data = await updateStickerText(safeDescription, svgElements)
   
   // Extract names from parentheses for logging purposes
-  const nameMatch = description.match(/\(([^)]+)\)/)?.[1]
+  const nameMatch = safeDescription.match(/\(([^)]+)\)/)?.[1]
   
   if (nameMatch) {
     const names = nameMatch.split(/\s*[&and]+\s*/i).map(name => name.trim())
@@ -4823,18 +4926,32 @@ function makeSVGImageDraggable(imageElement: SVGImageElement, imageId: string) {
 }
 
 function updateSVGWithImages() {
-  if (!weddingPreviewContainer.value) return
+  if (!weddingPreviewContainer.value) {
+    console.warn('⚠️ updateSVGWithImages: weddingPreviewContainer not available')
+    return
+  }
 
   const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
-  if (!svgElement) return
+  if (!svgElement) {
+    console.warn('⚠️ updateSVGWithImages: SVG element not found')
+    return
+  }
 
   const images = svgImageManager.images.value
   
-  console.log('?? updateSVGWithImages called:', {
+  console.log('📸 updateSVGWithImages called:', {
     imagesCount: images.length,
     hasImages: images.length > 0,
-    firstImageDataUrlLength: images[0]?.dataUrl?.length || 0
+    firstImageDataUrlLength: images[0]?.dataUrl?.length || 0,
+    firstImageId: images[0]?.id || 'none',
+    allImageIds: images.map(i => i.id)
   })
+  
+  // If no images in manager but we have preGeneratedImageFile, add it
+  if (images.length === 0 && preGeneratedImageFile.value) {
+    console.warn('⚠️ No images in svgImageManager but preGeneratedImageFile exists - this should not happen!')
+    console.log('📷 preGeneratedImageFile:', preGeneratedImageFile.value.name, preGeneratedImageFile.value.size)
+  }
   
   // Check for the specific userImage element we want to control (or fallback to placeholder-image)
   let userImageElement = svgElement.querySelector('#userImage') || svgElement.querySelector('#placeholder-image')
@@ -4976,8 +5093,14 @@ function updateSVGWithImages() {
       }
     }
     
-    console.log(`??? Image update: x=${adjustedX.toFixed(1)}, y=${adjustedY.toFixed(1)}, w=${adjustedWidth.toFixed(1)}, h=${adjustedHeight.toFixed(1)}`)
-    console.log(`??? Image dataUrl length: ${img.dataUrl?.length || 0}`)
+    console.log(`📍 Image update: x=${adjustedX.toFixed(1)}, y=${adjustedY.toFixed(1)}, w=${adjustedWidth.toFixed(1)}, h=${adjustedHeight.toFixed(1)}`)
+    console.log(`📍 Image dataUrl length: ${img.dataUrl?.length || 0}`)
+    
+    // CRITICAL: Verify dataUrl is valid before setting
+    if (!img.dataUrl || img.dataUrl.length < 100) {
+      console.error('❌ Invalid or missing dataUrl for image:', img.id, 'length:', img.dataUrl?.length || 0)
+      return
+    }
     
     userImageElement.setAttribute('x', adjustedX.toString())
     userImageElement.setAttribute('y', adjustedY.toString())
@@ -4986,6 +5109,17 @@ function updateSVGWithImages() {
     userImageElement.setAttribute('opacity', (img.opacity / 100).toString())
     userImageElement.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', img.dataUrl)
     userImageElement.setAttribute('href', img.dataUrl)
+    
+    // Verify the href was actually set
+    const verifyHref = userImageElement.getAttribute('href')
+    if (!verifyHref || verifyHref.length < 100) {
+      console.error('❌ CRITICAL: href was not set correctly! Retrying...')
+      // Force set again
+      userImageElement.setAttribute('href', img.dataUrl)
+      userImageElement.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', img.dataUrl)
+    } else {
+      console.log('✅ Image href set successfully, length:', verifyHref.length)
+    }
     
     // Add data attribute for drag identification
     userImageElement.setAttribute('data-image-id', img.id)

@@ -4,7 +4,6 @@ import { ref, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from './auth'
 import { useEditorStore } from './editor'
-import { socketService } from '@/services/socket/socket.service'
 import * as autoDesignApi from '@/services/api/auto-design-api'
 import { getTemplate } from '@/data/templates'
 import { backgroundRemovalService } from '@/services/background/background-removal.service'
@@ -184,58 +183,17 @@ export const useAutoDesignStore = defineStore('autoDesign', () => {
   }
 
   /**
-   * Initialize Socket.io connection
+   * Initialize design store (no-op, socket removed)
    */
   function initializeSocket() {
-    if (!authStore.user) return
-
-    // Connect to Socket.io server
-    socketService.connect(authStore.user.id)
-
-    // Listen for design generation progress
-    socketService.on('design:progress', (data: { projectId: string; progress: number; message: string }) => {
-      console.log('Design progress:', data)
-      generationProgress.value = data.progress
-    })
-
-    // Listen for design generation complete
-    socketService.on('design:complete', (data: { projectId: string; project: AutoDesignProject }) => {
-      console.log('Design complete:', data)
-      currentProject.value = data.project
-      isGenerating.value = false
-      generationProgress.value = 100
-
-      authStore.showNotification({
-        title: 'Design Complete!',
-        message: 'Your design has been generated successfully',
-        type: 'success'
-      })
-
-      showPreviewModal.value = true
-    })
-
-    // Listen for design generation error
-    socketService.on('design:error', (data: { projectId: string; error: string }) => {
-      console.error('Design error:', data)
-      error.value = data.error
-      isGenerating.value = false
-
-      authStore.showNotification({
-        title: 'Generation Failed',
-        message: data.error,
-        type: 'error'
-      })
-    })
+    // Socket.io removed - generation now works via REST API polling or direct response
   }
 
   /**
-   * Cleanup Socket.io connection
+   * Cleanup design store (no-op, socket removed)
    */
   function cleanupSocket() {
-    socketService.off('design:progress')
-    socketService.off('design:complete')
-    socketService.off('design:error')
-    socketService.disconnect()
+    // Socket.io removed
   }
 
   /**
@@ -310,10 +268,7 @@ export const useAutoDesignStore = defineStore('autoDesign', () => {
       generationProgress.value = 0
       error.value = null
 
-      // Initialize socket connection if not connected
-      if (!socketService.isConnected()) {
-        initializeSocket()
-      }
+      // Socket removed - design generation via REST API
 
       // Get template for category
       const template = getTemplate(selectedCategory.value)
@@ -348,9 +303,24 @@ export const useAutoDesignStore = defineStore('autoDesign', () => {
       // Call API to generate design
       const response = await autoDesignApi.generateDesign(request)
 
-      if (response.success) {
-        // Socket.io will handle progress updates and completion
+      if (response.success && response.project) {
+        // Direct response - no socket needed
+        console.log('Design generation complete:', response.projectId)
+        currentProject.value = response.project
+        isGenerating.value = false
+        generationProgress.value = 100
+
+        authStore.showNotification({
+          title: 'Design Complete!',
+          message: 'Your design has been generated successfully',
+          type: 'success'
+        })
+
+        showPreviewModal.value = true
+      } else if (response.success) {
         console.log('Design generation started:', response.projectId)
+        // For async generation, poll for status or handle via callback
+        isGenerating.value = false
       } else {
         throw new Error('Failed to start design generation')
       }

@@ -61,6 +61,7 @@ export const titlePhraseMap: { pattern: RegExp; display: string }[] = [
  * @returns true if text matches any title pattern
  */
 export function isPotentialTitle(text: string): boolean {
+  if (!text || typeof text !== 'string') return false
   const lower = text.toLowerCase().trim()
   return titlePatterns.some(pattern => pattern.test(lower))
 }
@@ -71,6 +72,7 @@ export function isPotentialTitle(text: string): boolean {
  * @returns The formatted display title or null if no match
  */
 export function extractTitleFromText(text: string): string | null {
+  if (!text || typeof text !== 'string') return null
   const lower = text.toLowerCase().trim()
   for (const { pattern, display } of titlePhraseMap) {
     if (pattern.test(lower)) {

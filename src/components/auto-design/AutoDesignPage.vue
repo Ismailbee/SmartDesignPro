@@ -668,16 +668,10 @@ onMounted(() => {
   autoDesignStore.setCategory(selectedCategory.value)
   
   console.log('📌 Will show StickerTemplatePanel?', selectedCategory.value === 'sticker')
-
-  // Initialize Socket.io connection
-  autoDesignStore.initializeSocket()
 })
 
 // Cleanup on unmount for faster navigation
 onBeforeUnmount(() => {
-  // Disconnect socket
-  autoDesignStore.disconnectSocket?.()
-
   if (celebrationTimer) {
     clearTimeout(celebrationTimer)
     celebrationTimer = null
