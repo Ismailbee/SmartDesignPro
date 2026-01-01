@@ -1,4 +1,15 @@
-import { io, Socket } from 'socket.io-client'
+// Lazy load socket.io to reduce initial bundle size
+let io: typeof import('socket.io-client').io | null = null
+type Socket = import('socket.io-client').Socket
+
+const loadSocketIO = async () => {
+  if (!io) {
+    const module = await import('socket.io-client')
+    io = module.io
+  }
+  return io
+}
+
 import { CollaborationEvent } from '@/types/collaboration'
 import type {
   CanvasUpdatePayload,
@@ -27,10 +38,13 @@ class CollaborationSocketService {
   /**
    * Initialize the WebSocket connection
    */
-  connect(serverUrl: string = 'http://localhost:3000'): Promise<void> {
+  async connect(serverUrl: string = 'http://localhost:3000'): Promise<void> {
+    // Lazy load socket.io
+    const socketIO = await loadSocketIO()
+    
     return new Promise((resolve, reject) => {
       try {
-        this.socket = io(serverUrl, {
+        this.socket = socketIO(serverUrl, {
           transports: ['websocket', 'polling'],
           reconnection: true,
           reconnectionAttempts: this.maxReconnectAttempts,

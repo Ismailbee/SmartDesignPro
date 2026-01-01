@@ -1,5 +1,15 @@
 // src/services/socket.service.ts
-import { io, Socket } from 'socket.io-client'
+// Lazy load socket.io to reduce initial bundle size
+let io: typeof import('socket.io-client').io | null = null
+type Socket = import('socket.io-client').Socket
+
+const loadSocketIO = async () => {
+  if (!io) {
+    const module = await import('socket.io-client')
+    io = module.io
+  }
+  return io
+}
 
 const AUTO_DESIGN_API_URL = import.meta.env.VITE_AUTO_DESIGN_API_URL || 'http://localhost:3002/api/auto-design'
 const AUTO_DESIGN_SOCKET_URL =
@@ -14,7 +24,7 @@ class SocketService {
   /**
    * Connect to Socket.io server
    */
-  connect(userId: string): void {
+  async connect(userId: string): Promise<void> {
     if (this.socket?.connected) {
       console.log('Socket already connected')
       return
@@ -22,7 +32,10 @@ class SocketService {
 
     console.log('Connecting to Socket.io server...', this.url)
 
-    this.socket = io(this.url, {
+    // Lazy load socket.io
+    const socketIO = await loadSocketIO()
+    
+    this.socket = socketIO(this.url, {
       auth: {
         userId
       },

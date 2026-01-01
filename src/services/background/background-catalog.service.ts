@@ -1,5 +1,13 @@
-import { collection, getDocs, limit, query, where } from '@/config/firebase'
-import { db } from '@/config/firebase'
+// Lazy load Firebase to improve initial bundle size
+let firebaseModule: typeof import('@/config/firebase') | null = null
+
+const getFirebase = async () => {
+  if (!firebaseModule) {
+    firebaseModule = await import('@/config/firebase')
+  }
+  return firebaseModule
+}
+
 import type { BackgroundItem } from './background.types'
 import { inferPaletteKeyFromText, normalizeWeight } from './background-utils'
 
@@ -74,6 +82,9 @@ export async function getBackgroundItemsCached(
   }
 
   try {
+    // Lazy load Firebase
+    const { collection, getDocs, limit, query, where, db } = await getFirebase()
+    
     const q = query(
       collection(db, 'backgrounds'),
       where('category', '==', category),

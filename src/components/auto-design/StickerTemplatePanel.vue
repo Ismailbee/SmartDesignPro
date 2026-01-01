@@ -619,6 +619,12 @@ function handleMessageAction(action: { type: string; label?: string; route?: str
 
 // Token deduction helper function
 async function deductTokensForAction(amount: number, reason: string): Promise<boolean> {
+  // ?? TEMPORARILY DISABLED: Token system bypassed for development
+  // TODO: Re-enable token system when backend API is ready
+  console.log(`?? Token system DISABLED - Would deduct ${amount} tokens for: ${reason}`)
+  return true
+  
+  /* ORIGINAL TOKEN LOGIC - COMMENTED OUT FOR NOW
   // ?? OFFLINE MODE: Skip token checks entirely
   if (!FEATURES.TOKENS_ENABLED) {
     console.log('?? Offline mode: Skipping token deduction for:', reason)
@@ -723,6 +729,7 @@ async function deductTokensForAction(amount: number, reason: string): Promise<bo
     })
     return false
   }
+  END OF COMMENTED OUT TOKEN LOGIC */
 }
 
 function openEditModal() {
@@ -2733,6 +2740,24 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
     return
   }
 
+  // --- Start Over / New Sticker / Fresh Start shortcut ---
+  const isStartOver = /\b(start\s*(over|fresh|again|new)|new\s*(sticker|wedding|design)|different\s*(wedding|couple|sticker)|reset|clear|another\s*(one|sticker|wedding))\b/i.test(lowerMsg)
+  if (isStartOver) {
+    isAnalyzing.value = false
+    
+    // Reset all wedding state
+    resetWeddingState()
+    
+    chatMessages.value.push({
+      id: Date.now(),
+      text: `Fresh start! 🔄 I've cleared everything.\n\nTell me about the new wedding - who's getting married and when?`,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    } as any)
+    scrollToBottom()
+    return
+  }
+
   // --- LOCAL EXTRACTION: Try to extract wedding details without Ollama ---
   const localExtraction = extractWeddingDetails(lastUserMessage, {
     hasName: !!extractedInfo.value.names.name1,
@@ -3585,12 +3610,62 @@ function getCategoryName(categoryId: string | null): string {
   return category ? category.name : categoryId
 }
 
+// Reset ALL wedding-related state for fresh start
+function resetWeddingState() {
+  // Clear extracted info (names, date, courtesy, etc.)
+  extractedInfo.value = {
+    title: null,
+    date: null,
+    courtesy: null,
+    size: null,
+    names: { name1: null, name2: null }
+  }
+  
+  // Clear heading state
+  customHeading.value = null
+  selectedHeadingFont.value = null
+  headingStepComplete.value = false
+  awaitingTitleConfirmation.value = false
+  pendingTitle.value = null
+  awaitingHeadingInput.value = false
+  awaitingFontChoice.value = false
+  
+  // Clear accumulated description
+  accumulatedDescription.value = ''
+  formData.description = ''
+  formData.customSize = ''
+  
+  // Clear chat messages
+  chatMessages.value = []
+  
+  // Clear image state
+  preGeneratedImageFile.value = null
+  preGeneratedImagePreview.value = null
+  pendingImageFile.value = null
+  awaitingBackgroundRemovalDecision.value = false
+  uploadedImages.value = []
+  lastUploadedImage.value = null
+  
+  // Reset flags
+  hasDesignBeenGenerated.value = false
+  showWeddingStickerPreview.value = false
+  isGeneratingPreview.value = false
+  isAnalyzing.value = false
+  
+  // Reset asked questions
+  resetAskedQuestions()
+  
+  // Clear SVG images
+  svgImageManager.clearAllImages()
+  
+  console.log('🔄 Wedding state reset complete')
+}
+
 function goBack() {
   if (selectedCategory.value) {
-    // Reset state and go back to category selection
+    // Reset ALL wedding state and go back to category selection
+    resetWeddingState()
     selectedCategory.value = null
-    showWeddingStickerPreview.value = false
-    chatMessages.value = []
   } else {
     // Navigate to home immediately
     router.push('/home')

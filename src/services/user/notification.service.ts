@@ -5,23 +5,26 @@
  * Provides methods for creating, reading, updating, and listening to notifications
  */
 
-import { 
-  collection, 
-  doc, 
-  addDoc, 
-  updateDoc, 
-  query, 
-  where, 
-  orderBy, 
-  onSnapshot, 
-  serverTimestamp,
-  Timestamp,
-  writeBatch,
-  getDocs,
-  limit,
-  Unsubscribe
-} from 'firebase/firestore'
-import { db } from '@/config/firebase'
+// Lazy load Firebase to reduce initial bundle size
+let firebaseLoaded = false
+let firebaseModule: any = null
+let dbInstance: any = null
+
+const getFirebase = async () => {
+  if (!firebaseLoaded) {
+    const [firestoreModule, configModule] = await Promise.all([
+      import('firebase/firestore'),
+      import('@/config/firebase')
+    ])
+    firebaseModule = firestoreModule
+    dbInstance = configModule.db
+    firebaseLoaded = true
+  }
+  return { firestore: firebaseModule, db: dbInstance }
+}
+
+// Type imports only (no runtime cost)
+import type { Timestamp, Unsubscribe } from 'firebase/firestore'
 
 export interface NotificationData {
   id: string
@@ -50,6 +53,9 @@ const NOTIFICATIONS_COLLECTION = 'notifications'
  * Create a new notification for a user
  */
 export async function createNotification(input: CreateNotificationInput): Promise<string> {
+  const { firestore, db } = await getFirebase()
+  const { collection, addDoc, serverTimestamp } = firestore
+  
   try {
     const notificationData = {
       userId: input.userId,

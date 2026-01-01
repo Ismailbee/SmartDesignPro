@@ -10,7 +10,10 @@ const tempDir = path.join(os.tmpdir(), 'vite-cache-design-editor')
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    vue(),
+    vue({
+      // Exclude Ican micro-app from compilation (unused, 4MB+)
+      exclude: [/src\/views\/micro-apps\/Ican\//]
+    }),
     VitePWA({
       // We register manually from main.ts so we can skip SW on Capacitor.
       injectRegister: null,
@@ -67,6 +70,9 @@ export default defineConfig({
       '@': '/src'
     }
   },
+  // Exclude Ican micro-app completely (unused, ~4MB)
+  // This prevents it from being bundled or processed
+  assetsInclude: [],
   optimizeDeps: {
     include: [
       'onnxruntime-web', 
@@ -76,7 +82,9 @@ export default defineConfig({
       'ionicons/icons'
     ],
     exclude: [
-      '@imgly/background-removal'
+      '@imgly/background-removal',
+      // Exclude Ican folder from dependency optimization
+      '**/micro-apps/Ican/**'
     ],
     // Force optimization to avoid OneDrive sync issues
     force: true
@@ -88,11 +96,21 @@ export default defineConfig({
       include: [/node_modules/]
     },
     rollupOptions: {
-      external: [],
+      // Exclude Ican micro-app from build completely
+      external: (id) => {
+        // Exclude any imports from Ican folder
+        if (id.includes('micro-apps/Ican') || id.includes('micro-apps\\Ican')) {
+          return true
+        }
+        return false
+      },
       output: {
         // Optimized manual chunks for better code splitting and caching
         // IMPORTANT: vue-konva must be in same chunk as Vue to avoid initialization errors
         manualChunks(id) {
+          // Skip Ican folder - not used
+          if (id.includes('micro-apps/Ican') || id.includes('micro-apps\\Ican')) return undefined
+          
           // AI/ML - Heavy libs (load only when needed)
           if (id.includes('onnxruntime-web')) return 'onnxruntime'
           if (id.includes('tesseract.js')) return 'tesseract'
