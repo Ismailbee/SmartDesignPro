@@ -3,7 +3,7 @@
  * Handles conversational letterhead creation with AI extraction
  */
 
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user.store'
 import { renderLetterHead, downloadSVG, downloadAsPng, downloadAsJpeg, downloadAsPdf, type LetterHeadData } from '@/services/svgTemplateService'
@@ -69,6 +69,44 @@ function extractFirstJsonBlock(text: string): string | null {
   return null
 }
 
+// Text-to-Speech helper for web
+function speakText(text: string) {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return
+  
+  try {
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel()
+    
+    // Clean text - remove emojis and special chars
+    const cleanText = text
+      .replace(/[\u{1F300}-\u{1FAFF}]/gu, '') // All emojis
+      .replace(/[\u{2600}-\u{27BF}]/gu, '')   // Misc symbols
+      .replace(/\n+/g, '. ')                   // Newlines to pauses
+      .replace(/\s+/g, ' ')
+      .trim()
+    
+    if (!cleanText) return
+    
+    const utterance = new SpeechSynthesisUtterance(cleanText)
+    utterance.rate = 1.0
+    utterance.pitch = 1.0
+    utterance.volume = 1.0
+    utterance.lang = 'en-US'
+    
+    // Try to get a good voice
+    const voices = window.speechSynthesis.getVoices()
+    const preferredVoice = voices.find(v => 
+      v.lang.startsWith('en') && (v.name.includes('Female') || v.name.includes('Samantha'))
+    ) || voices.find(v => v.lang.startsWith('en'))
+    
+    if (preferredVoice) utterance.voice = preferredVoice
+    
+    window.speechSynthesis.speak(utterance)
+  } catch (e) {
+    console.warn('TTS failed:', e)
+  }
+}
+
 export function useLetterHeadChat() {
   const authStore = useAuthStore()
   const userStore = useUserStore()
@@ -78,6 +116,7 @@ export function useLetterHeadChat() {
   const chatInputText = ref('')
   const isAnalyzing = ref(false)
   const isGeneratingPreview = ref(false)
+  const isVoiceEnabled = ref(true) // TTS enabled by default
   const showLetterHeadPreview = ref(false)
   const letterHeadChatRequestId = ref(0)
   const generatingMessage = ref('')
@@ -141,7 +180,7 @@ export function useLetterHeadChat() {
     })
   }
   
-  // Add AI message
+  // Add AI message with optional TTS
   function addAiMessage(text: string, actions?: ChatMessage['actions']) {
     chatMessages.value.push({
       id: Date.now(),
@@ -150,6 +189,19 @@ export function useLetterHeadChat() {
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       actions
     })
+    
+    // Speak the message if voice is enabled
+    if (isVoiceEnabled.value) {
+      speakText(text)
+    }
+  }
+  
+  // Toggle voice on/off
+  function toggleVoice() {
+    isVoiceEnabled.value = !isVoiceEnabled.value
+    if (!isVoiceEnabled.value && typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel()
+    }
   }
   
   // Check for quick responses that don't need AI
@@ -165,17 +217,17 @@ export function useLetterHeadChat() {
       else if (hour >= 17 && hour < 22) greet = 'Good evening!'
       
       const name = userName.value ? ` ${userName.value}` : ''
-      return `${greet}${name}! 👋\n\nI'm your Letterhead Designer Assistant. I'll help you create a professional letterhead for your organization.\n\nLet's start with the basics. What's your organization name?`
+      return `${greet}${name}! I'll help you create your letterhead. What's your organization name?`
     }
     
     // Thanks
     if (/^(thanks?|thank\s*you|thx|appreciated?)[\s!.?]*$/i.test(lowerMsg)) {
-      return "You're very welcome! 😊 Let me know if you need anything else!"
+      return "You're welcome! Need anything else?"
     }
     
     // Help requests
     if (/^(help|what|how)[\s!.?]*$/i.test(lowerMsg)) {
-      return "I'll guide you step-by-step to create your letterhead. I'll ask for your organization name, address, phone, email, and other details one at a time."
+      return "I'll ask for your organization details step by step. Let's start!"
     }
     
     return null
@@ -246,16 +298,16 @@ export function useLetterHeadChat() {
         const orgMatch = message.match(/(?:company|organization|org|business|firm)\s+(?:is|name)?\s*:?\s*([A-Za-z0-9\s&.,'-]+?)(?:\.|,|$|\s+in\s+|\s+at\s+)/i)
         if (orgMatch) {
           info.organizationName = orgMatch[1].trim()
-          responseText = `Great! I've noted "${info.organizationName}" as your organization name.\n\nNow, what's your registration number (RC number)? If you don't have one, just say 'skip'.`
+          responseText = `Got "${info.organizationName}". RC number? (say 'skip' if none)`
         } else if (message.toLowerCase().includes('skip')) {
-          responseText = "No problem! What's your organization name?"
+          responseText = "What's your organization name?"
         } else {
           // Assume entire message is org name if it's short
           if (message.length < 50 && !message.toLowerCase().includes('address') && !message.toLowerCase().includes('phone')) {
             info.organizationName = message
-            responseText = `Perfect! "${info.organizationName}" it is.\n\nDo you have a registration number (RC number)? If not, just say 'skip'.`
+            responseText = `Got it! RC number? (say 'skip' if none)`
           } else {
-            responseText = "Thank you! Let me start by getting your organization name. What's your organization or company name?"
+            responseText = "What's your organization name?"
           }
         }
       }
@@ -274,15 +326,15 @@ export function useLetterHeadChat() {
             lowerMsg.includes('no rc') ||
             lowerMsg.includes('not registered')) {
           info.registrationNumber = 'N/A'  // Mark as skipped
-          responseText = "No problem! Now, what's your head office address?"
+          responseText = "OK. Head office address?"
         } else {
           const rcMatch = message.match(/(?:RC\.?\s*)?([0-9]+)/i)
           if (rcMatch) {
             info.registrationNumber = rcMatch[1]
-            responseText = `Got it! RC ${info.registrationNumber}.\n\nWhat's your head office address?`
+            responseText = `RC ${info.registrationNumber}. Head office address?`
           } else {
             info.registrationNumber = message.trim()
-            responseText = `Noted! RC ${info.registrationNumber}.\n\nWhat's your head office address?`
+            responseText = `RC ${info.registrationNumber}. Head office address?`
           }
         }
       }
@@ -292,10 +344,10 @@ export function useLetterHeadChat() {
         
         if (lowerMsg === 'skip' || lowerMsg === 'no' || lowerMsg === 'none' || lowerMsg === 'nope' || lowerMsg.includes('dont have') || lowerMsg.includes("don't have") || lowerMsg.includes('i dont') || lowerMsg.includes("i don't") || lowerMsg.includes('no head') || lowerMsg.includes('no office')) {
           info.headOffice = 'N/A'
-          responseText = "No problem! Do you have another office address? If not, say 'skip'."
+          responseText = "Other address? (say 'skip' if none)"
         } else {
           info.headOffice = message.trim()
-          responseText = `Perfect! I've saved your head office address.\n\nDo you have another office address? If not, say 'skip'.`
+          responseText = "Other address? (say 'skip' if none)"
         }
       }
       // Step 4: Other address (optional)
@@ -307,10 +359,10 @@ export function useLetterHeadChat() {
             lowerMsg === 'nope' ||
             lowerMsg.includes('no other')) {
           info.otherAddress = 'N/A'  // Mark as skipped
-          responseText = "Understood! Now, what are your phone numbers? You can provide one or more."
+          responseText = "Phone number(s)?"
         } else {
           info.otherAddress = message.trim()
-          responseText = `Great! I've added the second address.\n\nWhat are your phone numbers?`
+          responseText = "Phone number(s)?"
         }
       }
       // Step 5: Phone numbers
@@ -318,10 +370,10 @@ export function useLetterHeadChat() {
         const phoneNumbers = message.match(/[+]?[0-9-()\s]+/g)
         if (phoneNumbers) {
           info.phones = phoneNumbers.map(p => p.trim())
-          responseText = `Perfect! I've saved ${info.phones.length} phone number${info.phones.length > 1 ? 's' : ''}.\n\nWhat's your email address?`
+          responseText = "Email address?"
         } else {
           info.phones = [message.trim()]
-          responseText = `Got it!\n\nNow, what's your email address?`
+          responseText = "Email address?"
         }
       }
       // Step 6: Email address
@@ -333,7 +385,7 @@ export function useLetterHeadChat() {
         const displayHeadOffice = info.headOffice !== 'N/A' ? info.headOffice : ''
         const displayOther = info.otherAddress !== 'N/A' ? info.otherAddress : ''
         
-        responseText = `Excellent! I now have all your information:\n\n📋 Organization: ${info.organizationName}\n${displayRC ? `📝 RC: ${displayRC}\n` : ''}${displayHeadOffice ? `📍 Head Office: ${displayHeadOffice}\n` : ''}${displayOther ? `📍 Other: ${displayOther}\n` : ''}📞 Phone: ${info.phones.join(', ')}\n📧 Email: ${info.email}\n\nWhat format would you like for your letterhead?`
+        responseText = `All set!\n${info.organizationName}${displayRC ? ` • RC: ${displayRC}` : ''}${displayHeadOffice ? `\n📍 ${displayHeadOffice}` : ''}${displayOther ? `\n📍 ${displayOther}` : ''}\n📞 ${info.phones.join(', ')}\n📧 ${info.email}\n\nChoose format:`
         addAiMessage(responseText, [
           { type: 'format_png', label: 'PNG', variant: 'secondary' },
           { type: 'format_jpeg', label: 'JPEG', variant: 'secondary' },
@@ -343,7 +395,7 @@ export function useLetterHeadChat() {
       }
       // Already have all info
       else {
-        responseText = "I already have all your information. What format would you like for your letterhead?"
+        responseText = "Ready! Choose format:"
         addAiMessage(responseText, [
           { type: 'format_png', label: 'PNG', variant: 'secondary' },
           { type: 'format_jpeg', label: 'JPEG', variant: 'secondary' },
@@ -376,21 +428,21 @@ export function useLetterHeadChat() {
       downloadLetterHead('pdf')
     } else if (actionType === 'format_png') {
       selectedFormat.value = 'png'
-      addAiMessage('Great! PNG format selected. Would you like to generate your letterhead now?', [
-        { type: 'generate', label: 'Generate Letterhead', variant: 'primary' },
-        { type: 'upload_logo', label: 'Add Logo First', variant: 'secondary' }
+      addAiMessage('PNG selected. Generate now?', [
+        { type: 'generate', label: 'Generate', variant: 'primary' },
+        { type: 'upload_logo', label: 'Add Logo', variant: 'secondary' }
       ])
     } else if (actionType === 'format_jpeg') {
       selectedFormat.value = 'jpeg'
-      addAiMessage('Great! JPEG format selected. Would you like to generate your letterhead now?', [
-        { type: 'generate', label: 'Generate Letterhead', variant: 'primary' },
-        { type: 'upload_logo', label: 'Add Logo First', variant: 'secondary' }
+      addAiMessage('JPEG selected. Generate now?', [
+        { type: 'generate', label: 'Generate', variant: 'primary' },
+        { type: 'upload_logo', label: 'Add Logo', variant: 'secondary' }
       ])
     } else if (actionType === 'format_pdf') {
       selectedFormat.value = 'pdf'
-      addAiMessage('Great! PDF format selected. Would you like to generate your letterhead now?', [
-        { type: 'generate', label: 'Generate Letterhead', variant: 'primary' },
-        { type: 'upload_logo', label: 'Add Logo First', variant: 'secondary' }
+      addAiMessage('PDF selected. Generate now?', [
+        { type: 'generate', label: 'Generate', variant: 'primary' },
+        { type: 'upload_logo', label: 'Add Logo', variant: 'secondary' }
       ])
     } else if (actionType === 'upload_logo') {
       // Trigger logo upload
@@ -533,6 +585,7 @@ export function useLetterHeadChat() {
     extractedInfo,
     previewImageUrl,
     generatingMessage,
+    isVoiceEnabled,
     
     // Computed
     isAuthenticated,
@@ -544,6 +597,7 @@ export function useLetterHeadChat() {
     handleSendMessage,
     handleMessageAction,
     initializeChat,
-    handleLogoUpload: uploadLogo
+    handleLogoUpload: uploadLogo,
+    toggleVoice
   }
 }

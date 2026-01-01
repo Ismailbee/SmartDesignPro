@@ -261,12 +261,27 @@ const Vue3Lottie = defineAsyncComponent(() =>
   import('vue3-lottie').then(m => m.Vue3Lottie)
 )
 
-// Lazy load Capacitor TTS - only when needed
+// Lazy load Capacitor TTS - only when needed on native platforms
 let TextToSpeech: any = null
 const loadTextToSpeech = async () => {
+  // Only load on actual native platforms (APK/IPA), not web
+  const isNativePlatform = typeof window !== 'undefined' &&
+                            (window as any).Capacitor?.isNativePlatform &&
+                            (window as any).Capacitor.isNativePlatform()
+  
+  if (!isNativePlatform) {
+    // Return null on web to prevent "not implemented" errors
+    return null
+  }
+  
   if (!TextToSpeech) {
-    const module = await import('@capacitor-community/text-to-speech')
-    TextToSpeech = module.TextToSpeech
+    try {
+      const module = await import('@capacitor-community/text-to-speech')
+      TextToSpeech = module.TextToSpeech
+    } catch (e) {
+      console.warn('TextToSpeech module not available:', e)
+      return null
+    }
   }
   return TextToSpeech
 }
@@ -1968,8 +1983,19 @@ function stopAllSpeech() {
 
 async function tryNativeTTS(text: string) {
   try {
-    console.log('?? Attempting native TTS...')
+    // Only attempt on native platforms
+    const isNativePlatform = typeof window !== 'undefined' &&
+                              (window as any).Capacitor?.isNativePlatform &&
+                              (window as any).Capacitor.isNativePlatform()
+    
+    if (!isNativePlatform) {
+      throw new Error('Not on native platform')
+    }
+    
+    console.log('🔊 Attempting native TTS...')
     const TTS = await loadTextToSpeech()
+    if (!TTS) throw new Error('TTS not available')
+    
     await TTS.speak({
       text: text,
       lang: 'en-US',
@@ -1978,9 +2004,9 @@ async function tryNativeTTS(text: string) {
       volume: 1.0,
       category: 'ambient'
     })
-    console.log('? Native TTS successful')
+    console.log('✅ Native TTS successful')
   } catch (error) {
-    console.warn('? Native TTS failed:', error)
+    console.warn('❌ Native TTS failed:', error)
     // Not available, will fallback to web speech
     throw error
   }

@@ -40,15 +40,26 @@ export interface ChatMessage {
   actions?: Array<{ type: string; label: string; icon?: string; variant?: 'primary' | 'secondary' }>
 }
 
-// Lazy-load TextToSpeech module for Capacitor
+// Lazy-load TextToSpeech module for Capacitor - only on native platforms
 let TextToSpeech: any = null
 const loadTextToSpeech = async () => {
+  // Only load on actual native platforms (APK/IPA), not web
+  const isNativePlatform = typeof window !== 'undefined' &&
+                            (window as any).Capacitor?.isNativePlatform &&
+                            (window as any).Capacitor.isNativePlatform()
+  
+  if (!isNativePlatform) {
+    // Return null on web to prevent "not implemented" errors
+    return null
+  }
+  
   if (!TextToSpeech) {
     try {
       const module = await import('@capacitor-community/text-to-speech')
       TextToSpeech = module.TextToSpeech
     } catch (e) {
       console.warn('TextToSpeech module not available:', e)
+      return null
     }
   }
   return TextToSpeech

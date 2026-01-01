@@ -671,12 +671,12 @@ export function useAIChatLogic(options: UseAIChatLogicOptions) {
             askedQuestions.value.picture = true
             chatMessages.value.push({
               id: Date.now(),
-              text: 'All details received! Would you like to add a picture?',
+              text: 'All set! Add a picture?',
               sender: 'ai',
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
               actions: [
                 { type: 'upload', label: 'Add Picture', variant: 'secondary' },
-                { type: 'generate_preview', label: 'No, Generate', variant: 'primary' }
+                { type: 'generate_preview', label: 'Generate', variant: 'primary' }
               ]
             })
             scrollToBottom()

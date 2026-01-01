@@ -129,19 +129,31 @@ export function getDateOnlyResponse(date: string, ctx: OfflineResponseContext) {
 }
 
 /**
- * Check if message is ONLY courtesy
+ * Check if message is ONLY courtesy - must have real content, not affirmatives/typos
  */
 export function isCourtesyOnly(msg: string, ctx: OfflineResponseContext): boolean {
   // Only treat as courtesy if we already have title, names, and date
   if (!ctx.hasTitle || !ctx.hasName || !ctx.hasDate) return false
+  
+  const trimmed = msg.trim()
+  const lower = trimmed.toLowerCase()
+  
+  // Reject if it looks like an affirmative (yes/no/ok) or common typos
+  const isAffirmativeOrTypo = /^(yes|yess|ues|yea|ye|ys|y|yeah|yeh|yup|yep|sure|ok|oks|okay|no|nope|nah|alright|definitely|of course|absolutely|let'?s go|please|do it|go ahead|skip|cancel)[\s!.?]*$/i.test(lower)
+  if (isAffirmativeOrTypo) return false
+  
+  // Reject if it's a single word under 4 characters (likely a typo or affirmative)
+  if (trimmed.length < 4 && !/\s/.test(trimmed)) return false
+  
   const hasNames = /\b[A-Z][a-z]+\s*(&|and|with)\s*[A-Z][a-z]+\b/i.test(msg)
   const hasDate = /\d{1,2}(st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(msg)
   // Check if it looks like a size (e.g., "3x3", "4 by 2.5", "default")
   const looksLikeSize = /^(\d+(?:\.\d+)?)\s*(?:[xX×]|by)\s*(\d+(?:\.\d+)?)$/i.test(msg) || 
-                        msg.trim().toLowerCase() === 'default'
+                        lower === 'default'
   if (hasNames || hasDate || looksLikeSize) return false
-  // Short text likely a courtesy
-  return msg.trim().length >= 3 && msg.trim().length < 60
+  
+  // Must be reasonable length for a courtesy phrase (e.g., "courtesy the family")
+  return trimmed.length >= 4 && trimmed.length < 60
 }
 
 /**
@@ -246,10 +258,11 @@ export function getVagueDesignResponse() {
 }
 
 /**
- * Check if message is affirmative (yes/yeah/sure)
+ * Check if message is affirmative (yes/yeah/sure) - includes common typos
  */
 export function isAffirmative(msg: string): boolean {
-  return /^(yes|yeah|yep|yup|sure|ok|okay|alright|definitely|of course|absolutely|let'?s go|let'?s do it)[\s!.?]*$/i.test(msg)
+  // Common affirmatives + typos: 'ues', 'yea', 'ye', 'ys', 'yess', 'oks', etc.
+  return /^(yes|yess|ues|yea|ye|ys|y|yeah|yeh|yup|yep|sure|ok|oks|okay|alright|definitely|of course|absolutely|let'?s go|let'?s do it|please|do it|go ahead)[\s!.?]*$/i.test(msg)
 }
 
 export function getAffirmativeResponse(ctx: OfflineResponseContext, shouldGenerate: () => void) {
