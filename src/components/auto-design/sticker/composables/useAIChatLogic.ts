@@ -16,6 +16,7 @@ import { ref, type Ref, computed } from 'vue'
 import { ai } from '@/services/ai/ai.service'
 import { extractFirstJsonBlock, safeJsonParse } from '@/services/ai/json.util'
 import { extractWeddingDetails, hasWeddingDetails } from './useLocalExtraction'
+import { parseSizeToInches } from '../utils/previewUtils'
 
 // ============================================================================
 // Types & Interfaces
@@ -189,18 +190,6 @@ export function useAIChatLogic(options: UseAIChatLogicOptions) {
         return `${role}: ${text}`
       })
     return items.join('\n')
-  }
-
-  /**
-   * Parse size string to inches
-   */
-  function parseSizeToInches(size: string): { w: number; h: number } | null {
-    const m = size.trim().match(/(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)/i)
-    if (!m) return null
-    const w = Number(m[1])
-    const h = Number(m[2])
-    if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return null
-    return { w, h }
   }
 
   /**

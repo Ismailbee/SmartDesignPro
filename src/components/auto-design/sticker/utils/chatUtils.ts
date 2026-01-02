@@ -188,17 +188,8 @@ export function buildWeddingChatTranscriptForAIUtil(
   return items.join('\n')
 }
 
-/**
- * Parse size string to inches
- */
-export function parseSizeToInchesUtil(size: string): { w: number; h: number } | null {
-  const m = size.trim().match(/(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)/i)
-  if (!m) return null
-  const w = Number(m[1])
-  const h = Number(m[2])
-  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return null
-  return { w, h }
-}
+// Re-export parseSizeToInches from previewUtils for backward compatibility
+export { parseSizeToInches as parseSizeToInchesUtil } from './previewUtils'
 
 /**
  * Sync wedding description from extracted state

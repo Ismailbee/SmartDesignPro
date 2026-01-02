@@ -7,6 +7,7 @@
 
 import { ref, computed, nextTick, type Ref, type ComputedRef } from 'vue'
 import type { ChatMessage } from './useSpeechToText'
+import { parseSizeToInches } from '../utils/previewUtils'
 
 // Types
 export interface GenerationDependencies {
@@ -155,14 +156,6 @@ export function useWeddingPreviewGeneration(deps: GenerationDependencies): UseWe
         deps.handleSizeChange(parsed.w, parsed.h)
       }
     }
-  }
-
-  function parseSizeToInches(size: string): { w: number; h: number } | null {
-    const match = size.match(/(\d+(?:\.\d+)?)\s*(?:x|by|×)\s*(\d+(?:\.\d+)?)/i)
-    if (match) {
-      return { w: parseFloat(match[1]), h: parseFloat(match[2]) }
-    }
-    return null
   }
 
   function requestWeddingPreviewGeneration(): void {
