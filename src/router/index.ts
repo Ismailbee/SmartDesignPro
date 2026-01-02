@@ -27,7 +27,6 @@ const NotificationsPage = () => import('@/views/user/NotificationsPage.vue')
 
 // Auto-Design Pages (all design tools)
 const AutoDesignPage = () => import('@/components/auto-design/AutoDesignPage.vue')
-const SmartTemplateDesigner = () => import('@/components/auto-design/SmartTemplateDesigner.vue')
 
 // Letterhead
 const ConversationalLetterHeadPage = () => import('@/components/auto-design/letterhead/ConversationalLetterHeadPage.vue')
@@ -436,15 +435,7 @@ const routes: RouteRecordRaw[] = [
     }
   },
 
-  {
-    path: '/smart-template',
-    name: 'smart-template',
-    component: SmartTemplateDesigner,
-    meta: {
-      title: 'Smart Template Designer - SmartDesignPro',
-      requiresAuth: false
-    }
-  },
+
 
   // ============================================================
   // Legal Routes
