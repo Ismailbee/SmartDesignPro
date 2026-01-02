@@ -281,8 +281,6 @@ import {
   buildWeddingChatTranscriptForAIUtil,
   parseSizeToInchesUtil,
   syncWeddingDescriptionFromStateUtil,
-  resetAskedQuestionsUtil,
-  resetWeddingStateUtil,
   type ChatMessage as ChatMessageType,
   type TrackedImage
 } from './sticker/utils/chatUtils'
@@ -806,11 +804,7 @@ async function generateWeddingPreview() {
   await generateWeddingPreviewUtil(ctx)
 }
 
-// NOTE: Image crop, upload, and pre-generation state provided by useWeddingState composable
-
-// Extraction utilities imported from composables:
-// capitalizeWords, escapeRegExp, extractNamesFromResponse, extractDateFromText,
-// extractCourtesyFromText, extractSizeFromText, extractNamesFromBrackets, parseAllInOneMessage
+// NOTE: State refs provided by useWeddingState composable (crop, upload, form, chat, categories)
 
 // Track image uploads - wrapper for extracted utility
 function trackImageUpload(file: File) {
@@ -825,14 +819,6 @@ function trackImageUpload(file: File) {
     scrollToBottom
   })
 }
-
-// NOTE: Background removal state provided by useWeddingState composable
-
-// NOTE: categories provided by useWeddingState composable
-
-// NOTE: formData and chatInputText provided by useWeddingState composable
-
-// NOTE: chatMessages and isAnalyzing provided by useWeddingState composable
 
 // showChatHelp - displays help message in chat
 function showChatHelp() {
@@ -869,31 +855,15 @@ watch(customHeading, (newHeading) => {
   }
 })
 
-// ============================================================================
-// WEDDING CHAT COMPOSABLE - Handles title/names/date/courtesy detection
-// ============================================================================
-// Forward declaration - will be initialized after scrollToBottom is defined
+// WEDDING CHAT COMPOSABLE - Forward declaration for title/names/date/courtesy detection
 let weddingChatProcessor: ReturnType<typeof useWeddingChat> | null = null
 
-// ============================================================================
-// SMART AI STATE - resetAskedQuestions provided by useWeddingState composable
-// ============================================================================
-
-// NOTE: Smart update state and awaiting input state provided by useWeddingState composable
-
-// ============================================================================
-// AI UTILITIES - Now imported from composables:
-// - aiResponseHelper: Response templates
-// - titlePatterns, titlePhraseMap, isPotentialTitle, extractTitleFromText: Title detection
-// - extractNamesFromBrackets, parseAllInOneMessage: Extraction utilities
-// ============================================================================
+// NOTE: State provided by useWeddingState; AI utilities from composables
 
 const scrollToBottom = () => {
-  // Use the component's scrollToBottom method if available
   if (weddingChatMessagesRef.value?.scrollToBottom) {
     weddingChatMessagesRef.value.scrollToBottom()
   } else {
-    // Fallback for direct access
     nextTick(() => {
       if (chatHistoryContainer.value) {
         chatHistoryContainer.value.scrollTop = chatHistoryContainer.value.scrollHeight
@@ -902,10 +872,7 @@ const scrollToBottom = () => {
   }
 }
 
-// ============================================================================
-// SPEECH-TO-TEXT & TTS - Using composable (replaces ~400 lines of inline code)
-// ============================================================================
-// Forward reference for sendMessage - will be defined later but needed by speech composable
+// SPEECH-TO-TEXT & TTS - Forward reference for sendMessage
 let _sendMessageRef: (() => void) | null = null
 const sendMessageWrapper = () => {
   if (_sendMessageRef) _sendMessageRef()
