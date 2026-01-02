@@ -249,6 +249,8 @@ import {
   useWeddingPreviewGeneration,
   // Image Upload Flow composable
   useImageUploadFlow,
+  // Wedding State composable
+  useWeddingState,
 } from './sticker/composables'
 
 // Import SVG utility functions (extracted for file size reduction)
@@ -329,6 +331,119 @@ const { updateStickerText, getSVGElements, extractNames } = useWeddingStickerUpd
 const { applyRetouch } = useImageRetouch()
 const { calculateDimensions, resizeSVG, validateForExport, PRINT_DPI, SCREEN_DPI } = useDynamicSVG()
 
+// ========================================
+// WEDDING STATE - Using composable (replaces ~200 lines of inline state)
+// ========================================
+const {
+  // Category & View
+  showMenu,
+  selectedCategory,
+  categories,
+  
+  // Preview State
+  showWeddingStickerPreview,
+  isGeneratingPreview,
+  generatingStep,
+  isDescriptionVisible,
+  showEditModal,
+  generatingMessage,
+  isGeneratingNewBackground,
+  
+  // Token Tracking
+  hasDesignBeenGenerated,
+  TOKEN_COST_GENERATE_DESIGN,
+  TOKEN_COST_EDIT_TEXT,
+  TOKEN_COST_CHANGE_BACKGROUND,
+  
+  // Form Data
+  formData,
+  
+  // Chat State
+  chatInputText,
+  chatMessages,
+  isAnalyzing,
+  accumulatedDescription,
+  
+  // Wizard Step State
+  awaitingPictureDecision,
+  awaitingSizeDecision,
+  pictureStepComplete,
+  sizeStepComplete,
+  awaitingBackgroundRemovalDecision,
+  awaitingImageUpdateConfirmation,
+  backgroundRemovalAlreadyHandled,
+  
+  // Image State
+  pendingImageFile,
+  uploadedImages,
+  lastUploadedImage,
+  awaitingImageChoice,
+  awaitingNameInput,
+  nameExtractionAttempts,
+  preGeneratedImageFile,
+  preGeneratedImagePreview,
+  
+  // Heading/Title State
+  awaitingHeadingInput,
+  awaitingFontChoice,
+  customHeading,
+  selectedHeadingFont,
+  headingStepComplete,
+  awaitingTitleConfirmation,
+  pendingTitle,
+  
+  // Extracted Info
+  extractedInfo,
+  
+  // Asked Questions
+  askedQuestions,
+  
+  // Post-generation Update State
+  awaitingDateChange,
+  awaitingCourtesyChange,
+  pendingDateUpdate,
+  pendingCourtesyUpdate,
+  awaitingCourtesyInput,
+  pendingCourtesyText,
+  
+  // Crop Modal State
+  showCropModal,
+  cropImageSrc,
+  cropImageFile,
+  isPreGenerationCrop,
+  
+  // Upload Modal State
+  showUploadModal,
+  uploadModalProcessing,
+  uploadModalProgress,
+  uploadModalStatusText,
+  uploadModalSuccess,
+  
+  // Background Removal State
+  autoRemoveBackground,
+  backgroundRemovalError,
+  
+  // Image Controls
+  showImageControls,
+  isRetouching,
+  showUploadOptions,
+  
+  // Animation
+  loadingAnimation,
+  
+  // DOM Refs
+  preGeneratedImageInput,
+  
+  // Utility Methods
+  resetAskedQuestions,
+  resetWeddingState: resetWeddingStateFromComposable
+} = useWeddingState()
+
+// Load animation on mount
+fetch('/animations/loading-circle.json')
+  .then(res => res.json())
+  .then(data => { loadingAnimation.value = data })
+  .catch(() => { /* Fallback handled in template */ })
 
 // ========================================
 // TITLE LIBRARY - Using composable
@@ -374,14 +489,7 @@ const svgImageManager = useSVGImageManager({
   defaultHeight: 400
 })
 
-// Retouch state
-const isRetouching = ref(false)
-
-// Toggle for image editing controls
-const showImageControls = ref(false)
-
-// Chat footer states
-const showUploadOptions = ref(false)
+// NOTE: isRetouching, showImageControls, showUploadOptions provided by useWeddingState composable
 
 // SVG Text Replacement (for Nikkah graphics)
 const { handleReplacement, resetReplacement, restoreOriginalElements, replacementState } = useSVGTextReplacement()
@@ -463,25 +571,8 @@ watch(bgManagerBackgroundFileName, (newVal) => {
   currentBackgroundFileName.value = newVal
 }, { immediate: true })
 
-const showMenu = ref(false)
-// Wedding is pre-selected as the only category
-const selectedCategory = ref<string | null>('wedding')
-
-// Wedding warning banner state
-const showWeddingStickerPreview = ref(false)
-const isGeneratingPreview = ref(false)
-const generatingStep = ref(0) // Track current step: 1=Preparing, 2=Applying design, 3=Processing image, 4=Final touches
-const isDescriptionVisible = ref(true)
-const showEditModal = ref(false)
-
-// Token deduction tracking
-const hasDesignBeenGenerated = ref(false) // Track if initial design was generated (15 tokens)
-const TOKEN_COST_GENERATE_DESIGN = 15
-const TOKEN_COST_EDIT_TEXT = 5 // Name, date, courtesy, title changes
-const TOKEN_COST_CHANGE_BACKGROUND = 10
-
-// Generating message for loading animation (uses imported GENERATING_MESSAGES constant)
-const generatingMessage = ref(GENERATING_MESSAGES[0])
+// NOTE: State refs (showMenu, selectedCategory, showWeddingStickerPreview, etc.)
+// are now provided by useWeddingState composable above
 
 // Handle action button clicks in messages
 function handleMessageAction(action: { type: string; label?: string; route?: string }) {
@@ -715,24 +806,7 @@ async function generateWeddingPreview() {
   await generateWeddingPreviewUtil(ctx)
 }
 
-// Image crop modal state
-const showCropModal = ref(false)
-const cropImageSrc = ref('')
-const cropImageFile = ref<File | null>(null)
-const isPreGenerationCrop = ref(false)
-
-// Upload modal state
-const showUploadModal = ref(false)
-const modalFileInput = ref<HTMLInputElement | null>(null)
-const uploadModalProcessing = ref(false)
-const uploadModalProgress = ref(0)
-const uploadModalStatusText = ref('Preparing...')
-const uploadModalSuccess = ref(false)
-
-// Pre-generation image upload state
-const preGeneratedImageFile = ref<File | null>(null)
-const preGeneratedImagePreview = ref<string | null>(null)
-const preGeneratedImageInput = ref<HTMLInputElement | null>(null)
+// NOTE: Image crop, upload, and pre-generation state provided by useWeddingState composable
 
 // Extraction utilities imported from composables:
 // capitalizeWords, escapeRegExp, extractNamesFromResponse, extractDateFromText,
@@ -752,46 +826,13 @@ function trackImageUpload(file: File) {
   })
 }
 
-// Background removal state
-const autoRemoveBackground = ref(false)
-const backgroundRemovalError = ref<string | null>(null)
+// NOTE: Background removal state provided by useWeddingState composable
 
-// Lottie animation - loaded from external file for cleaner code
-const loadingAnimation = ref<object | null>(null)
-fetch('/animations/loading-circle.json')
-  .then(res => res.json())
-  .then(data => { loadingAnimation.value = data })
-  .catch(() => { /* Fallback handled in template */ })
+// NOTE: categories provided by useWeddingState composable
 
-const categories = [
-  { id: 'wedding', name: 'Wedding', icon: '??', gradient: 'linear-gradient(135deg, #f093fb 0%, #a855f7 100%)' }
-]
+// NOTE: formData and chatInputText provided by useWeddingState composable
 
-const formData = reactive({
-  description: '',
-  removeBackground: false,
-  useColorPicker: false,
-  backgroundColor: '#ffffff',
-  customSize: '4x4',
-  svgWidth: 400,
-  svgHeight: 400
-})
-
-// Separate chat input state to prevent real-time SVG updates during chat
-const chatInputText = ref('')
-
-// Chat Logic for Wedding Category
-const chatMessages = ref<Array<{ 
-  id: number; 
-  text: string; 
-  sender: 'user' | 'ai'; 
-  time: string; 
-  image?: string; 
-  type?: 'text' | 'preview'; 
-  isLoading?: boolean;
-  actions?: Array<{ type: string; label: string; icon?: string; variant?: 'primary' | 'secondary' }>;
-}>>([])
-const isAnalyzing = ref(false)
+// NOTE: chatMessages and isAnalyzing provided by useWeddingState composable
 
 // showChatHelp - displays help message in chat
 function showChatHelp() {
@@ -812,42 +853,8 @@ onMounted(() => {
   initializeVoice()
 })
 
-
-const accumulatedDescription = ref('')
-const awaitingPictureDecision = ref(false)
-const awaitingSizeDecision = ref(false)
-const pictureStepComplete = ref(false)
-const sizeStepComplete = ref(false)
-const awaitingBackgroundRemovalDecision = ref(false)
-const awaitingImageUpdateConfirmation = ref(false)
-const pendingImageFile = ref<File | null>(null)
-const backgroundRemovalAlreadyHandled = ref(false) // Track if BG removal was already processed for current image
-
-// Enhanced AI state management
-const awaitingNameInput = ref(false)
-const awaitingImageChoice = ref(false)
-const uploadedImages = ref<Array<{ file: File; timestamp: number; used: boolean }>>([])
-const lastUploadedImage = ref<File | null>(null)
-const nameExtractionAttempts = ref(0)
-
-// Custom heading and font state
-const awaitingHeadingInput = ref(false)
-const awaitingFontChoice = ref(false)
-const customHeading = ref<string | null>(null)
-const selectedHeadingFont = ref<'playfair' | 'lato' | null>(null)
-const headingStepComplete = ref(false)
-const awaitingTitleConfirmation = ref(false)
-const pendingTitle = ref<string | null>(null)
-
-// Track extracted information to prevent re-asking
-// Note: title is synced with customHeading for useWeddingChat composable compatibility
-const extractedInfo = ref({
-  title: null as string | null,  // Synced with customHeading
-  date: null as string | null,
-  courtesy: null as string | null,
-  size: null as string | null,
-  names: { name1: null as string | null, name2: null as string | null }
-})
+// NOTE: accumulatedDescription, awaiting states, pendingImageFile, uploadedImages,
+// customHeading, selectedHeadingFont, extractedInfo all provided by useWeddingState composable
 
 // Sync title with customHeading when either changes
 watch(() => extractedInfo.value.title, (newTitle) => {
@@ -869,35 +876,10 @@ watch(customHeading, (newHeading) => {
 let weddingChatProcessor: ReturnType<typeof useWeddingChat> | null = null
 
 // ============================================================================
-// SMART AI STATE - Track what questions have been asked to prevent repetition
+// SMART AI STATE - resetAskedQuestions provided by useWeddingState composable
 // ============================================================================
-const askedQuestions = ref({
-  picture: false,
-  size: false,
-  backgroundRemoval: false,
-  heading: false,
-  names: false,
-  date: false,
-  courtesy: false
-})
 
-// Reset asked questions - wrapper for extracted utility
-function resetAskedQuestions() {
-  resetAskedQuestionsUtil(askedQuestions)
-}
-
-// State for smart updates (post-generation)
-const awaitingDateChange = ref(false)
-const awaitingCourtesyChange = ref(false)
-const pendingDateUpdate = ref<string | null>(null)
-const pendingCourtesyUpdate = ref<string | null>(null)
-
-// State for "generate another" background loading
-const isGeneratingNewBackground = ref(false)
-
-// State for courtesy input when AI asks
-const awaitingCourtesyInput = ref(false)
-const pendingCourtesyText = ref<string | null>(null) // Stores what user typed when we ask for confirmation
+// NOTE: Smart update state and awaiting input state provided by useWeddingState composable
 
 // ============================================================================
 // AI UTILITIES - Now imported from composables:

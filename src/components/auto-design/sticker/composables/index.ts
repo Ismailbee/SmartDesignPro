@@ -203,3 +203,12 @@ export {
   type UseSVGImageUpdaterReturn,
   type SVGImageData,
 } from './useSVGImageUpdater'
+
+// Wedding State Management
+export {
+  useWeddingState,
+  type UploadedImage as WeddingUploadedImage,
+  type AskedQuestions,
+  type FormData as WeddingFormData,
+  type WeddingStateReturn,
+} from './useWeddingState'
