@@ -2,7 +2,11 @@
  * useExtractionUtils - Extraction utilities for wedding sticker panel
  * 
  * Extracts names, dates, courtesy messages, and sizes from user input text
+ * 
+ * NOTE: Date extraction now uses shared utility from @/utils/extraction/datePatterns
  */
+
+import { extractDateFromText as sharedExtractDate } from '@/utils/extraction/datePatterns'
 
 // Helper function to capitalize first letter of each word and strip trailing numbers (typos)
 export function capitalizeWords(str: string): string {
@@ -207,7 +211,7 @@ export function extractNamesFromResponse(text: string): { name1: string | null; 
 }
 
 /**
- * Extract date from text
+ * Extract date from text - uses shared utility
  * Supports formats like:
  * - "6th March, 2023"
  * - "March 6, 2023"
@@ -215,33 +219,9 @@ export function extractNamesFromResponse(text: string): { name1: string | null; 
  */
 export function extractDateFromText(text: string): string | null {
   console.log('📅 extractDateFromText input:', text)
-  
-  const datePatterns = [
-    // Match dates like "6th of March, 2023"
-    /\d{1,2}(?:st|nd|rd|th)?\s+of\s+(?:Jan(?:uary|aury|urary)?|Feb(?:ruary|uary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?[,\s]+\d{2,4}/i,
-    // Match dates like "5th January, 2023"
-    /\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan(?:uary|aury|urary|auary)?|Feb(?:ruary|uary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember|tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?[,\s]+\d{2,5}/i,
-    // Match dates like "6th Jan., 2023"
-    /\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?[,\s]+\d{2,5}/i,
-    // Match dates like "January 6th, 2023"
-    /(?:Jan(?:uary|aury|urary|auary)?|Feb(?:ruary|uary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}(?:st|nd|rd|th)?[,\s]+\d{2,5}/i,
-    // Match numeric dates like "12/25/2023"
-    /\d{1,2}[-\/]\d{1,2}[-\/]\d{2,5}/,
-    // Match dates with short year
-    /\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan(?:uary|aury|urary|auary)?|Feb(?:ruary|uary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?[,\s]+\d{1,5}/i,
-  ]
-  
-  for (let i = 0; i < datePatterns.length; i++) {
-    const pattern = datePatterns[i]
-    const match = text.match(pattern)
-    console.log(`📅 Pattern ${i + 1}:`, pattern.source, '-> Match:', match ? match[0] : 'null')
-    if (match) {
-      console.log('📅 Date matched:', match[0])
-      return match[0]
-    }
-  }
-  console.log('📅 No date pattern matched')
-  return null
+  const result = sharedExtractDate(text)
+  console.log('📅 Date extraction result:', result)
+  return result
 }
 
 /**

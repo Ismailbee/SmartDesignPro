@@ -1,9 +1,12 @@
 /**
  * Composable for extracting wedding information from text
  * Handles names, dates, courtesy, and size extraction
+ * 
+ * NOTE: Date extraction now uses shared utility from @/utils/extraction/datePatterns
  */
 
 import { ref } from 'vue'
+import { extractDateFromText as sharedExtractDate } from '@/utils/extraction/datePatterns'
 
 export interface ExtractedNames {
   name1: string | null
@@ -194,25 +197,10 @@ export function extractNamesFromResponse(text: string): ExtractedNames {
 }
 
 /**
- * Extract date from text
+ * Extract date from text - uses shared utility
  */
 export function extractDateFromText(text: string): string | null {
-  const datePatterns = [
-    // "6th of March, 2023"
-    /\d{1,2}(?:st|nd|rd|th)?\s+of\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember))\.?[,\s]+\d{2,4}/i,
-    // "5th January, 2023"
-    /\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember))\.?[,\s]+\d{2,4}/i,
-    // "6th Jan., 2023"
-    /\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?[,\s]+\d{2,4}/i,
-    // "12/25/2023"
-    /\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}/
-  ]
-  
-  for (const pattern of datePatterns) {
-    const match = text.match(pattern)
-    if (match) return match[0]
-  }
-  return null
+  return sharedExtractDate(text)
 }
 
 /**

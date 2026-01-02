@@ -3,11 +3,30 @@
  * 
  * Extracts wedding details (title, names, date, courtesy) from user messages
  * using pattern matching. Works completely offline without AI.
+ * 
+ * NOTE: Date, Name, and Courtesy patterns are now imported from shared utilities.
+ * See: src/utils/extraction/
  */
 
 import type { LocalExtractionResult } from '../types'
+import { 
+  DATE_PATTERNS, 
+  extractDateFromText as sharedExtractDate,
+  hasDate as sharedHasDate 
+} from '@/utils/extraction/datePatterns'
+import { 
+  NAME_STOP_WORDS,
+  capitalizeWords as sharedCapitalize,
+  normalizeNameCandidate as sharedNormalizeName,
+  BRACKET_PATTERN as SHARED_BRACKET_PATTERN
+} from '@/utils/extraction/namePatterns'
+import { 
+  COURTESY_PATTERNS,
+  extractCourtesy as sharedExtractCourtesy 
+} from '@/utils/extraction/courtesyPatterns'
 
 // Title patterns for stickers (wedding, graduation, birthday, naming, etc.)
+// NOTE: These are specific to sticker titles and stay here
 const TITLE_PATTERNS = [
   // Wedding patterns
   /(alhamdulillah[i]?)\s*(on\s+your\s+)?(wedding\s+ceremony|wedding\s+nikkah|wedding)?/i,
@@ -46,7 +65,8 @@ const TITLE_PATTERNS = [
 ]
 
 // Name patterns (supports full names like "Yahaya Suleiman & Haruna Mohammed")
-const BRACKET_PATTERN = /[\[(]([^\])\)]+)[\])]/
+// Using shared BRACKET_PATTERN from utils
+const BRACKET_PATTERN = SHARED_BRACKET_PATTERN
 
 const NAME_PATTERNS = [
   // Bracketed couples: (A & B) or [A and B]
@@ -62,83 +82,17 @@ const NAME_PATTERNS = [
   /(?:ceremony|wedding|marriage)\s+(?:of\s+)?([a-zA-Z][a-zA-Z'-]+(?:\s+[a-zA-Z][a-zA-Z'-]+)?)\s*(?:&|and|with)\s*([a-zA-Z][a-zA-Z'-]+(?:\s+[a-zA-Z][a-zA-Z'-]+)?)\b/i,
 ]
 
-function normalizeNameCandidate(value: string): string | null {
-  let name = (value || '').trim()
-  if (!name) return null
+// Using shared normalizeNameCandidate from namePatterns.ts
+const normalizeNameCandidate = sharedNormalizeName
 
-  // Strip surrounding punctuation/quotes
-  name = name.replace(/^[\s"'“”‘’.,:;\-]+/, '').replace(/[\s"'“”‘’.,:;\-]+$/, '').trim()
+// Date patterns - using shared DATE_PATTERNS imported from '@/utils/extraction/datePatterns'
+// (Do not redefine here - use the import at the top of this file)
 
-  // Remove common leading labels/verbs
-  name = name
-    .replace(/^(?:names?|couple(?:'s)?\s+names?|bride|groom)\s*[:\-]\s*/i, '')
-    .replace(/^(?:is|are|was|were)\s+/i, '')
-    .replace(/^(?:the\s+)?(?:wedding|ceremony|marriage)\s+/i, '')
-    .trim()
+// Courtesy patterns - using shared COURTESY_PATTERNS imported from '@/utils/extraction/courtesyPatterns'  
+// (Do not redefine here - use the import at the top of this file)
 
-  // If we accidentally captured a dangling "on" (e.g. "Salamatu on"), remove it.
-  name = name.replace(/\s+on\s*$/i, '').trim()
-
-  // If a date phrase was included, trim it off ("Sarah on 6th March 2025")
-  // Only trim when it clearly looks like a date after "on".
-  const onDateIdx = name.search(/\s+on\s+(?:\d{1,2}|jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)/i)
-  if (onDateIdx >= 0) {
-    name = name.slice(0, onDateIdx).trim()
-  }
-
-  // Collapse whitespace
-  name = name.replace(/\s+/g, ' ').trim()
-  if (!name) return null
-
-  // Reject obvious non-names
-  const lower = name.toLowerCase()
-  const stop = new Set([
-    'wedding',
-    'ceremony',
-    'marriage',
-    'anniversary',
-    'family',
-    'sticker',
-    'stiker',
-    'congratulations',
-    'congratulation',
-    'alhamdulillah',
-    'mashaallah',
-    'mashallah',
-    'barakallah'
-  ])
-  if (stop.has(lower)) return null
-
-  // Keep reasonably short single-token names too (e.g., Fatiha)
-  if (name.length < 2) return null
-  return capitalize(name)
-}
-
-// Date patterns
-const DATE_PATTERNS = [
-  /(\d{1,2}(?:st|nd|rd|th)?\s+(?:January|February|March|April|May|June|July|August|September|October|November|December),?\s+\d{4})/i,
-  /((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})/i,
-  /((?:January|February|March|April|May|June|July|August|September|October|November|December)\s*,?\s+\d{4})/i,
-  /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/,
-  /(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/,
-  /on\s+(\d{1,2}(?:st|nd|rd|th)?\s+(?:January|February|March|April|May|June|July|August|September|October|November|December))/i,
-]
-
-// Courtesy patterns
-const COURTESY_PATTERNS = [
-  // Explicit courtesy/sign-off patterns only (avoid capturing greeting/title phrases)
-  /\b(courtesy)\b\s*(?::|\-|is)?\s*([\w\s]+)$/i,
-  /((?:with love|from|by)[\s:]*(?:the\s+)?[\w\s]+(?:family|families))$/i,
-  /(we invite you[\s\w]+)/i,
-  /^(the\s+[\w\s]+family)/i,
-  /^(family\s+of\s+[\w\s]+)/i,
-  /^(from\s+[\w\s]+)/i,
-]
-
-// Capitalize first letter of each word
-function capitalize(str: string): string {
-  return str.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
-}
+// Using shared capitalizeWords from namePatterns.ts
+const capitalize = sharedCapitalize
 
 /**
  * Extract wedding details from a message
