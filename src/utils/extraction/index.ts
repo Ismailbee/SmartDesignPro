@@ -18,11 +18,15 @@ export {
   BRACKET_PATTERN,
   NAME_PATTERNS,
   NAME_STOP_WORDS,
+  COMMON_WORDS,
+  REQUEST_PHRASE_PATTERNS,
+  SKIP_WORDS_BEFORE_AND,
   capitalizeWords,
   normalizeNameCandidate,
   extractNamesFromBrackets,
   extractNames,
   hasNames,
+  isRequestPhrase,
 } from './namePatterns'
 
 // Courtesy extraction
