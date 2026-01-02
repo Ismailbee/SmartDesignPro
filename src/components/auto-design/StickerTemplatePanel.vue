@@ -1,17 +1,16 @@
 <template>
   <div class="sticker-page-wrapper" :class="{ 'wedding-active': selectedCategory === 'wedding' }">
   <div class="sticker-template-panel">
-    <!-- FORM VIEW -->
-    <Transition name="fade">
-      <div v-if="viewMode === 'form'" class="form-view">
-        <!-- Header - Using extracted PanelHeader component -->
-        <PanelHeader
-          title="Sticker Template"
-          :is-voice-enabled="isVoiceEnabled"
-          @back="goBack"
-          @help="showChatHelp"
-          @toggle-voice="toggleVoice"
-        />
+    <!-- FORM VIEW (Wedding is the only category) -->
+    <div class="form-view">
+      <!-- Header - Using extracted PanelHeader component -->
+      <PanelHeader
+        title="Sticker Template"
+        :is-voice-enabled="isVoiceEnabled"
+        @back="goBack"
+        @help="showChatHelp"
+        @toggle-voice="toggleVoice"
+      />
 
 
 
@@ -147,66 +146,6 @@
         @change="handlePreGeneratedImageSelect"
       />
     </div>
-    </Transition>
-
-    <!-- PREVIEW VIEW -->
-    <Transition name="fade">
-      <div v-if="viewMode === 'preview'" class="preview-view">
-        <!-- Preview Header -->
-        <div class="preview-header">
-          <button @click="backToForm" class="back-to-form-btn">
-            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            <span class="ml-2">Edit Design</span>
-          </button>
-          <h2 class="preview-title">Your Sticker Design</h2>
-          <div class="preview-actions">
-            <button class="action-btn">
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <!-- Preview Content -->
-        <div class="preview-content">
-          <!-- Loading Animation -->
-          <div v-if="isGenerating" class="loading-container">
-            <Vue3Lottie
-              :animationData="loadingAnimation"
-              :height="80"
-              :width="80"
-            />
-            <p class="loading-text">Creating your amazing sticker design...</p>
-            <p class="loading-subtext">This will only take a moment</p>
-          </div>
-
-          <!-- Generated Preview -->
-          <div v-else-if="previewUrl" class="preview-result">
-            <div class="preview-image-container">
-              <img :src="previewUrl" alt="Sticker Preview" class="generated-image" />
-            </div>
-            <div class="preview-info">
-              <h3 class="preview-info-title">Design Details</h3>
-              <div class="preview-info-item">
-                <span class="info-label">Category:</span>
-                <span class="info-value">{{ getCategoryName(selectedCategory) }}</span>
-              </div>
-              <div class="preview-info-item">
-                <span class="info-label">Size:</span>
-                <span class="info-value">{{ formData.customSize }}</span>
-              </div>
-              <div class="preview-info-item">
-                <span class="info-label">Background:</span>
-                <span class="info-value">{{ formData.removeBackground ? 'Removed' : 'Included' }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Transition>
 
     <!-- Image Crop Modal -->
     <ImageCropModal
@@ -352,6 +291,8 @@ import {
   useSVGImageUpdater,
   // Wedding Preview Generation composable
   useWeddingPreviewGeneration,
+  // Image Upload Flow composable
+  useImageUploadFlow,
 } from './sticker/composables'
 
 // Import SVG utility functions (extracted for file size reduction)
@@ -567,10 +508,6 @@ watch(bgManagerBackgroundFileName, (newVal) => {
 const showMenu = ref(false)
 // Wedding is pre-selected as the only category
 const selectedCategory = ref<string | null>('wedding')
-const lastFormScrollPosition = ref(0)
-const previewUrl = ref('')
-const isGenerating = ref(false)
-const viewMode = ref<'form' | 'preview'>('form')
 
 // Wedding warning banner state
 const showWeddingStickerPreview = ref(false)
@@ -1296,92 +1233,12 @@ function handlePaste(e: ClipboardEvent) {
 }
 
 function handleGenerateFromChat() {
-  if (selectedCategory.value === 'wedding') {
-    // Always use sendMessage for wedding chat - it handles both initial generation and post-generation messages
-    sendMessage()
-  } else {
-    // Fallback for other categories if they use this button
-    generateDesign()
-  }
+  // Wedding is the only category - always use sendMessage
+  sendMessage()
 }
 
 function selectCategory(categoryId: string) {
   selectedCategory.value = categoryId
-}
-
-async function generateDesign() {
-  try {
-    // Validate
-    if (!formData.description) {
-      authStore.showNotification({
-        title: 'Validation Error',
-        message: 'Please enter a description',
-        type: 'error'
-      })
-      return
-    }
-
-    // Remember scroll position before switching view
-    lastFormScrollPosition.value = window.scrollY || window.pageYOffset || 0
-
-    // Switch to preview mode and start generating
-    viewMode.value = 'preview'
-    isGenerating.value = true
-
-    // Prepare form data
-    const uploadedImages = imageSlots.value.filter((slot): slot is { file: File; preview: string } => slot !== null)
-
-    // Set category in store
-    autoDesignStore.setCategory('sticker')
-
-    // Update form data
-    autoDesignStore.updateFormData('text.description', formData.description)
-    autoDesignStore.updateFormData('options.removeBackground', formData.removeBackground)
-    autoDesignStore.updateFormData('options.backgroundColor', formData.backgroundColor)
-    autoDesignStore.updateFormData('size', formData.customSize)
-
-    // Upload images
-    for (const imageSlot of uploadedImages) {
-      autoDesignStore.uploadedFiles.images.push(imageSlot.file)
-    }
-
-    // Generate design
-    await autoDesignStore.generateDesign()
-
-    // Show preview
-    if (autoDesignStore.currentProject?.design?.previewUrl) {
-      previewUrl.value = autoDesignStore.currentProject.design.previewUrl
-    }
-
-    authStore.showNotification({
-      title: 'Success',
-      message: 'Sticker design generated successfully!',
-      type: 'success'
-    })
-
-  } catch (error: any) {
-    authStore.showNotification({
-      title: 'Generation Failed',
-      message: error.message || 'Failed to generate sticker design',
-      type: 'error'
-    })
-    viewMode.value = 'form'
-  } finally {
-    isGenerating.value = false
-  }
-}
-
-function backToForm() {
-  viewMode.value = 'form'
-  nextTick(() => {
-    window.scrollTo({ top: lastFormScrollPosition.value, behavior: 'smooth' })
-  })
-}
-
-function getCategoryName(categoryId: string | null): string {
-  if (!categoryId) return ''
-  const category = categories.find(cat => cat.id === categoryId)
-  return category ? category.name : categoryId
 }
 
 // Reset ALL wedding-related state - wrapper for extracted utility

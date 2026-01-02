@@ -91,6 +91,15 @@ export {
   type SpellCorrectionResult,
 } from './useSpellCorrection'
 
+// Image Upload Flow (crop modal, upload modal, image handling)
+export {
+  useImageUploadFlow,
+  type CropCompleteData,
+  type UploadedImage,
+  type UseImageUploadFlowOptions,
+  type UseImageUploadFlowReturn,
+} from './useImageUploadFlow'
+
 // Intent detection for chat messages
 export {
   useIntentDetection,
