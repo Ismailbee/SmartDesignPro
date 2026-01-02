@@ -172,3 +172,25 @@ export {
   extractTitleFromText,
   getAllTitleOptions,
 } from './useTitleDetection'
+
+// Wedding Preview Generation
+export {
+  useWeddingPreviewGeneration,
+  type GenerationDependencies,
+  type UseWeddingPreviewGenerationReturn,
+} from './useWeddingPreviewGeneration'
+
+// SVG Draggable (mouse + touch support)
+export {
+  useSVGDraggable,
+  type UseSVGDraggableOptions,
+  type UseSVGDraggableReturn,
+} from './useSVGDraggable'
+
+// SVG Image Updater
+export {
+  useSVGImageUpdater,
+  type UseSVGImageUpdaterOptions,
+  type UseSVGImageUpdaterReturn,
+  type SVGImageData,
+} from './useSVGImageUpdater'

@@ -343,6 +343,12 @@ import {
   useWeddingChat,
   // Speech-to-Text composable
   useSpeechToText,
+  // SVG Draggable composable
+  useSVGDraggable,
+  // SVG Image Updater composable
+  useSVGImageUpdater,
+  // Wedding Preview Generation composable
+  useWeddingPreviewGeneration,
 } from './sticker/composables'
 
 const router = useRouter()
@@ -651,114 +657,9 @@ async function deductTokensForAction(amount: number, reason: string): Promise<bo
   // ?? TEMPORARILY DISABLED: Token system bypassed for development
   // TODO: Re-enable token system when backend API is ready
   console.log(`?? Token system DISABLED - Would deduct ${amount} tokens for: ${reason}`)
+  // Token system temporarily disabled for development
+  console.log(`💰 Token system DISABLED - Would deduct ${amount} tokens for: ${reason}`)
   return true
-  
-  /* ORIGINAL TOKEN LOGIC - COMMENTED OUT FOR NOW
-  // ?? OFFLINE MODE: Skip token checks entirely
-  if (!FEATURES.TOKENS_ENABLED) {
-    console.log('?? Offline mode: Skipping token deduction for:', reason)
-    return true
-  }
-  
-  // Check if user is authenticated - REQUIRE LOGIN
-  if (!authStore.isAuthenticated || !authStore.user?.id) {
-    console.log('?? Token deduction blocked - user not authenticated')
-    authStore.showNotification({
-      title: 'Login Required',
-      message: 'Please login or create an account to generate designs.',
-      type: 'info'
-    })
-    // Show a chat message prompting user to login with action buttons
-    chatMessages.value.push({
-      id: Date.now(),
-      text: "Hey there!\n\nTo create beautiful designs, you'll need to login or create a free account first.\n\nBenefits of signing up:\n� Get 100 FREE tokens to start!\n� Save your designs\n� Access all features",
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      actions: [
-        { type: 'login', label: 'Login Now', variant: 'primary' }
-      ]
-    })
-    scrollToBottom()
-    return false
-  }
-  
-  // Check if user has enough tokens (local check)
-  const currentTokens = userStore.user?.tokens ?? 0
-  
-  if (currentTokens === 0) {
-    authStore.showNotification({
-      title: 'No Tokens Available',
-      message: "You don't have any tokens! Buy tokens to create amazing designs.",
-      type: 'info'
-    })
-    // Show a chat message guiding user to buy tokens with action button
-    chatMessages.value.push({
-      id: Date.now(),
-      text: "Oops! You've run out of tokens.\n\nTo continue creating beautiful designs, you'll need to purchase more tokens.\n\nToken Packages Available:\n� 100 tokens - ?100\n� 500 tokens - ?500\n� 1000 tokens - ?1000 (Best Value!)",
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      actions: [
-        { type: 'buy-tokens', label: 'Buy Tokens Now', variant: 'primary' }
-      ]
-    })
-    scrollToBottom()
-    return false
-  }
-  
-  if (currentTokens < amount) {
-    authStore.showNotification({
-      title: 'Insufficient Tokens',
-      message: `You need ${amount} tokens but only have ${currentTokens}. Please purchase more tokens.`,
-      type: 'info'
-    })
-    // Show a chat message guiding user to buy tokens with action button
-    chatMessages.value.push({
-      id: Date.now(),
-      text: `You need ${amount} tokens for this action, but you only have ${currentTokens} tokens.\n\nGet more tokens to continue designing!\n\nTip: Larger token packages offer better value!`,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      actions: [
-        { type: 'buy-tokens', label: 'Buy More Tokens', variant: 'primary' }
-      ]
-    })
-    scrollToBottom()
-    return false
-  }
-  
-  try {
-    await userStore.deductUserTokens(authStore.user.id, amount)
-    console.log(`?? Deducted ${amount} tokens for: ${reason}. New balance: ${userStore.user?.tokens}`)
-    return true
-  } catch (error: any) {
-    console.error('? Token deduction API failed:', error)
-    
-    // If the backend is unavailable, deduct locally and allow the action
-    // This prevents blocking users when server is down
-    if (error.message?.includes('Failed to fetch') || 
-        error.message?.includes('NetworkError') ||
-        error.message?.includes('not found') ||
-        error.message?.includes('404') ||
-        error.message?.includes('500')) {
-      console.log('?? Backend unavailable, deducting tokens locally')
-      // Deduct locally - backend will sync later
-      userStore.updateTokens(-amount)
-      authStore.showNotification({
-        title: 'Tokens Used',
-        message: `Used ${amount} tokens for: ${reason}`,
-        type: 'success'
-      })
-      return true
-    }
-    
-    // For other errors, show error and block
-    authStore.showNotification({
-      title: 'Token Error',
-      message: error.message || 'Failed to deduct tokens. Please try again.',
-      type: 'error'
-    })
-    return false
-  }
-  END OF COMMENTED OUT TOKEN LOGIC */
 }
 
 function openEditModal() {
@@ -1563,68 +1464,12 @@ function handleDescriptionUpdate(newText: string) {
 const autoRemoveBackground = ref(false)
 const backgroundRemovalError = ref<string | null>(null)
 
-// Lottie animation data for loading
-const loadingAnimation = {
-  "v": "5.7.4",
-  "fr": 60,
-  "ip": 0,
-  "op": 180,
-  "w": 500,
-  "h": 500,
-  "nm": "Design Loading",
-  "ddd": 0,
-  "assets": [],
-  "layers": [
-    {
-      "ddd": 0,
-      "ind": 1,
-      "ty": 4,
-      "nm": "Circle 1",
-      "sr": 1,
-      "ks": {
-        "o": { "a": 0, "k": 100 },
-        "r": {
-          "a": 1,
-          "k": [
-            { "i": { "x": [0.833], "y": [0.833] }, "o": { "x": [0.167], "y": [0.167] }, "t": 0, "s": [0] },
-            { "t": 180, "s": [360] }
-          ]
-        },
-        "p": { "a": 0, "k": [250, 250, 0] },
-        "a": { "a": 0, "k": [0, 0, 0] },
-        "s": { "a": 0, "k": [100, 100, 100] }
-      },
-      "ao": 0,
-      "shapes": [
-        {
-          "ty": "gr",
-          "it": [
-            {
-              "d": 1,
-              "ty": "el",
-              "s": { "a": 0, "k": [200, 200] },
-              "p": { "a": 0, "k": [0, 0] }
-            },
-            {
-              "ty": "st",
-              "c": { "a": 0, "k": [0.259, 0.714, 0.831, 1] },
-              "o": { "a": 0, "k": 100 },
-              "w": { "a": 0, "k": 8 }
-            },
-            {
-              "ty": "tr",
-              "p": { "a": 0, "k": [0, 0] },
-              "a": { "a": 0, "k": [0, 0] },
-              "s": { "a": 0, "k": [100, 100] },
-              "r": { "a": 0, "k": 0 },
-              "o": { "a": 0, "k": 100 }
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
+// Lottie animation - loaded from external file for cleaner code
+const loadingAnimation = ref<object | null>(null)
+fetch('/animations/loading-circle.json')
+  .then(res => res.json())
+  .then(data => { loadingAnimation.value = data })
+  .catch(() => { /* Fallback handled in template */ })
 
 const categories = [
   { id: 'wedding', name: 'Wedding', icon: '??', gradient: 'linear-gradient(135deg, #f093fb 0%, #a855f7 100%)' }
@@ -2594,81 +2439,24 @@ async function loadWeddingStickerTemplate() {
     return
   }
 
-  console.log('?? Loading wedding sticker template...')
+  console.log('🎨 Loading wedding sticker template...')
 
   try {
     // Reset replacement state when loading new template
     resetReplacement()
 
-    // ?? INLINE SVG TEMPLATE - No server fetch needed
-    const svgText = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2996.9 1685.75" preserveAspectRatio="xMidYMid meet">
-  
-  <defs>
-    <style type="text/css">
-      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&amp;family=Lato:wght@400;700&amp;display=swap');
-      
-      text {
-        font-family: 'Lato', 'Arial', 'Helvetica', sans-serif;
-      }
-      
-      .serif-font {
-        font-family: 'Playfair Display', 'Times New Roman', 'Georgia', serif;
-      }
-    </style>
-    
-    <!-- Gradient for wave layer -->
-    <linearGradient id="g1" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#FFCC29;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#FF9900;stop-opacity:1" />
-    </linearGradient>
+    // Load SVG template from external file
+    const response = await fetch('/templates/wedding-sticker-base.svg')
+    const svgText = await response.text()
 
-    <!-- Clip path for image - Full-height rectangular box -->
-    <clipPath id="imageClip">
-      <rect x="1400" y="0" width="1580" height="1685.75" rx="0" ry="0"/>
-    </clipPath>
-  </defs>
-  
-  <!-- Background -->
-  <rect fill="#F8F8F8" width="2996.89" height="1685.75"/>
-  
-  <!-- Wave layers -->
-  <path fill="#FFCC29" d="M0 776.51c926.95 695.48 1904.9-707.13 2996.89 0v909.24H0z"/>
-  <path fill="url(#g1)" d="M0 776.51c926.95 695.48 1904.9-640.76 2996.89 66.37v842.88H0z"/>
-  <path fill="#507C95" d="M0 539.04c926.95 695.49 1904.9-177.45 2996.89 529.68v617.04H0z"/>
-  <path fill="#104C6E" d="M0 616.09c926.95 695.48 1904.9-254.49 2996.89 452.63v617.04H0z"/>
+    const successSource = 'External Template'
+    console.log(`✅ Using external SVG template`)
 
-  <!-- User image with clip path applied - starts from top of clip area -->
-  <image id="userImage" x="1400" y="0" width="1580" height="1685.75" 
-         opacity="1" 
-         href="" 
-         clip-path="url(#imageClip)"
-         preserveAspectRatio="xMidYMid slice"/>
-
-  <!-- Editable text elements with IDs -->
-  <text id="blessing-text" class="serif-font" x="850.45" y="350" text-anchor="middle" font-size="160" fill="#000">Alhamdulillahi</text>
-  <text id="occasion-text" x="850.45" y="420" text-anchor="middle" font-size="45" font-weight="bold" fill="#000">ON YOUR</text>
-  <text id="event-type-text" class="serif-font" x="850.45" y="570" text-anchor="middle" font-size="180" font-weight="bold" fill="#104C6E">WEDDING</text>
-  <text id="ceremony-text" x="850.45" y="690" text-anchor="middle" font-size="130" font-weight="bold" fill="red">CEREMONY</text>
-  
-  <!-- New Wedding Names - Clean version positioned on the left side, not overlapping image -->
-  <g id="wedding-names-group" transform="translate(450, 950) scale(2.0)">
-    <text id="name1-first" x="0" y="85" fill="#000000" font-size="84.15" font-weight="bold">Muhammad</text>
-    <text id="name2-first" x="60" y="160" fill="#000000" font-size="84.15" font-weight="bold">Hauwawu</text>
-    <text id="name-separator" x="-20" y="160.4" fill="#B8860B" font-size="84.15" font-weight="bold">&amp;</text>
-  </g>
-  <text id="date-text" x="750" y="1450" text-anchor="middle" font-size="100" font-weight="bold" fill="#000000">8th March, 2025</text>
-  <text id="courtesy-text" x="750" y="1580" text-anchor="middle" font-size="85" font-weight="bold" fill="#333333">Courtesy: Maijama'a Famiy</text>
-</svg>`
-
-    const successSource = 'Inline Template'
-    console.log(`? Using inline SVG template`)
-
-    console.log('?? SVG text length:', svgText.length)
-    console.log('?? First 200 chars:', svgText.substring(0, 200))
+    console.log('📝 SVG text length:', svgText.length)
 
     // Insert SVG into container
     weddingPreviewContainer.value.innerHTML = svgText
-    console.log('? SVG inserted into container')
+    console.log('✅ SVG inserted into container')
     
     // Force immediate DOM update
     await nextTick()
