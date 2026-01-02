@@ -414,6 +414,15 @@ import {
   type GenerationContext
 } from './sticker/utils/previewUtils'
 
+// Import template utilities (extracted for file size reduction)
+import {
+  loadWeddingStickerTemplateUtil,
+  processDescriptionInputUtil,
+  applyCustomHeadingAndFont,
+  resetTitleRenderCache,
+  type TemplateContext
+} from './sticker/utils/templateUtils'
+
 const router = useRouter()
 const autoDesignStore = useAutoDesignStore()
 const authStore = useAuthStore()
@@ -1523,116 +1532,45 @@ function goBack() {
   }
 }
 
-// Wedding Sticker Functions
+// Wedding Sticker Functions - using extracted template utilities
 async function loadWeddingStickerTemplate() {
-  if (!weddingPreviewContainer.value) {
-    return
+  const ctx: TemplateContext = {
+    weddingPreviewContainer,
+    formData,
+    accumulatedDescription,
+    customHeading,
+    selectedHeadingFont,
+    selectedCategory,
+    currentBackgroundFileName,
+    resetReplacement,
+    getSVGElements,
+    findMatchingTitle,
+    getTitleColorForBackground,
+    getFlourishColorForBackground,
+    replaceTitleWithImage,
+    restoreTitleTextElements,
+    insertFlourishAboveNames,
+    updateStickerText,
+    updateValidationWarnings,
+    updateSVGWithImages,
+    applyCustomHeadingUtil,
+    applyHeadingFontUtil,
+    authStore,
+    setSvgElements: (elements: any) => { svgElements = elements },
+    getSvgElementsRef: () => svgElements
   }
-
-  try {
-    // Reset replacement state when loading new template
-    resetReplacement()
-
-    // Load SVG template from external file
-    const response = await fetch('/templates/wedding-sticker-base.svg')
-    const svgText = await response.text()
-
-    // Insert SVG into container
-    weddingPreviewContainer.value.innerHTML = svgText
-    
-    // Force immediate DOM update
-    await nextTick()
-    await nextTick() // Double nextTick to ensure Vue has fully updated
-    
-    // Force a reflow to ensure the browser has rendered
-    if (weddingPreviewContainer.value) {
-      void weddingPreviewContainer.value.offsetHeight
-    }
-
-    // Get SVG element and its text elements
-    const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
-    
-    if (!svgElement) {
-      return
-    }
-    
-    if (svgElement) {
-      // Set responsive dimensions based on viewBox aspect ratio
-      const viewBox = svgElement.getAttribute('viewBox')
-      if (viewBox) {
-        const parts = viewBox.split(/\s+|,/).map(Number)
-        if (parts.length >= 4) {
-          svgElement.setAttribute('width', '100%')
-          svgElement.removeAttribute('height')
-          svgElement.setAttribute('data-original-viewbox', viewBox)
-        }
-      } else if (!svgElement.hasAttribute('viewBox')) {
-        const width = svgElement.getAttribute('width') || '2996.9'
-        const height = svgElement.getAttribute('height') || '1685.75'
-        svgElement.setAttribute('viewBox', `0 0 ${width} ${height}`)
-      }
-
-      svgElements = getSVGElements(svgElement)
-
-      // Use Title Library to find matching title SVG based on description or custom heading
-      const textToMatch = customHeading.value || accumulatedDescription.value || formData.description || 'wedding'
-      const matchedTitle = findMatchingTitle(textToMatch)
-      
-      try {
-        // Get title color based on current background
-        const titleColor = getTitleColorForBackground()
-        
-        if (matchedTitle) {
-          await replaceTitleWithImage(svgElement, {
-            svgPath: matchedTitle.svgPath,
-            targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
-            position: matchedTitle.position || { x: -30, y: 50, width: 1800, height: 900 },
-            scale: matchedTitle.scale || 1.0,
-            color: titleColor
-          })
-        } else {
-          await replaceTitleWithImage(svgElement, {
-            svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
-            targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
-            position: { x: -30, y: 50, width: 1800, height: 900 },
-            scale: 1.0,
-            color: titleColor
-          })
-        }
-        
-        // Insert flourish above names with matching color
-        const flourishColor = getFlourishColorForBackground()
-        await insertFlourishAboveNames(svgElement, flourishColor)
-      } catch (handleReplacementError) {
-        // Continue without title replacement
-      }
-
-      // Apply current description if any (for names, date, etc.)
-      if (formData.description) {
-        await handleNamesWithTitleSVG(formData.description, svgElements)
-      }
-    }
-  } catch (error) {
-    authStore.showNotification({
-      title: 'Template Load Failed',
-      message: 'Failed to load wedding sticker template.',
-      type: 'error'
-    })
-  }
+  await loadWeddingStickerTemplateUtil(ctx)
 }
 
-// State to track crop context.
-// const isPreGenerationCrop = ref(false)
-
 // Helper function to update only date and courtesy (not names) when title SVG is active
-function updateDateAndCourtesy(description: string, svgElements: any) {
-  updateDateAndCourtesyUtil(description, svgElements)
+function updateDateAndCourtesy(description: string, svgElems: any) {
+  updateDateAndCourtesyUtil(description, svgElems)
 }
 
 // Helper function to handle names when title SVG is active (use decorative name02.svg)
-async function handleNamesWithTitleSVG(description: string, svgElements: any) {
+async function handleNamesWithTitleSVG(description: string, svgElems: any) {
   const safeDescription = typeof description === 'string' ? description : String(description || '')
-  const data = await updateStickerText(safeDescription, svgElements)
+  const data = await updateStickerText(safeDescription, svgElems)
   return data
 }
 
@@ -1646,126 +1584,34 @@ const handleDescriptionInput = useDebounceFn(() => {
   processDescriptionInput()
 }, 50)
 
-// Cache keys to avoid expensive re-renders during real-time updates
-let lastWeddingTitleRenderKey = ''
-let lastWeddingFlourishRenderKey = ''
-
-/**
- * Apply custom heading and font to the SVG heading elements
- */
-function applyCustomHeadingAndFont(svgElement: SVGSVGElement) {
-  if (!customHeading.value && !selectedHeadingFont.value) return
-  applyCustomHeadingUtil(svgElement, customHeading.value)
-  applyHeadingFontUtil(svgElement, selectedHeadingFont.value)
-}
-
+// Process description input - using extracted template utility
 async function processDescriptionInput() {
-  // Perform validation even if SVG elements are not loaded yet
-  if (selectedCategory.value === 'wedding' && !svgElements) {
-    // Pass null elements structure to avoid errors while validating
-    const stickerData = await updateStickerText(formData.description, getSVGElements(null))
-    updateValidationWarnings(stickerData)
+  const ctx: TemplateContext = {
+    weddingPreviewContainer,
+    formData,
+    accumulatedDescription,
+    customHeading,
+    selectedHeadingFont,
+    selectedCategory,
+    currentBackgroundFileName,
+    resetReplacement,
+    getSVGElements,
+    findMatchingTitle,
+    getTitleColorForBackground,
+    getFlourishColorForBackground,
+    replaceTitleWithImage,
+    restoreTitleTextElements,
+    insertFlourishAboveNames,
+    updateStickerText,
+    updateValidationWarnings,
+    updateSVGWithImages,
+    applyCustomHeadingUtil,
+    applyHeadingFontUtil,
+    authStore,
+    setSvgElements: (elements: any) => { svgElements = elements },
+    getSvgElementsRef: () => svgElements
   }
-  
-  // Update wedding sticker preview in real-time
-  if (selectedCategory.value === 'wedding' && svgElements) {
-    // Handle SVG text replacement for title graphic
-    const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
-    if (svgElement) {
-      let stickerData: any = null
-
-      // Use Title Library to find matching title SVG
-      const customHeadingText = (customHeading.value ?? '').trim()
-      const textToMatch = customHeadingText || accumulatedDescription.value || formData.description
-      const matchedTitle = findMatchingTitle(textToMatch)
-      
-      // Get title color based on current background
-      const titleColor = getTitleColorForBackground()
-
-      const headingElementIds = ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text']
-      const hasCustomHeading = customHeadingText.length > 0
-
-      // If user provided a custom heading, ALWAYS show the editable text heading.
-      // Title graphics are only for the default/auto heading flow.
-      if (hasCustomHeading) {
-        restoreTitleTextElements(svgElement, headingElementIds)
-        lastWeddingTitleRenderKey = `text|${customHeadingText}`
-      } else {
-      
-      const desiredTitle = matchedTitle
-        ? {
-            svgPath: matchedTitle.svgPath,
-            fallbackText: matchedTitle.fallbackText,
-            position: matchedTitle.position || { x: -30, y: 50, width: 1800, height: 900 },
-            scale: matchedTitle.scale || 1.0
-          }
-        : {
-            svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
-            fallbackText: 'Default wedding title',
-            position: { x: -30, y: 50, width: 1800, height: 900 },
-            scale: 1.0
-          }
-
-      const titleCacheKey = [
-        desiredTitle.svgPath,
-        titleColor,
-        desiredTitle.position.x,
-        desiredTitle.position.y,
-        desiredTitle.position.width,
-        desiredTitle.position.height,
-        desiredTitle.scale
-      ].join('|')
-
-      const hasTitleReplacement = !!svgElement.querySelector('#wedding-title-replacement')
-      if (!hasTitleReplacement || titleCacheKey !== lastWeddingTitleRenderKey) {
-        lastWeddingTitleRenderKey = titleCacheKey
-
-        if (matchedTitle) {
-        // Pre-render SVG to PNG for reliable export (allows color changes)
-        await replaceTitleWithImage(svgElement, {
-          svgPath: matchedTitle.svgPath,
-          targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
-          position: matchedTitle.position || { x: -30, y: 50, width: 1800, height: 900 },
-          scale: matchedTitle.scale || 1.0,
-          color: titleColor
-        })
-        } else {
-          // No match found - use default wedding title
-          await replaceTitleWithImage(svgElement, {
-            svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
-            targetElementIds: headingElementIds,
-            position: { x: -30, y: 50, width: 1800, height: 900 },
-            scale: 1.0,
-            color: titleColor
-          })
-        }
-      }
-      }
-      
-      // Insert flourish above names with matching color
-      const flourishColor = getFlourishColorForBackground()
-      const flourishCacheKey = [flourishColor, currentBackgroundFileName.value || ''].join('|')
-      const hasFlourish = !!svgElement.querySelector('#wedding-flourish')
-      if (!hasFlourish || flourishCacheKey !== lastWeddingFlourishRenderKey) {
-        lastWeddingFlourishRenderKey = flourishCacheKey
-        await insertFlourishAboveNames(svgElement, flourishColor)
-      }
-      
-      // Update names, date, and courtesy
-      stickerData = await handleNamesWithTitleSVG(formData.description, svgElements)
-      
-      // Update validation warnings
-      if (stickerData) {
-        updateValidationWarnings(stickerData)
-      }
-
-      // Apply custom heading and font if set
-      applyCustomHeadingAndFont(svgElement)
-    }
-  }
-
-  // Update SVG with embedded images in real-time
-  updateSVGWithImages()
+  await processDescriptionInputUtil(ctx)
 }
 
 // SVG Image Management Functions
