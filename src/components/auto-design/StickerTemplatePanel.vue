@@ -633,7 +633,7 @@ function handleMessageAction(action: { type: string; label?: string; route?: str
       requestWeddingPreviewGeneration()
       break
     default:
-      console.log('Unknown action:', action.type)
+      break
   }
 }
 
@@ -689,11 +689,7 @@ function requestWeddingPreviewGeneration(): void {
 
 // Token deduction helper function
 async function deductTokensForAction(amount: number, reason: string): Promise<boolean> {
-  // ?? TEMPORARILY DISABLED: Token system bypassed for development
-  // TODO: Re-enable token system when backend API is ready
-  console.log(`?? Token system DISABLED - Would deduct ${amount} tokens for: ${reason}`)
   // Token system temporarily disabled for development
-  console.log(`💰 Token system DISABLED - Would deduct ${amount} tokens for: ${reason}`)
   return true
 }
 
@@ -829,8 +825,6 @@ async function handleGenerateNew() {
             container.appendChild(clonedSvg)
           }
         })
-        
-        console.log(`? Updated ${previewContainers.length} preview(s) with new design`)
       }
     }
     
@@ -877,8 +871,6 @@ const editModalExtractedInfo = computed(() => ({
 
 // Handle save from edit modal - update SVG directly
 async function handleEditModalSave(data: { heading: string; name1: string; name2: string; date: string; courtesy: string }) {
-  console.log('?? Edit modal save:', data)
-  
   // Update extracted info
   extractedInfo.value.names.name1 = data.name1 || null
   extractedInfo.value.names.name2 = data.name2 || null
@@ -1080,7 +1072,6 @@ async function generateWeddingPreview() {
       await nextTick() // Ensure DOM is ready
       
       if (!weddingPreviewContainer.value) {
-        console.error('? weddingPreviewContainer not available')
         return
       }
       
@@ -1252,28 +1243,19 @@ async function generateWeddingPreview() {
           }
           
           // Attach drag/pinch handlers to images in cloned SVG
-          // Note: Event listeners don't clone, so we need to re-attach them
           const imageElements = clonedSVG.querySelectorAll('image')
           imageElements.forEach((imgEl) => {
-            // Remove the data-draggable attribute so handlers can be re-attached
             imgEl.removeAttribute('data-draggable')
-            
-            // Get image id - try data-image-id first, then fall back to id attribute
             const imageId = imgEl.getAttribute('data-image-id') || imgEl.id || 'user-image-1'
             if (imageId) {
               makeSVGImageDraggable(imgEl as SVGImageElement, imageId)
             }
           })
           
-          // Force a layout recalculation
           void targetContainer.offsetHeight
-        } else {
-          console.error('? Chat preview container not available in array')
         }
       } else {
-        console.error('? SVG not found in weddingPreviewContainer')
-        
-        // Try to show a fallback in the last preview container
+        // Show fallback if SVG not found
         const previewContainers = Array.isArray(chatPreviewContainer.value) 
           ? chatPreviewContainer.value 
           : (chatPreviewContainer.value ? [chatPreviewContainer.value] : [])
@@ -1290,15 +1272,12 @@ async function generateWeddingPreview() {
           `
         }
       }
-    } else {
-      console.error('? weddingPreviewContainer not available')
     }
     
     // Scroll to bottom to show the generated SVG
     scrollToBottom()
     
   } catch (error) {
-    console.error('Generation failed:', error)
     // Reset state on error so user can try again
     showWeddingStickerPreview.value = false
     
@@ -1309,9 +1288,8 @@ async function generateWeddingPreview() {
     })
   } finally {
     isGeneratingPreview.value = false
-    generatingStep.value = 0 // Reset step
-    stopGeneratingMessages() // Stop cycling through loading messages
-    // Ensure final scroll after animation completes
+    generatingStep.value = 0
+    stopGeneratingMessages()
     setTimeout(() => {
       scrollToBottom()
     }, 100)
@@ -1674,13 +1652,9 @@ function parseSizeToInches(size: string): { w: number; h: number } | null {
   return parseSizeToInchesUtil(size)
 }
 
-// Using extractWeddingDetails from composables instead of inline tryLocalExtraction
-// This provides better pattern matching and title extraction
-
-// analyzeMessage uses weddingChatProcessor and local extraction (Ollama function removed)
+// analyzeMessage uses weddingChatProcessor and local extraction
 async function analyzeMessage(lastUserMessage: string) {
   if (!lastUserMessage || typeof lastUserMessage !== 'string') {
-    console.error('analyzeMessage called with non-string:', lastUserMessage)
     return
   }
 
@@ -1859,11 +1833,7 @@ const imageSlots = ref<Array<{ file: File; preview: string } | null>>([
 ])
 
 function selectCategory(categoryId: string) {
-  console.log('?? Category selected:', categoryId)
-  
   selectedCategory.value = categoryId
-  console.log('? selectedCategory.value set to:', selectedCategory.value)
-  console.log('?? Should show form now:', !!selectedCategory.value)
   // Load category-specific template
   loadCategoryTemplate(categoryId)
 }
@@ -1952,13 +1922,11 @@ async function generateDesign() {
     })
 
   } catch (error: any) {
-    console.error('Failed to generate design:', error)
     authStore.showNotification({
       title: 'Generation Failed',
       message: error.message || 'Failed to generate sticker design',
       type: 'error'
     })
-    // Go back to form on error
     viewMode.value = 'form'
   } finally {
     isGenerating.value = false
@@ -2023,11 +1991,8 @@ function goBack() {
 // Wedding Sticker Functions
 async function loadWeddingStickerTemplate() {
   if (!weddingPreviewContainer.value) {
-    console.error('? weddingPreviewContainer.value is null!')
     return
   }
-
-  console.log('🎨 Loading wedding sticker template...')
 
   try {
     // Reset replacement state when loading new template
@@ -2037,14 +2002,8 @@ async function loadWeddingStickerTemplate() {
     const response = await fetch('/templates/wedding-sticker-base.svg')
     const svgText = await response.text()
 
-    const successSource = 'External Template'
-    console.log(`✅ Using external SVG template`)
-
-    console.log('📝 SVG text length:', svgText.length)
-
     // Insert SVG into container
     weddingPreviewContainer.value.innerHTML = svgText
-    console.log('✅ SVG inserted into container')
     
     // Force immediate DOM update
     await nextTick()
@@ -2059,31 +2018,20 @@ async function loadWeddingStickerTemplate() {
     const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
     
     if (!svgElement) {
-      console.error('? SVG element not found after insertion!')
-      console.error('Container HTML:', weddingPreviewContainer.value.innerHTML.substring(0, 200))
       return
     }
     
-    console.log('? SVG element found:', svgElement)
-    
     if (svgElement) {
-      // Set responsive dimensions based on viewBox aspect ratio (NOT fixed 400x400)
-      // The viewBox controls the content - width/height should match the aspect ratio
+      // Set responsive dimensions based on viewBox aspect ratio
       const viewBox = svgElement.getAttribute('viewBox')
       if (viewBox) {
         const parts = viewBox.split(/\s+|,/).map(Number)
         if (parts.length >= 4) {
-          const vbWidth = parts[2]
-          const vbHeight = parts[3]
-          // Set width="100%" for responsive display, keep aspect ratio via viewBox
           svgElement.setAttribute('width', '100%')
-          svgElement.removeAttribute('height') // Let aspect ratio determine height
-          // Store original dimensions for export
+          svgElement.removeAttribute('height')
           svgElement.setAttribute('data-original-viewbox', viewBox)
-          console.log(`?? SVG viewBox: ${vbWidth}x${vbHeight} (aspect: ${(vbWidth/vbHeight).toFixed(2)})`)
         }
       } else if (!svgElement.hasAttribute('viewBox')) {
-        // Only set default viewBox if none exists
         const width = svgElement.getAttribute('width') || '2996.9'
         const height = svgElement.getAttribute('height') || '1685.75'
         svgElement.setAttribute('viewBox', `0 0 ${width} ${height}`)
@@ -2095,24 +2043,11 @@ async function loadWeddingStickerTemplate() {
       const textToMatch = customHeading.value || accumulatedDescription.value || formData.description || 'wedding'
       const matchedTitle = findMatchingTitle(textToMatch)
       
-      console.log('?? SVG Element before handleReplacement:', svgElement)
-      console.log('?? SVG Element IDs found:', {
-        blessingText: !!svgElement.querySelector('#blessing-text'),
-        occasionText: !!svgElement.querySelector('#occasion-text'),
-        eventTypeText: !!svgElement.querySelector('#event-type-text'),
-        ceremonyText: !!svgElement.querySelector('#ceremony-text')
-      })
-      
       try {
         // Get title color based on current background
         const titleColor = getTitleColorForBackground()
-        console.log('?? Title color for current background:', titleColor)
         
         if (matchedTitle) {
-          console.log('?? Title Library match found:', matchedTitle.fallbackText)
-          console.log('?? Using SVG:', matchedTitle.svgPath)
-          
-          // Pre-render SVG to PNG for reliable export (allows color changes)
           await replaceTitleWithImage(svgElement, {
             svgPath: matchedTitle.svgPath,
             targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
@@ -2121,8 +2056,6 @@ async function loadWeddingStickerTemplate() {
             color: titleColor
           })
         } else {
-          console.log('?? No title match, using default wedding title')
-          // Use default SVG title
           await replaceTitleWithImage(svgElement, {
             svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
             targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
@@ -2131,28 +2064,23 @@ async function loadWeddingStickerTemplate() {
             color: titleColor
           })
         }
-        console.log('? handleReplacement completed successfully')
-        console.log('?? Title replacement group exists:', !!svgElement.querySelector('#wedding-title-replacement'))
         
         // Insert flourish above names with matching color
         const flourishColor = getFlourishColorForBackground()
         await insertFlourishAboveNames(svgElement, flourishColor)
       } catch (handleReplacementError) {
-        console.error('? handleReplacement failed:', handleReplacementError)
+        // Continue without title replacement
       }
 
       // Apply current description if any (for names, date, etc.)
       if (formData.description) {
         await handleNamesWithTitleSVG(formData.description, svgElements)
       }
-
-      // Note: Don't show a toast here; this runs during generation and would be noisy.
     }
   } catch (error) {
-    console.error('? Failed to load wedding sticker template:', error)
     authStore.showNotification({
       title: 'Template Load Failed',
-      message: 'Failed to load wedding sticker template. Please check the console for details.',
+      message: 'Failed to load wedding sticker template.',
       type: 'error'
     })
   }
@@ -2163,10 +2091,8 @@ async function loadWeddingStickerTemplate() {
 
 // Helper function to update only date and courtesy (not names) when title SVG is active
 function updateDateAndCourtesy(description: string, svgElements: any) {
-  console.log('?? updateDateAndCourtesy called with:', { description, svgElements: !!svgElements })
   // Extract date from description
   const extractDate = (desc: string): string | null => {
-    // Match patterns like "15th March 2025", "March 15, 2025", "2025-03-15"
     const datePatterns = [
       /(\d{1,2}(?:st|nd|rd|th)?\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s*,?\s*\d{4})/i,
       /(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{4}/i,
@@ -2198,36 +2124,21 @@ function updateDateAndCourtesy(description: string, svgElements: any) {
   const dateText = extractDate(description)
   if (dateText && svgElements.dateText) {
     svgElements.dateText.textContent = dateText
-    console.log('?? Date updated:', dateText)
   }
 
   // Update courtesy if found
   const courtesyData = extractCourtesy(description)
   if (courtesyData && svgElements.courtesyText) {
     svgElements.courtesyText.textContent = `${courtesyData.prefix} ${courtesyData.text}`
-    console.log('?? Courtesy updated:', courtesyData)
   }
 }
 
 // Helper function to handle names when title SVG is active (use decorative name02.svg)
 async function handleNamesWithTitleSVG(description: string, svgElements: any) {
-  // Ensure description is a string
   const safeDescription = typeof description === 'string' ? description : String(description || '')
-  console.log('🔍 handleNamesWithTitleSVG called with:', { description: safeDescription })
   
   // Always call updateStickerText to ensure date and courtesy are updated
-  // regardless of whether names are present or not
   const data = await updateStickerText(safeDescription, svgElements)
-  
-  // Extract names from parentheses for logging purposes
-  const nameMatch = safeDescription.match(/\(([^)]+)\)/)?.[1]
-  
-  if (nameMatch) {
-    const names = nameMatch.split(/\s*[&and]+\s*/i).map(name => name.trim())
-    if (names.length === 2 && svgElements?.weddingNamesGroup) {
-      console.log('? Two names detected, decorative SVG injection handled by updateStickerText')
-    }
-  }
   
   return data
 }
@@ -2243,19 +2154,16 @@ function handleDescriptionKeydown(event: KeyboardEvent) {
     event.preventDefault()
     const textAfterCursor = formData.description.substring(cursorPos)
     formData.description = textBeforeCursor + '()' + textAfterCursor
-    // Position cursor between parentheses
     setTimeout(() => {
       textarea.selectionStart = cursorPos + 1
       textarea.selectionEnd = cursorPos + 1
     }, 0)
-    console.log('? Auto-paired parentheses')
   }
   
   // Auto-complete courtesy keywords
   if (event.key === ' ' || event.key === 'Tab') {
     const lastWord = textBeforeCursor.split(/\s+/).pop()?.toLowerCase() || ''
     
-    // List of courtesy keyword variations to auto-complete
     const courtesyKeywords = [
       { trigger: 'cour', complete: 'courtesy:' },
       { trigger: 'court', complete: 'courtesy:' },
@@ -2273,19 +2181,15 @@ function handleDescriptionKeydown(event: KeyboardEvent) {
     
     if (match) {
       event.preventDefault()
-      // Replace the trigger word with the complete keyword
       const wordsBeforeLast = textBeforeCursor.substring(0, textBeforeCursor.length - lastWord.length)
       const textAfterCursor = formData.description.substring(cursorPos)
       formData.description = wordsBeforeLast + match.complete + ' ' + textAfterCursor
       
-      // Position cursor after the completed keyword
       setTimeout(() => {
         const newPos = wordsBeforeLast.length + match.complete.length + 1
         textarea.selectionStart = newPos
         textarea.selectionEnd = newPos
       }, 0)
-      
-      console.log(`? Auto-completed "${lastWord}" to "${match.complete}"`)
     }
   }
 }
@@ -2348,8 +2252,6 @@ function applyCustomHeadingAndFont(svgElement: SVGSVGElement) {
       if (eventTypeText) eventTypeText.textContent = ''
       if (ceremonyText) ceremonyText.textContent = ''
     }
-
-    console.log('?? Applied custom heading:', customHeading.value)
   }
 
   // Apply selected font if set
@@ -2361,22 +2263,13 @@ function applyCustomHeadingAndFont(svgElement: SVGSVGElement) {
     headingElements.forEach(el => {
       if (el) {
         el.style.fontFamily = fontFamily
-        // Adjust font weight for better appearance
         el.style.fontWeight = selectedHeadingFont.value === 'playfair' ? '700' : '400'
       }
     })
-
-    console.log('?? Applied heading font:', selectedHeadingFont.value, fontFamily)
   }
 }
 
 async function processDescriptionInput() {
-  console.log('?? processDescriptionInput triggered:', { 
-    description: formData.description, 
-    category: selectedCategory.value, 
-    hasSvgElements: !!svgElements 
-  })
-
   // Perform validation even if SVG elements are not loaded yet
   if (selectedCategory.value === 'wedding' && !svgElements) {
     // Pass null elements structure to avoid errors while validating
@@ -2392,14 +2285,12 @@ async function processDescriptionInput() {
       let stickerData: any = null
 
       // Use Title Library to find matching title SVG
-      // Use trimmed custom heading text when present (avoids nullable refs)
       const customHeadingText = (customHeading.value ?? '').trim()
       const textToMatch = customHeadingText || accumulatedDescription.value || formData.description
       const matchedTitle = findMatchingTitle(textToMatch)
       
       // Get title color based on current background
       const titleColor = getTitleColorForBackground()
-      console.log('?? Title color for current background:', titleColor)
 
       const headingElementIds = ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text']
       const hasCustomHeading = customHeadingText.length > 0
@@ -2440,9 +2331,6 @@ async function processDescriptionInput() {
         lastWeddingTitleRenderKey = titleCacheKey
 
         if (matchedTitle) {
-        console.log('?? Using Title Library match:', matchedTitle.fallbackText)
-        console.log('?? SVG Path:', matchedTitle.svgPath)
-        
         // Pre-render SVG to PNG for reliable export (allows color changes)
         await replaceTitleWithImage(svgElement, {
           svgPath: matchedTitle.svgPath,
@@ -2453,7 +2341,6 @@ async function processDescriptionInput() {
         })
         } else {
           // No match found - use default wedding title
-          console.log('?? No title match, using default wedding title')
           await replaceTitleWithImage(svgElement, {
             svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
             targetElementIds: headingElementIds,
@@ -2462,8 +2349,6 @@ async function processDescriptionInput() {
             color: titleColor
           })
         }
-      } else {
-        console.log('? Title unchanged, skipping re-render')
       }
       }
       
@@ -2474,8 +2359,6 @@ async function processDescriptionInput() {
       if (!hasFlourish || flourishCacheKey !== lastWeddingFlourishRenderKey) {
         lastWeddingFlourishRenderKey = flourishCacheKey
         await insertFlourishAboveNames(svgElement, flourishColor)
-      } else {
-        console.log('? Flourish unchanged, skipping re-render')
       }
       
       // Update names, date, and courtesy
@@ -2671,7 +2554,6 @@ async function handleCropComplete(data: { dataUrl: string; blob: Blob; width: nu
   const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
 
   if (!svgElement || !cropImageFile.value) {
-    console.error('SVG element or crop image file not found')
     return
   }
 
@@ -2685,7 +2567,6 @@ async function handleCropComplete(data: { dataUrl: string; blob: Blob; width: nu
   svgImageManager.clearAllImages()
 
   // Add the cropped image using the existing image manager
-  // This will automatically read the placeholder position from the SVG
   await svgImageManager.addImage(croppedFile, svgElement)
 
   // Update SVG preview with new images
@@ -2786,7 +2667,6 @@ async function retouchImage() {
     showCropModal.value = true
     
   } catch (error) {
-    console.error('Failed to open retouch:', error)
     authStore.showNotification({
       title: 'Retouch Error',
       message: 'Failed to open image for retouching',
@@ -2839,10 +2719,6 @@ async function exportWeddingSticker(format: 'svg' | 'png') {
 
     // Validate SVG is properly configured for export
     const validation = validateForExport(svgElement)
-    if (!validation.valid) {
-      console.warn('?? SVG validation issues:', validation.issues)
-      // Continue anyway but log the issues
-    }
 
     // Get stored export dimensions (set by handleSizeChange)
     const exportWidthPx = svgElement.getAttribute('data-export-width-px')
@@ -2852,16 +2728,6 @@ async function exportWeddingSticker(format: 'svg' | 'png') {
     const originalStyleWidth = svgElement.style.width
     const originalStyleHeight = svgElement.style.height
 
-    console.log('?? Starting export:', {
-      format,
-      imagesCount: svgImageManager.images.value.length,
-      hasDataUrl: svgImageManager.images.value[0]?.dataUrl?.length || 0,
-      exportWidthPx,
-      exportHeightPx,
-      exportWidth,
-      exportHeight
-    })
-
     // Apply pixel dimensions for canvas export (critical for PNG)
     if (exportWidthPx && exportHeightPx) {
       svgElement.setAttribute('width', exportWidthPx)
@@ -2869,7 +2735,6 @@ async function exportWeddingSticker(format: 'svg' | 'png') {
       // Remove CSS constraints that might interfere with the export canvas sizing
       svgElement.style.width = ''
       svgElement.style.height = ''
-      console.log(`?? Set export dimensions: ${exportWidthPx} � ${exportHeightPx}px`)
     } else if (exportWidth && exportHeight) {
       // Fallback to inch dimensions
       svgElement.setAttribute('width', exportWidth)
@@ -2883,15 +2748,13 @@ async function exportWeddingSticker(format: 'svg' | 'png') {
         const vbWidth = viewBox[2]
         const vbHeight = viewBox[3]
         // Calculate high-res export dimensions at 300 DPI equivalent
-        // Base scale: viewBox dimensions at 300 DPI for print quality
-        const scale = PRINT_DPI / 96 // 300/96 = 3.125
+        const scale = PRINT_DPI / 96
         const calculatedWidth = Math.round(vbWidth * scale)
         const calculatedHeight = Math.round(vbHeight * scale)
         svgElement.setAttribute('width', String(calculatedWidth))
         svgElement.setAttribute('height', String(calculatedHeight))
         svgElement.style.width = ''
         svgElement.style.height = ''
-        console.log(`?? Calculated export from viewBox: ${calculatedWidth} � ${calculatedHeight}px (viewBox: ${vbWidth}x${vbHeight})`)
       }
     }
 
@@ -2920,7 +2783,6 @@ async function exportWeddingSticker(format: 'svg' | 'png') {
       type: 'success'
     })
   } catch (error) {
-    console.error('Export failed:', error)
     authStore.showNotification({
       title: 'Export Failed',
       message: error instanceof Error ? error.message : 'Failed to export sticker',
@@ -3026,7 +2888,6 @@ async function handleModalFileSelect(event: Event) {
       }, 500)
 
     } catch (error) {
-      console.error('Upload failed:', error)
       uploadModalProcessing.value = false
       uploadModalProgress.value = 0
       
