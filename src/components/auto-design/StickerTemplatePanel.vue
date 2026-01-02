@@ -148,11 +148,8 @@ import { useRouter } from 'vue-router'
 import { useAutoDesignStore } from '@/stores/autoDesign'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user.store'
-import { FEATURES } from '@/config/environment'
-import { IonSpinner } from '@ionic/vue'
-import { useDebounceFn, useThrottleFn } from '@vueuse/core'
+import { useDebounceFn } from '@vueuse/core'
 import { ai } from '@/services/ai/ai.service'
-import { extractFirstJsonBlock, safeJsonParse } from '@/services/ai/json.util'
 
 // Import styles from external CSS file
 import './sticker/styles/StickerTemplatePanel.css'
@@ -197,27 +194,11 @@ import { useTextExtraction } from '@/composables/useTextExtraction'
 import { useAiChatResponses } from '@/composables/useAiChatResponses'
 import { useStickerExport } from '@/composables/useStickerExport'
 
-// Import sticker composables (title, flourish, background management, spell correction, intent detection)
+// Import sticker composables (title, flourish, background management)
 import {
   useTitleLibrary,
   useFlourishSystem,
   useBackgroundManager,
-  useSpellCorrection,
-  correctSpelling as correctSpellingComposable,
-  findFuzzyMatch as findFuzzyMatchComposable,
-  levenshteinDistance as levenshteinDistanceComposable,
-  COMMON_MISSPELLINGS,
-  useIntentDetection,
-  detectIntent as detectIntentComposable,
-  isPositiveConfirmation,
-  isNegativeConfirmation,
-  extractTargetField,
-  type TitleEntry,
-  type TitleImageConfig,
-  type UserIntent,
-  type IntentResult,
-  type SpellCorrectionResult,
-  type BackgroundColorConfig,
   // Extraction utilities
   extractNamesFromResponse,
   extractDateFromText,
@@ -234,10 +215,10 @@ import {
   titlePhraseMap,
   isPotentialTitle,
   extractTitleFromText,
-  // Local extraction (replaces inline tryLocalExtraction)
+  // Local extraction
   extractWeddingDetails,
   hasWeddingDetails,
-  // Wedding chat composable for proper title/names/date/courtesy detection
+  // Wedding chat composable
   useWeddingChat,
   // Speech-to-Text composable
   useSpeechToText,
@@ -275,14 +256,11 @@ import {
 // Import chat utility functions (extracted for file size reduction)
 import {
   trackImageUploadUtil,
-  addUserMessageUtil,
-  addAIMessageUtil,
   buildWeddingChatContextForAIUtil,
   buildWeddingChatTranscriptForAIUtil,
   parseSizeToInchesUtil,
   syncWeddingDescriptionFromStateUtil,
-  type ChatMessage as ChatMessageType,
-  type TrackedImage
+  type ChatMessage as ChatMessageType
 } from './sticker/utils/chatUtils'
 
 // Import form utility functions (extracted for file size reduction)
