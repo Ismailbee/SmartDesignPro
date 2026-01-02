@@ -7,6 +7,7 @@
 
 import { ref } from 'vue'
 import { extractDateFromText as sharedExtractDate } from '@/utils/extraction/datePatterns'
+import { extractCourtesyFromText as sharedExtractCourtesy } from '@/utils/extraction/courtesyPatterns'
 
 export interface ExtractedNames {
   name1: string | null
@@ -204,66 +205,10 @@ export function extractDateFromText(text: string): string | null {
 }
 
 /**
- * Extract courtesy from text (STRICT mode)
+ * Extract courtesy from text - uses shared utility
  */
 export function extractCourtesyFromText(text: string): string | null {
-  console.log('[extractCourtesy] Input:', text)
-  
-  // Skip if this looks like a heading/title
-  const isHeadingInput = /\b(heading|title|header|congratulations|happy|wedding|best wishes|wishing you)\b/i.test(text)
-  if (isHeadingInput && !/\b(courtesy|cut-cee|from the .+ family|from .+ family)\b/i.test(text)) {
-    console.log('[extractCourtesy] Skipping - looks like heading without courtesy keyword')
-    return null
-  }
-  
-  // Must contain courtesy keyword
-  const hasCourtesyKeyword = /\b(courtesy|cut-cee)\b/i.test(text) || 
-                            /\bfrom\s+(the\s+)?[a-zA-Z][a-zA-Z]*\s+(family|families)\b/i.test(text) ||
-                            /\b(change|update|edit)\s+(the\s+)?courtesy/i.test(text)
-
-  if (!hasCourtesyKeyword) {
-    console.log('[extractCourtesy] No courtesy keyword found')
-    return null
-  }
-  
-  console.log('[extractCourtesy] Courtesy keyword detected')
-
-  const courtesyPatterns = [
-    /(?:change|update|edit)\s+(?:the\s+)?courtesy\s*[:\s]+(?:to\s+)?(.+?)(?:\s*$|\n|!)/i,
-    // "courtesy: the main family" or "courtesy:the main family"
-    /courtesy\s*[:;]\s*(.+?)(?:\s*$|\n|!)/i,
-    /courtesy\s*(?:of|:)\s+(.+?)(?:\s*$|\n|!)/i,
-    /courtesy\s+([a-zA-Z].+?)(?:\s*$|\n|!)/i,
-    /cut-cee\s*[:\s]+(.+?)(?:\s*$|\n|!)/i,
-    /from\s+the\s+([A-Za-z][A-Za-z\s&'.-]+\s+(?:family|families))(?:\s*$|\n|,|\.(?!\w)|!)/i,
-    /from\s+([A-Za-z][A-Za-z\s&'.-]+\s+(?:family|families))(?:\s*$|\n|,|\.(?!\w)|!)/i,
-    /(?:gift|sticker|card)\s+from\s+([A-Za-z][A-Za-z\s&'.-]+?)(?:\s*$|\n|,|\.(?!\w)|!)/i,
-  ]
-
-  const falsePositives = [
-    'the', 'a', 'an', 'way', 'now', 'then', 'here', 'there',
-    'me', 'you', 'us', 'them', 'him', 'her', 'it', 'this', 'that',
-    'what', 'when', 'where', 'why', 'how', 'who', 'whom',
-    'yes', 'no', 'ok', 'okay', 'sure', 'thanks', 'thank',
-    'my', 'your', 'our', 'their', 'his', 'her', 'its'
-  ]
-
-  for (const pattern of courtesyPatterns) {
-    const match = text.match(pattern)
-    if (match && match[1]) {
-      let name = match[1].trim().replace(/[.,!?:;]+$/, '').trim()
-      
-      if (name.length < 3) continue
-      if (falsePositives.includes(name.toLowerCase())) continue
-      
-      // Remove bad prefixes
-      name = name.replace(/^(the|a|an|my|your|our|their)\s+/i, '').trim()
-      if (name.length < 3) continue
-
-      return `courtesy: ${name}`
-    }
-  }
-  return null
+  return sharedExtractCourtesy(text)
 }
 
 /**

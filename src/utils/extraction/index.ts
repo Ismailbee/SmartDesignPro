@@ -29,6 +29,7 @@ export {
 export {
   COURTESY_PATTERNS,
   extractCourtesy,
+  extractCourtesyFromText,
   hasCourtesy,
   isCourtesyOnly,
 } from './courtesyPatterns'

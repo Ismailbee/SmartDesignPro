@@ -97,3 +97,78 @@ export function isCourtesyOnly(text: string): boolean {
   
   return false
 }
+
+/**
+ * False positive words to skip in courtesy extraction
+ */
+const COURTESY_FALSE_POSITIVES = new Set([
+  'the', 'a', 'an', 'way', 'now', 'then', 'here', 'there',
+  'me', 'you', 'us', 'them', 'him', 'her', 'it', 'this', 'that',
+  'what', 'when', 'where', 'why', 'how', 'who', 'whom',
+  'yes', 'no', 'ok', 'okay', 'sure', 'thanks', 'thank',
+  'my', 'your', 'our', 'their', 'his', 'her', 'its'
+])
+
+/**
+ * Detailed patterns for strict courtesy extraction
+ */
+const STRICT_COURTESY_PATTERNS: RegExp[] = [
+  // Match "change the courtesy: Name"
+  /(?:change|update|edit)\s+(?:the\s+)?courtesy\s*[:\s]+(?:to\s+)?(.+?)(?:\s*$|\n|!)/i,
+  // Match "courtesy of Name" or "courtesy: Name"
+  /courtesy\s*(?:of|:|;)\s*(.+?)(?:\s*$|\n|!)/i,
+  // Match "courtesy Name"
+  /courtesy\s+([a-zA-Z][a-zA-Z\s&'.-]+?)(?:\s*$|\n|!)/i,
+  // Match "cut-cee: Name"
+  /cut-cee\s*[:\s]+(.+?)(?:\s*$|\n|!)/i,
+  // Match "from the [Name] Family"
+  /from\s+the\s+([A-Za-z][A-Za-z\s&'.-]+\s+(?:family|families))(?:\s*$|\n|,|\.(?!\w)|!)/i,
+  // Match "from [Name] Family"
+  /from\s+([A-Za-z][A-Za-z\s&'.-]+\s+(?:family|families))(?:\s*$|\n|,|\.(?!\w)|!)/i,
+  // Match "gift from Name"
+  /(?:gift|sticker|card)\s+from\s+([A-Za-z][A-Za-z\s&'.-]+?)(?:\s*$|\n|,|\.(?!\w)|!)/i,
+]
+
+/**
+ * Extract courtesy from text (STRICT mode) - Single source of truth
+ * Only matches when explicit courtesy keywords are present
+ * 
+ * @param text - Text to extract from
+ * @returns Formatted courtesy string like "courtesy: Name" or null
+ */
+export function extractCourtesyFromText(text: string): string | null {
+  if (!text || typeof text !== 'string') return null
+  
+  // Skip if this looks like a heading/title input
+  const isHeadingInput = /\b(heading|title|header|congratulations|happy|wedding|best wishes|wishing you)\b/i.test(text)
+  if (isHeadingInput && !/\b(courtesy|cut-cee|from the .+ family|from .+ family)\b/i.test(text)) {
+    return null
+  }
+  
+  // STRICT: Only match if the message explicitly indicates courtesy/sender info
+  const hasCourtesyKeyword = /\b(courtesy|cut-cee)\b/i.test(text) || 
+                            /\bfrom\s+(the\s+)?[a-zA-Z][a-zA-Z]*\s+(family|families)\b/i.test(text) ||
+                            /\b(change|update|edit)\s+(the\s+)?courtesy/i.test(text)
+
+  if (!hasCourtesyKeyword) {
+    return null
+  }
+
+  for (const pattern of STRICT_COURTESY_PATTERNS) {
+    const match = text.match(pattern)
+    if (match && match[1]) {
+      let name = match[1].trim().replace(/[.,!?:;]+$/, '').trim()
+      
+      if (name.length < 3) continue
+      if (COURTESY_FALSE_POSITIVES.has(name.toLowerCase())) continue
+      
+      // Remove bad prefixes
+      name = name.replace(/^(the|a|an|my|your|our|their)\s+/i, '').trim()
+      name = name.replace(/["']+$/, '').trim()
+      if (name.length < 3) continue
+
+      return `courtesy: ${name}`
+    }
+  }
+  return null
+}

@@ -3,10 +3,11 @@
  * 
  * Extracts names, dates, courtesy messages, and sizes from user input text
  * 
- * NOTE: Date extraction now uses shared utility from @/utils/extraction/datePatterns
+ * NOTE: Date and courtesy extraction now use shared utilities
  */
 
 import { extractDateFromText as sharedExtractDate } from '@/utils/extraction/datePatterns'
+import { extractCourtesyFromText as sharedExtractCourtesy } from '@/utils/extraction/courtesyPatterns'
 
 // Helper function to capitalize first letter of each word and strip trailing numbers (typos)
 export function capitalizeWords(str: string): string {
@@ -225,89 +226,14 @@ export function extractDateFromText(text: string): string | null {
 }
 
 /**
- * Extract courtesy from text - ONLY when explicitly provided with specific keywords
- * STRICT MODE: Only matches very explicit courtesy patterns to avoid false positives
+ * Extract courtesy from text - uses shared utility
+ * STRICT MODE: Only matches very explicit courtesy patterns
  */
 export function extractCourtesyFromText(text: string): string | null {
   console.log('🎁 extractCourtesyFromText input:', text)
-  
-  // Skip if this looks like a heading/title input
-  const isHeadingInput = /\b(heading|title|header|congratulations|happy|wedding|best wishes|wishing you)\b/i.test(text)
-  if (isHeadingInput && !/\b(courtesy|cut-cee|from the .+ family|from .+ family)\b/i.test(text)) {
-    console.log('🎁 Skipping - looks like heading input')
-    return null
-  }
-  
-  // STRICT: Only match if the message explicitly indicates courtesy/sender info
-  const hasCourtesyKeyword = /\b(courtesy|cut-cee)\b/i.test(text) || 
-                            /\bfrom\s+(the\s+)?[a-zA-Z][a-zA-Z]*\s+(family|families)\b/i.test(text) ||
-                            /\b(change|update|edit)\s+(the\s+)?courtesy/i.test(text)
-
-  console.log('🎁 Has courtesy keyword:', hasCourtesyKeyword)
-  
-  if (!hasCourtesyKeyword) {
-    console.log('🎁 No courtesy keyword found')
-    return null
-  }
-
-  const courtesyPatterns = [
-    // Match "change the courtesy: Name"
-    /(?:change|update|edit)\s+(?:the\s+)?courtesy\s*[:\s]+(?:to\s+)?(.+?)(?:\s*$|\n|!)/i,
-    // Match "courtesy of Name" or "courtesy: Name"
-    /courtesy\s*(?:of|:)\s*(.+?)$/im,
-    // Match "courtesy Name"
-    /courtesy\s+([a-zA-Z][a-zA-Z\s&'.-]+?)(?:\s*$|\n|!)/i,
-    // Match "cut-cee: Name"
-    /cut-cee\s*[:\s]+(.+?)(?:\s*$|\n|!)/i,
-    // Match "from the [Name] Family"
-    /from\s+the\s+([A-Za-z][A-Za-z\s&'.-]+\s+(?:family|families))(?:\s*$|\n|,|\.(?!\w)|!)/i,
-    // Match "from [Name] Family"
-    /from\s+([A-Za-z][A-Za-z\s&'.-]+\s+(?:family|families))(?:\s*$|\n|,|\.(?!\w)|!)/i,
-    // Match "gift from Name"
-    /(?:gift|sticker|card)\s+from\s+([A-Za-z][A-Za-z\s&'.-]+?)(?:\s*$|\n|,|\.(?!\w)|!)/i,
-  ]
-
-  const falsePositives = [
-    'the', 'a', 'an', 'way', 'now', 'then', 'here', 'there',
-    'me', 'you', 'us', 'them', 'him', 'her', 'it', 'this', 'that',
-    'what', 'when', 'where', 'why', 'how', 'who', 'whom',
-    'yes', 'no', 'ok', 'okay', 'sure', 'thanks', 'thank',
-    'my', 'your', 'our', 'their', 'his', 'her', 'its'
-  ]
-
-  for (let i = 0; i < courtesyPatterns.length; i++) {
-    const pattern = courtesyPatterns[i]
-    const match = text.match(pattern)
-    console.log(`🎁 Pattern ${i + 1}:`, pattern.source, '-> Match:', match ? match[0] : 'null', 'Capture:', match ? match[1] : 'null')
-    if (match && match[1]) {
-      let name = match[1].trim()
-      name = name.replace(/[.,!?:;]+$/, '').trim()
-
-      if (name.length < 3) {
-        console.log('🎁 Skipping - name too short:', name)
-        continue
-      }
-
-      if (falsePositives.includes(name.toLowerCase())) {
-        console.log('🎁 Skipping - false positive:', name)
-        continue
-      }
-
-      const badStarts = ['a ', 'an ', 'my ', 'your ', 'our ', 'their ']
-      const lowerName = name.toLowerCase()
-      if (badStarts.some(start => lowerName.startsWith(start))) {
-        name = name.replace(/^(a|an|my|your|our|their)\s+/i, '').trim()
-        console.log('🎁 Removed prefix, new name:', name)
-        if (name.length < 3) continue
-      }
-      
-      name = name.replace(/["']+$/, '').trim()
-
-      console.log('🎁 Courtesy extracted:', `courtesy: ${name}`)
-      return `courtesy: ${name}`
-    }
-  }
-  return null
+  const result = sharedExtractCourtesy(text)
+  console.log('🎁 Courtesy extraction result:', result)
+  return result
 }
 
 /**
