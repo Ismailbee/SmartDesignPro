@@ -1353,128 +1353,50 @@ async function handleImageFileSelect(event: Event) {
   }
 }
 
-// Image crop modal handlers
-async function handleCropComplete(data: { dataUrl: string; blob: Blob; width: number; height: number }) {
-
+// Image crop modal handlers - refactored to use utilities
+async function handleCropComplete(data: CropCompleteData) {
   if (isPreGenerationCrop.value) {
-    // Handle pre-generation crop
-    if (cropImageFile.value) {
-      const croppedFile = new File([data.blob], cropImageFile.value.name, {
-        type: 'image/png',
-        lastModified: Date.now()
-      })
-
-      // Mark this image as used in the tracking array
-      const uploadIndex = uploadedImages.value.findIndex(img => img.file === cropImageFile.value)
-      if (uploadIndex >= 0) {
-        uploadedImages.value[uploadIndex].used = true
-      }
-
-      // Add cropped image message to chat
-      chatMessages.value.push({
-        id: Date.now(),
-        text: 'Image cropped',
-        sender: 'user',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        image: data.dataUrl
-      })
-      scrollToBottom()
-
-      // Reset state
-      isPreGenerationCrop.value = false
-      showCropModal.value = false
-
-      // Clean up object URL
-      if (cropImageSrc.value) {
-        URL.revokeObjectURL(cropImageSrc.value)
-        cropImageSrc.value = ''
-      }
-      cropImageFile.value = null
-
-      // Check if BG removal was already handled (user said yes and it was processed)
-      if (backgroundRemovalAlreadyHandled.value) {
-        // BG removal done - use image directly for generation
-        preGeneratedImageFile.value = croppedFile
-        pictureStepComplete.value = true
-        backgroundRemovalAlreadyHandled.value = false // Reset for next image
-        pendingImageFile.value = null
-        
-        setTimeout(() => {
-          // Check if we have all info to proceed
-          const hasAllInfo = extractedInfo.value.names.name1 && extractedInfo.value.date && extractedInfo.value.courtesy
-          const hasSize = sizeStepComplete.value || extractedInfo.value.size
-          
-          if (hasAllInfo && hasSize) {
-            // Has everything - generate!
-            chatMessages.value.push({
-              id: Date.now(),
-              text: "Perfect! Your image is ready! Let me create your sticker now! ??",
-              sender: 'ai',
-              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            })
-            scrollToBottom()
-            formData.description = accumulatedDescription.value
-            setTimeout(() => generateWeddingPreview(), 300)
-          } else if (hasAllInfo && !sizeStepComplete.value) {
-            // Has names, date, courtesy but needs size
-            chatMessages.value.push({
-              id: Date.now(),
-              text: "Perfect! Your image is ready! ??\n\nWhat size would you like the sticker? (e.g., '3x3' or 'default' for 4x4 inches)",
-              sender: 'ai',
-              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            })
-            awaitingSizeDecision.value = true
-            scrollToBottom()
-          } else {
-            // Still missing some info
-            chatMessages.value.push({
-              id: Date.now(),
-              text: "Perfect! Your image is ready! ??\n\n?? **Tip:** You can drag the image to reposition it after the design is generated!",
-              sender: 'ai',
-              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            })
-            scrollToBottom()
-          }
-        }, 300)
-      } else {
-        // BG removal not done yet - ask about it
-        pendingImageFile.value = croppedFile
-        setTimeout(() => {
-          chatMessages.value.push({
-            id: Date.now(),
-            text: "Nice crop! Would you like me to remove the background from this image? Say 'yes' or 'no'.",
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
-          awaitingBackgroundRemovalDecision.value = true
-        }, 500)
-      }
+    // Use utility for pre-generation crop handling
+    const deps = {
+      svgImageManager,
+      weddingPreviewContainer,
+      updateSVGWithImagesFn: updateSVGWithImages,
+      scrollToBottom,
+      showNotification: (opts: any) => authStore.showNotification(opts),
+      chatMessages,
+      uploadedImages,
+      preGeneratedImageFile,
+      pictureStepComplete,
+      pendingImageFile,
+      extractedInfo,
+      sizeStepComplete,
+      awaitingSizeDecision,
+      awaitingBackgroundRemovalDecision,
+      backgroundRemovalAlreadyHandled,
+      accumulatedDescription,
+      formData,
+      generateWeddingPreviewFn: generateWeddingPreview
     }
+    
+    handlePreGenerationCropUtil(data, cropImageFile, deps)
+    
+    // Reset state
+    isPreGenerationCrop.value = false
+    showCropModal.value = false
+    if (cropImageSrc.value) {
+      URL.revokeObjectURL(cropImageSrc.value)
+      cropImageSrc.value = ''
+    }
+    cropImageFile.value = null
     return
   }
 
-  // Get SVG element to read placeholder position
-  const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
-
-  if (!svgElement || !cropImageFile.value) {
-    return
-  }
-
-  // Create a new File object from the cropped blob
-  const croppedFile = new File([data.blob], cropImageFile.value.name, {
-    type: 'image/png',
-    lastModified: Date.now()
+  // Post-generation crop - use utility
+  await handlePostGenerationCropUtil(data, cropImageFile, {
+    svgImageManager,
+    weddingPreviewContainer,
+    updateSVGWithImagesFn: updateSVGWithImages
   })
-
-  // Clear existing images to prevent accumulation/duplication
-  svgImageManager.clearAllImages()
-
-  // Add the cropped image using the existing image manager
-  await svgImageManager.addImage(croppedFile, svgElement)
-
-  // Update SVG preview with new images
-  updateSVGWithImages()
 
   // Clean up
   URL.revokeObjectURL(cropImageSrc.value)
