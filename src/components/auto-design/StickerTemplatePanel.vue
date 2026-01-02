@@ -2044,9 +2044,7 @@ onMounted(() => {
   // Set category
   autoDesignStore.setCategory('sticker')
 
-  // Load wedding template (only category available)
-  loadCategoryTemplate('wedding')
-  
+  // Load wedding template
   nextTick(() => {
     loadWeddingStickerTemplate()
   })
@@ -2054,23 +2052,12 @@ onMounted(() => {
 
 // Cleanup on unmount to prevent memory leaks and improve navigation speed
 onBeforeUnmount(() => {
-  // Stop any ongoing speech synthesis immediately
-  try {
-    window.speechSynthesis?.cancel()
-  } catch (e) {}
+  // Stop any ongoing speech synthesis and recognition using composable methods
+  stopAllSpeech()
+  stopVoiceRecording()
   
-  // Stop speech recognition
-  try {
-    speechRecognition.value?.stop()
-  } catch (e) {}
-  speechRecognition.value = null
-  
-  // Clear intervals and timeouts
+  // Clear generating messages interval
   stopGeneratingMessages()
-  if (speakTimeout) {
-    clearTimeout(speakTimeout)
-    speakTimeout = null
-  }
   
   // Revoke any object URLs
   if (preGeneratedImagePreview.value) {
