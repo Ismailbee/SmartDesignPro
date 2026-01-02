@@ -5,18 +5,10 @@
  */
 
 import type { Ref } from 'vue'
+import type { ChatMessage } from '../types'
 
-// Type for chat message
-export interface ChatMessage {
-  id: number
-  text: string
-  sender: 'user' | 'ai'
-  time: string
-  image?: string
-  type?: 'text' | 'preview'
-  isLoading?: boolean
-  actions?: Array<{ type: string; label: string; icon?: string; variant?: 'primary' | 'secondary' }>
-}
+// Re-export for backward compatibility
+export type { ChatMessage }
 
 // Type for tracked image upload
 export interface TrackedImage {

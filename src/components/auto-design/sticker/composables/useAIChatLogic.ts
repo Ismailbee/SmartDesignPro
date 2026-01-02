@@ -48,23 +48,9 @@ export interface WeddingAssistantDecision {
   buttons?: Array<{ type: string; label: string; variant?: string }>
 }
 
-export interface ChatMessage {
-  id: number
-  text: string
-  sender: 'user' | 'ai'
-  time: string
-  isLoading?: boolean
-  type?: string
-  actions?: Array<{ type: string; label: string; variant?: string }>
-}
-
-export interface ExtractedInfo {
-  title: string | null
-  names: { name1: string | null; name2: string | null }
-  date: string | null
-  courtesy: string | null
-  size: string | null
-}
+// Import shared types
+import type { ChatMessage, ExtractedInfo } from '../types'
+export type { ChatMessage, ExtractedInfo }
 
 export interface AskedQuestions {
   picture: boolean

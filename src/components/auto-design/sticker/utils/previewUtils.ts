@@ -6,24 +6,10 @@
  */
 
 import { nextTick, type Ref, type ComputedRef } from 'vue'
+import type { ChatMessage, ExtractedInfo } from '../types'
 
-// Types
-export interface ChatMessage {
-  id: number
-  text: string
-  sender: 'user' | 'ai'
-  time: string
-  type?: 'preview'
-  actions?: Array<{ type: string; label: string; variant?: string }>
-}
-
-export interface ExtractedInfo {
-  title: string | null
-  date: string | null
-  courtesy: string | null
-  size: string | null
-  names: { name1: string | null; name2: string | null }
-}
+// Re-export for backward compatibility
+export type { ChatMessage, ExtractedInfo }
 
 export interface GenerationContext {
   // Refs

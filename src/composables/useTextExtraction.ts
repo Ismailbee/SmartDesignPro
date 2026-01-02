@@ -16,16 +16,13 @@ import {
   extractNamesFromBrackets as sharedExtractFromBrackets
 } from '@/utils/extraction/namePatterns'
 
+// Import canonical ExtractedInfo type
+import type { ExtractedInfo } from '@/components/auto-design/sticker/types'
+export type { ExtractedInfo }
+
 export interface ExtractedNames {
   name1: string | null
   name2: string | null
-}
-
-export interface ExtractedInfo {
-  names: ExtractedNames
-  date: string | null
-  courtesy: string | null
-  size: string | null
 }
 
 export interface ParseResult extends ExtractedInfo {

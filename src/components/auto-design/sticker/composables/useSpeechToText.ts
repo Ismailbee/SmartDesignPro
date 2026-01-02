@@ -29,16 +29,9 @@ export interface SpeechToTextOptions {
   selectedCategory: Ref<string>
 }
 
-export interface ChatMessage {
-  id: number
-  text: string
-  sender: 'user' | 'ai'
-  time: string
-  image?: string
-  type?: 'text' | 'preview'
-  isLoading?: boolean
-  actions?: Array<{ type: string; label: string; icon?: string; variant?: 'primary' | 'secondary' }>
-}
+// Import shared ChatMessage type
+import type { ChatMessage } from '../types'
+export type { ChatMessage }
 
 // Lazy-load TextToSpeech module for Capacitor - only on native platforms
 let TextToSpeech: any = null

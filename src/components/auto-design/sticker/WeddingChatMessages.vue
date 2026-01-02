@@ -145,22 +145,7 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
-
-// Types
-export interface ChatMessage {
-  id: number
-  text: string
-  sender: 'user' | 'ai'
-  time: string
-  image?: string
-  type?: 'preview' | 'text'
-  isLoading?: boolean
-  actions?: Array<{
-    type: string
-    label: string
-    variant?: string
-  }>
-}
+import type { ChatMessage } from './types'
 
 // Props
 const props = defineProps<{
