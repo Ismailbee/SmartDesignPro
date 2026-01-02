@@ -1174,35 +1174,10 @@ function selectCategory(categoryId: string) {
   selectedCategory.value = categoryId
 }
 
-// Reset ALL wedding-related state - wrapper for extracted utility
+// Reset ALL wedding-related state - uses composable + clears SVG images
 function resetWeddingState() {
-  resetWeddingStateUtil({
-    extractedInfo,
-    customHeading,
-    selectedHeadingFont,
-    headingStepComplete,
-    awaitingTitleConfirmation,
-    pendingTitle,
-    awaitingHeadingInput,
-    awaitingFontChoice,
-    accumulatedDescription,
-    formData,
-    sizeStepComplete,
-    awaitingSizeDecision,
-    chatMessages,
-    preGeneratedImageFile,
-    preGeneratedImagePreview,
-    pendingImageFile,
-    awaitingBackgroundRemovalDecision,
-    uploadedImages,
-    lastUploadedImage,
-    hasDesignBeenGenerated,
-    showWeddingStickerPreview,
-    isGeneratingPreview,
-    isAnalyzing,
-    askedQuestions,
-    svgImageManager
-  })
+  resetWeddingStateFromComposable()
+  svgImageManager.clearAllImages()
 }
 
 function goBack() {
