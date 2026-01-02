@@ -23,51 +23,13 @@
 
         <!-- Category Pills Removed -->
 
-        <!-- Form Section -->
-        <div class="form-section" :class="{ 'wedding-mode': selectedCategory === 'wedding' }" v-if="selectedCategory">
-          <!-- Smart Camera Input (Hidden for Wedding) -->
-          <div v-if="isDescriptionVisible && selectedCategory !== 'wedding'" class="form-group">
-            <SmartCameraInput 
-              @update:description="handleDescriptionUpdate" 
-              :initial-text="formData.description"
-            />
-          </div>
-
-      <!-- Description Field (Hidden for Wedding) -->
-      <div v-if="isDescriptionVisible && selectedCategory !== 'wedding'" class="form-group">
-        <label for="description" class="form-label">Description</label>
-        <SmartTextarea
-          id="description"
-          v-model="formData.description"
-          @input="handleDescriptionInput"
-          @keydown="handleDescriptionKeydown"
-          class="form-textarea"
-          data-explain="description-textarea"
-          rows="4"
-          placeholder="Enter sticker description... (e.g., Congratulations on your wedding! John and Mary, 15th April 2025, courtesy: Smith Family)"
-        />
-
-        <!-- Validation Warnings -->
-        <div v-if="validationWarnings.length > 0" class="validation-warnings-container">
-          <div class="warning-header">
-            <svg class="w-5 h-5 text-amber-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <span class="text-amber-800 font-medium">Please check the following:</span>
-          </div>
-          <ul class="warning-list">
-            <li v-for="(warning, index) in validationWarnings" :key="index" class="warning-list-item">
-              {{ warning }}
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- Wedding Chat Interface -->
-      <div v-if="selectedCategory === 'wedding'" class="wedding-chat-interface">
-        
-        <!-- Chat Messages Component -->
-        <WeddingChatMessages
+        <!-- Form Section (Wedding is the only category) -->
+        <div class="form-section wedding-mode" v-if="selectedCategory">
+          <!-- Wedding Chat Interface -->
+          <div class="wedding-chat-interface">
+            
+            <!-- Chat Messages Component -->
+            <WeddingChatMessages
           ref="weddingChatMessagesRef"
           :messages="chatMessages"
           :is-analyzing="isAnalyzing"
@@ -91,41 +53,38 @@
         />
       </div>
 
-      <!-- Hidden Wedding Preview Container (for SVG manipulation) -->
-      <!-- Using visibility:hidden and position:absolute to keep SVG in DOM flow for proper rendering -->
-      <div v-if="selectedCategory === 'wedding' && showWeddingStickerPreview" class="wedding-preview-container" ref="weddingPreviewContainer" style="position: absolute; left: -9999px; top: -9999px; visibility: hidden; pointer-events: none;">
-        <!-- SVG will be loaded here for manipulation -->
-      </div>
+          <!-- Hidden Wedding Preview Container (for SVG manipulation) -->
+          <div v-if="showWeddingStickerPreview" class="wedding-preview-container" ref="weddingPreviewContainer" style="position: absolute; left: -9999px; top: -9999px; visibility: hidden; pointer-events: none;">
+            <!-- SVG will be loaded here for manipulation -->
+          </div>
 
-      <!-- Edit Modal for Wedding Sticker -->
-      <div v-if="selectedCategory === 'wedding' && showWeddingStickerPreview && showEditModal" class="wedding-preview-section">
-        <label class="form-label">Edit Your Design</label>
-        
-        <!-- Image Controls Component -->
-        <ImageControls
-          :hasImages="svgImageManager.images.value.length > 0"
-          :showControls="showImageControls"
-          :selectedImage="selectedSVGImage"
-          :isRetouching="isRetouching"
-          :isRemovingBackground="isRemovingBackground"
-          :backgroundRemovalProgress="backgroundRemovalProgress"
-          :backgroundRemovalError="backgroundRemovalError"
-          @toggle-controls="showImageControls = !showImageControls"
-          @change-image="showUploadModal = true"
-          @edit-description="openEditModal"
-          @auto-retouch="autoRetouchImage"
-          @set-scale="setImageScale"
-          @scale-change="handleImageScaleChange"
-          @flip="flipImage"
-          @crop="retouchImage"
-          @cancel-bg-removal="cancelBackgroundRemoval"
-          @clear-error="backgroundRemovalError = null"
-        />
+          <!-- Edit Modal for Wedding Sticker -->
+          <div v-if="showWeddingStickerPreview && showEditModal" class="wedding-preview-section">
+            <label class="form-label">Edit Your Design</label>
+            
+            <!-- Image Controls Component -->
+            <ImageControls
+              :hasImages="svgImageManager.images.value.length > 0"
+              :showControls="showImageControls"
+              :selectedImage="selectedSVGImage"
+              :isRetouching="isRetouching"
+              :isRemovingBackground="isRemovingBackground"
+              :backgroundRemovalProgress="backgroundRemovalProgress"
+              :backgroundRemovalError="backgroundRemovalError"
+              @toggle-controls="showImageControls = !showImageControls"
+              @change-image="showUploadModal = true"
+              @edit-description="openEditModal"
+              @auto-retouch="autoRetouchImage"
+              @set-scale="setImageScale"
+              @scale-change="handleImageScaleChange"
+              @flip="flipImage"
+              @crop="retouchImage"
+              @cancel-bg-removal="cancelBackgroundRemoval"
+              @clear-error="backgroundRemovalError = null"
+            />
 
-          <!-- Drag & Drop Zone Removed -->
-
-          <!-- Error Message -->
-          <div v-if="svgImageManager.uploadError.value" class="upload-error">
+            <!-- Error Message -->
+            <div v-if="svgImageManager.uploadError.value" class="upload-error">
             {{ svgImageManager.uploadError.value }}
           </div>
 
@@ -217,8 +176,6 @@ import { getBackgroundRefsCached } from '@/services/background-catalog.service'
 
 // Lazy load heavy components for better performance
 const ImageCropModal = defineAsyncComponent(() => import('@/components/modals/ImageCropModal.vue'))
-const SmartCameraInput = defineAsyncComponent(() => import('./SmartCameraInput.vue'))
-const SmartTextarea = defineAsyncComponent(() => import('@/components/ui/SmartTextarea.vue'))
 
 // Lazy load sticker sub-components
 const PanelHeader = defineAsyncComponent(() => import('./sticker/PanelHeader.vue'))
@@ -228,7 +185,6 @@ const WeddingChatInput = defineAsyncComponent(() => import('./sticker/WeddingCha
 const ImageControls = defineAsyncComponent(() => import('./sticker/ImageControls.vue'))
 const UploadModal = defineAsyncComponent(() => import('./sticker/UploadModal.vue'))
 const EditDescriptionModal = defineAsyncComponent(() => import('./sticker/EditDescriptionModal.vue'))
-const HelpModal = defineAsyncComponent(() => import('./sticker/HelpModal.vue'))
 const GeneratingPreview = defineAsyncComponent(() => import('./sticker/GeneratingPreview.vue'))
 const ExportButtons = defineAsyncComponent(() => import('./sticker/ExportButtons.vue'))
 const SvgPreview = defineAsyncComponent(() => import('./sticker/SvgPreview.vue'))
@@ -332,7 +288,6 @@ import {
 // Import form utility functions (extracted for file size reduction)
 import {
   updateDateAndCourtesyUtil,
-  handleDescriptionKeydownUtil,
   generateValidationWarnings,
   applyCustomHeadingUtil,
   applyHeadingFontUtil,
@@ -792,13 +747,6 @@ function trackImageUpload(file: File) {
     showWeddingStickerPreview,
     scrollToBottom
   })
-}
-
-// Smart Camera Handler
-function handleDescriptionUpdate(newText: string) {
-  formData.description = newText
-  // Trigger the input handler to update the preview immediately
-  handleDescriptionInput()
 }
 
 // Background removal state
@@ -1316,11 +1264,6 @@ async function loadWeddingStickerTemplate() {
 // Helper function to update only date and courtesy (not names) when title SVG is active
 function updateDateAndCourtesy(description: string, svgElems: any) {
   updateDateAndCourtesyUtil(description, svgElems)
-}
-
-// Auto-completion handler for description field
-function handleDescriptionKeydown(event: KeyboardEvent) {
-  handleDescriptionKeydownUtil(event, formData.description, (val) => { formData.description = val })
 }
 
 // Debounced input handler to prevent UI freezing during typing
