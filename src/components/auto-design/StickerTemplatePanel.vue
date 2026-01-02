@@ -399,6 +399,21 @@ import {
   COURTESY_KEYWORDS
 } from './sticker/utils/formUtils'
 
+// Import preview generation utilities (extracted for file size reduction)
+import {
+  GENERATING_MESSAGES,
+  startGeneratingMessages,
+  stopGeneratingMessages,
+  hasConfirmedWeddingSize as hasConfirmedWeddingSizeUtil,
+  promptForWeddingSize as promptForWeddingSizeUtil,
+  parseSizeToInches,
+  setWeddingSize as setWeddingSizeUtil,
+  generateWeddingPreviewUtil,
+  handleGenerateMoreUtil,
+  handleGenerateNewUtil,
+  type GenerationContext
+} from './sticker/utils/previewUtils'
+
 const router = useRouter()
 const autoDesignStore = useAutoDesignStore()
 const authStore = useAuthStore()
@@ -562,33 +577,8 @@ const TOKEN_COST_GENERATE_DESIGN = 15
 const TOKEN_COST_EDIT_TEXT = 5 // Name, date, courtesy, title changes
 const TOKEN_COST_CHANGE_BACKGROUND = 10
 
-// Generating message for loading animation
-const generatingMessages = [
-  'Creating your beautiful design...',
-  'Preparing your wedding sticker...',
-  'Adding the finishing touches...',
-  'Almost there...',
-  'Making it perfect for you...'
-]
-const generatingMessage = ref(generatingMessages[0])
-let generatingMessageInterval: ReturnType<typeof setInterval> | null = null
-
-// Cycle through generating messages
-function startGeneratingMessages() {
-  let index = 0
-  generatingMessage.value = generatingMessages[0]
-  generatingMessageInterval = setInterval(() => {
-    index = (index + 1) % generatingMessages.length
-    generatingMessage.value = generatingMessages[index]
-  }, 2000)
-}
-
-function stopGeneratingMessages() {
-  if (generatingMessageInterval) {
-    clearInterval(generatingMessageInterval)
-    generatingMessageInterval = null
-  }
-}
+// Generating message for loading animation (uses imported GENERATING_MESSAGES constant)
+const generatingMessage = ref(GENERATING_MESSAGES[0])
 
 // Helper to format message text (convert markdown-like syntax to HTML)
 function formatMessageText(text: string): string {
@@ -634,46 +624,26 @@ function handleMessageAction(action: { type: string; label?: string; route?: str
   }
 }
 
+// Wedding size confirmation helpers - using extracted utilities
 function hasConfirmedWeddingSize(): boolean {
-  const size = String((extractedInfo as any)?.value?.size ?? '').trim()
-  return !!(sizeStepComplete as any)?.value || !!size
+  return hasConfirmedWeddingSizeUtil(extractedInfo, sizeStepComplete)
 }
 
 function promptForWeddingSize(): void {
-  if ((awaitingSizeDecision as any)?.value) return
-  ;(awaitingSizeDecision as any).value = true
-  ;(isAnalyzing as any).value = false
-
-  ;(chatMessages as any).value.push({
-    id: Date.now(),
-    text: "What size would you like the sticker? (e.g., '3x3' or type 'default' for 4x4 inches)",
-    sender: 'ai',
-    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  })
-  scrollToBottom()
+  promptForWeddingSizeUtil(awaitingSizeDecision, isAnalyzing, chatMessages, scrollToBottom)
 }
 
 function setWeddingSize(sizeRaw: string): void {
-  const normalized = String(sizeRaw ?? '').trim()
-  ;(extractedInfo as any).value.size = normalized || null
-  ;(formData as any).customSize = normalized
-  ;(sizeStepComplete as any).value = !!normalized
-  ;(awaitingSizeDecision as any).value = false
-
-  // Keep chat summary in sync
-  try {
-    syncWeddingDescriptionFromState()
-  } catch {
-    // no-op
-  }
-
-  // If preview already exists, apply the resize immediately.
-  if ((showWeddingStickerPreview as any)?.value) {
-    const parsed = parseSizeToInches(normalized)
-    if (parsed) {
-      handleSizeChange(parsed.w, parsed.h)
-    }
-  }
+  setWeddingSizeUtil(
+    sizeRaw,
+    extractedInfo,
+    formData,
+    sizeStepComplete,
+    awaitingSizeDecision,
+    showWeddingStickerPreview,
+    handleSizeChange,
+    syncWeddingDescriptionFromState
+  )
 }
 
 function requestWeddingPreviewGeneration(): void {
@@ -700,148 +670,31 @@ function closeEditModal() {
   processDescriptionInput()
 }
 
-// Handle generate more - regenerate with new random background and update all previews
+// Handle generate more - using extracted utility
 async function handleGenerateMore() {
-  // Add a message to chat
-  chatMessages.value.push({
-    id: Date.now(),
-    text: "Generate another design",
-    sender: 'user',
-    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  })
-  
-  // Show loading state
-  isGeneratingPreview.value = true
-  generatingMessage.value = 'Creating a fresh design...'
-  
-  // Apply a new random background
-  const newBackground = getRandomBackground()
-  if (newBackground) {
-    await new Promise(resolve => setTimeout(resolve, 500))
-    generatingMessage.value = 'Applying new style...'
-    
-    await applyNewBackground(newBackground)
-    
-    await new Promise(resolve => setTimeout(resolve, 300))
-    generatingMessage.value = 'Updating preview...'
-    
-    // Wait for DOM to update
-    await nextTick()
-    await nextTick()
-    
-    // Update all existing preview containers
-    updateChatPreviewSVG()
-    
-    // Hide loading and add confirmation message
-    isGeneratingPreview.value = false
-    
-    chatMessages.value.push({
-      id: Date.now() + 1,
-      text: "Here's a new design variation! ?? Like this one better?",
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-    
-    scrollToBottom()
-  } else {
-    isGeneratingPreview.value = false
-  }
+  await handleGenerateMoreUtil(
+    chatMessages,
+    isGeneratingPreview,
+    generatingMessage,
+    getRandomBackground,
+    applyNewBackground,
+    updateChatPreviewSVG,
+    scrollToBottom
+  )
 }
 
-// Handle generate new - updates ALL existing previews with new design
+// Handle generate new - using extracted utility
 async function handleGenerateNew() {
-  // Show generating state with professional loading
-  isGeneratingPreview.value = true
-  generatingMessage.value = 'Creating new design...'
-  
-  // Apply a new random background
-  const newBackground = getRandomBackground()
-  if (newBackground) {
-    // Simulate professional generation delay for better UX
-    await new Promise(resolve => setTimeout(resolve, 800))
-    
-    // Update generating message
-    generatingMessage.value = 'Applying new style...'
-    
-    // Apply the new background to the master SVG
-    await applyNewBackground(newBackground)
-    
-    // Another short delay for polish
-    await new Promise(resolve => setTimeout(resolve, 400))
-    generatingMessage.value = 'Finalizing design...'
-    
-    // Wait for DOM to update
-    await nextTick()
-    await nextTick()
-    
-    // Small delay for render
-    await new Promise(resolve => setTimeout(resolve, 200))
-    
-    // UPDATE ALL EXISTING preview containers with the new design
-    if (weddingPreviewContainer.value) {
-      const masterSvg = weddingPreviewContainer.value.querySelector('svg')
-      if (masterSvg) {
-        const previewContainers = Array.isArray(chatPreviewContainer.value) 
-          ? chatPreviewContainer.value 
-          : (chatPreviewContainer.value ? [chatPreviewContainer.value] : [])
-        
-        // Update ALL preview containers with the new design
-        previewContainers.forEach((container) => {
-          if (container) {
-            // Remove any existing SVG or loading placeholder
-            const existingSvg = container.querySelector('svg')
-            if (existingSvg) existingSvg.remove()
-            
-            const loadingPlaceholder = container.querySelector('.preview-loading-placeholder')
-            if (loadingPlaceholder) loadingPlaceholder.remove()
-            
-            // Clone the master SVG
-            const clonedSvg = masterSvg.cloneNode(true) as SVGSVGElement
-            
-            // Get viewBox to calculate aspect ratio
-            const viewBox = clonedSvg.getAttribute('viewBox')
-            if (viewBox) {
-              const parts = viewBox.split(/\s+|,/)
-              if (parts.length >= 4) {
-                const vbWidth = parseFloat(parts[2])
-                const vbHeight = parseFloat(parts[3])
-                const aspectRatio = vbWidth / vbHeight
-                container.style.aspectRatio = String(aspectRatio)
-              }
-            }
-            
-            // Style the cloned SVG
-            clonedSvg.style.display = 'block'
-            clonedSvg.style.width = '100%'
-            clonedSvg.style.maxWidth = '100%'
-            clonedSvg.style.height = 'auto'
-            clonedSvg.removeAttribute('width')
-            clonedSvg.removeAttribute('height')
-            
-            // Append to container
-            container.appendChild(clonedSvg)
-          }
-        })
-      }
-    }
-    
-    // Add a brief message about the updated design
-    chatMessages.value.push({
-      id: Date.now(),
-      text: "Your design has been updated with a fresh new look! ???",
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-    
-    // Hide generating state
-    isGeneratingPreview.value = false
-  } else {
-    // No new background available
-    isGeneratingPreview.value = false
-  }
-  
-  // Scroll to see the result
-  scrollToBottom()
+  await handleGenerateNewUtil(
+    weddingPreviewContainer,
+    chatPreviewContainer,
+    chatMessages,
+    isGeneratingPreview,
+    generatingMessage,
+    getRandomBackground,
+    applyNewBackground,
+    scrollToBottom
+  )
 }
 
 // Handle preview menu actions (from 3-dot menu on preview)
@@ -930,367 +783,52 @@ function handleChatClick() {
   })
 }
 
+// Main wedding preview generation - using extracted utility
 async function generateWeddingPreview() {
-  // Check if user is logged in FIRST before doing anything else
-  if (!authStore.isAuthenticated || !authStore.user?.id) {
-    authStore.showNotification({
-      title: 'Login Required',
-      message: 'Please login or create an account to generate designs.',
-      type: 'info'
-    })
-    chatMessages.value.push({
-      id: Date.now(),
-      text: "Hold on!\n\nYou need to login or create a free account to generate your design.\n\nWhy sign up?\n💎 Get 100 FREE tokens instantly!\n💾 Save and download your designs\n🎨 Access premium features",
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      actions: [
-        { type: 'login', label: 'Login to Continue', variant: 'primary' }
-      ]
-    })
-    scrollToBottom()
-    return
+  const ctx: GenerationContext = {
+    weddingPreviewContainer,
+    chatPreviewContainer,
+    showWeddingStickerPreview,
+    isGeneratingPreview,
+    generatingStep,
+    generatingMessage,
+    chatMessages,
+    formData,
+    accumulatedDescription,
+    extractedInfo,
+    validationWarnings,
+    isDescriptionVisible,
+    hasDesignBeenGenerated,
+    preGeneratedImageFile,
+    autoRemoveBackground,
+    sizeStepComplete,
+    awaitingSizeDecision,
+    isAnalyzing,
+    currentBackgroundFileName,
+    availableBackgrounds,
+    TOKEN_COST_GENERATE_DESIGN,
+    scrollToBottom,
+    loadWeddingBackgroundManifest,
+    getPersistedWeddingBackground,
+    getRandomBackground,
+    setPersistedWeddingBackground,
+    loadWeddingStickerTemplate,
+    processDescriptionInput,
+    applyNewBackground,
+    updateChatPreviewSVG,
+    handleSizeChange,
+    updateSVGWithImages,
+    makeSVGImageDraggable,
+    extractNames,
+    deductTokensForAction,
+    updateValidationWarnings,
+    updateStickerText,
+    svgImageManager,
+    removeBackground,
+    isBackgroundRemovalSupported,
+    authStore
   }
-
-  // Chat flow often builds `accumulatedDescription`; prefer that if form input is empty.
-  const resolvedDescription = (formData.description || '').trim() || (accumulatedDescription.value || '').trim()
-
-  if (!resolvedDescription) {
-    chatMessages.value.push({
-      id: Date.now(),
-      text: "Please provide your details first.\n\nExample:\n(John & Mary) 8th March 2025 courtesy: Smith family",
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-    scrollToBottom()
-    return
-  }
-
-  // Keep both in sync so downstream logic always reads the same thing.
-  formData.description = resolvedDescription
-  accumulatedDescription.value = resolvedDescription
-
-  // Require size confirmation before generating.
-  if (!hasConfirmedWeddingSize()) {
-    promptForWeddingSize()
-    return
-  }
-
-  // Check requirements: Must have names OR a picture
-  const { name1, name2 } = extractNames(formData.description)
-  const hasNames = !!(name1 || name2)
-  const hasPicture = !!preGeneratedImageFile.value
-
-  if (!hasNames && !hasPicture) {
-    authStore.showNotification({
-      title: 'Missing Information',
-      message: 'Please include at least a Name in the description or upload a Picture to generate the preview.',
-      type: 'info'
-    })
-    
-    // Ensure validation warnings are shown
-    const data = await updateStickerText(formData.description, {} as any)
-    updateValidationWarnings(data)
-    
-    return
-  }
-
-  // Deduct tokens for initial design generation (15 tokens) if not already generated
-  if (!hasDesignBeenGenerated.value) {
-    const canProceed = await deductTokensForAction(TOKEN_COST_GENERATE_DESIGN, 'Generate initial design')
-    if (!canProceed) {
-      return // Stop if token deduction failed
-    }
-    hasDesignBeenGenerated.value = true // Mark as generated to prevent double-charging
-  }
-
-  isGeneratingPreview.value = true
-  generatingStep.value = 1 // Step 1: Preparing text
-  startGeneratingMessages() // Start cycling through loading messages
-  showWeddingStickerPreview.value = true // Ensure container exists in DOM (even if hidden)
-
-  try {
-    // Ensure backgrounds list is loaded before selecting/persisting.
-    await loadWeddingBackgroundManifest()
-
-    // Wait for DOM to create the container element
-    await nextTick()
-    await nextTick() // Double nextTick to ensure Vue has fully rendered the component
-    
-    // Brief delay for "AI processing" feel - gives time for components to initialize
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    generatingStep.value = 2 // Step 2: Applying design
-    
-    // Apply custom size FIRST if specified (CRITICAL: This prevents stretching by adjusting viewBox)
-    // Size must be applied before background so background matches new dimensions
-    if (formData.customSize) {
-       const sizeMatch = formData.customSize.match(/(\d+(?:\.\d+)?)\s*(?:x|by)\s*(\d+(?:\.\d+)?)/i)
-       if (sizeMatch) {
-          const w = parseFloat(sizeMatch[1])
-          const h = parseFloat(sizeMatch[2])
-          
-          // Ensure container is available before resizing
-          if (weddingPreviewContainer.value) {
-            await handleSizeChange(w, h)
-          }
-       }
-    }
-
-    // CRITICAL: Choose background FIRST so title knows what color to use.
-    // Best practice: random once, then persist per user so refresh doesn't change it.
-    const persisted = getPersistedWeddingBackground()
-    const initialBackground =
-      persisted && availableBackgrounds.value.includes(persisted) ? persisted : getRandomBackground()
-    if (initialBackground) {
-      currentBackgroundFileName.value = initialBackground
-      setPersistedWeddingBackground(initialBackground)
-    }
-    
-    // Now load the template - title will use the correct color based on pre-selected background
-    await loadWeddingStickerTemplate()
-    
-    // Process the description to update the SVG with names, date, courtesy
-    await processDescriptionInput()
-
-    // Apply the background image (already selected above)
-    if (initialBackground) {
-      await applyNewBackground(initialBackground)
-      
-      // Wait for background image to fully load before continuing
-      await new Promise(resolve => setTimeout(resolve, 1500))
-    }
-
-    // Clear the input field now that we've processed the description
-    formData.description = ''
-
-    // Handle pre-uploaded image if exists
-    if (preGeneratedImageFile.value) {
-      generatingStep.value = 3 // Step 3: Processing image
-      await nextTick() // Ensure DOM is ready
-      
-      if (!weddingPreviewContainer.value) {
-        return
-      }
-      
-      const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
-      if (svgElement) {
-        let fileToProcess = preGeneratedImageFile.value
-
-        // Remove background if requested
-        if (autoRemoveBackground.value && isBackgroundRemovalSupported()) {
-          try {
-            const result = await removeBackground(fileToProcess, {
-              quality: 'high',
-              outputFormat: 'image/png',
-              maxDimensions: 2048
-            })
-            
-            fileToProcess = new File([result.blob], fileToProcess.name.replace(/\.[^/.]+$/, '.png'), {
-              type: 'image/png',
-              lastModified: Date.now()
-            })
-          } catch (error) {
-            // Continue with original image if background removal fails
-          }
-        }
-
-        // Add image to SVG
-        const addedImage = await svgImageManager.addImage(fileToProcess, svgElement)
-        
-        updateSVGWithImages()
-        
-        // Wait for DOM to update after image is applied
-        await nextTick()
-        
-        // Additional delay to ensure image is fully rendered
-        await new Promise(resolve => setTimeout(resolve, 800))
-        
-        // Ensure correct z-order: user image should be AFTER background image in DOM
-        const imgElement = svgElement.querySelector('#userImage, #placeholder-image') as SVGImageElement
-        if (imgElement) {
-          // CRITICAL FIX: Ensure user image is positioned AFTER background image in DOM
-          const bgImage = svgElement.querySelector('#background-image')
-          if (bgImage && bgImage.parentNode === imgElement.parentNode) {
-            // Check if userImage comes before background-image (wrong order)
-            const children = Array.from(svgElement.children)
-            const bgIndex = children.indexOf(bgImage)
-            const userIndex = children.indexOf(imgElement)
-            if (userIndex < bgIndex) {
-              // Move userImage after background-image
-              bgImage.after(imgElement)
-            }
-          }
-          
-          // Ensure opacity is set to 1
-          if (!imgElement.getAttribute('opacity') || imgElement.getAttribute('opacity') === '0') {
-            imgElement.setAttribute('opacity', '1')
-          }
-          
-          // CRITICAL FIX: If href is still empty, directly set from svgImageManager
-          const currentHref = imgElement.getAttribute('href')
-          if (!currentHref || currentHref === '') {
-            const latestImage = svgImageManager.images.value[svgImageManager.images.value.length - 1]
-            if (latestImage?.dataUrl) {
-              imgElement.setAttribute('href', latestImage.dataUrl)
-              imgElement.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', latestImage.dataUrl)
-            }
-          }
-        }
-      }
-    }
-    
-    // Check for warnings to show appropriate notification
-    generatingStep.value = 4 // Step 4: Final touches
-    if (validationWarnings.value.length > 0) {
-      authStore.showNotification({
-        title: 'Preview Generated',
-        message: 'Preview ready, but some details are missing. Please check the warnings below.',
-        type: 'info'
-      })
-    } else {
-      // Only show success notification if it's the first generation
-      // or if we are not in a "silent update" mode
-      if (!showWeddingStickerPreview.value) {
-        authStore.showNotification({
-          title: 'Preview Generated',
-          message: 'Your wedding sticker preview is ready!',
-          type: 'success'
-        })
-      }
-    }
-    
-    // Hide description field on success
-    isDescriptionVisible.value = false
-    
-    // CRITICAL: Ensure preview flag is true to show Download/Edit buttons
-    showWeddingStickerPreview.value = true
-    
-    // Add the preview message to the chat history
-    chatMessages.value.push({
-      id: Date.now(),
-      text: '',
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      type: 'preview'
-    })
-
-    // Add guidance message
-    chatMessages.value.push({
-      id: Date.now() + 1,
-      text: "Your design is ready! Looking great! 🎉\n\n💡 **Tip:** You can drag the image to reposition it. Click 'Edit' for more options!",
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-    
-    // Ensure SVG is visible and properly rendered
-    await nextTick()
-    await nextTick() // Double nextTick for chat container
-    
-    // Additional delay to ensure all images and elements are fully rendered
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    // Copy the SVG from main container to chat container
-    // Note: chatPreviewContainer is an array because it's in a v-for loop
-    if (weddingPreviewContainer.value) {
-      const svgElement = weddingPreviewContainer.value.querySelector('svg')
-      
-      if (svgElement) {
-        // Get the last preview container (the one we just added)
-        const previewContainers = Array.isArray(chatPreviewContainer.value) 
-          ? chatPreviewContainer.value 
-          : (chatPreviewContainer.value ? [chatPreviewContainer.value] : [])
-        
-        const targetContainer = previewContainers[previewContainers.length - 1]
-        
-        if (targetContainer) {
-          // Clone the SVG and insert it into the chat preview
-          const clonedSVG = svgElement.cloneNode(true) as SVGSVGElement
-          
-          // Get viewBox to calculate aspect ratio for proper preview frame
-          const viewBox = clonedSVG.getAttribute('viewBox')
-          if (viewBox) {
-            const parts = viewBox.split(/\s+|,/)
-            if (parts.length >= 4) {
-              const vbWidth = parseFloat(parts[2])
-              const vbHeight = parseFloat(parts[3])
-              const aspectRatio = vbWidth / vbHeight
-              
-              // Set container aspect ratio to match SVG design
-              targetContainer.style.aspectRatio = String(aspectRatio)
-            }
-          }
-          
-          // Ensure cloned SVG has proper display styles
-          clonedSVG.style.display = 'block'
-          clonedSVG.style.width = '100%'
-          clonedSVG.style.maxWidth = '100%'
-          clonedSVG.style.height = 'auto'
-          // Remove fixed width/height attributes so it scales with container
-          clonedSVG.removeAttribute('width')
-          clonedSVG.removeAttribute('height')
-          
-          targetContainer.innerHTML = ''
-          targetContainer.appendChild(clonedSVG)
-          
-          // Verify the SVG was actually added
-          if (!targetContainer.querySelector('svg')) {
-            // Try again with a small delay
-            await new Promise(resolve => setTimeout(resolve, 50))
-            targetContainer.appendChild(clonedSVG.cloneNode(true))
-          }
-          
-          // Attach drag/pinch handlers to images in cloned SVG
-          const imageElements = clonedSVG.querySelectorAll('image')
-          imageElements.forEach((imgEl) => {
-            imgEl.removeAttribute('data-draggable')
-            const imageId = imgEl.getAttribute('data-image-id') || imgEl.id || 'user-image-1'
-            if (imageId) {
-              makeSVGImageDraggable(imgEl as SVGImageElement, imageId)
-            }
-          })
-          
-          void targetContainer.offsetHeight
-        }
-      } else {
-        // Show fallback if SVG not found
-        const previewContainers = Array.isArray(chatPreviewContainer.value) 
-          ? chatPreviewContainer.value 
-          : (chatPreviewContainer.value ? [chatPreviewContainer.value] : [])
-        
-        const targetContainer = previewContainers[previewContainers.length - 1]
-        
-        if (targetContainer) {
-          targetContainer.innerHTML = `
-            <svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
-              <rect width="100%" height="100%" fill="#fee"/>
-              <text x="50%" y="45%" text-anchor="middle" font-size="16" fill="#c00">SVG Failed to Load</text>
-              <text x="50%" y="55%" text-anchor="middle" font-size="12" fill="#666">Please try again</text>
-            </svg>
-          `
-        }
-      }
-    }
-    
-    // Scroll to bottom to show the generated SVG
-    scrollToBottom()
-    
-  } catch (error) {
-    // Reset state on error so user can try again
-    showWeddingStickerPreview.value = false
-    
-    authStore.showNotification({
-      title: 'Generation Failed',
-      message: 'Something went wrong. Please try again.',
-      type: 'error'
-    })
-  } finally {
-    isGeneratingPreview.value = false
-    generatingStep.value = 0
-    stopGeneratingMessages()
-    setTimeout(() => {
-      scrollToBottom()
-    }, 100)
-  }
+  await generateWeddingPreviewUtil(ctx)
 }
 
 // Image crop modal state
