@@ -261,30 +261,7 @@ const Vue3Lottie = defineAsyncComponent(() =>
   import('vue3-lottie').then(m => m.Vue3Lottie)
 )
 
-// Lazy load Capacitor TTS - only when needed on native platforms
-let TextToSpeech: any = null
-const loadTextToSpeech = async () => {
-  // Only load on actual native platforms (APK/IPA), not web
-  const isNativePlatform = typeof window !== 'undefined' &&
-                            (window as any).Capacitor?.isNativePlatform &&
-                            (window as any).Capacitor.isNativePlatform()
-  
-  if (!isNativePlatform) {
-    // Return null on web to prevent "not implemented" errors
-    return null
-  }
-  
-  if (!TextToSpeech) {
-    try {
-      const module = await import('@capacitor-community/text-to-speech')
-      TextToSpeech = module.TextToSpeech
-    } catch (e) {
-      console.warn('TextToSpeech module not available:', e)
-      return null
-    }
-  }
-  return TextToSpeech
-}
+// TTS lazy-loading now handled by useSpeechToText composable
 
 // Import composables (needed immediately for setup)
 import { useWeddingStickerUpdater } from '@/composables/useWeddingStickerUpdater'
@@ -321,12 +298,6 @@ import type { ChatMessage, Category, ExtractedInfo } from './sticker'
 import { useTextExtraction } from '@/composables/useTextExtraction'
 import { useAiChatResponses } from '@/composables/useAiChatResponses'
 import { useStickerExport } from '@/composables/useStickerExport'
-
-// TODO: TECH DEBT - Speech functionality in this file duplicates ./sticker/composables/useSpeechToText.ts
-// The local speech functions (toggleVoiceInput, speakMessage, stopAllSpeech, etc.) should be
-// replaced with useSpeechToText composable. This requires restructuring initialization order
-// since sendMessage and scrollToBottom are defined later in this file.
-// See: toggleVoiceInput (~line 1015), speakMessage (~line 2020), initSpeechRecognition (~line 1860)
 
 // Import sticker composables (title, flourish, background management, spell correction, intent detection)
 import {
@@ -370,6 +341,8 @@ import {
   hasWeddingDetails,
   // Wedding chat composable for proper title/names/date/courtesy detection
   useWeddingChat,
+  // Speech-to-Text composable
+  useSpeechToText,
 } from './sticker/composables'
 
 const router = useRouter()
@@ -1018,174 +991,10 @@ function triggerImageUpload() {
   }
 }
 
-function toggleVoiceInput() {
-  // Check if speech recognition is supported
-  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-  
-  // Detect if on mobile
-  const isMobile = checkIfMobile()
-  
-  // Haptic feedback for mobile (vibrate on tap)
-  if (isMobile && navigator.vibrate) {
-    navigator.vibrate(50) // Short vibration
-  }
-  
-  if (!SpeechRecognition) {
-    // On mobile, provide more helpful message
-    if (isMobile) {
-      authStore.showNotification({
-        title: 'Voice Input',
-        message: 'Voice input requires microphone permission. Please allow access in your device settings.',
-        type: 'info'
-      })
-    } else {
-      authStore.showNotification({
-        title: 'Voice Input Not Supported',
-        message: 'Your browser does not support voice input. Please try Chrome, Edge, or Safari.',
-        type: 'error'
-      })
-    }
-    return
-  }
-  
-  // If already recording, stop it
-  if (isRecording.value && speechRecognition.value) {
-    speechRecognition.value.stop()
-    isRecording.value = false
-    
-    // Haptic feedback when stopping
-    if (isMobile && navigator.vibrate) {
-      navigator.vibrate(100) // Longer vibration to indicate stop
-    }
-    
-    // Remove listening message
-    const listeningMsgIndex = chatMessages.value.findIndex(m => m.isLoading && m.text.includes('Listening'))
-    if (listeningMsgIndex !== -1) {
-      chatMessages.value.splice(listeningMsgIndex, 1)
-    }
-    
-    // Auto-send if text was captured AND not already sent
-    if (chatInputText.value.trim() && !voiceMessageSent.value) {
-      voiceMessageSent.value = true // Mark as sent
-      
-      // Auto-send immediately
-      setTimeout(() => {
-        sendMessage()
-      }, 50) // Almost instant
-    }
-    return
-  }
-  
-  // Initialize recognition if not already done
-  if (!speechRecognition.value) {
-    speechRecognition.value = initSpeechRecognition()
-  }
-  
-  if (!speechRecognition.value) {
-    authStore.showNotification({
-      title: 'Voice Input Error',
-      message: isMobile 
-        ? 'Could not access microphone. Please check app permissions in your device settings.'
-        : 'Could not initialize voice recognition. Please try again.',
-      type: 'error'
-    })
-    return
-  }
-  
-  // Start recording
-  try {
-    speechRecognition.value.start()
-    
-    // Haptic feedback when recording starts
-    if (isMobile && navigator.vibrate) {
-      navigator.vibrate([50, 30, 50]) // Double vibration pattern
-    }
-    
-    // Show toast notification - different message for mobile
-    authStore.showNotification({
-      title: '?? Listening...',
-      message: isMobile ? 'Speak clearly into your phone!' : 'Speak now! Say your message clearly.',
-      type: 'info'
-    })
-    
-    // Add a listening indicator to chat
-    chatMessages.value.push({
-      id: Date.now(),
-      text: isMobile ? '?? Listening... Speak into your phone!' : '?? Listening... Speak now!',
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isLoading: true
-    })
-    scrollToBottom()
-    
-    // On mobile, set a timeout to auto-stop if user doesn't speak (prevent hanging)
-    if (isMobile) {
-      setTimeout(() => {
-        if (isRecording.value && !chatInputText.value.trim()) {
-          stopVoiceRecording()
-          authStore.showNotification({
-            title: 'Voice Timeout',
-            message: "I didn't hear anything. Tap the mic and try again!",
-            type: 'info'
-          })
-        }
-      }, 10000) // 10 second timeout on mobile
-    }
-    
-  } catch (error) {
-    console.error('Failed to start voice recognition:', error)
-    authStore.showNotification({
-      title: 'Voice Input Error',
-      message: isMobile 
-        ? 'Microphone access denied. Please allow microphone permission in Settings > Apps > [This App] > Permissions.'
-        : 'Could not start voice recognition. Please check microphone permissions.',
-      type: 'error'
-    })
-  }
-}
-
-// Stop voice recording and remove listening message
-function stopVoiceRecording() {
-  if (speechRecognition.value && isRecording.value) {
-    speechRecognition.value.stop()
-    isRecording.value = false
-  }
-  
-  // Remove the "Listening..." message
-  const listeningMsgIndex = chatMessages.value.findIndex(m => m.isLoading && m.text.includes('Listening'))
-  if (listeningMsgIndex !== -1) {
-    chatMessages.value.splice(listeningMsgIndex, 1)
-  }
-}
-
-// Stop voice recording AND automatically send the message
-function stopVoiceRecordingAndSend() {
-  if (speechRecognition.value && isRecording.value) {
-    speechRecognition.value.stop()
-    isRecording.value = false
-  }
-  
-  // Remove the "Listening..." message
-  const listeningMsgIndex = chatMessages.value.findIndex(m => m.isLoading && m.text.includes('Listening'))
-  if (listeningMsgIndex !== -1) {
-    chatMessages.value.splice(listeningMsgIndex, 1)
-  }
-  
-  // Auto-send if there's text AND we haven't already sent
-  if (chatInputText.value.trim() && !voiceMessageSent.value) {
-    voiceMessageSent.value = true // Mark as sent to prevent duplicates
-    
-    // Haptic feedback before sending
-    if (navigator.vibrate) {
-      navigator.vibrate(30) // Quick single vibration
-    }
-    
-    // Send immediately
-    setTimeout(() => {
-      sendMessage()
-    }, 50) // Almost instant
-  }
-}
+// Voice functions now come from useSpeechToText composable:
+// - toggleVoiceInput, stopVoiceRecording, stopVoiceRecordingAndSend
+// - checkIfMobile, toggleVoice, speakMessage, stopAllSpeech
+// - isRecording, isVoiceEnabled, isMobileDevice, interimTranscript
 
 // AI Chat handler
 function handleChatClick() {
@@ -1834,159 +1643,6 @@ const formData = reactive({
 // Separate chat input state to prevent real-time SVG updates during chat
 const chatInputText = ref('')
 
-// ============================================================================
-// SPEECH-TO-TEXT (STT) - Voice Input Feature
-// Supports both Web browsers AND Mobile apps (iOS/Android via Capacitor)
-// AUTO-SEND: Message is sent automatically after speech recognition completes
-// ============================================================================
-const isRecording = ref(false)
-const speechRecognition = ref<any>(null)
-const interimTranscript = ref('')
-const isMobileDevice = ref(false)
-const voiceMessageSent = ref(false) // Flag to prevent duplicate sends
-
-// Check if running on mobile (Capacitor)
-function checkIfMobile(): boolean {
-  // Check for Capacitor native platform
-  const isCapacitor = typeof (window as any).Capacitor !== 'undefined' && 
-                      (window as any).Capacitor.isNativePlatform && 
-                      (window as any).Capacitor.isNativePlatform()
-  
-  // Also check user agent for mobile browsers
-  const isMobileBrowser = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-  
-  return isCapacitor || isMobileBrowser
-}
-
-// Initialize Speech Recognition (Works on Web and Mobile)
-function initSpeechRecognition() {
-  isMobileDevice.value = checkIfMobile()
-  
-  // Check if browser supports Web Speech API
-  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-  
-  if (!SpeechRecognition) {
-    console.warn('?? Speech Recognition not supported in this browser/device')
-    return null
-  }
-  
-  const recognition = new SpeechRecognition()
-  
-  // Configuration - optimized for mobile
-  recognition.continuous = !isMobileDevice.value // On mobile, single utterance works better
-  recognition.interimResults = true // Show results as user speaks
-  recognition.lang = 'en-US' // Default language (supports multiple languages)
-  recognition.maxAlternatives = 1
-  
-  // Event: When speech is recognized
-  recognition.onresult = (event: any) => {
-    let finalTranscript = ''
-    let interim = ''
-    
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      const transcript = event.results[i][0].transcript
-      if (event.results[i].isFinal) {
-        finalTranscript += transcript
-      } else {
-        interim += transcript
-      }
-    }
-    
-    // Update input with interim results (shows text as user speaks)
-    if (interim) {
-      interimTranscript.value = interim
-      // Show interim in input field - but don't duplicate
-      const baseText = chatInputText.value.replace(interimTranscript.value, '').trim()
-      chatInputText.value = baseText ? `${baseText} ${interim}`.trim() : interim
-    }
-    
-    // When speech is final, add to input
-    if (finalTranscript) {
-      const baseText = chatInputText.value.replace(interimTranscript.value, '').trim()
-      chatInputText.value = baseText ? `${baseText} ${finalTranscript}`.trim() : finalTranscript
-      interimTranscript.value = ''
-      console.log('?? Recognized:', finalTranscript)
-      
-      // Auto-stop and auto-send after recognition
-      voiceMessageSent.value = false // Reset flag
-      setTimeout(() => {
-        stopVoiceRecordingAndSend()
-      }, 300) // Quick send after speech ends
-    }
-  }
-  
-  // Event: Recognition started
-  recognition.onstart = () => {
-    console.log('?? Voice recognition started')
-    isRecording.value = true
-    voiceMessageSent.value = false // Reset the sent flag when starting new recording
-  }
-  
-  // Event: Recognition ended
-  recognition.onend = () => {
-    console.log('?? Voice recognition ended')
-    isRecording.value = false
-    
-    // Remove any listening messages
-    const listeningMsgIndex = chatMessages.value.findIndex(m => m.isLoading && m.text.includes('Listening'))
-    if (listeningMsgIndex !== -1) {
-      chatMessages.value.splice(listeningMsgIndex, 1)
-    }
-    
-    // Auto-send if there's text AND we haven't already sent it
-    if (chatInputText.value.trim() && !voiceMessageSent.value) {
-      voiceMessageSent.value = true
-      setTimeout(() => {
-        sendMessage()
-      }, 100) // Fast send
-    }
-  }
-  
-  // Event: Error occurred
-  recognition.onerror = (event: any) => {
-    console.error('?? Speech recognition error:', event.error)
-    isRecording.value = false
-    
-    // Remove listening message on error
-    const listeningMsgIndex = chatMessages.value.findIndex(m => m.isLoading && m.text.includes('Listening'))
-    if (listeningMsgIndex !== -1) {
-      chatMessages.value.splice(listeningMsgIndex, 1)
-    }
-    
-    let errorMessage = 'Voice input error'
-    switch (event.error) {
-      case 'no-speech':
-        errorMessage = "I didn't hear anything. Tap the mic and try again!"
-        break
-      case 'audio-capture':
-        errorMessage = 'No microphone found. Please check your device settings.'
-        break
-      case 'not-allowed':
-        errorMessage = 'Microphone access denied. Please allow microphone permission in your device settings.'
-        break
-      case 'network':
-        errorMessage = 'Network error. Please check your internet connection.'
-        break
-      case 'aborted':
-        // User stopped recording - no need to show error
-        return
-      case 'service-not-allowed':
-        errorMessage = 'Speech service not available. Please try again later.'
-        break
-      default:
-        errorMessage = `Voice error: ${event.error}`
-    }
-    
-    authStore.showNotification({
-      title: 'Voice Input',
-      message: errorMessage,
-      type: 'error'
-    })
-  }
-  
-  return recognition
-}
-
 // Chat Logic for Wedding Category
 const chatMessages = ref<Array<{ 
   id: number; 
@@ -1999,214 +1655,8 @@ const chatMessages = ref<Array<{
   actions?: Array<{ type: string; label: string; icon?: string; variant?: 'primary' | 'secondary' }>;
 }>>([])
 const isAnalyzing = ref(false)
-const isVoiceEnabled = ref(true) // Enabled by default
 
-// Voice / TTS Logic
-function toggleVoice() {
-  isVoiceEnabled.value = !isVoiceEnabled.value
-  if (isVoiceEnabled.value) {
-    // Announce voice is on
-    speakMessage("Voice guidance enabled. I will read my messages to you.")
-  } else {
-    // Stop any ongoing speech safely
-    try {
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis?.cancel()
-      }
-      // Stop native TTS (lazy loaded)
-      loadTextToSpeech().then(TTS => TTS?.stop?.()).catch(() => {})
-    } catch (error) {
-      // Ignore errors when stopping speech
-    }
-  }
-}
-
-function speakMessage(text: string) {
-  if (!isVoiceEnabled.value) return
-  
-  // Cancel any ongoing speech first to prevent overlap/duplicates
-  stopAllSpeech()
-  
-  // Remove emojis and special characters before speaking
-  // This regex removes most emojis and special unicode characters
-  const cleanText = text
-    .replace(/[\u{1F600}-\u{1F64F}]/gu, '') // Emoticons
-    .replace(/[\u{1F300}-\u{1F5FF}]/gu, '') // Misc Symbols and Pictographs
-    .replace(/[\u{1F680}-\u{1F6FF}]/gu, '') // Transport and Map
-    .replace(/[\u{1F700}-\u{1F77F}]/gu, '') // Alchemical Symbols
-    .replace(/[\u{1F780}-\u{1F7FF}]/gu, '') // Geometric Shapes Extended
-    .replace(/[\u{1F800}-\u{1F8FF}]/gu, '') // Supplemental Arrows-C
-    .replace(/[\u{1F900}-\u{1F9FF}]/gu, '') // Supplemental Symbols and Pictographs
-    .replace(/[\u{1FA00}-\u{1FA6F}]/gu, '') // Chess Symbols
-    .replace(/[\u{1FA70}-\u{1FAFF}]/gu, '') // Symbols and Pictographs Extended-A
-    .replace(/[\u{2600}-\u{26FF}]/gu, '')   // Misc symbols (sun, moon, etc)
-    .replace(/[\u{2700}-\u{27BF}]/gu, '')   // Dingbats
-    .replace(/[\u{FE00}-\u{FE0F}]/gu, '')   // Variation Selectors
-    .replace(/[\u{1F000}-\u{1F02F}]/gu, '') // Mahjong Tiles
-    .replace(/[\u{1F0A0}-\u{1F0FF}]/gu, '') // Playing Cards
-    .replace(/\*\*/g, '')                    // Remove markdown bold markers
-    .replace(/\s+/g, ' ')                    // Clean up extra whitespace
-    .trim()
-  
-  // On mobile (Android/iOS via Capacitor), try native TTS first since Web Speech API
-  // often doesn't work properly in WebView
-  const isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-                   (typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.())
-  
-  if (isMobile) {
-    // Try native TTS first on mobile
-    tryNativeTTS(cleanText).catch(() => {
-      // Fallback to web speech if native TTS fails
-      console.log('Native TTS failed, trying web speech...')
-      tryWebSpeech(cleanText)
-    })
-  } else {
-    // On desktop, use web speech synthesis
-    tryWebSpeech(cleanText)
-  }
-}
-
-// Helper function to stop all ongoing speech
-function stopAllSpeech() {
-  try {
-    // Stop web speech synthesis
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel()
-    }
-    // Stop native TTS (Capacitor) if available - lazy loaded
-    loadTextToSpeech().then(TTS => TTS?.stop?.()).catch(() => {})
-  } catch (e) {
-    // Ignore errors
-  }
-}
-
-async function tryNativeTTS(text: string) {
-  try {
-    // Only attempt on native platforms
-    const isNativePlatform = typeof window !== 'undefined' &&
-                              (window as any).Capacitor?.isNativePlatform &&
-                              (window as any).Capacitor.isNativePlatform()
-    
-    if (!isNativePlatform) {
-      throw new Error('Not on native platform')
-    }
-    
-    console.log('🔊 Attempting native TTS...')
-    const TTS = await loadTextToSpeech()
-    if (!TTS) throw new Error('TTS not available')
-    
-    await TTS.speak({
-      text: text,
-      lang: 'en-US',
-      rate: 0.95,
-      pitch: 1.0,
-      volume: 1.0,
-      category: 'ambient'
-    })
-    console.log('✅ Native TTS successful')
-  } catch (error) {
-    console.warn('❌ Native TTS failed:', error)
-    // Not available, will fallback to web speech
-    throw error
-  }
-}
-
-function tryWebSpeech(text: string) {
-  // Check if speechSynthesis is available
-  if (typeof window === 'undefined' || !window.speechSynthesis) {
-    console.warn('Speech synthesis not available')
-    return
-  }
-  
-  try {
-    // Cancel any current speech safely
-    if (window.speechSynthesis?.speaking || window.speechSynthesis?.pending) {
-      window.speechSynthesis?.cancel()
-    }
-    
-    // Small delay to ensure cancellation is processed
-    setTimeout(() => {
-      try {
-        const utterance = new SpeechSynthesisUtterance(text)
-        
-        // Get voices safely
-        const voices = window.speechSynthesis?.getVoices() || []
-        
-        // If no voices yet, try to wait for them (but don't break if not supported)
-        if (voices.length === 0) {
-          const voicesHandler = () => {
-            try {
-              const loadedVoices = window.speechSynthesis?.getVoices() || []
-              if (loadedVoices.length > 0) {
-                setVoiceAndSpeak(utterance, loadedVoices)
-              } else {
-                // Just speak with default voice
-                window.speechSynthesis?.speak(utterance)
-              }
-            } catch (err) {
-              console.warn('Voice loading error:', err)
-            }
-          }
-          
-          if (window.speechSynthesis?.addEventListener) {
-            window.speechSynthesis?.addEventListener('voiceschanged', voicesHandler, { once: true })
-            // Fallback timeout in case voiceschanged never fires
-            setTimeout(() => {
-              window.speechSynthesis?.removeEventListener('voiceschanged', voicesHandler)
-              window.speechSynthesis?.speak(utterance)
-            }, 1000)
-          } else {
-            window.speechSynthesis?.speak(utterance)
-          }
-        } else {
-          setVoiceAndSpeak(utterance, voices)
-        }
-      } catch (error) {
-        console.warn('Speech synthesis error:', error)
-      }
-    }, 100)
-  } catch (error) {
-    console.warn('Speech synthesis not available:', error)
-  }
-}
-
-function setVoiceAndSpeak(utterance: SpeechSynthesisUtterance, voices: SpeechSynthesisVoice[]) {
-  try {
-    // Prefer a clear English voice
-    const preferredVoice = voices.find(v => 
-      v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Female') || v.name.includes('Samantha'))
-    ) || voices.find(v => v.lang.startsWith('en')) || voices[0]
-    
-    if (preferredVoice) utterance.voice = preferredVoice
-    
-    utterance.rate = 0.95
-    utterance.pitch = 1.0
-    utterance.volume = 1.0
-    
-    if (window.speechSynthesis) {
-      window.speechSynthesis?.speak(utterance)
-    }
-  } catch (error) {
-    console.warn('Speech synthesis error:', error)
-  }
-}
-
-// Initialize voice on mount
-onMounted(() => {
-  try {
-    // Wait for voices to load - but don't break if not supported
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      if (window.speechSynthesis?.onvoiceschanged !== undefined) {
-        window.speechSynthesis!.onvoiceschanged = () => {
-          // Voices loaded
-        }
-      }
-    }
-  } catch (error) {
-    console.warn('Speech synthesis initialization failed:', error)
-  }
-})
-
+// showChatHelp - displays help message in chat
 function showChatHelp() {
   const helpText = "Let me show you how it works!\n\n1. Type your details or upload a picture\n2. Use two fingers to resize images on mobile\n3. Click the voice icon to hear me speak!\n\nIt's easy! Let's go!"
 
@@ -2219,31 +1669,10 @@ function showChatHelp() {
   scrollToBottom()
 }
 
-// Watch for new AI messages to speak them
-// IMPORTANT: This is the ONLY place that should trigger voice announcements for the wedding chat
-// The speakMessage function should NOT be called directly elsewhere to avoid duplicates
-let lastSpokenMessageId: number | null = null
-let speakTimeout: ReturnType<typeof setTimeout> | null = null
-watch(() => chatMessages.value.length, (newLen, oldLen) => {
-  if (newLen > oldLen && isVoiceEnabled.value && selectedCategory.value === 'wedding') {
-    const lastMsg = chatMessages.value[newLen - 1]
-    // Prevent duplicate announcements by tracking the last spoken message ID
-    if (lastMsg.sender === 'ai' && lastMsg.id !== lastSpokenMessageId) {
-      // Clear any pending speech timeout to prevent duplicates
-      if (speakTimeout) {
-        clearTimeout(speakTimeout)
-        speakTimeout = null
-      }
-      // Cancel any ongoing speech first
-      stopAllSpeech()
-      
-      lastSpokenMessageId = lastMsg.id
-      // Small delay to ensure cancellation is processed before speaking
-      speakTimeout = setTimeout(() => {
-        speakMessage(lastMsg.text)
-      }, 150)
-    }
-  }
+// Setup auto-speak watcher for AI messages (using composable)
+onMounted(() => {
+  setupAutoSpeakWatcher()
+  initializeVoice()
 })
 
 
@@ -2386,6 +1815,42 @@ const scrollToBottom = () => {
   }
 }
 
+// ============================================================================
+// SPEECH-TO-TEXT & TTS - Using composable (replaces ~400 lines of inline code)
+// ============================================================================
+// Forward reference for sendMessage - will be defined later but needed by speech composable
+let _sendMessageRef: (() => void) | null = null
+const sendMessageWrapper = () => {
+  if (_sendMessageRef) _sendMessageRef()
+}
+
+// Initialize speech composable with all required dependencies
+const speechHandler = useSpeechToText({
+  chatInputText,
+  chatMessages: chatMessages as any,
+  sendMessage: sendMessageWrapper,
+  scrollToBottom,
+  showNotification: (opts) => authStore.showNotification(opts),
+  selectedCategory: selectedCategory as any,
+})
+
+// Destructure what we need from the composable
+const {
+  isRecording,
+  isVoiceEnabled,
+  isMobileDevice,
+  interimTranscript,
+  toggleVoiceInput,
+  stopVoiceRecording,
+  stopVoiceRecordingAndSend,
+  toggleVoice,
+  speakMessage,
+  stopAllSpeech,
+  initializeVoice,
+  setupAutoSpeakWatcher,
+  checkIfMobile,
+} = speechHandler
+
 // Initialize the wedding chat composable for proper title/names/date/courtesy detection
 weddingChatProcessor = useWeddingChat({
   extractedInfo: extractedInfo as any,  // Cast to expected ExtractedInfo type
@@ -2489,677 +1954,30 @@ function parseSizeToInches(size: string): { w: number; h: number } | null {
 // Using extractWeddingDetails from composables instead of inline tryLocalExtraction
 // This provides better pattern matching and title extraction
 
-let weddingChatRequestId = 0
-
-async function analyzeMessageWithOllama(lastUserMessage: string) {
-  // Ensure message is a string
+// analyzeMessage uses weddingChatProcessor and local extraction (Ollama function removed)
+async function analyzeMessage(lastUserMessage: string) {
   if (!lastUserMessage || typeof lastUserMessage !== 'string') {
-    console.error('analyzeMessageWithOllama called with non-string:', lastUserMessage)
+    console.error('analyzeMessage called with non-string:', lastUserMessage)
     return
   }
-  const reqId = ++weddingChatRequestId
-  const context = buildWeddingChatContextForAI()
-  const transcript = buildWeddingChatTranscriptForAI()
-  const isAuthed = !!authStore.isAuthenticated
-  const lowerMsg = lastUserMessage.trim().toLowerCase()
 
-  // --- USE WEDDING CHAT COMPOSABLE FIRST ---
-  // This handles title-only, names-only, date-only, courtesy-only detection
-  // and provides proper responses asking for missing information
+  // Use wedding chat composable for processing
   if (weddingChatProcessor) {
     const handled = await weddingChatProcessor.processMessage(lastUserMessage)
     if (handled) {
-      // Sync the state after composable processes
       syncWeddingDescriptionFromState()
+      isAnalyzing.value = false
       return
     }
   }
 
-  // --- Quick greeting shortcut (avoid Ollama call for simple greetings) ---
-  const isSimpleGreeting = /^(hi+|hello+|hey+|hiya|yo|good\s*(morning|afternoon|evening|day)|assalamualaikum|salam|greetings?)[\s!.?]*$/i.test(lowerMsg)
-  if (isSimpleGreeting) {
-    isAnalyzing.value = false
-    const hour = new Date().getHours()
-    let greet = 'Hello!'
-    if (hour >= 5 && hour < 12) greet = 'Good morning!'
-    else if (hour >= 12 && hour < 17) greet = 'Good afternoon!'
-    else if (hour >= 17 && hour < 21) greet = 'Good evening!'
-    if (/salam/i.test(lowerMsg)) greet = 'Wa alaikum assalam!'
-
-    // Check if we already have some info to personalize the greeting
-    const hasName = !!extractedInfo.value.names.name1
-    const hasDate = !!extractedInfo.value.date
-    
-    let responseText = ''
-    if (hasName && hasDate) {
-      responseText = `${greet} ?? Welcome back! I still have your details saved. Would you like me to generate your sticker?`
-    } else if (hasName || hasDate) {
-      const have = hasName ? `the names (${extractedInfo.value.names.name1}${extractedInfo.value.names.name2 ? ' & ' + extractedInfo.value.names.name2 : ''})` : `the date (${extractedInfo.value.date})`
-      const need = !hasName ? 'the bride\'s and groom\'s names' : 'the wedding date'
-      responseText = `${greet} ?? I remember ${have}. Just need ${need} to create your sticker!`
-    } else {
-      responseText = `${greet} ?? I'm here to help create your wedding sticker!\n\nJust tell me the couple's names and wedding date, and I'll design something beautiful for you!`
-    }
-
-    chatMessages.value.push({
-      id: Date.now(),
-      text: responseText,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    } as any)
-    scrollToBottom()
-    return
-  }
-
-  // --- "Who are you?" / "What are you?" questions ---
-  const isWhoAreYou = /\b(who\s*(are\s*you|r\s*u|is\s*this)|what\s*(are\s*you|r\s*u|is\s*this(\s*app|\s*thing)?)|what\s*do\s*you\s*do|ur\s*name|your\s*name|introduce\s*yourself|tell\s*me\s*about\s*(you|yourself)|wats?\s*(dis|this))\b/i.test(lowerMsg)
-  if (isWhoAreYou) {
-    isAnalyzing.value = false
-    chatMessages.value.push({
-      id: Date.now(),
-      text: `Hey there! ?? I'm your wedding sticker assistant!\n\nTell me the couple's names and when the big day is ? I'll create a beautiful sticker design for you! ??`,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    } as any)
-    scrollToBottom()
-    return
-  }
-
-  // --- How are you / casual chat ---
-  const isHowAreYou = /\b(how\s*(are\s*you|r\s*u|u\s*doing|ya\s*doing)|how'?s\s*(it\s*going|things|life|everything)|what'?s\s*(up|good|new)|sup|wassup|how\s*do\s*you\s*do)\b/i.test(lowerMsg)
-  if (isHowAreYou) {
-    isAnalyzing.value = false
-    const responses = [
-      `I'm doing wonderful, thanks for asking! ?? Ready to help create something special for you!`,
-      `Great, thank you! ?? So excited to help with your wedding sticker today!`,
-      `Feeling creative and ready to help! ?? Got a wedding to celebrate?`
-    ]
-    const randomResponse = responses[Math.floor(Math.random() * responses.length)]
-    chatMessages.value.push({
-      id: Date.now(),
-      text: randomResponse,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    } as any)
-    scrollToBottom()
-    return
-  }
-
-  // --- General questions (what can you do, capabilities) ---
-  const isCapabilityQuestion = /\b(what\s*can\s*you\s*(do|make|create|help)|wha?t\s*(u|you)\s*do|your\s*capabilities|features|how\s*does\s*(this|it)\s*work|wat\s*can\s*u\s*do|show\s*me\s*what\s*you\s*can)\b/i.test(lowerMsg)
-  if (isCapabilityQuestion) {
-    isAnalyzing.value = false
-    chatMessages.value.push({
-      id: Date.now(),
-      text: `I create beautiful wedding stickers! ???\n\nJust share:\n? The couple's names\n? Wedding date\n\nI'll design a gorgeous sticker you can download and share! You can also pick colors or styles if you'd like.`,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    } as any)
-    scrollToBottom()
-    return
-  }
-
-  // --- Non-wedding request detection (flyer, poster, logo, banner, etc.) ---
-  const isNonWeddingRequest = /\b(flyer|poster|logo|banner|business\s*card|brochure|menu|certificate|resume|cv|letterhead|book\s*cover|album|birthday|anniversary|graduation|baby\s*shower|funeral|naming\s*ceremony)\b/i.test(lowerMsg)
-  if (isNonWeddingRequest && !/wedding/i.test(lowerMsg)) {
-    isAnalyzing.value = false
-    const friendlyResponses = [
-      `I appreciate you thinking of me! ?? But I specialize only in wedding stickers.\n\nIf you have a wedding coming up, I'd love to help create something beautiful!`,
-      `That sounds like a lovely project! Unfortunately, I only create wedding stickers. ??\n\nGot a wedding to celebrate? I'm your assistant!`,
-      `I wish I could help with that! But my specialty is wedding stickers only. ??\n\nKnow someone getting married? I'd love to help!`
-    ]
-    const randomResponse = friendlyResponses[Math.floor(Math.random() * friendlyResponses.length)]
-    chatMessages.value.push({
-      id: Date.now(),
-      text: randomResponse,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    } as any)
-    scrollToBottom()
-    return
-  }
-
-  // --- Vague design request ("I want a beautiful design", "make something nice") ---
-  const isVagueDesignRequest = /\b(beautiful|nice|pretty|good|amazing|lovely|stunning|cool|awesome)\s*(design|sticker|thing|something|one)?\b/i.test(lowerMsg) && !/(name|bride|groom|date|wedding)/i.test(lowerMsg)
-  if (isVagueDesignRequest) {
-    isAnalyzing.value = false
-    chatMessages.value.push({
-      id: Date.now(),
-      text: `I'd love to create something beautiful for you! ??\n\nJust tell me:\n? Who's getting married? (couple's names)\n? When's the wedding?`,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    } as any)
-    scrollToBottom()
-    return
-  }
-
-  // --- Background Removal Decision Handler (YES) ---
-  const isAffirmative = /^(yes|yeah|yep|yup|sure|ok|okay|alright|definitely|of course|absolutely|let'?s go|let'?s do it|please|do it)[\s!.?]*$/i.test(lowerMsg)
-  if (isAffirmative && awaitingBackgroundRemovalDecision.value && pendingImageFile.value) {
-    isAnalyzing.value = false
-    awaitingBackgroundRemovalDecision.value = false
-    
-    chatMessages.value.push({
-      id: Date.now(),
-      text: "Removing background... This may take a moment. ⏳",
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    } as any)
-    scrollToBottom()
-    
-    try {
-      const fileToProcess = pendingImageFile.value
-      const result = await removeBackground(fileToProcess, {
-        quality: 'balanced',
-        outputFormat: 'image/png'
-      })
-      
-      if (result && result.blob) {
-        // Create new file from processed blob
-        const processedFile = new File([result.blob], fileToProcess.name.replace(/\.[^/.]+$/, '_nobg.png'), {
-          type: 'image/png',
-          lastModified: Date.now()
-        })
-        
-        // Get SVG element
-        const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
-        if (svgElement) {
-          svgImageManager.clearAllImages()
-          await svgImageManager.addImage(processedFile, svgElement)
-          updateSVGWithImages()
-        }
-        
-        // Store for generation
-        preGeneratedImageFile.value = processedFile
-        preGeneratedImagePreview.value = result.dataUrl
-        
-        chatMessages.value.push({
-          id: Date.now(),
-          text: "Background removed! ✨ Your image is ready!\n\n📌 **Tip:** You can drag the image to reposition it after the design is generated!",
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        } as any)
-      } else {
-        throw new Error('Background removal returned no result')
-      }
-    } catch (error) {
-      console.error('Background removal failed:', error)
-      chatMessages.value.push({
-        id: Date.now(),
-        text: "Sorry, I couldn't remove the background. Using the original image instead. 📷",
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      } as any)
-      
-      // Use original image
-      const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
-      if (svgElement && pendingImageFile.value) {
-        svgImageManager.clearAllImages()
-        await svgImageManager.addImage(pendingImageFile.value, svgElement)
-        updateSVGWithImages()
-        preGeneratedImageFile.value = pendingImageFile.value
-        preGeneratedImagePreview.value = URL.createObjectURL(pendingImageFile.value)
-      }
-    }
-    
-    pendingImageFile.value = null
-    scrollToBottom()
-    return
-  }
-
-  // --- Affirmative shortcut (yes/yeah/sure/ok) - generic ---
-  if (isAffirmative) {
-    isAnalyzing.value = false
-    // Check if we already have some info collected
-    const hasName1 = !!extractedInfo.value.names.name1
-    const hasDate = !!extractedInfo.value.date
-    
-    let responseText = ''
-    if (showWeddingStickerPreview.value) {
-      responseText = 'Your sticker is ready! You can download it or make edits. 🎉'
-    } else if (hasName1 && hasDate) {
-      if (!hasConfirmedWeddingSize()) {
-        responseText = "What size would you like the sticker? (e.g., '3x3' or type 'default' for 4x4 inches)"
-        awaitingSizeDecision.value = true
-      } else {
-        responseText = 'Got it! Generating your wedding sticker now... 🎨'
-        setTimeout(() => generateWeddingPreview(), 100)
-      }
-    } else {
-      const missing: string[] = []
-      if (!hasName1) missing.push('bride\'s and groom\'s names')
-      if (!hasDate) missing.push('wedding date')
-      responseText = missing.length > 0 
-        ? `I still need: ${missing.join(' and ')}. 📝`
-        : 'Let\'s create your wedding sticker!\n\nTell me:\n📍 Bride\'s name\n📍 Groom\'s name\n📍 Wedding date'
-    }
-    
-    chatMessages.value.push({
-      id: Date.now(),
-      text: responseText,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    } as any)
-    scrollToBottom()
-    return
-  }
-
-  // --- Change request shortcut (I want to change X) ---
-  const changeMatch = lowerMsg.match(/(?:change|update|edit|modify)\s+(?:the\s+)?(\w+)/i)
-  if (changeMatch) {
-    const field = changeMatch[1].toLowerCase()
-    isAnalyzing.value = false
-    let responseText = ''
-    
-    if (field.includes('name')) {
-      responseText = 'Sure! What are the new names? (e.g., "John & Sarah")'
-    } else if (field.includes('date')) {
-      responseText = 'Sure! What is the new date? (e.g., "June 15, 2025")'
-    } else if (field.includes('message') || field.includes('courtesy') || field.includes('text')) {
-      responseText = 'Sure! What is the new courtesy message?'
-    } else {
-      responseText = `Sure! Please share the new ${field} you'd like to use.`
-    }
-    
-    chatMessages.value.push({
-      id: Date.now(),
-      text: responseText,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    } as any)
-    scrollToBottom()
-    return
-  }
-
-  // --- Background Removal Decision Handler (NO) ---
-  const isNegative = /^(no|nope|nah|not now|not yet|maybe later|later|never mind|nevermind|skip|keep it|keep background)[\s!.?]*$/i.test(lowerMsg)
-  if (isNegative && awaitingBackgroundRemovalDecision.value && pendingImageFile.value) {
-    isAnalyzing.value = false
-    awaitingBackgroundRemovalDecision.value = false
-    
-    // Use the original image without background removal
-    const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
-    if (svgElement && pendingImageFile.value) {
-      svgImageManager.clearAllImages()
-      await svgImageManager.addImage(pendingImageFile.value, svgElement)
-      updateSVGWithImages()
-      preGeneratedImageFile.value = pendingImageFile.value
-      preGeneratedImagePreview.value = URL.createObjectURL(pendingImageFile.value)
-    }
-    
-    chatMessages.value.push({
-      id: Date.now(),
-      text: "Got it! Keeping the original background. 📷 Your image is ready!\n\n📌 **Tip:** You can drag the image to reposition it after the design is generated!",
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    } as any)
-    
-    pendingImageFile.value = null
-    scrollToBottom()
-    return
-  }
-
-  // --- Negative shortcut (no/nope/not now) - generic ---
-  if (isNegative) {
-    isAnalyzing.value = false
-    chatMessages.value.push({
-      id: Date.now(),
-      text: 'No problem! Just let me know whenever you\'re ready to create a wedding sticker. I\'m here to help! 😊',
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    } as any)
-    scrollToBottom()
-    return
-  }
-
-  // --- Thanks shortcut ---
-  const isThanks = /^(thanks?|thank you|thx|ty|cheers|appreciate it|awesome|great|perfect|cool)[\s!.?]*$/i.test(lowerMsg)
-  if (isThanks) {
-    isAnalyzing.value = false
-    const hasPreview = showWeddingStickerPreview.value
-    const responseText = hasPreview 
-      ? 'You\'re welcome! Your sticker looks great. Feel free to download it or let me know if you\'d like any changes!'
-      : 'You\'re welcome! Let me know if you need anything else for your wedding sticker.'
-    chatMessages.value.push({
-      id: Date.now(),
-      text: responseText,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    } as any)
-    scrollToBottom()
-    return
-  }
-
-  // --- Help shortcut ---
-  const isHelp = /^(help|help\s*me|i\s*need\s*help|what can you do|how does this work|instructions?|guide\s*me|how\s*to\s*use)[\s!.?]*$/i.test(lowerMsg)
-  if (isHelp) {
-    isAnalyzing.value = false
-    chatMessages.value.push({
-      id: Date.now(),
-      text: `Happy to help! 🎉 Here's how it works:\n\n1️⃣ Tell me the couple's names (e.g., "John & Sarah")\n2️⃣ Share the wedding date\n3️⃣ I'll create a beautiful sticker!\n\nYou can also add a custom message or pick your favorite colors. Ready when you are! 💒`,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    } as any)
-    scrollToBottom()
-    return
-  }
-
-  // --- Start Over / New Sticker / Fresh Start shortcut ---
-  const isStartOver = /\b(start\s*(over|fresh|again|new)|new\s*(sticker|wedding|design)|different\s*(wedding|couple|sticker)|reset|clear|another\s*(one|sticker|wedding))\b/i.test(lowerMsg)
-  if (isStartOver) {
-    isAnalyzing.value = false
-    
-    // Reset all wedding state
-    resetWeddingState()
-    
-    chatMessages.value.push({
-      id: Date.now(),
-      text: `Fresh start! 🔄 I've cleared everything.\n\nTell me about the new wedding - who's getting married and when?`,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    } as any)
-    scrollToBottom()
-    return
-  }
-
-  // --- LOCAL EXTRACTION: Try to extract wedding details without Ollama ---
-  const localExtraction = extractWeddingDetails(lastUserMessage, {
+  // Fallback: Try local extraction
+  const localResult = extractWeddingDetails(lastUserMessage, {
     hasName: !!extractedInfo.value.names.name1,
     hasDate: !!extractedInfo.value.date
   })
-  if (localExtraction.foundSomething) {
-    isAnalyzing.value = false
-    
-    // Apply extracted info (composable uses title, name1, name2, date, courtesy)
-    if (localExtraction.title && !customHeading.value) {
-      customHeading.value = localExtraction.title
-      headingStepComplete.value = true
-    }
-    if (localExtraction.name1) extractedInfo.value.names.name1 = localExtraction.name1
-    if (localExtraction.name2) extractedInfo.value.names.name2 = localExtraction.name2
-    if (localExtraction.date) extractedInfo.value.date = localExtraction.date
-    if (localExtraction.courtesy) extractedInfo.value.courtesy = localExtraction.courtesy
-    
-    syncWeddingDescriptionFromState()
-    
-    // Check what we have now
-    const hasName = !!extractedInfo.value.names.name1
-    const hasDate = !!extractedInfo.value.date
-    
-    let responseText = ''
-    if (hasName && hasDate) {
-      responseText = `Great! ??\n? Bride: ${extractedInfo.value.names.name1}\n? Groom: ${extractedInfo.value.names.name2 || 'Not specified'}\n? Date: ${extractedInfo.value.date}\n\nGenerating your sticker now...`
-      // Auto-generate preview
-      setTimeout(() => generateWeddingPreview(), 500)
-    } else {
-      const collected: string[] = []
-      const missing: string[] = []
-      if (hasName) {
-        if (extractedInfo.value.names.name2) {
-          collected.push(`Bride: ${extractedInfo.value.names.name1}`)
-          collected.push(`Groom: ${extractedInfo.value.names.name2}`)
-        } else {
-          collected.push(`Name: ${extractedInfo.value.names.name1}`)
-        }
-      }
-      if (hasDate) collected.push(`Date: ${extractedInfo.value.date}`)
-      if (!hasName) missing.push('bride\'s and groom\'s names')
-      if (!hasDate) missing.push('wedding date')
-      
-      responseText = collected.length > 0 
-        ? `Got it! ??\n? ${collected.join('\n? ')}\n\nI still need: ${missing.join(' and ')}.`
-        : `To create your sticker, I need:\n? Bride's name\n? Groom's name\n? Wedding date`
-    }
-    
-    chatMessages.value.push({
-      id: Date.now(),
-      text: responseText,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    } as any)
-    scrollToBottom()
-    return
-  }
 
-  const task = [
-    'You are a friendly wedding sticker assistant. Respond naturally like a helpful human.',
-    'Keep responses SHORT (1-2 sentences), warm, and use emoji sparingly.',
-    'ONLY help with wedding stickers. Politely decline other requests.',
-    'Required info: couple names (name1=bride, name2=groom) and wedding date.',
-    'Optional: courtesy (custom message/venue), color preferences.',
-    'If info missing, ask friendly follow-up questions.',
-    'Never mention AI, models, JSON, or technical terms.',
-    'Output JSON: {"message":"your reply","updates":{"name1":null,"name2":null,"date":null,"courtesy":null}}'
-  ].join('\n')
-
-  // Build conversation context from recent messages
-  const recentMessages = chatMessages.value.slice(-6).map(m => 
-    `${m.sender === 'user' ? 'User' : 'Assistant'}: ${m.text}`
-  ).join('\n')
-
-  try {
-    const system = 'You are a friendly, conversational wedding sticker assistant. Chat naturally, be warm and helpful. JSON output only.'
-
-    const aiText = await ai.chatText({
-      system,
-      user: `${task}\n\nConversation:\n${recentMessages}\n\nUser: ${lastUserMessage}`,
-      maxTokens: 150  // Slightly more for natural responses
-    })
-
-    console.log('Ollama response:', aiText)
-
-    let rawDecision: any | null = null
-    const direct = safeJsonParse<any>(aiText)
-    if (direct.ok) {
-      rawDecision = direct.value
-      console.log('? Direct JSON parse succeeded')
-    } else {
-      console.log('?? Direct parse failed, trying extraction...')
-      const extracted = extractFirstJsonBlock(aiText)
-      console.log('?? Extracted JSON block:', extracted)
-      if (extracted) {
-        const parsed = safeJsonParse<any>(extracted)
-        if (parsed.ok) {
-          rawDecision = parsed.value
-          console.log('? Extracted JSON parse succeeded')
-        }
-      }
-    }
-
-    // Ignore stale responses
-    if (reqId !== weddingChatRequestId) return
-
-    // If JSON parsing failed, try to extract just the message from the text
-    if (!rawDecision) {
-      isAnalyzing.value = false
-      console.log('? No valid JSON found, using fallback')
-      // Try to find a quoted message in the response
-      const msgMatch = aiText.match(/"message"\s*:\s*"([^"]+)"/i)
-      let fallbackText = msgMatch?.[1] || ''
-      
-      // If no message found, or response looks like JSON/code, use contextual fallback
-      const looksLikeCode = /^[\{\[\x60]|json|structure|format|returned|here is/i.test(fallbackText || aiText || '')
-      if (!fallbackText || looksLikeCode) {
-        const hasName = !!extractedInfo.value.names.name1
-        const hasDate = !!extractedInfo.value.date
-        const hasCourtesy = !!extractedInfo.value.courtesy
-        if (hasName && hasDate && hasCourtesy) {
-          fallbackText = 'I have all your details! Ready to generate your wedding sticker?'
-        } else {
-          const need: string[] = []
-          if (!hasName) need.push('names')
-          if (!hasDate) need.push('date')
-          if (!hasCourtesy) need.push('courtesy message')
-          fallbackText = need.length > 0 
-            ? 'Please share the ' + need.join(', ') + ' for your wedding sticker.'
-            : 'How can I help with your wedding sticker?'
-        }
-      }
-      
-      chatMessages.value.push({
-        id: Date.now(),
-        text: fallbackText,
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      } as any)
-      scrollToBottom()
-      return
-    }
-
-    const decision: WeddingAssistantDecision = {
-      // Some small models forget `message` and use `text`/`reply`/`answer`.
-      message: String(
-        rawDecision?.message ??
-          rawDecision?.text ??
-          rawDecision?.reply ??
-          rawDecision?.answer ??
-          ''
-      ),
-      action: {
-        name: (rawDecision?.action?.name ?? 'none') as WeddingAssistantActionName,
-        args: (rawDecision?.action?.args ?? {}) as Record<string, unknown>
-      },
-      // tolerate common model mistakes: update/button singular
-      updates: (rawDecision?.updates ?? rawDecision?.update ?? undefined) as any,
-      buttons: (rawDecision?.buttons ?? rawDecision?.button ?? undefined) as any
-    }
-
-    // Enforce authentication UI rules (don�t allow login button spam)
-    const modelButtons = Array.isArray(decision.buttons) ? decision.buttons : []
-    if (isAuthed) {
-      decision.buttons = modelButtons.filter(b => (b as any)?.type !== 'login')
-      if (decision.action?.name === 'open_login') decision.action.name = 'none'
-    } else {
-      if (decision.action?.name === 'open_login') {
-        decision.buttons = [{ type: 'login', label: 'Login', variant: 'primary' }]
-      } else {
-        decision.buttons = modelButtons.filter(b => (b as any)?.type !== 'login')
-      }
-    }
-
-    // Apply extracted updates
-    if (decision.updates) {
-      if (decision.updates.heading !== undefined) {
-        customHeading.value = decision.updates.heading
-        headingStepComplete.value = !!decision.updates.heading
-      }
-      if (decision.updates.name1 !== undefined) extractedInfo.value.names.name1 = decision.updates.name1
-      if (decision.updates.name2 !== undefined) extractedInfo.value.names.name2 = decision.updates.name2
-      if (decision.updates.date !== undefined) extractedInfo.value.date = decision.updates.date
-      if (decision.updates.courtesy !== undefined) extractedInfo.value.courtesy = decision.updates.courtesy
-      if (decision.updates.size !== undefined) {
-        extractedInfo.value.size = decision.updates.size
-        formData.customSize = decision.updates.size ?? ''
-      }
-
-      syncWeddingDescriptionFromState()
-
-      // If preview already exists, update SVG text immediately (no regeneration)
-      if (showWeddingStickerPreview.value) {
-        await processDescriptionInput()
-        updateChatPreviewSVG()
-      }
-    }
-
-    isAnalyzing.value = false
-
-    // Push assistant message
-    // Prefer the structured `decision.message`, but if it's empty, fall back to raw AI text.
-    let msgText =
-      (decision.message || '').toString().trim() ||
-      ''
-    
-    // Filter out JSON-like or placeholder responses  
-    const badPatterns = /^(your reply|your response|<write|message here|here is|revised|\{|\[|json|structure|\`\`\`)|(\[new_name\]|\[name\]|\[date\]|\[message\])/i
-    if (!msgText || badPatterns.test(msgText)) {
-      const hasName = !!extractedInfo.value.names.name1
-      const hasDate = !!extractedInfo.value.date  
-      const hasCourtesy = !!extractedInfo.value.courtesy
-      if (hasName && hasDate && hasCourtesy) {
-        msgText = 'I have all your details! Ready to generate your wedding sticker?'
-      } else {
-        const need: string[] = []
-        if (!hasName) need.push('names')
-        if (!hasDate) need.push('date')
-        if (!hasCourtesy) need.push('courtesy message')
-        msgText = need.length > 0 
-          ? 'Please share the ' + need.join(', ') + ' for your wedding sticker.'
-          : 'How can I help with your wedding sticker?'
-      }
-    }
-    
-    const _unused =
-      'I�m here � tell me what you want to design.'
-    chatMessages.value.push({
-      id: Date.now(),
-      text: msgText,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      actions: Array.isArray(decision.buttons) ? decision.buttons : undefined
-    } as any)
-    scrollToBottom()
-
-    const actionName = decision.action?.name ?? 'none'
-    const actionArgs = decision.action?.args ?? {}
-
-    // Execute actions (when applicable)
-    if (actionName === 'open_login') {
-      authStore.openAuthModal('login')
-      return
-    }
-
-    if (actionName === 'ask_upload') {
-      return
-    }
-
-    if (actionName === 'set_size') {
-      const size = (actionArgs as any).size as string | undefined
-      if (size) {
-        setWeddingSize(size)
-        const parsed = parseSizeToInches(String(size))
-        if (parsed) await handleSizeChange(parsed.w, parsed.h)
-      }
-      return
-    }
-
-    if (actionName === 'generate_preview') {
-      // Guard: ensure we have minimum required fields
-      const hasNames = !!extractedInfo.value.names.name1
-      const hasDate = !!extractedInfo.value.date
-      const hasCourtesy = !!extractedInfo.value.courtesy
-      if (!hasNames || !hasDate || !hasCourtesy) return
-      requestWeddingPreviewGeneration()
-      return
-    }
-
-    if (actionName === 'open_edit') {
-      if (!showWeddingStickerPreview.value) return
-      openEditModal()
-      return
-    }
-
-    if (actionName === 'download_png') {
-      if (!showWeddingStickerPreview.value) return
-      exportWeddingSticker('png')
-      return
-    }
-
-    if (actionName === 'regenerate') {
-      if (!showWeddingStickerPreview.value) return
-      await handleGenerateNew()
-      return
-    }
-  } catch (e) {
-    if (reqId !== weddingChatRequestId) return
-    console.log('?? Ollama unavailable, using local extraction')
-    
-    // Try local extraction when Ollama fails
-    const localResult = extractWeddingDetails(lastUserMessage, {
-      hasName: !!extractedInfo.value.names.name1,
-      hasDate: !!extractedInfo.value.date
-    })
-    
-    // Apply any extracted data (composable uses title, name1, name2, date, courtesy)
+  if (localResult.foundSomething) {
     if (localResult.title && !customHeading.value) {
       customHeading.value = localResult.title
       headingStepComplete.value = true
@@ -3168,52 +1986,23 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
     if (localResult.name2) extractedInfo.value.names.name2 = localResult.name2
     if (localResult.date) extractedInfo.value.date = localResult.date
     if (localResult.courtesy) extractedInfo.value.courtesy = localResult.courtesy
-    
-    // If something was found, sync and update
-    if (localResult.foundSomething) {
-      syncWeddingDescriptionFromState()
-      if (showWeddingStickerPreview.value) {
-        await processDescriptionInput()
-        updateChatPreviewSVG()
-      }
-    }
-    
-    // Generate a friendly response
+
+    syncWeddingDescriptionFromState()
+
     const hasName = !!extractedInfo.value.names.name1
     const hasDate = !!extractedInfo.value.date
-    const hasCourtesy = !!extractedInfo.value.courtesy
-    
+
     let responseText = ''
-    if (localResult.foundSomething) {
-      const noted: string[] = []
-      if (localResult.name1) noted.push(`Names: ${localResult.name1}${localResult.name2 ? ' & ' + localResult.name2 : ''}`)
-      if (localResult.date) noted.push(`Date: ${localResult.date}`)
-      if (localResult.courtesy) noted.push(`Message: ${localResult.courtesy}`)
-      
-      const missing: string[] = []
-      if (!hasName) missing.push('names')
-      if (!hasDate) missing.push('date')
-      if (!hasCourtesy) missing.push('courtesy message')
-      
-      if (hasName && hasDate && hasCourtesy) {
-        responseText = `Got it! I've noted:\n? ${noted.join('\n? ')}\n\nReady to generate your wedding sticker?`
-      } else {
-        responseText = `Got it! I've noted:\n? ${noted.join('\n? ')}\n\nI still need: ${missing.join(', ')}.`
-      }
+    if (hasName && hasDate) {
+      responseText = `Got it! I've noted your details. Generating your sticker now...`
+      setTimeout(() => generateWeddingPreview(), 500)
     } else {
-      // Nothing extracted - provide guidance
       const missing: string[] = []
-      if (!hasName) missing.push('names (e.g., "John & Sarah")')
-      if (!hasDate) missing.push('date (e.g., "June 15, 2025")')
-      if (!hasCourtesy) missing.push('courtesy message (e.g., "With love from the family")')
-      
-      if (missing.length > 0) {
-        responseText = `Please share the ${missing.join(', ')} for your wedding sticker.`
-      } else {
-        responseText = 'I have all your details! Would you like to generate your wedding sticker?'
-      }
+      if (!hasName) missing.push("bride's and groom's names")
+      if (!hasDate) missing.push('wedding date')
+      responseText = `I still need: ${missing.join(' and ')}.`
     }
-    
+
     isAnalyzing.value = false
     chatMessages.value.push({
       id: Date.now(),
@@ -3222,8 +2011,30 @@ async function analyzeMessageWithOllama(lastUserMessage: string) {
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     })
     scrollToBottom()
+    return
   }
+
+  // No extraction - ask for info
+  isAnalyzing.value = false
+  const hasName = !!extractedInfo.value.names.name1
+  const hasDate = !!extractedInfo.value.date
+  const missing: string[] = []
+  if (!hasName) missing.push('names')
+  if (!hasDate) missing.push('date')
+
+  const responseText = missing.length > 0
+    ? `Please share the ${missing.join(', ')} for your wedding sticker.`
+    : 'I have all your details! Would you like to generate your wedding sticker?'
+
+  chatMessages.value.push({
+    id: Date.now(),
+    text: responseText,
+    sender: 'ai',
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  })
+  scrollToBottom()
 }
+
 
 async function sendMessage() {
   const text = chatInputText.value.trim()
@@ -3245,6 +2056,9 @@ async function sendMessage() {
   isAnalyzing.value = true
   debouncedAnalyzeMessage(text)
 }
+
+// Connect the sendMessage wrapper for speech composable
+_sendMessageRef = sendMessage
 
 // Debounced version of analyzeMessage for performance
 const debouncedAnalyzeMessage = useDebounceFn(async (text: string) => {
@@ -3534,12 +2348,6 @@ async function handleSizeChange(widthInches: number, heightInches: number) {
 
   console.log(`? Size change complete: ${widthInches}x${heightInches} inches`)
 }
-
-async function analyzeMessage(lastUserMessage: string) {
-  await analyzeMessageWithOllama(lastUserMessage)
-}
-
-
 
 function handleEnterKey(e: KeyboardEvent) {
   if (selectedCategory.value === 'wedding') {
