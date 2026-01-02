@@ -322,6 +322,12 @@ import { useTextExtraction } from '@/composables/useTextExtraction'
 import { useAiChatResponses } from '@/composables/useAiChatResponses'
 import { useStickerExport } from '@/composables/useStickerExport'
 
+// TODO: TECH DEBT - Speech functionality in this file duplicates ./sticker/composables/useSpeechToText.ts
+// The local speech functions (toggleVoiceInput, speakMessage, stopAllSpeech, etc.) should be
+// replaced with useSpeechToText composable. This requires restructuring initialization order
+// since sendMessage and scrollToBottom are defined later in this file.
+// See: toggleVoiceInput (~line 1015), speakMessage (~line 2020), initSpeechRecognition (~line 1860)
+
 // Import sticker composables (title, flourish, background management, spell correction, intent detection)
 import {
   useTitleLibrary,
