@@ -376,7 +376,6 @@ import {
 // Import chat utility functions (extracted for file size reduction)
 import {
   trackImageUploadUtil,
-  handleMultipleImageUploadsUtil,
   addUserMessageUtil,
   addAIMessageUtil,
   buildWeddingChatContextForAIUtil,
@@ -589,16 +588,6 @@ const TOKEN_COST_CHANGE_BACKGROUND = 10
 // Generating message for loading animation (uses imported GENERATING_MESSAGES constant)
 const generatingMessage = ref(GENERATING_MESSAGES[0])
 
-// Helper to format message text (convert markdown-like syntax to HTML)
-function formatMessageText(text: string): string {
-  if (!text) return ''
-  // Convert **text** to bold
-  let formatted = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-  // Convert newlines to <br>
-  formatted = formatted.replace(/\n/g, '<br>')
-  return formatted
-}
-
 // Handle action button clicks in messages
 function handleMessageAction(action: { type: string; label?: string; route?: string }) {
   switch (action.type) {
@@ -783,15 +772,6 @@ function triggerImageUpload() {
 // - checkIfMobile, toggleVoice, speakMessage, stopAllSpeech
 // - isRecording, isVoiceEnabled, isMobileDevice, interimTranscript
 
-// AI Chat handler
-function handleChatClick() {
-  authStore.showNotification({
-    title: 'AI Assistant',
-    message: 'Coming Soon! Our AI assistant will help you create amazing designs.',
-    type: 'info'
-  })
-}
-
 // Main wedding preview generation - using extracted utility
 async function generateWeddingPreview() {
   const ctx: GenerationContext = {
@@ -866,20 +846,6 @@ const preGeneratedImageInput = ref<HTMLInputElement | null>(null)
 // Track image uploads - wrapper for extracted utility
 function trackImageUpload(file: File) {
   trackImageUploadUtil(file, {
-    chatMessages,
-    uploadedImages,
-    lastUploadedImage,
-    awaitingImageChoice,
-    awaitingImageUpdateConfirmation,
-    pendingImageFile,
-    showWeddingStickerPreview,
-    scrollToBottom
-  })
-}
-
-// Handle multiple image uploads - wrapper (logic is in trackImageUploadUtil)
-function handleMultipleImageUploads() {
-  handleMultipleImageUploadsUtil({
     chatMessages,
     uploadedImages,
     lastUploadedImage,
@@ -1015,16 +981,6 @@ watch(customHeading, (newHeading) => {
 let weddingChatProcessor: ReturnType<typeof useWeddingChat> | null = null
 
 // ============================================================================
-// PROGRESS STATE - Track what info has been collected for visual feedback
-// ============================================================================
-const progressState = computed(() => ({
-  hasNames: !!(extractedInfo.value.names.name1 || extractedInfo.value.names.name2),
-  hasDate: !!extractedInfo.value.date,
-  hasCourtesy: !!extractedInfo.value.courtesy,
-  hasPhoto: !!preGeneratedImageFile.value || svgImageManager.images.value.length > 0
-}))
-
-// ============================================================================
 // SMART AI STATE - Track what questions have been asked to prevent repetition
 // ============================================================================
 const askedQuestions = ref({
@@ -1040,20 +996,6 @@ const askedQuestions = ref({
 // Reset asked questions - wrapper for extracted utility
 function resetAskedQuestions() {
   resetAskedQuestionsUtil(askedQuestions)
-}
-
-// Handle example usage from welcome screen
-function handleUseExample(text: string) {
-  if (text) {
-    chatInputText.value = text
-    // Auto-send the example
-    setTimeout(() => {
-      sendMessage()
-    }, 100)
-  } else {
-    // Empty text means "upload photo" - trigger file input
-    triggerImageUpload()
-  }
 }
 
 // State for smart updates (post-generation)
@@ -1306,15 +1248,6 @@ const debouncedAnalyzeMessage = useDebounceFn(async (text: string) => {
   await analyzeMessage(text)
 }, 250, { maxWait: 1500 })
 
-// Throttled scroll for smoother performance
-const throttledScrollToBottom = useThrottleFn(() => {
-  if (weddingChatMessagesRef.value?.scrollToBottom) {
-    weddingChatMessagesRef.value.scrollToBottom()
-  } else if (chatHistoryContainer.value) {
-    chatHistoryContainer.value.scrollTop = chatHistoryContainer.value.scrollHeight
-  }
-}, 100)
-
 // Handle size change - wrapper for extracted utility
 async function handleSizeChange(widthInches: number, heightInches: number) {
   await handleSizeChangeUtil(widthInches, heightInches, {
@@ -1372,47 +1305,8 @@ function handleGenerateFromChat() {
   }
 }
 
-const imageSlots = ref<Array<{ file: File; preview: string } | null>>([
-  null
-])
-
 function selectCategory(categoryId: string) {
   selectedCategory.value = categoryId
-  // Load category-specific template
-  loadCategoryTemplate(categoryId)
-}
-
-function loadCategoryTemplate(categoryId: string) {
-  // Load template based on category
-  // TODO: Integrate with template system
-}
-
-function handleImageUpload(event: Event, index: number) {
-  const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
-  
-  if (file) {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      imageSlots.value[index] = {
-        file,
-        preview: e.target?.result as string
-      }
-    }
-    reader.readAsDataURL(file)
-  }
-}
-
-function removeImage(index: number) {
-  imageSlots.value.splice(index, 1)
-  // Ensure at least one slot remains
-  if (imageSlots.value.length === 0) {
-    imageSlots.value.push(null)
-  }
-}
-
-function addImageSlot() {
-  imageSlots.value.push(null)
 }
 
 async function generateDesign() {
@@ -1567,13 +1461,6 @@ function updateDateAndCourtesy(description: string, svgElems: any) {
   updateDateAndCourtesyUtil(description, svgElems)
 }
 
-// Helper function to handle names when title SVG is active (use decorative name02.svg)
-async function handleNamesWithTitleSVG(description: string, svgElems: any) {
-  const safeDescription = typeof description === 'string' ? description : String(description || '')
-  const data = await updateStickerText(safeDescription, svgElems)
-  return data
-}
-
 // Auto-completion handler for description field
 function handleDescriptionKeydown(event: KeyboardEvent) {
   handleDescriptionKeydownUtil(event, formData.description, (val) => { formData.description = val })
@@ -1616,10 +1503,6 @@ async function processDescriptionInput() {
 
 // SVG Image Management Functions
 const selectedSVGImage = computed(() => svgImageManager.getSelectedImage())
-
-function triggerImageFileInput() {
-  imageFileInput.value?.click()
-}
 
 async function handleImageDrop(event: DragEvent) {
   // Get SVG element to read placeholder position
@@ -1824,24 +1707,6 @@ function handleCropModalClose() {
     cropImageSrc.value = ''
   }
   cropImageFile.value = null
-}
-
-function handleImagePropertyInput(property: string, event: Event) {
-  const target = event.target as HTMLInputElement
-  const value = Number(target.value)
-
-  if (selectedSVGImage.value) {
-    updateSelectedImageProperty(property, value)
-  }
-}
-
-function handleAspectRatioToggle(event: Event) {
-  const target = event.target as HTMLInputElement
-  const checked = target.checked
-
-  if (selectedSVGImage.value) {
-    updateSelectedImageProperty('maintainAspectRatio', checked)
-  }
 }
 
 function updateSelectedImageProperty(property: string, value: any) {
@@ -2055,10 +1920,6 @@ function closeUploadModal() {
   }
 }
 
-function triggerModalFileInput() {
-  modalFileInput.value?.click()
-}
-
 async function handleModalFileSelect(event: Event) {
   const target = event.target as HTMLInputElement
   const files = target.files
@@ -2141,11 +2002,6 @@ async function handleModalFileSelect(event: Event) {
   }
 }
 
-// Pre-generation image upload handlers
-function triggerPreGeneratedImageInput() {
-  preGeneratedImageInput.value?.click()
-}
-
 function handlePreGeneratedImageSelect(event: Event) {
   const target = event.target as HTMLInputElement
   const files = target.files
@@ -2174,17 +2030,6 @@ function handlePreGeneratedImageSelect(event: Event) {
   // Reset input
   if (target) {
     target.value = ''
-  }
-}
-
-// Handle crop completion (Updated for Chat)
-
-
-function removePreGeneratedImage() {
-  preGeneratedImageFile.value = null
-  if (preGeneratedImagePreview.value) {
-    URL.revokeObjectURL(preGeneratedImagePreview.value)
-    preGeneratedImagePreview.value = null
   }
 }
 
