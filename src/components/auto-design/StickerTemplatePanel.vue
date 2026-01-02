@@ -358,6 +358,34 @@ import {
   handleSizeChange as handleSizeChangeUtil
 } from './sticker/utils/svgUtils'
 
+// Import image utility functions (extracted for file size reduction)
+import {
+  handleImageScaleChangeUtil,
+  setImageScaleUtil,
+  flipImageUtil,
+  autoRetouchImageUtil,
+  updateSelectedImagePropertyUtil,
+  handlePreGenerationCropUtil,
+  handlePostGenerationCropUtil,
+  type CropCompleteData
+} from './sticker/utils/imageUtils'
+
+// Import chat utility functions (extracted for file size reduction)
+import {
+  trackImageUploadUtil,
+  handleMultipleImageUploadsUtil,
+  addUserMessageUtil,
+  addAIMessageUtil,
+  buildWeddingChatContextForAIUtil,
+  buildWeddingChatTranscriptForAIUtil,
+  parseSizeToInchesUtil,
+  syncWeddingDescriptionFromStateUtil,
+  resetAskedQuestionsUtil,
+  resetWeddingStateUtil,
+  type ChatMessage as ChatMessageType,
+  type TrackedImage
+} from './sticker/utils/chatUtils'
+
 const router = useRouter()
 const autoDesignStore = useAutoDesignStore()
 const authStore = useAuthStore()
@@ -914,16 +942,8 @@ function handleChatClick() {
 }
 
 async function generateWeddingPreview() {
-  console.log('🔷 generateWeddingPreview called')
-  console.log('   - authStore.isAuthenticated:', authStore.isAuthenticated)
-  console.log('   - authStore.user?.id:', authStore.user?.id)
-  console.log('   - formData.description:', formData.description)
-  console.log('   - accumulatedDescription:', accumulatedDescription.value)
-  console.log('   - extractedInfo:', JSON.stringify(extractedInfo.value))
-  
   // Check if user is logged in FIRST before doing anything else
   if (!authStore.isAuthenticated || !authStore.user?.id) {
-    console.log('❌ Generation blocked: User not authenticated')
     authStore.showNotification({
       title: 'Login Required',
       message: 'Please login or create an account to generate designs.',
@@ -944,10 +964,8 @@ async function generateWeddingPreview() {
 
   // Chat flow often builds `accumulatedDescription`; prefer that if form input is empty.
   const resolvedDescription = (formData.description || '').trim() || (accumulatedDescription.value || '').trim()
-  console.log('   - resolvedDescription:', resolvedDescription)
 
   if (!resolvedDescription) {
-    console.log('❌ Generation blocked: No description')
     chatMessages.value.push({
       id: Date.now(),
       text: "Please provide your details first.\n\nExample:\n(John & Mary) 8th March 2025 courtesy: Smith family",
@@ -964,20 +982,16 @@ async function generateWeddingPreview() {
 
   // Require size confirmation before generating.
   if (!hasConfirmedWeddingSize()) {
-    console.log('❌ Generation paused: size not confirmed')
     promptForWeddingSize()
     return
   }
 
   // Check requirements: Must have names OR a picture
   const { name1, name2 } = extractNames(formData.description)
-  console.log('   - extractNames result:', { name1, name2 })
   const hasNames = !!(name1 || name2)
   const hasPicture = !!preGeneratedImageFile.value
-  console.log('   - hasNames:', hasNames, ', hasPicture:', hasPicture)
 
   if (!hasNames && !hasPicture) {
-    console.log('❌ Generation blocked: No names and no picture')
     authStore.showNotification({
       title: 'Missing Information',
       message: 'Please include at least a Name in the description or upload a Picture to generate the preview.',
@@ -991,8 +1005,6 @@ async function generateWeddingPreview() {
     return
   }
 
-  console.log('✅ All checks passed, proceeding with generation...')
-  
   // Deduct tokens for initial design generation (15 tokens) if not already generated
   if (!hasDesignBeenGenerated.value) {
     const canProceed = await deductTokensForAction(TOKEN_COST_GENERATE_DESIGN, 'Generate initial design')
@@ -1027,13 +1039,10 @@ async function generateWeddingPreview() {
        if (sizeMatch) {
           const w = parseFloat(sizeMatch[1])
           const h = parseFloat(sizeMatch[2])
-          console.log(`?? Applying initial size: ${w}x${h} inches`)
           
           // Ensure container is available before resizing
           if (weddingPreviewContainer.value) {
             await handleSizeChange(w, h)
-          } else {
-            console.warn('?? weddingPreviewContainer not ready for initial resize, skipping.')
           }
        }
     }
@@ -1046,7 +1055,6 @@ async function generateWeddingPreview() {
     if (initialBackground) {
       currentBackgroundFileName.value = initialBackground
       setPersistedWeddingBackground(initialBackground)
-      console.log('?? Pre-selected background for title color:', initialBackground)
     }
     
     // Now load the template - title will use the correct color based on pre-selected background
@@ -1057,12 +1065,10 @@ async function generateWeddingPreview() {
 
     // Apply the background image (already selected above)
     if (initialBackground) {
-      console.log('?? Applying background image:', initialBackground)
       await applyNewBackground(initialBackground)
       
       // Wait for background image to fully load before continuing
       await new Promise(resolve => setTimeout(resolve, 1500))
-      console.log('? Background loaded, continuing...')
     }
 
     // Clear the input field now that we've processed the description
@@ -1096,25 +1102,12 @@ async function generateWeddingPreview() {
               lastModified: Date.now()
             })
           } catch (error) {
-            console.warn('Background removal failed, using original image', error)
+            // Continue with original image if background removal fails
           }
         }
 
         // Add image to SVG
-        console.log('?? About to add image to SVG manager:', {
-          fileName: fileToProcess.name,
-          fileSize: fileToProcess.size,
-          fileType: fileToProcess.type
-        })
-        
         const addedImage = await svgImageManager.addImage(fileToProcess, svgElement)
-        
-        console.log('?? Image added to SVG manager:', {
-          success: !!addedImage,
-          imageId: addedImage?.id,
-          dataUrlLength: addedImage?.dataUrl?.length || 0,
-          imagesInManager: svgImageManager.images.value.length
-        })
         
         updateSVGWithImages()
         
@@ -1123,24 +1116,10 @@ async function generateWeddingPreview() {
         
         // Additional delay to ensure image is fully rendered
         await new Promise(resolve => setTimeout(resolve, 800))
-        console.log('? User image render delay complete')
         
-        // Debug: Log image element status
+        // Ensure correct z-order: user image should be AFTER background image in DOM
         const imgElement = svgElement.querySelector('#userImage, #placeholder-image') as SVGImageElement
         if (imgElement) {
-          console.log('??? Image element after update:', {
-            hasHref: !!imgElement.getAttribute('href'),
-            hrefLength: imgElement.getAttribute('href')?.length || 0,
-            hasXlinkHref: !!imgElement.getAttributeNS('http://www.w3.org/1999/xlink', 'href'),
-            id: imgElement.id,
-            x: imgElement.getAttribute('x'),
-            y: imgElement.getAttribute('y'),
-            width: imgElement.getAttribute('width'),
-            height: imgElement.getAttribute('height'),
-            opacity: imgElement.getAttribute('opacity'),
-            clipPath: imgElement.getAttribute('clip-path')
-          })
-          
           // CRITICAL FIX: Ensure user image is positioned AFTER background image in DOM
           const bgImage = svgElement.querySelector('#background-image')
           if (bgImage && bgImage.parentNode === imgElement.parentNode) {
@@ -1151,14 +1130,12 @@ async function generateWeddingPreview() {
             if (userIndex < bgIndex) {
               // Move userImage after background-image
               bgImage.after(imgElement)
-              console.log('?? Fixed: Moved userImage after background-image for correct z-order')
             }
           }
           
           // Ensure opacity is set to 1
           if (!imgElement.getAttribute('opacity') || imgElement.getAttribute('opacity') === '0') {
             imgElement.setAttribute('opacity', '1')
-            console.log('🔧 Fixed: Set userImage opacity to 1')
           }
           
           // CRITICAL FIX: If href is still empty, directly set from svgImageManager
@@ -1166,16 +1143,10 @@ async function generateWeddingPreview() {
           if (!currentHref || currentHref === '') {
             const latestImage = svgImageManager.images.value[svgImageManager.images.value.length - 1]
             if (latestImage?.dataUrl) {
-              console.log('🔧 CRITICAL FIX: Setting image href directly from svgImageManager')
               imgElement.setAttribute('href', latestImage.dataUrl)
               imgElement.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', latestImage.dataUrl)
-              console.log('✅ Image href set, length:', latestImage.dataUrl.length)
-            } else {
-              console.error('❌ No image data available in svgImageManager')
             }
           }
-        } else {
-          console.warn('⚠️ No image element found in SVG after updateSVGWithImages')
         }
       }
     }
@@ -1205,7 +1176,6 @@ async function generateWeddingPreview() {
     
     // CRITICAL: Ensure preview flag is true to show Download/Edit buttons
     showWeddingStickerPreview.value = true
-    console.log('? showWeddingStickerPreview set to true for Download button visibility')
     
     // Add the preview message to the chat history
     chatMessages.value.push({
@@ -1219,7 +1189,7 @@ async function generateWeddingPreview() {
     // Add guidance message
     chatMessages.value.push({
       id: Date.now() + 1,
-      text: "Your design is ready! Looking great! ??\n\n?? **Tip:** You can drag the image to reposition it. Click 'Edit' for more options!",
+      text: "Your design is ready! Looking great! 🎉\n\n💡 **Tip:** You can drag the image to reposition it. Click 'Edit' for more options!",
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     })
@@ -1230,36 +1200,17 @@ async function generateWeddingPreview() {
     
     // Additional delay to ensure all images and elements are fully rendered
     await new Promise(resolve => setTimeout(resolve, 500))
-    console.log('? Final render delay complete')
     
     // Copy the SVG from main container to chat container
     // Note: chatPreviewContainer is an array because it's in a v-for loop
     if (weddingPreviewContainer.value) {
       const svgElement = weddingPreviewContainer.value.querySelector('svg')
       
-      // Debug: Check image element in source SVG before cloning
-      const sourceImgEl = svgElement?.querySelector('#userImage, #placeholder-image, image') as SVGImageElement
-      console.log('?? Source SVG image check before clone:', {
-        hasImageElement: !!sourceImgEl,
-        imageId: sourceImgEl?.id,
-        hasHref: !!sourceImgEl?.getAttribute('href'),
-        hrefLength: sourceImgEl?.getAttribute('href')?.length || 0,
-        hasXlinkHref: !!sourceImgEl?.getAttributeNS('http://www.w3.org/1999/xlink', 'href')
-      })
-      
-      console.log('?? Checking weddingPreviewContainer for SVG...', {
-        hasContainer: !!weddingPreviewContainer.value,
-        hasSVG: !!svgElement,
-        svgDimensions: svgElement ? { width: svgElement.getAttribute('width'), height: svgElement.getAttribute('height') } : null
-      })
-      
       if (svgElement) {
         // Get the last preview container (the one we just added)
         const previewContainers = Array.isArray(chatPreviewContainer.value) 
           ? chatPreviewContainer.value 
           : (chatPreviewContainer.value ? [chatPreviewContainer.value] : [])
-        
-        console.log('?? Preview containers found:', previewContainers.length)
         
         const targetContainer = previewContainers[previewContainers.length - 1]
         
@@ -1278,19 +1229,8 @@ async function generateWeddingPreview() {
               
               // Set container aspect ratio to match SVG design
               targetContainer.style.aspectRatio = String(aspectRatio)
-              console.log(`?? Preview aspect ratio set to: ${aspectRatio.toFixed(2)} (${vbWidth}x${vbHeight})`)
             }
           }
-          
-          // Debug: Check image in cloned SVG before appending
-          const clonedImgEl = clonedSVG.querySelector('#userImage, #placeholder-image, image') as SVGImageElement
-          console.log('??? Cloned SVG image check:', {
-            hasImageElement: !!clonedImgEl,
-            imageId: clonedImgEl?.id,
-            hasHref: !!clonedImgEl?.getAttribute('href'),
-            hrefLength: clonedImgEl?.getAttribute('href')?.length || 0,
-            hrefPreview: clonedImgEl?.getAttribute('href')?.substring(0, 50)
-          })
           
           // Ensure cloned SVG has proper display styles
           clonedSVG.style.display = 'block'
@@ -1304,14 +1244,8 @@ async function generateWeddingPreview() {
           targetContainer.innerHTML = ''
           targetContainer.appendChild(clonedSVG)
           
-          console.log('? SVG successfully cloned to chat container', {
-            viewBox: viewBox,
-            containerSize: { width: targetContainer.offsetWidth, height: targetContainer.offsetHeight }
-          })
-          
           // Verify the SVG was actually added
           if (!targetContainer.querySelector('svg')) {
-            console.error('? SVG clone failed - retrying...')
             // Try again with a small delay
             await new Promise(resolve => setTimeout(resolve, 50))
             targetContainer.appendChild(clonedSVG.cloneNode(true))
@@ -1328,7 +1262,6 @@ async function generateWeddingPreview() {
             const imageId = imgEl.getAttribute('data-image-id') || imgEl.id || 'user-image-1'
             if (imageId) {
               makeSVGImageDraggable(imgEl as SVGImageElement, imageId)
-              console.log('?? Attached draggable to image:', imageId)
             }
           })
           
@@ -1408,56 +1341,32 @@ const preGeneratedImageInput = ref<HTMLInputElement | null>(null)
 // capitalizeWords, escapeRegExp, extractNamesFromResponse, extractDateFromText,
 // extractCourtesyFromText, extractSizeFromText, extractNamesFromBrackets, parseAllInOneMessage
 
-// Track image uploads
+// Track image uploads - wrapper for extracted utility
 function trackImageUpload(file: File) {
-  const timestamp = Date.now()
-  uploadedImages.value.push({ file, timestamp, used: false })
-  lastUploadedImage.value = file
-  
-  console.log('📷 Image uploaded:', { total: uploadedImages.value.length, timestamp })
-  
-  // Handle multiple image uploads
-  handleMultipleImageUploads()
+  trackImageUploadUtil(file, {
+    chatMessages,
+    uploadedImages,
+    lastUploadedImage,
+    awaitingImageChoice,
+    awaitingImageUpdateConfirmation,
+    pendingImageFile,
+    showWeddingStickerPreview,
+    scrollToBottom
+  })
 }
 
-// Handle multiple image uploads with AI confirmation
+// Handle multiple image uploads - wrapper (logic is in trackImageUploadUtil)
 function handleMultipleImageUploads() {
-  const unusedImages = uploadedImages.value.filter(img => !img.used)
-  
-  // Pre-generation: Multiple images uploaded
-  if (!showWeddingStickerPreview.value && unusedImages.length > 1) {
-    const firstImage = unusedImages[0]
-    const latestImage = unusedImages[unusedImages.length - 1]
-    const timeDiff = Math.round((latestImage.timestamp - firstImage.timestamp) / 1000)
-    
-    awaitingImageChoice.value = true
-
-    const aiMessage = `Multiple pictures uploaded. Use FIRST or NEW one?`
-
-    chatMessages.value.push({
-      id: Date.now(),
-      text: aiMessage,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-    scrollToBottom()
-  }
-
-  // Post-generation: New image uploaded after design is created
-  if (showWeddingStickerPreview.value && lastUploadedImage.value) {
-    awaitingImageUpdateConfirmation.value = true
-    pendingImageFile.value = lastUploadedImage.value
-
-    const aiMessage = "I see you've uploaded a new picture! Would you like me to replace the current image in your design? Say 'yes' or 'no'!"
-    
-    chatMessages.value.push({
-      id: Date.now(),
-      text: aiMessage,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-    scrollToBottom()
-  }
+  handleMultipleImageUploadsUtil({
+    chatMessages,
+    uploadedImages,
+    lastUploadedImage,
+    awaitingImageChoice,
+    awaitingImageUpdateConfirmation,
+    pendingImageFile,
+    showWeddingStickerPreview,
+    scrollToBottom
+  })
 }
 
 // Smart Camera Handler
@@ -1606,17 +1515,9 @@ const askedQuestions = ref({
   courtesy: false
 })
 
-// Reset asked questions when starting fresh
+// Reset asked questions - wrapper for extracted utility
 function resetAskedQuestions() {
-  askedQuestions.value = {
-    picture: false,
-    size: false,
-    backgroundRemoval: false,
-    heading: false,
-    names: false,
-    date: false,
-    courtesy: false
-  }
+  resetAskedQuestionsUtil(askedQuestions)
 }
 
 // Handle example usage from welcome screen
@@ -1746,61 +1647,31 @@ interface WeddingAssistantDecision {
 }
 
 function syncWeddingDescriptionFromState() {
-  const parts: string[] = []
-  if (customHeading.value) parts.push(customHeading.value)
-
-  const n1 = extractedInfo.value.names.name1
-  const n2 = extractedInfo.value.names.name2
-  if (n1 && n2) parts.push(`(${n1} & ${n2})`)
-  else if (n1) parts.push(`(${n1})`)
-
-  if (extractedInfo.value.date) parts.push(extractedInfo.value.date)
-  if (extractedInfo.value.courtesy) parts.push(`courtesy: ${extractedInfo.value.courtesy}`)
-
-  const desc = parts.join(', ')
-  accumulatedDescription.value = desc
-  formData.description = desc
+  syncWeddingDescriptionFromStateUtil(
+    customHeading.value,
+    extractedInfo.value,
+    accumulatedDescription,
+    formData
+  )
 }
 
 function buildWeddingChatContextForAI() {
-  const state = {
-    authenticated: !!authStore.isAuthenticated,
-    tokens: userStore.user?.tokens ?? 0,
-    hasPreview: !!showWeddingStickerPreview.value,
-    heading: customHeading.value ?? null,
-    details: {
-      name1: extractedInfo.value.names.name1 ?? null,
-      name2: extractedInfo.value.names.name2 ?? null,
-      date: extractedInfo.value.date ?? null,
-      courtesy: extractedInfo.value.courtesy ?? null,
-      size: extractedInfo.value.size ?? null
-    },
-    hasPhoto: !!preGeneratedImageFile.value
-  }
-
-  return JSON.stringify(state, null, 2)
+  return buildWeddingChatContextForAIUtil(
+    authStore.isAuthenticated,
+    userStore.user?.tokens ?? 0,
+    showWeddingStickerPreview.value,
+    customHeading.value,
+    extractedInfo.value,
+    !!preGeneratedImageFile.value
+  )
 }
 
 function buildWeddingChatTranscriptForAI(maxMessages = 10): string {
-  const items = chatMessages.value
-    .filter(m => m && (m as any).sender && !(m as any).isLoading && (m as any).type !== 'preview')
-    .slice(-maxMessages)
-    .map(m => {
-      const role = (m as any).sender === 'user' ? 'User' : 'Assistant'
-      const text = String((m as any).text ?? '').trim()
-      return `${role}: ${text}`
-    })
-
-  return items.join('\n')
+  return buildWeddingChatTranscriptForAIUtil(chatMessages.value as any, maxMessages)
 }
 
 function parseSizeToInches(size: string): { w: number; h: number } | null {
-  const m = size.trim().match(/(\d+(?:\.\d+)?)\s*[x�]\s*(\d+(?:\.\d+)?)/i)
-  if (!m) return null
-  const w = Number(m[1])
-  const h = Number(m[2])
-  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return null
-  return { w, h }
+  return parseSizeToInchesUtil(size)
 }
 
 // Using extractWeddingDetails from composables instead of inline tryLocalExtraction
@@ -2107,59 +1978,35 @@ function getCategoryName(categoryId: string | null): string {
   return category ? category.name : categoryId
 }
 
-// Reset ALL wedding-related state for fresh start
+// Reset ALL wedding-related state - wrapper for extracted utility
 function resetWeddingState() {
-  // Clear extracted info (names, date, courtesy, etc.)
-  extractedInfo.value = {
-    title: null,
-    date: null,
-    courtesy: null,
-    size: null,
-    names: { name1: null, name2: null }
-  }
-  
-  // Clear heading state
-  customHeading.value = null
-  selectedHeadingFont.value = null
-  headingStepComplete.value = false
-  awaitingTitleConfirmation.value = false
-  pendingTitle.value = null
-  awaitingHeadingInput.value = false
-  awaitingFontChoice.value = false
-  
-  // Clear accumulated description
-  accumulatedDescription.value = ''
-  formData.description = ''
-  formData.customSize = ''
-
-  // Require size again for a fresh start
-  sizeStepComplete.value = false
-  awaitingSizeDecision.value = false
-  
-  // Clear chat messages
-  chatMessages.value = []
-  
-  // Clear image state
-  preGeneratedImageFile.value = null
-  preGeneratedImagePreview.value = null
-  pendingImageFile.value = null
-  awaitingBackgroundRemovalDecision.value = false
-  uploadedImages.value = []
-  lastUploadedImage.value = null
-  
-  // Reset flags
-  hasDesignBeenGenerated.value = false
-  showWeddingStickerPreview.value = false
-  isGeneratingPreview.value = false
-  isAnalyzing.value = false
-  
-  // Reset asked questions
-  resetAskedQuestions()
-  
-  // Clear SVG images
-  svgImageManager.clearAllImages()
-  
-  console.log('🔄 Wedding state reset complete')
+  resetWeddingStateUtil({
+    extractedInfo,
+    customHeading,
+    selectedHeadingFont,
+    headingStepComplete,
+    awaitingTitleConfirmation,
+    pendingTitle,
+    awaitingHeadingInput,
+    awaitingFontChoice,
+    accumulatedDescription,
+    formData,
+    sizeStepComplete,
+    awaitingSizeDecision,
+    chatMessages,
+    preGeneratedImageFile,
+    preGeneratedImagePreview,
+    pendingImageFile,
+    awaitingBackgroundRemovalDecision,
+    uploadedImages,
+    lastUploadedImage,
+    hasDesignBeenGenerated,
+    showWeddingStickerPreview,
+    isGeneratingPreview,
+    isAnalyzing,
+    askedQuestions,
+    svgImageManager
+  })
 }
 
 function goBack() {
@@ -2889,117 +2736,31 @@ function updateSelectedImageProperty(property: string, value: any) {
   }
 }
 
+// Image scale change - wrapper for extracted utility
 function handleImageScaleChange(eventOrScale: Event | number) {
-  let scale: number
-  
-  if (typeof eventOrScale === 'number') {
-    scale = eventOrScale
-  } else {
-    const target = eventOrScale.target as HTMLInputElement
-    scale = parseFloat(target.value)
-  }
-  
-  if (svgImageManager.selectedImageId.value) {
-    const selectedImage = svgImageManager.images.value.find(
-      img => img.id === svgImageManager.selectedImageId.value
-    )
-    if (selectedImage) {
-      // Apply scale by adjusting width/height proportionally
-      const newWidth = selectedImage.originalWidth * scale
-      const newHeight = selectedImage.originalHeight * scale
-      svgImageManager.updateImage(svgImageManager.selectedImageId.value, { width: newWidth, height: newHeight })
-      updateSVGWithImages()
-    }
-  }
+  handleImageScaleChangeUtil(eventOrScale, { svgImageManager, updateSVGWithImagesFn: updateSVGWithImages })
 }
 
+// Set image scale - wrapper for extracted utility
 function setImageScale(scale: number) {
-  if (svgImageManager.selectedImageId.value) {
-    const selectedImage = svgImageManager.images.value.find(
-      img => img.id === svgImageManager.selectedImageId.value
-    )
-    if (selectedImage) {
-      // Apply scale by adjusting width/height proportionally
-      const newWidth = selectedImage.originalWidth * scale
-      const newHeight = selectedImage.originalHeight * scale
-      svgImageManager.updateImage(svgImageManager.selectedImageId.value, { width: newWidth, height: newHeight })
-      updateSVGWithImages()
-    }
-  }
+  setImageScaleUtil(scale, { svgImageManager, updateSVGWithImagesFn: updateSVGWithImages })
 }
 
+// Flip image - wrapper for extracted utility
 function flipImage() {
-  if (!svgImageManager.selectedImageId.value) {
-    return
-  }
-
-  const selectedImage = svgImageManager.images.value.find(
-    img => img.id === svgImageManager.selectedImageId.value
-  )
-
-  if (!selectedImage) {
-    return
-  }
-
-  // Toggle flip state
-  selectedImage.flipped = !selectedImage.flipped
-
-  // Update SVG to reflect the change
-  updateSVGWithImages()
+  flipImageUtil({ svgImageManager, updateSVGWithImagesFn: updateSVGWithImages })
 }
 
+// Auto retouch image - wrapper for extracted utility
 async function autoRetouchImage() {
-  const selectedImage = svgImageManager.getSelectedImage()
-  
-  if (!selectedImage) {
-    authStore.showNotification({
-      title: 'No Image Selected',
-      message: 'Please select an image to enhance',
-      type: 'info'
-    })
-    return
-  }
-
-  // Check if image has already been retouched
-  if (selectedImage.isRetouched) {
-    authStore.showNotification({
-      title: 'Already Enhanced',
-      message: 'This image has already been retouched',
-      type: 'info'
-    })
-    return
-  }
-
+  isRetouching.value = true
   try {
-    isRetouching.value = true
-    
-    // Apply automatic retouch
-    const retouchedDataUrl = await applyRetouch(selectedImage.dataUrl)
-    
-    // Update the image in the manager and mark as retouched
-    if (svgImageManager.selectedImageId.value) {
-      // Update dataUrl directly on the image object since it's excluded from updateImage
-      selectedImage.dataUrl = retouchedDataUrl
-      svgImageManager.updateImage(svgImageManager.selectedImageId.value, {
-        isRetouched: true
-      })
-      
-      // Update SVG preview
-      updateSVGWithImages()
-      
-      authStore.showNotification({
-        title: 'Image Enhanced',
-        message: 'Your image has been automatically retouched',
-        type: 'success'
-      })
-    }
-    
-  } catch (error) {
-    console.error('Auto retouch failed:', error)
-    authStore.showNotification({
-      title: 'Retouch Failed',
-      message: 'Failed to enhance image. Please try again.',
-      type: 'error'
+    await autoRetouchImageUtil({
+      svgImageManager,
+      weddingPreviewContainer,
+      updateSVGWithImagesFn: updateSVGWithImages,
+      showNotification: (opts) => authStore.showNotification(opts),
+      applyRetouch
     })
   } finally {
     isRetouching.value = false
