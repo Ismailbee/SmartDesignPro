@@ -386,6 +386,16 @@ import {
   type TrackedImage
 } from './sticker/utils/chatUtils'
 
+// Import form utility functions (extracted for file size reduction)
+import {
+  updateDateAndCourtesyUtil,
+  handleDescriptionKeydownUtil,
+  generateValidationWarnings,
+  applyCustomHeadingUtil,
+  applyHeadingFontUtil,
+  COURTESY_KEYWORDS
+} from './sticker/utils/formUtils'
+
 const router = useRouter()
 const autoDesignStore = useAutoDesignStore()
 const authStore = useAuthStore()
@@ -428,23 +438,7 @@ const {
 const validationWarnings = ref<string[]>([])
 
 function updateValidationWarnings(data: any) {
-  const warnings: string[] = []
-  
-  // Only show warnings if user has started typing (description is not empty)
-  if (formData.description.trim()) {
-    if (!data.date) {
-      warnings.push('You did not include the date.')
-    }
-    if (!data.courtesy) {
-      warnings.push('You did not include the courtesy.')
-    }
-    // Check names. 
-    if (!data.name1 && !data.name2) {
-      warnings.push('You did not include the name')
-    }
-  }
-  
-  validationWarnings.value = warnings
+  validationWarnings.value = generateValidationWarnings(data, formData.description)
 }
 
 // SVG Image Management
@@ -2091,107 +2085,19 @@ async function loadWeddingStickerTemplate() {
 
 // Helper function to update only date and courtesy (not names) when title SVG is active
 function updateDateAndCourtesy(description: string, svgElements: any) {
-  // Extract date from description
-  const extractDate = (desc: string): string | null => {
-    const datePatterns = [
-      /(\d{1,2}(?:st|nd|rd|th)?\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s*,?\s*\d{4})/i,
-      /(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{4}/i,
-      /\d{4}-\d{2}-\d{2}/,
-      /\d{1,2}\/\d{1,2}\/\d{4}/
-    ]
-    
-    for (const pattern of datePatterns) {
-      const match = desc.match(pattern)
-      if (match) return match[0].trim()
-    }
-    return null
-  }
-
-  // Extract courtesy from description  
-  const extractCourtesy = (desc: string): { text: string, prefix: string } | null => {
-    const courtesyPattern = /courtesy:\s*([^\n]+?)(?:\s*$|\.|\n)/i
-    const courtesyMatch = desc.match(courtesyPattern)
-    if (courtesyMatch) return { text: courtesyMatch[1].trim(), prefix: 'Courtesy:' }
-    
-    const cutCeePattern = /cut-cee:\s*([^\n]+?)(?:\s*$|\.|\n)/i
-    const cutCeeMatch = desc.match(cutCeePattern)
-    if (cutCeeMatch) return { text: cutCeeMatch[1].trim(), prefix: 'CUT-CEE:' }
-    
-    return null
-  }
-
-  // Update date if found
-  const dateText = extractDate(description)
-  if (dateText && svgElements.dateText) {
-    svgElements.dateText.textContent = dateText
-  }
-
-  // Update courtesy if found
-  const courtesyData = extractCourtesy(description)
-  if (courtesyData && svgElements.courtesyText) {
-    svgElements.courtesyText.textContent = `${courtesyData.prefix} ${courtesyData.text}`
-  }
+  updateDateAndCourtesyUtil(description, svgElements)
 }
 
 // Helper function to handle names when title SVG is active (use decorative name02.svg)
 async function handleNamesWithTitleSVG(description: string, svgElements: any) {
   const safeDescription = typeof description === 'string' ? description : String(description || '')
-  
-  // Always call updateStickerText to ensure date and courtesy are updated
   const data = await updateStickerText(safeDescription, svgElements)
-  
   return data
 }
 
 // Auto-completion handler for description field
 function handleDescriptionKeydown(event: KeyboardEvent) {
-  const textarea = event.target as HTMLTextAreaElement
-  const cursorPos = textarea.selectionStart
-  const textBeforeCursor = formData.description.substring(0, cursorPos)
-  
-  // Auto-pair parentheses
-  if (event.key === '(') {
-    event.preventDefault()
-    const textAfterCursor = formData.description.substring(cursorPos)
-    formData.description = textBeforeCursor + '()' + textAfterCursor
-    setTimeout(() => {
-      textarea.selectionStart = cursorPos + 1
-      textarea.selectionEnd = cursorPos + 1
-    }, 0)
-  }
-  
-  // Auto-complete courtesy keywords
-  if (event.key === ' ' || event.key === 'Tab') {
-    const lastWord = textBeforeCursor.split(/\s+/).pop()?.toLowerCase() || ''
-    
-    const courtesyKeywords = [
-      { trigger: 'cour', complete: 'courtesy:' },
-      { trigger: 'court', complete: 'courtesy:' },
-      { trigger: 'courte', complete: 'courtesy:' },
-      { trigger: 'courtes', complete: 'courtesy:' },
-      { trigger: 'coutesy', complete: 'courtesy:' },
-      { trigger: 'coutees', complete: 'courtesy:' },
-      { trigger: 'cut', complete: 'cut-cee:' },
-      { trigger: 'cutcee', complete: 'cut-cee:' },
-      { trigger: 'cut-cee', complete: 'cut-cee:' },
-      { trigger: 'cutc', complete: 'cut-cee:' },
-    ]
-    
-    const match = courtesyKeywords.find(k => lastWord === k.trigger)
-    
-    if (match) {
-      event.preventDefault()
-      const wordsBeforeLast = textBeforeCursor.substring(0, textBeforeCursor.length - lastWord.length)
-      const textAfterCursor = formData.description.substring(cursorPos)
-      formData.description = wordsBeforeLast + match.complete + ' ' + textAfterCursor
-      
-      setTimeout(() => {
-        const newPos = wordsBeforeLast.length + match.complete.length + 1
-        textarea.selectionStart = newPos
-        textarea.selectionEnd = newPos
-      }, 0)
-    }
-  }
+  handleDescriptionKeydownUtil(event, formData.description, (val) => { formData.description = val })
 }
 
 // Debounced input handler to prevent UI freezing during typing
@@ -2205,68 +2111,11 @@ let lastWeddingFlourishRenderKey = ''
 
 /**
  * Apply custom heading and font to the SVG heading elements
- * This function updates the blessing, occasion, eventType, and ceremony text elements
- * with the user's custom heading and selected font
  */
 function applyCustomHeadingAndFont(svgElement: SVGSVGElement) {
-  if (!customHeading.value && !selectedHeadingFont.value) {
-    return // Nothing to apply
-  }
-
-  // Get heading elements
-  const blessingText = svgElement.querySelector('#blessing-text') as SVGTextElement
-  const occasionText = svgElement.querySelector('#occasion-text') as SVGTextElement
-  const eventTypeText = svgElement.querySelector('#event-type-text') as SVGTextElement
-  const ceremonyText = svgElement.querySelector('#ceremony-text') as SVGTextElement
-
-  const headingElements = [blessingText, occasionText, eventTypeText, ceremonyText].filter(el => el !== null)
-
-  // Apply custom heading if set
-  if (customHeading.value) {
-    // Parse the custom heading into parts
-    const headingParts = customHeading.value.split(/\s+/)
-
-    // Distribute heading across available elements
-    if (headingParts.length >= 4 && blessingText && occasionText && eventTypeText && ceremonyText) {
-      // 4+ words: distribute across all elements
-      blessingText.textContent = headingParts[0]
-      occasionText.textContent = headingParts.slice(1, 3).join(' ').toUpperCase()
-      eventTypeText.textContent = headingParts[3].toUpperCase()
-      ceremonyText.textContent = headingParts.slice(4).join(' ').toUpperCase() || ''
-    } else if (headingParts.length === 3 && blessingText && occasionText && eventTypeText) {
-      // 3 words
-      blessingText.textContent = headingParts[0]
-      occasionText.textContent = headingParts[1].toUpperCase()
-      eventTypeText.textContent = headingParts[2].toUpperCase()
-      if (ceremonyText) ceremonyText.textContent = ''
-    } else if (headingParts.length === 2 && blessingText && occasionText) {
-      // 2 words
-      blessingText.textContent = headingParts[0]
-      occasionText.textContent = headingParts[1].toUpperCase()
-      if (eventTypeText) eventTypeText.textContent = ''
-      if (ceremonyText) ceremonyText.textContent = ''
-    } else if (headingParts.length === 1 && blessingText) {
-      // 1 word
-      blessingText.textContent = headingParts[0]
-      if (occasionText) occasionText.textContent = ''
-      if (eventTypeText) eventTypeText.textContent = ''
-      if (ceremonyText) ceremonyText.textContent = ''
-    }
-  }
-
-  // Apply selected font if set
-  if (selectedHeadingFont.value) {
-    const fontFamily = selectedHeadingFont.value === 'playfair'
-      ? "'Playfair Display', Georgia, serif"
-      : "'Lato', 'Helvetica Neue', Arial, sans-serif"
-
-    headingElements.forEach(el => {
-      if (el) {
-        el.style.fontFamily = fontFamily
-        el.style.fontWeight = selectedHeadingFont.value === 'playfair' ? '700' : '400'
-      }
-    })
-  }
+  if (!customHeading.value && !selectedHeadingFont.value) return
+  applyCustomHeadingUtil(svgElement, customHeading.value)
+  applyHeadingFontUtil(svgElement, selectedHeadingFont.value)
 }
 
 async function processDescriptionInput() {
