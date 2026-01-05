@@ -52,3 +52,5 @@ temp_*.html
 *.db
 *.db-shm
 *.db-wal
+# ICAN Micro App (colleague's local development)
+ican/
