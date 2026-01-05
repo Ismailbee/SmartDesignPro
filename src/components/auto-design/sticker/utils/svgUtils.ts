@@ -274,22 +274,45 @@ interface UpdateSVGDeps {
 export function updateSVGWithImages(deps: UpdateSVGDeps) {
   const { weddingPreviewContainer, svgImageManager, formData, preGeneratedImageFile, makeSVGImageDraggableFn } = deps
   
-  if (!weddingPreviewContainer.value) return
+  console.log('🖼️ updateSVGWithImages called:', {
+    hasContainer: !!weddingPreviewContainer.value,
+    imagesCount: svgImageManager.images.value.length,
+    hasPreGeneratedFile: !!preGeneratedImageFile.value
+  })
+  
+  if (!weddingPreviewContainer.value) {
+    console.warn('⚠️ updateSVGWithImages: no weddingPreviewContainer')
+    return
+  }
 
   const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
-  if (!svgElement) return
+  if (!svgElement) {
+    console.warn('⚠️ updateSVGWithImages: no SVG element in container')
+    return
+  }
 
   const images = svgImageManager.images.value
+  console.log('🖼️ updateSVGWithImages: images array:', images.map(img => ({
+    id: img.id,
+    hasDataUrl: !!img.dataUrl,
+    dataUrlLength: img.dataUrl?.length || 0
+  })))
   
   // Check for userImage element
   let userImageElement = svgElement.querySelector('#userImage') || svgElement.querySelector('#placeholder-image')
+  console.log('🖼️ updateSVGWithImages: found userImageElement?', !!userImageElement, userImageElement?.id)
   
   // Create if needed
   if (!userImageElement && images.length > 0) {
     userImageElement = document.createElementNS('http://www.w3.org/2000/svg', 'image')
     userImageElement.setAttribute('id', 'userImage')
-    if (svgElement.firstChild) {
-      svgElement.insertBefore(userImageElement, svgElement.firstChild)
+    // Insert ABOVE background layers (not as first child).
+    const bgImage = svgElement.querySelector('#background-image')
+    const firstText = svgElement.querySelector('text')
+    if (bgImage && bgImage.parentNode === svgElement) {
+      bgImage.after(userImageElement)
+    } else if (firstText && firstText.parentNode === svgElement) {
+      svgElement.insertBefore(userImageElement, firstText)
     } else {
       svgElement.appendChild(userImageElement)
     }
@@ -391,6 +414,16 @@ export function updateSVGWithImages(deps: UpdateSVGDeps) {
       return
     }
     
+    console.log('🖼️ updateSVGWithImages: setting image attributes', {
+      id: img.id,
+      dataUrlLength: img.dataUrl?.length || 0,
+      dataUrlStart: img.dataUrl?.substring(0, 50) || 'none',
+      x: adjustedX,
+      y: adjustedY,
+      width: adjustedWidth,
+      height: adjustedHeight
+    })
+    
     userImageElement.setAttribute('x', adjustedX.toString())
     userImageElement.setAttribute('y', adjustedY.toString())
     userImageElement.setAttribute('width', adjustedWidth.toString())
@@ -398,6 +431,13 @@ export function updateSVGWithImages(deps: UpdateSVGDeps) {
     userImageElement.setAttribute('opacity', (img.opacity / 100).toString())
     userImageElement.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', img.dataUrl)
     userImageElement.setAttribute('href', img.dataUrl)
+    
+    // Verify the href was actually set
+    const verifyHref = userImageElement.getAttribute('href')
+    console.log('🖼️ updateSVGWithImages: verified href set?', {
+      hrefLength: verifyHref?.length || 0,
+      hrefStart: verifyHref?.substring(0, 50) || 'none'
+    })
     
     userImageElement.setAttribute('data-image-id', img.id)
     

@@ -542,44 +542,100 @@ export function useWeddingStickerUpdater() {
    * Preserves "on" prefix if present, adds it if missing
    */
   const extractDate = (description: string): string | null => {
-    // Pattern 1: "on [date]" - preserve the "on" prefix
-    const onDatePattern = /\bon\s+(\d{1,2}(?:st|nd|rd|th)?\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[,.]?\s*\d{4})/i
-    const onDateMatch = description.match(onDatePattern)
-
-    if (onDateMatch && onDateMatch[1]) {
-      return `on ${onDateMatch[1]}`
+    // Helper function to add ordinal suffix to day number
+    const addOrdinalSuffix = (day: number): string => {
+      if (day >= 11 && day <= 13) return `${day}th`
+      switch (day % 10) {
+        case 1: return `${day}st`
+        case 2: return `${day}nd`
+        case 3: return `${day}rd`
+        default: return `${day}th`
+      }
     }
 
-    // Pattern 2: Date with ordinal suffix (6th March, 2025)
-    const ordinalDatePattern = /(\d{1,2}(?:st|nd|rd|th)\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[,.]?\s*\d{4})/i
-    const ordinalMatch = description.match(ordinalDatePattern)
-
-    if (ordinalMatch && ordinalMatch[1]) {
-      return `on ${ordinalMatch[1]}`
+    // Helper to expand 2-digit year to 4-digit
+    const expandYear = (year: string): string => {
+      if (year.length === 2) {
+        const num = parseInt(year)
+        return num >= 0 && num <= 50 ? `20${year}` : `19${year}`
+      }
+      return year
     }
 
-    // Pattern 3: Month Day, Year (March 6, 2025)
-    const monthDayYearPattern = /((?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}[,.]?\s*\d{4})/i
+    // Month name mapping
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                        'July', 'August', 'September', 'October', 'November', 'December']
+    const monthAbbrev: Record<string, string> = {
+      'jan': 'January', 'feb': 'February', 'mar': 'March', 'apr': 'April',
+      'may': 'May', 'jun': 'June', 'jul': 'July', 'aug': 'August',
+      'sep': 'September', 'oct': 'October', 'nov': 'November', 'dec': 'December'
+    }
+    
+    const normalizeMonth = (m: string): string => {
+      const lower = m.toLowerCase().replace(/[,.]/, '')
+      if (monthAbbrev[lower.substring(0, 3)]) {
+        return monthAbbrev[lower.substring(0, 3)]
+      }
+      // Capitalize first letter
+      return m.charAt(0).toUpperCase() + m.slice(1).toLowerCase()
+    }
+
+    // Pattern 1: Numeric date (6/1/25, 6/1/2025, 6-1-25, 6-1-2025)
+    // Assumes day/month/year format
+    const numericPattern = /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/
+    const numericMatch = description.match(numericPattern)
+    if (numericMatch) {
+      const day = parseInt(numericMatch[1])
+      const month = parseInt(numericMatch[2])
+      const year = expandYear(numericMatch[3])
+      if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+        return `on ${addOrdinalSuffix(day)} ${monthNames[month - 1]}, ${year}`
+      }
+    }
+
+    // Pattern 2: "6th of January, 2024" or "6 of January 2024"
+    const dayOfMonthPattern = /(\d{1,2})(?:st|nd|rd|th)?\s+of\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[,.]?\s*(\d{4})?/i
+    const dayOfMonthMatch = description.match(dayOfMonthPattern)
+    if (dayOfMonthMatch) {
+      const day = parseInt(dayOfMonthMatch[1])
+      const month = normalizeMonth(dayOfMonthMatch[2])
+      const year = dayOfMonthMatch[3] || new Date().getFullYear().toString()
+      return `on ${addOrdinalSuffix(day)} ${month}, ${year}`
+    }
+
+    // Pattern 3: "January 6th, 2024" or "January, 6th 2024" or "on January, 6th 2024"
+    const monthDayYearPattern = /(?:on\s+)?(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[,.]?\s*(\d{1,2})(?:st|nd|rd|th)?[,.]?\s*(\d{4})?/i
     const monthDayMatch = description.match(monthDayYearPattern)
-
-    if (monthDayMatch && monthDayMatch[1]) {
-      return `on ${monthDayMatch[1]}`
+    if (monthDayMatch) {
+      const month = normalizeMonth(monthDayMatch[1])
+      const day = parseInt(monthDayMatch[2])
+      const year = monthDayMatch[3] || new Date().getFullYear().toString()
+      return `on ${addOrdinalSuffix(day)} ${month}, ${year}`
     }
 
-    // Pattern 4: Numeric date (6/3/2025, 6-3-2025)
-    const numericDatePattern = /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/
-    const numericMatch = description.match(numericDatePattern)
-
-    if (numericMatch && numericMatch[1]) {
-      return `on ${numericMatch[1]}`
+    // Pattern 4: "6th January, 2024" or "6th January 2024" or "on 6th January, 2024"
+    const dayMonthYearPattern = /(?:on\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[,.]?\s*(\d{4})?/i
+    const dayMonthMatch = description.match(dayMonthYearPattern)
+    if (dayMonthMatch) {
+      const day = parseInt(dayMonthMatch[1])
+      const month = normalizeMonth(dayMonthMatch[2])
+      const year = dayMonthMatch[3] || new Date().getFullYear().toString()
+      return `on ${addOrdinalSuffix(day)} ${month}, ${year}`
     }
 
-    // Pattern 5: Date without year (6th March)
-    const noYearPattern = /(\d{1,2}(?:st|nd|rd|th)?\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec))/i
-    const noYearMatch = description.match(noYearPattern)
-
-    if (noYearMatch && noYearMatch[1]) {
-      return `on ${noYearMatch[1]}`
+    // Pattern 5: Simple day number after bracket or comma (e.g., "), 6," or "), 15,")
+    // This captures just a day number that appears after names in brackets
+    // Auto-completes with current month and year
+    const simpleDayPattern = /\)\s*,?\s*(\d{1,2})(?:st|nd|rd|th)?\s*[,.]?\s*(?:courtesy|cut-cee|$)/i
+    const simpleDayMatch = description.match(simpleDayPattern)
+    if (simpleDayMatch && simpleDayMatch[1]) {
+      const day = parseInt(simpleDayMatch[1])
+      if (day >= 1 && day <= 31) {
+        const currentDate = new Date()
+        const currentMonth = monthNames[currentDate.getMonth()]
+        const currentYear = currentDate.getFullYear()
+        return `on ${addOrdinalSuffix(day)} ${currentMonth}, ${currentYear}`
+      }
     }
 
     return null
@@ -887,12 +943,14 @@ export function useWeddingStickerUpdater() {
     console.log(`📍 Setting position for name2-first: x=${name2XPosition}, y=${name2YPosition}`)
     console.log(`📐 Font size adjustment: ${name1Is4AndName2Is4to5 ? `Increased to ${fontSize}px (FIRST names are 4 and 4-5 letters)` : hasLongName ? `Reduced to ${fontSize}px (FIRST name has 8+ letters)` : `Keeping ${fontSize}px (base size)`}`)
 
-    // Check if both names are 10+ characters to apply Swiss font
+    // Check if both names are 10+ characters to apply Swiss font, otherwise use Cinzel Decorative
     const bothNamesLong = firstName1Length >= 10 && firstName2Length >= 10
-    const fontFamily = bothNamesLong ? 'Arial, Helvetica, sans-serif' : undefined
+    const fontFamily = bothNamesLong ? 'Arial, Helvetica, sans-serif' : "'Cinzel Decorative', Georgia, serif"
     
     if (bothNamesLong) {
       console.log(`📝 FONT FAMILY CHANGE: Both names are 10+ characters - switching to Swiss/Arial font`)
+    } else {
+      console.log(`📝 FONT FAMILY: Using Cinzel Decorative for wedding names`)
     }
 
     // Prefer DOM-based updates so we can support any decorative SVG that
@@ -917,7 +975,7 @@ export function useWeddingStickerUpdater() {
         elName1.setAttribute('x', name1XPosition)
         elName1.setAttribute('y', name1YPosition)
         elName1.style.fontSize = `${fontSize}px`
-        if (fontFamily) elName1.style.fontFamily = fontFamily
+        elName1.style.fontFamily = fontFamily
       }
 
       if (elName2) {
@@ -925,13 +983,14 @@ export function useWeddingStickerUpdater() {
         elName2.setAttribute('x', name2XPosition)
         elName2.setAttribute('y', name2YPosition)
         elName2.style.fontSize = `${fontSize}px`
-        if (fontFamily) elName2.style.fontFamily = fontFamily
+        elName2.style.fontFamily = fontFamily
       }
 
       if (elSep) {
         elSep.setAttribute('x', separatorXPosition)
         elSep.setAttribute('y', separatorYPosition)
         elSep.style.fontSize = `${fontSize}px`
+        elSep.style.fontFamily = fontFamily
       }
 
       if (formattedLast1 && elLast1) {
@@ -1222,111 +1281,80 @@ export function useWeddingStickerUpdater() {
 
     // 2. Extract event type dynamically from "on your [EVENT TYPE]" pattern
     const eventTypeData = extractEventType(description)
+    
     if (eventTypeData) {
+      // Pattern matched: "on your [EVENT TYPE]"
       data.occasion = 'ON YOUR'
       data.eventType = eventTypeData.eventType
       data.ceremony = eventTypeData.ceremony || 'CEREMONY'
 
+      // Set occasion text (ON YOUR - should be together on one line)
       if (elements.occasionText) {
         elements.occasionText.removeAttribute('display')
         elements.occasionText.textContent = data.occasion
       }
+      
+      // Set event type text (WEDDING - gold color, below ON YOUR)
       if (elements.eventTypeText) {
+        elements.eventTypeText.removeAttribute('display')
         elements.eventTypeText.textContent = data.eventType
-
-        // Apply alternative font family if event type is 9+ characters
-        const fontFamily = calculateEventTypeFontFamily(data.eventType)
-        if (fontFamily) {
-          // Event type has 9+ characters - apply AlternateGothic2 BT to event type
-          elements.eventTypeText.setAttribute('font-family', fontFamily)
-          console.log(`🎪 Event Type updated: "${data.eventType}" with font-family: ${fontFamily}`)
-
-          // Also apply "Great Day Personal Use" font to blessing text
-          if (elements.blessingText && data.blessing) {
-            elements.blessingText.setAttribute('font-family', 'Great Day Personal Use')
-            console.log(`✨ Blessing updated: "${data.blessing}" with font-family: Great Day Personal Use`)
-          }
-        } else {
-          // Event type has ≤8 characters - use original fonts for both
-          elements.eventTypeText.removeAttribute('font-family')
-          console.log(`🎪 Event Type updated: "${data.eventType}" (original font)`)
-
-          // Remove font-family from blessing text to use original SVG font
-          if (elements.blessingText && data.blessing) {
-            elements.blessingText.removeAttribute('font-family')
-            console.log(`✨ Blessing updated: "${data.blessing}" (original font)`)
-          }
-        }
+        elements.eventTypeText.removeAttribute('font-family')
       }
 
       // Handle ceremony text visibility
       if (elements.ceremonyText) {
         if (eventTypeData.hideCeremony) {
-          // Hide ceremony text when word after "wedding" is not a recognized ceremony type
           elements.ceremonyText.setAttribute('display', 'none')
-          console.log(`🚫 Ceremony text hidden (word after "wedding" is not a recognized ceremony type)`)
         } else {
-          // Show ceremony text and update content
           elements.ceremonyText.removeAttribute('display')
           elements.ceremonyText.textContent = data.ceremony
-          console.log(`✅ Ceremony text shown: "${data.ceremony}"`)
         }
       }
     } else {
-      // No event type pattern found
+      // No "on your [EVENT TYPE]" pattern found
       
       if (hasCustomHeader) {
-        // User typed something else -> Use it to replace default text
-        
-        // Blessing is already set to firstWord.
-        // We need to put the REST of the text into eventType (or somewhere).
-        
-        // Remove first word from cleanHeader
+        // User typed something custom - show it as the main text
         const firstWordLength = cleanHeader.split(/\s+/)[0].length
         const remainingText = cleanHeader.substring(firstWordLength).trim()
         
-        // Hide occasion ("ON YOUR")
+        // Hide occasion text
         if (elements.occasionText) {
           elements.occasionText.setAttribute('display', 'none')
         }
         
-        // Set event type to remaining text
+        // Show remaining text as event type
         if (elements.eventTypeText) {
+          elements.eventTypeText.removeAttribute('display')
           elements.eventTypeText.textContent = remainingText
-          elements.eventTypeText.removeAttribute('font-family') // Reset font
+          elements.eventTypeText.removeAttribute('font-family')
         }
         
-        // Hide ceremony ("CEREMONY")
+        // Hide ceremony text
         if (elements.ceremonyText) {
           elements.ceremonyText.setAttribute('display', 'none')
         }
-        
-        // Reset blessing font to original
-        if (elements.blessingText && data.blessing) {
-          elements.blessingText.removeAttribute('font-family')
-        }
-        
       } else {
-        // No custom header (e.g. only names typed) -> Keep defaults
+        // No custom header - use defaults from template
         if (elements.occasionText) {
           elements.occasionText.removeAttribute('display')
           elements.occasionText.textContent = data.occasion
         }
         if (elements.eventTypeText) {
+          elements.eventTypeText.removeAttribute('display')
           elements.eventTypeText.textContent = data.eventType
           elements.eventTypeText.removeAttribute('font-family')
         }
         if (elements.ceremonyText) {
-          // Reset ceremony text to visible with default content
           elements.ceremonyText.removeAttribute('display')
           elements.ceremonyText.textContent = data.ceremony
-          console.log(`🔄 Reset ceremony text to default: "${data.ceremony}"`)
-        }
-        // Reset blessing font to original
-        if (elements.blessingText && data.blessing) {
-          elements.blessingText.removeAttribute('font-family')
         }
       }
+    }
+
+    // Reset blessing font
+    if (elements.blessingText) {
+      elements.blessingText.removeAttribute('font-family')
     }
 
     // 3. Extract names (ONLY from brackets) - Enhanced with first/last name support

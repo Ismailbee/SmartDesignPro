@@ -910,7 +910,21 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
         console.log('✅ User image moved after background image')
       }
       
+      // Ensure user image is fully visible
+      userImage.removeAttribute('display')
+      userImage.setAttribute('visibility', 'visible')
+      userImage.setAttribute('opacity', '1')
+      
       console.log('✅ User image found with href:', userImage.getAttribute('href') || userImage.getAttributeNS('http://www.w3.org/1999/xlink', 'href'))
+    }
+    
+    // Ensure background image is visible and properly rendered
+    const backgroundImage = svgElement.querySelector('#background-image') as SVGImageElement
+    if (backgroundImage) {
+      backgroundImage.removeAttribute('display')
+      backgroundImage.setAttribute('visibility', 'visible')
+      backgroundImage.setAttribute('opacity', '1')
+      console.log('✅ Background image visibility ensured')
     }
 
     // Move all text elements to the end (on top of everything)
@@ -1053,18 +1067,37 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
       ? chatPreviewContainer.value 
       : (chatPreviewContainer.value ? [chatPreviewContainer.value] : [])
 
-    if (!weddingPreviewContainer.value) return
+    console.log('🔄 updateChatPreviewSVG called:', {
+      containersCount: previewContainers.length,
+      containerTypes: previewContainers.map(c => c?.className || 'null')
+    })
+
+    if (!weddingPreviewContainer.value) {
+      console.warn('⚠️ updateChatPreviewSVG: weddingPreviewContainer is null')
+      return
+    }
     const masterSvg = weddingPreviewContainer.value.querySelector('svg')
-    if (!masterSvg) return
+    if (!masterSvg) {
+      console.warn('⚠️ updateChatPreviewSVG: no master SVG found')
+      return
+    }
 
     // Debug: log what we're about to clone
-    const bgInMaster = masterSvg.querySelector('#background-image')
-    console.log('🔄 updateChatPreviewSVG: master has background?', !!bgInMaster, bgInMaster?.getAttribute('href')?.substring(0, 50))
+    const bgInMaster = masterSvg.querySelector('#background-image') as SVGImageElement
+    const userImgInMaster = masterSvg.querySelector('#userImage, #placeholder-image') as SVGImageElement
+    console.log('🔄 updateChatPreviewSVG: master SVG state:', {
+      hasBackground: !!bgInMaster,
+      backgroundHref: bgInMaster?.getAttribute('href')?.substring(0, 50) || 'none',
+      hasUserImage: !!userImgInMaster,
+      userImageHref: userImgInMaster?.getAttribute('href')?.substring(0, 50) || 'none'
+    })
 
-    previewContainers.forEach((container) => {
+    previewContainers.forEach((container, idx) => {
       if (container) {
         // Find the preview-placeholder div to inject SVG into (not the wrapper which contains buttons)
         const placeholderDiv = container.querySelector('.preview-placeholder') as HTMLElement || container
+        
+        console.log(`📦 Container ${idx}: found placeholder?`, !!container.querySelector('.preview-placeholder'), 'using:', placeholderDiv.className)
         
         // Clone the master SVG to update chat preview
         const existingSvg = placeholderDiv.querySelector('svg')
@@ -1072,6 +1105,10 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
           existingSvg.remove()
         }
         const clonedSvg = masterSvg.cloneNode(true) as SVGSVGElement
+        
+        // Verify clone has the image
+        const clonedUserImg = clonedSvg.querySelector('#userImage, #placeholder-image') as SVGImageElement
+        console.log(`📦 Container ${idx}: cloned SVG has userImage?`, !!clonedUserImg, clonedUserImg?.getAttribute('href')?.substring(0, 50) || 'none')
         
         // Get viewBox to calculate aspect ratio
         const viewBox = clonedSvg.getAttribute('viewBox')
@@ -1094,7 +1131,7 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
         clonedSvg.style.display = 'block'
         
         placeholderDiv.appendChild(clonedSvg)
-        console.log('✅ updateChatPreviewSVG: cloned SVG to preview placeholder')
+        console.log(`✅ Container ${idx}: cloned SVG appended to preview placeholder`)
       }
     })
   }

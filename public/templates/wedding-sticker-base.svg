@@ -42,13 +42,13 @@
          preserveAspectRatio="xMidYMid slice"/>
 
   <!-- Editable text elements with IDs -->
-  <text id="blessing-text" class="serif-font" x="850.45" y="350" text-anchor="middle" font-size="160" fill="#000">Alhamdulillahi</text>
-  <text id="occasion-text" x="850.45" y="420" text-anchor="middle" font-size="45" font-weight="bold" fill="#000">ON YOUR</text>
-  <text id="event-type-text" class="serif-font" x="850.45" y="570" text-anchor="middle" font-size="180" font-weight="bold" fill="#104C6E">WEDDING</text>
-  <text id="ceremony-text" x="850.45" y="690" text-anchor="middle" font-size="130" font-weight="bold" fill="red">CEREMONY</text>
+  <text id="blessing-text" class="serif-font" x="850.45" y="280" text-anchor="middle" font-size="160" fill="#000">Alhamdulillahi</text>
+  <text id="occasion-text" x="850.45" y="380" text-anchor="middle" font-size="55" font-weight="bold" fill="#000">ON YOUR</text>
+  <text id="event-type-text" class="serif-font" x="850.45" y="560" text-anchor="middle" font-size="150" font-weight="bold" fill="#DAA520">WEDDING</text>
+  <text id="ceremony-text" x="850.45" y="710" text-anchor="middle" font-size="100" font-weight="bold" fill="red">CEREMONY</text>
   
   <!-- New Wedding Names - Clean version positioned on the left side, not overlapping image -->
-  <g id="wedding-names-group" transform="translate(450, 950) scale(2.0)">
+  <g id="wedding-names-group" transform="translate(400, 950) scale(2.0)">
     <text id="name1-first" x="0" y="85" fill="#000000" font-size="84.15" font-weight="bold">Muhammad</text>
     <text id="name2-first" x="60" y="160" fill="#000000" font-size="84.15" font-weight="bold">Hauwawu</text>
     <text id="name-separator" x="-20" y="160.4" fill="#B8860B" font-size="84.15" font-weight="bold">&amp;</text>

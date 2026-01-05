@@ -8,6 +8,7 @@
 import { ref, computed, nextTick, type Ref, type ComputedRef } from 'vue'
 import type { ChatMessage } from './useSpeechToText'
 import { parseSizeToInches } from '../utils/previewUtils'
+import type { BackgroundItem } from '@/services/background/background.types'
 
 // Types
 export interface GenerationDependencies {
@@ -45,12 +46,12 @@ export interface GenerationDependencies {
   scrollToBottom: () => void
   loadWeddingBackgroundManifest: () => Promise<void>
   getPersistedWeddingBackground: () => string | null
-  getRandomBackground: () => string | null
+  getRandomBackground: () => BackgroundItem | null
   setPersistedWeddingBackground: (bg: string) => void
-  availableBackgrounds: Ref<string[]>
+  availableBackgrounds: Ref<BackgroundItem[]>
   loadWeddingStickerTemplate: () => Promise<void>
   processDescriptionInput: () => Promise<void>
-  applyNewBackground: (bg: string) => Promise<void>
+  applyNewBackground: (bg: BackgroundItem) => Promise<void>
   updateChatPreviewSVG: () => void
   handleSizeChange: (w: number, h: number) => Promise<void>
   updateSVGWithImages: () => void
@@ -258,14 +259,27 @@ export function useWeddingPreviewGeneration(deps: GenerationDependencies): UseWe
       }
 
       // Choose background
-      const persisted = deps.getPersistedWeddingBackground()
-      const initialBackground = persisted && deps.availableBackgrounds.value.includes(persisted) 
-        ? persisted 
-        : deps.getRandomBackground()
+      // getPersistedWeddingBackground() returns a persist key like "bundled:id"
+      // We need to find the matching BackgroundItem from availableBackgrounds
+      const persistedKey = deps.getPersistedWeddingBackground()
+      let initialBackground: BackgroundItem | null = null
+      
+      if (persistedKey) {
+        // Find background item matching the persisted key
+        initialBackground = deps.availableBackgrounds.value.find(bg => {
+          const bgKey = `${bg.src.type}:${bg.id}`
+          return bgKey === persistedKey || bg.id === persistedKey || bg.fileName === persistedKey
+        }) || null
+      }
+      
+      // If no persisted background found, get a random one
+      if (!initialBackground) {
+        initialBackground = deps.getRandomBackground()
+      }
       
       if (initialBackground) {
-        deps.currentBackgroundFileName.value = initialBackground
-        deps.setPersistedWeddingBackground(initialBackground)
+        deps.currentBackgroundFileName.value = initialBackground.fileName || initialBackground.id
+        deps.setPersistedWeddingBackground(`${initialBackground.src.type}:${initialBackground.id}`)
       }
 
       await deps.loadWeddingStickerTemplate()
@@ -280,10 +294,16 @@ export function useWeddingPreviewGeneration(deps: GenerationDependencies): UseWe
 
       // Handle pre-uploaded image
       if (deps.preGeneratedImageFile.value) {
+        console.log('📸 generateWeddingPreview: processing preGeneratedImageFile', {
+          fileName: deps.preGeneratedImageFile.value.name,
+          fileSize: deps.preGeneratedImageFile.value.size,
+          fileType: deps.preGeneratedImageFile.value.type
+        })
         deps.generatingStep.value = 3
         await nextTick()
 
         const svgElement = deps.weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
+        console.log('📸 generateWeddingPreview: found svgElement?', !!svgElement)
         if (svgElement) {
           let fileToProcess = deps.preGeneratedImageFile.value
 
@@ -303,10 +323,23 @@ export function useWeddingPreviewGeneration(deps: GenerationDependencies): UseWe
             }
           }
 
-          await deps.svgImageManager.addImage(fileToProcess, svgElement)
+          const addedImage = await deps.svgImageManager.addImage(fileToProcess, svgElement)
+          console.log('📸 generateWeddingPreview: addImage result', {
+            success: !!addedImage,
+            imageId: addedImage?.id,
+            dataUrlLength: addedImage?.dataUrl?.length || 0,
+            totalImagesInManager: deps.svgImageManager.images.value.length
+          })
           deps.updateSVGWithImages()
           await nextTick()
           await new Promise(resolve => setTimeout(resolve, 800))
+          
+          // Debug: verify image is in master SVG
+          const userImg = svgElement.querySelector('#userImage, #placeholder-image')
+          console.log('📸 After updateSVGWithImages - userImage in master:', {
+            found: !!userImg,
+            href: userImg?.getAttribute('href')?.substring(0, 50) || 'none'
+          })
         }
       }
 
@@ -334,50 +367,9 @@ export function useWeddingPreviewGeneration(deps: GenerationDependencies): UseWe
       await nextTick()
       await new Promise(resolve => setTimeout(resolve, 500))
 
-      // Copy SVG to chat container
-      if (deps.weddingPreviewContainer.value) {
-        const svgElement = deps.weddingPreviewContainer.value.querySelector('svg')
-        if (svgElement) {
-          const previewContainers = Array.isArray(deps.chatPreviewContainer.value)
-            ? deps.chatPreviewContainer.value
-            : (deps.chatPreviewContainer.value ? [deps.chatPreviewContainer.value] : [])
-
-          const targetContainer = previewContainers[previewContainers.length - 1]
-          if (targetContainer) {
-            const clonedSVG = svgElement.cloneNode(true) as SVGSVGElement
-            
-            const viewBox = clonedSVG.getAttribute('viewBox')
-            if (viewBox) {
-              const parts = viewBox.split(/\s+|,/)
-              if (parts.length >= 4) {
-                const vbWidth = parseFloat(parts[2])
-                const vbHeight = parseFloat(parts[3])
-                targetContainer.style.aspectRatio = String(vbWidth / vbHeight)
-              }
-            }
-
-            clonedSVG.style.display = 'block'
-            clonedSVG.style.width = '100%'
-            clonedSVG.style.maxWidth = '100%'
-            clonedSVG.style.height = 'auto'
-            clonedSVG.removeAttribute('width')
-            clonedSVG.removeAttribute('height')
-
-            targetContainer.innerHTML = ''
-            targetContainer.appendChild(clonedSVG)
-
-            // Re-attach drag handlers
-            const imageElements = clonedSVG.querySelectorAll('image')
-            imageElements.forEach((imgEl) => {
-              imgEl.removeAttribute('data-draggable')
-              const imageId = imgEl.getAttribute('data-image-id') || imgEl.id || 'user-image-1'
-              if (imageId) {
-                deps.makeSVGImageDraggable(imgEl as SVGImageElement, imageId)
-              }
-            })
-          }
-        }
-      }
+      // Use the proper updateChatPreviewSVG to clone master SVG to chat preview
+      // This ensures both background and user image are present in the visible preview
+      deps.updateChatPreviewSVG()
 
       deps.scrollToBottom()
 
@@ -455,42 +447,8 @@ export function useWeddingPreviewGeneration(deps: GenerationDependencies): UseWe
       await nextTick()
       await new Promise(resolve => setTimeout(resolve, 200))
 
-      // Update all preview containers
-      if (deps.weddingPreviewContainer.value) {
-        const masterSvg = deps.weddingPreviewContainer.value.querySelector('svg')
-        if (masterSvg) {
-          const previewContainers = Array.isArray(deps.chatPreviewContainer.value)
-            ? deps.chatPreviewContainer.value
-            : (deps.chatPreviewContainer.value ? [deps.chatPreviewContainer.value] : [])
-
-          previewContainers.forEach((container) => {
-            if (container) {
-              const existingSvg = container.querySelector('svg')
-              if (existingSvg) existingSvg.remove()
-
-              const clonedSvg = masterSvg.cloneNode(true) as SVGSVGElement
-              const viewBox = clonedSvg.getAttribute('viewBox')
-              if (viewBox) {
-                const parts = viewBox.split(/\s+|,/)
-                if (parts.length >= 4) {
-                  const vbWidth = parseFloat(parts[2])
-                  const vbHeight = parseFloat(parts[3])
-                  container.style.aspectRatio = String(vbWidth / vbHeight)
-                }
-              }
-
-              clonedSvg.style.display = 'block'
-              clonedSvg.style.width = '100%'
-              clonedSvg.style.maxWidth = '100%'
-              clonedSvg.style.height = 'auto'
-              clonedSvg.removeAttribute('width')
-              clonedSvg.removeAttribute('height')
-
-              container.appendChild(clonedSvg)
-            }
-          })
-        }
-      }
+      // Use the proper updateChatPreviewSVG to clone master SVG to all preview containers
+      deps.updateChatPreviewSVG()
 
       deps.chatMessages.value.push({
         id: Date.now(),

@@ -7,6 +7,7 @@
 
 import { nextTick, type Ref, type ComputedRef } from 'vue'
 import type { ChatMessage, ExtractedInfo } from '../types'
+import type { BackgroundItem } from '@/services/background/background.types'
 
 // Re-export for backward compatibility
 export type { ChatMessage, ExtractedInfo }
@@ -32,7 +33,7 @@ export interface GenerationContext {
   awaitingSizeDecision: Ref<boolean>
   isAnalyzing: Ref<boolean>
   currentBackgroundFileName: Ref<string>
-  availableBackgrounds: Ref<string[]>
+  availableBackgrounds: Ref<BackgroundItem[]>
 
   // Token costs
   TOKEN_COST_GENERATE_DESIGN: number
@@ -41,11 +42,11 @@ export interface GenerationContext {
   scrollToBottom: () => void
   loadWeddingBackgroundManifest: () => Promise<void>
   getPersistedWeddingBackground: () => string | null
-  getRandomBackground: () => string | null
+  getRandomBackground: () => BackgroundItem | null
   setPersistedWeddingBackground: (bg: string) => void
   loadWeddingStickerTemplate: () => Promise<void>
   processDescriptionInput: () => Promise<void>
-  applyNewBackground: (bg: string) => Promise<void>
+  applyNewBackground: (bg: BackgroundItem) => Promise<void>
   updateChatPreviewSVG: () => void
   handleSizeChange: (w: number, h: number) => Promise<void>
   updateSVGWithImages: () => void
@@ -288,14 +289,27 @@ export async function generateWeddingPreviewUtil(ctx: GenerationContext): Promis
     }
 
     // Choose background
-    const persisted = ctx.getPersistedWeddingBackground()
-    const initialBackground = persisted && ctx.availableBackgrounds.value.includes(persisted)
-      ? persisted
-      : ctx.getRandomBackground()
+    // getPersistedWeddingBackground() returns a persist key like "bundled:filename"
+    // We need to find the matching BackgroundItem from availableBackgrounds
+    const persistedKey = ctx.getPersistedWeddingBackground()
+    let initialBackground: BackgroundItem | null = null
+    
+    if (persistedKey) {
+      // Find background item matching the persisted key
+      initialBackground = ctx.availableBackgrounds.value.find(bg => {
+        const bgKey = `${bg.src.type}:${bg.id}`
+        return bgKey === persistedKey || bg.id === persistedKey || bg.fileName === persistedKey
+      }) || null
+    }
+    
+    // If no persisted background found, get a random one
+    if (!initialBackground) {
+      initialBackground = ctx.getRandomBackground()
+    }
 
     if (initialBackground) {
-      ctx.currentBackgroundFileName.value = initialBackground
-      ctx.setPersistedWeddingBackground(initialBackground)
+      ctx.currentBackgroundFileName.value = initialBackground.fileName || initialBackground.id
+      ctx.setPersistedWeddingBackground(`${initialBackground.src.type}:${initialBackground.id}`)
     }
 
     await ctx.loadWeddingStickerTemplate()
@@ -336,6 +350,12 @@ export async function generateWeddingPreviewUtil(ctx: GenerationContext): Promis
         }
 
         const addedImage = await ctx.svgImageManager.addImage(fileToProcess, svgElement)
+        console.log('📸 Image added to svgImageManager:', {
+          addedImage: !!addedImage,
+          imagesCount: ctx.svgImageManager.images.value.length,
+          dataUrlLength: ctx.svgImageManager.images.value[0]?.dataUrl?.length || 0
+        })
+        
         ctx.updateSVGWithImages()
         await nextTick()
         await new Promise(resolve => setTimeout(resolve, 800))
@@ -343,6 +363,12 @@ export async function generateWeddingPreviewUtil(ctx: GenerationContext): Promis
         // Ensure correct z-order and opacity
         const imgElement = svgElement.querySelector('#userImage, #placeholder-image') as SVGImageElement
         if (imgElement) {
+          console.log('📸 Found image element:', {
+            id: imgElement.id,
+            href: imgElement.getAttribute('href')?.substring(0, 50) || 'none',
+            opacity: imgElement.getAttribute('opacity')
+          })
+          
           const bgImage = svgElement.querySelector('#background-image')
           if (bgImage && bgImage.parentNode === imgElement.parentNode) {
             const children = Array.from(svgElement.children)
@@ -361,10 +387,18 @@ export async function generateWeddingPreviewUtil(ctx: GenerationContext): Promis
           if (!currentHref || currentHref === '') {
             const latestImage = ctx.svgImageManager.images.value[ctx.svgImageManager.images.value.length - 1]
             if (latestImage?.dataUrl) {
+              console.log('📸 Setting href from svgImageManager:', latestImage.dataUrl.substring(0, 50))
               imgElement.setAttribute('href', latestImage.dataUrl)
               imgElement.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', latestImage.dataUrl)
             }
           }
+          
+          // Force visibility
+          imgElement.style.display = 'block'
+          imgElement.style.visibility = 'visible'
+          imgElement.removeAttribute('display')
+        } else {
+          console.warn('⚠️ No image element found in SVG after updateSVGWithImages')
         }
       }
     }
@@ -410,73 +444,9 @@ export async function generateWeddingPreviewUtil(ctx: GenerationContext): Promis
     await nextTick()
     await new Promise(resolve => setTimeout(resolve, 500))
 
-    // Copy SVG to chat container
-    if (ctx.weddingPreviewContainer.value) {
-      const svgElement = ctx.weddingPreviewContainer.value.querySelector('svg')
-      if (svgElement) {
-        const previewContainers = Array.isArray(ctx.chatPreviewContainer.value)
-          ? ctx.chatPreviewContainer.value
-          : (ctx.chatPreviewContainer.value ? [ctx.chatPreviewContainer.value] : [])
-
-        const targetContainer = previewContainers[previewContainers.length - 1]
-        if (targetContainer) {
-          const clonedSVG = svgElement.cloneNode(true) as SVGSVGElement
-
-          const viewBox = clonedSVG.getAttribute('viewBox')
-          if (viewBox) {
-            const parts = viewBox.split(/\s+|,/)
-            if (parts.length >= 4) {
-              const vbWidth = parseFloat(parts[2])
-              const vbHeight = parseFloat(parts[3])
-              targetContainer.style.aspectRatio = String(vbWidth / vbHeight)
-            }
-          }
-
-          clonedSVG.style.display = 'block'
-          clonedSVG.style.width = '100%'
-          clonedSVG.style.maxWidth = '100%'
-          clonedSVG.style.height = 'auto'
-          clonedSVG.removeAttribute('width')
-          clonedSVG.removeAttribute('height')
-
-          targetContainer.innerHTML = ''
-          targetContainer.appendChild(clonedSVG)
-
-          if (!targetContainer.querySelector('svg')) {
-            await new Promise(resolve => setTimeout(resolve, 50))
-            targetContainer.appendChild(clonedSVG.cloneNode(true))
-          }
-
-          // Re-attach drag handlers
-          const imageElements = clonedSVG.querySelectorAll('image')
-          imageElements.forEach((imgEl) => {
-            imgEl.removeAttribute('data-draggable')
-            const imageId = imgEl.getAttribute('data-image-id') || imgEl.id || 'user-image-1'
-            if (imageId) {
-              ctx.makeSVGImageDraggable(imgEl as SVGImageElement, imageId)
-            }
-          })
-
-          void targetContainer.offsetHeight
-        }
-      } else {
-        // Fallback
-        const previewContainers = Array.isArray(ctx.chatPreviewContainer.value)
-          ? ctx.chatPreviewContainer.value
-          : (ctx.chatPreviewContainer.value ? [ctx.chatPreviewContainer.value] : [])
-
-        const targetContainer = previewContainers[previewContainers.length - 1]
-        if (targetContainer) {
-          targetContainer.innerHTML = `
-            <svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
-              <rect width="100%" height="100%" fill="#fee"/>
-              <text x="50%" y="45%" text-anchor="middle" font-size="16" fill="#c00">SVG Failed to Load</text>
-              <text x="50%" y="55%" text-anchor="middle" font-size="12" fill="#666">Please try again</text>
-            </svg>
-          `
-        }
-      }
-    }
+    // Use the proper updateChatPreviewSVG to clone master SVG to chat preview
+    // This ensures both background and user image are present in the visible preview
+    ctx.updateChatPreviewSVG()
 
     ctx.scrollToBottom()
 
@@ -502,8 +472,8 @@ export async function handleGenerateMoreUtil(
   chatMessages: Ref<ChatMessage[]>,
   isGeneratingPreview: Ref<boolean>,
   generatingMessage: Ref<string>,
-  getRandomBackground: () => string | null,
-  applyNewBackground: (bg: string) => Promise<void>,
+  getRandomBackground: () => BackgroundItem | null,
+  applyNewBackground: (bg: BackgroundItem) => Promise<void>,
   updateChatPreviewSVG: () => void,
   scrollToBottom: () => void
 ): Promise<void> {
@@ -555,8 +525,8 @@ export async function handleGenerateNewUtil(
   chatMessages: Ref<ChatMessage[]>,
   isGeneratingPreview: Ref<boolean>,
   generatingMessage: Ref<string>,
-  getRandomBackground: () => string | null,
-  applyNewBackground: (bg: string) => Promise<void>,
+  getRandomBackground: () => BackgroundItem | null,
+  applyNewBackground: (bg: BackgroundItem) => Promise<void>,
   scrollToBottom: () => void
 ): Promise<void> {
   isGeneratingPreview.value = true

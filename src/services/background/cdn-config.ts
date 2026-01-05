@@ -48,8 +48,9 @@ export function toCdnUrl(localPath: string): string {
 /**
  * Check if CDN is enabled
  * Set to false to disable CDN and use local files
+ * Set to true once you've uploaded backgrounds to CloudFront
  */
-export const CDN_ENABLED = true
+export const CDN_ENABLED = false  // Set to true after uploading to CloudFront
 
 /**
  * Get the appropriate URL for a background

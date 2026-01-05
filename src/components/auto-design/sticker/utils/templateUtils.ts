@@ -74,6 +74,7 @@ export function resetTitleRenderCache(): void {
  */
 export async function loadWeddingStickerTemplateUtil(ctx: TemplateContext): Promise<void> {
   if (!ctx.weddingPreviewContainer.value) {
+    console.error('❌ loadWeddingStickerTemplateUtil: weddingPreviewContainer is null')
     return
   }
 
@@ -82,8 +83,23 @@ export async function loadWeddingStickerTemplateUtil(ctx: TemplateContext): Prom
     ctx.resetReplacement()
 
     // Load SVG template from external file
+    console.log('📄 loadWeddingStickerTemplateUtil: fetching template...')
     const response = await fetch('/templates/wedding-sticker-base.svg')
+    
+    if (!response.ok) {
+      console.error('❌ loadWeddingStickerTemplateUtil: fetch failed', {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url
+      })
+      return
+    }
+    
     const svgText = await response.text()
+    console.log('✅ loadWeddingStickerTemplateUtil: template loaded', {
+      length: svgText.length,
+      startsWithSvg: svgText.trim().startsWith('<svg')
+    })
 
     // Insert SVG into container
     ctx.weddingPreviewContainer.value.innerHTML = svgText
@@ -120,44 +136,128 @@ export async function loadWeddingStickerTemplateUtil(ctx: TemplateContext): Prom
     }
 
     const svgElements = ctx.getSVGElements(svgElement)
+    console.log('🗓️ [loadTemplate] SVG Elements captured:', {
+      dateText: svgElements.dateText,
+      dateTextId: svgElements.dateText?.id,
+      courtesyText: svgElements.courtesyText,
+      courtesyTextId: svgElements.courtesyText?.id,
+      directQueryDate: svgElement.querySelector('#date-text'),
+      directQueryCourtesy: svgElement.querySelector('#courtesy-text')
+    })
     ctx.setSvgElements(svgElements)
 
-    // Use Title Library to find matching title SVG based on description or custom heading
-    const textToMatch = ctx.customHeading.value || ctx.accumulatedDescription.value || ctx.formData.description || 'wedding'
-    const matchedTitle = ctx.findMatchingTitle(textToMatch)
-    
-    try {
-      // Get title color based on current background
-      const titleColor = ctx.getTitleColorForBackground()
-      
-      if (matchedTitle) {
-        await ctx.replaceTitleWithImage(svgElement, {
-          svgPath: matchedTitle.svgPath,
-          targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
-          position: matchedTitle.position || { x: -30, y: 50, width: 1800, height: 900 },
-          scale: matchedTitle.scale || 1.0,
-          color: titleColor
-        })
-      } else {
-        await ctx.replaceTitleWithImage(svgElement, {
-          svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
-          targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
-          position: { x: -30, y: 50, width: 1800, height: 900 },
-          scale: 1.0,
-          color: titleColor
-        })
+    // INJECT the stikertitle.svg title graphic
+    // COMPLETELY REMOVE old text elements (not just hide)
+    const titleElements = ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text']
+    titleElements.forEach(id => {
+      const el = svgElement.querySelector(`#${id}`)
+      if (el) {
+        el.remove()
       }
+    })
+    
+    // Remove any existing title replacement and add new one
+    const existingReplacement = svgElement.querySelector('#wedding-title-replacement')
+    if (existingReplacement) {
+      existingReplacement.remove()
+    }
+    
+    // Inject the stikertitle.svg title
+    try {
+      console.log('🎯 Fetching stikertitle.svg...')
+      const titleResponse = await fetch('/weddigTitles/stikertitle.svg')
+      console.log('🎯 Title fetch response:', titleResponse.ok, titleResponse.status)
       
-      // Insert flourish above names with matching color
+      if (titleResponse.ok) {
+        const titleSvgText = await titleResponse.text()
+        console.log('🎯 Title SVG text length:', titleSvgText.length)
+        
+        const parser = new DOMParser()
+        const titleDoc = parser.parseFromString(titleSvgText, 'image/svg+xml')
+        const titleSvg = titleDoc.querySelector('svg')
+        
+        console.log('🎯 Parsed title SVG:', !!titleSvg)
+        
+        if (titleSvg) {
+          // Create a group to hold the title
+          const titleGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+          titleGroup.setAttribute('id', 'wedding-title-replacement')
+          
+          // Position to match old title location
+          // Old title centered at x=850.45, y from 280-710 (center ~495)
+          // stikertitle.svg is 262.57 x 124.4
+          // With scale(4): 1050 x 498
+          // Moved slightly left for better centering
+          titleGroup.setAttribute('transform', 'translate(280, 200) scale(4)')
+          
+          // Copy defs first if they exist (fonts, styles, etc.)
+          const titleDefs = titleSvg.querySelector('defs')
+          if (titleDefs) {
+            let svgDefs = svgElement.querySelector('defs')
+            if (!svgDefs) {
+              svgDefs = document.createElementNS('http://www.w3.org/2000/svg', 'defs')
+              svgElement.insertBefore(svgDefs, svgElement.firstChild)
+            }
+            // Copy all defs content
+            Array.from(titleDefs.children).forEach(child => {
+              svgDefs!.appendChild(child.cloneNode(true))
+            })
+            console.log('🎯 Copied defs from title SVG')
+          }
+          
+          // Copy the main content group (Layer_x0020_1 or similar)
+          const layerGroup = titleSvg.querySelector('g[id]')
+          if (layerGroup) {
+            titleGroup.appendChild(layerGroup.cloneNode(true))
+            console.log('🎯 Copied layer group:', layerGroup.id)
+          } else {
+            // Copy all non-defs children
+            Array.from(titleSvg.children).forEach(child => {
+              if (child.tagName.toLowerCase() !== 'defs') {
+                titleGroup.appendChild(child.cloneNode(true))
+              }
+            })
+            console.log('🎯 Copied all non-defs children')
+          }
+          
+          // Find insertion point - after defs but before other content
+          const svgDefs = svgElement.querySelector('defs')
+          if (svgDefs && svgDefs.nextSibling) {
+            svgElement.insertBefore(titleGroup, svgDefs.nextSibling)
+          } else {
+            svgElement.appendChild(titleGroup)
+          }
+          
+          console.log('🎯 Title group inserted with transform:', titleGroup.getAttribute('transform'))
+          console.log('🎯 Title group children:', titleGroup.children.length)
+        }
+      } else {
+        console.warn('🎯 Failed to fetch stikertitle.svg:', titleResponse.status)
+      }
+    } catch (e) {
+      console.warn('Could not load title SVG:', e)
+    }
+
+    // Insert flourish above names
+    try {
       const flourishColor = ctx.getFlourishColorForBackground()
       await ctx.insertFlourishAboveNames(svgElement, flourishColor)
-    } catch (handleReplacementError) {
-      // Continue without title replacement
+    } catch (e) {
+      // Non-fatal
     }
 
     // Apply current description if any (for names, date, etc.)
     if (ctx.formData.description) {
+      console.log('🗓️ [loadTemplate] Updating text with description:', ctx.formData.description.substring(0, 50))
+      console.log('🗓️ [loadTemplate] svgElements.dateText:', svgElements.dateText)
+      console.log('🗓️ [loadTemplate] svgElements.courtesyText:', svgElements.courtesyText)
       await ctx.updateStickerText(ctx.formData.description, svgElements)
+      
+      // Double-check: directly update date and courtesy elements if they exist in DOM
+      const dateEl = svgElement.querySelector('#date-text') as SVGTextElement
+      const courtesyEl = svgElement.querySelector('#courtesy-text') as SVGTextElement
+      console.log('🗓️ [loadTemplate] Direct query after update - dateEl:', dateEl, 'content:', dateEl?.textContent)
+      console.log('🗓️ [loadTemplate] Direct query after update - courtesyEl:', courtesyEl, 'content:', courtesyEl?.textContent)
     }
   } catch (error) {
     ctx.authStore.showNotification({
@@ -198,77 +298,14 @@ export async function processDescriptionInputUtil(ctx: TemplateContext): Promise
   
   // Update wedding sticker preview in real-time
   if (ctx.selectedCategory.value === 'wedding' && svgElements) {
-    // Handle SVG text replacement for title graphic
     const svgElement = ctx.weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
     if (svgElement) {
-      let stickerData: any = null
-
-      // Use Title Library to find matching title SVG
-      const customHeadingText = (ctx.customHeading.value ?? '').trim()
-      const textToMatch = customHeadingText || ctx.accumulatedDescription.value || ctx.formData.description
-      const matchedTitle = ctx.findMatchingTitle(textToMatch)
+      // The old title elements have been removed and replaced with stikertitle.svg
+      // No need to hide them since they're already removed in loadWeddingStickerTemplateUtil
       
-      // Get title color based on current background
-      const titleColor = ctx.getTitleColorForBackground()
-
-      const headingElementIds = ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text']
-      const hasCustomHeading = customHeadingText.length > 0
-
-      // If user provided a custom heading, ALWAYS show the editable text heading.
-      // Title graphics are only for the default/auto heading flow.
-      if (hasCustomHeading) {
-        ctx.restoreTitleTextElements(svgElement, headingElementIds)
-        lastWeddingTitleRenderKey = `text|${customHeadingText}`
-      } else {
-        const desiredTitle = matchedTitle
-          ? {
-              svgPath: matchedTitle.svgPath,
-              fallbackText: matchedTitle.fallbackText,
-              position: matchedTitle.position || { x: -30, y: 50, width: 1800, height: 900 },
-              scale: matchedTitle.scale || 1.0
-            }
-          : {
-              svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
-              fallbackText: 'Default wedding title',
-              position: { x: -30, y: 50, width: 1800, height: 900 },
-              scale: 1.0
-            }
-
-        const titleCacheKey = [
-          desiredTitle.svgPath,
-          titleColor,
-          desiredTitle.position.x,
-          desiredTitle.position.y,
-          desiredTitle.position.width,
-          desiredTitle.position.height,
-          desiredTitle.scale
-        ].join('|')
-
-        const hasTitleReplacement = !!svgElement.querySelector('#wedding-title-replacement')
-        if (!hasTitleReplacement || titleCacheKey !== lastWeddingTitleRenderKey) {
-          lastWeddingTitleRenderKey = titleCacheKey
-
-          if (matchedTitle) {
-            // Pre-render SVG to PNG for reliable export (allows color changes)
-            await ctx.replaceTitleWithImage(svgElement, {
-              svgPath: matchedTitle.svgPath,
-              targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
-              position: matchedTitle.position || { x: -30, y: 50, width: 1800, height: 900 },
-              scale: matchedTitle.scale || 1.0,
-              color: titleColor
-            })
-          } else {
-            // No match found - use default wedding title
-            await ctx.replaceTitleWithImage(svgElement, {
-              svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
-              targetElementIds: headingElementIds,
-              position: { x: -30, y: 50, width: 1800, height: 900 },
-              scale: 1.0,
-              color: titleColor
-            })
-          }
-        }
-      }
+      // Debug: Check date element
+      console.log('🗓️ [processDescription] svgElements.dateText:', svgElements.dateText)
+      console.log('🗓️ [processDescription] Direct query #date-text:', svgElement.querySelector('#date-text'))
       
       // Insert flourish above names with matching color
       const flourishColor = ctx.getFlourishColorForBackground()
@@ -279,8 +316,17 @@ export async function processDescriptionInputUtil(ctx: TemplateContext): Promise
         await ctx.insertFlourishAboveNames(svgElement, flourishColor)
       }
       
-      // Update names, date, and courtesy
-      stickerData = await ctx.updateStickerText(ctx.formData.description, svgElements)
+      // Update text content (names, date, courtesy, blessing, occasion, event type, ceremony)
+      // Re-query elements to ensure we have fresh references
+      const freshElements = ctx.getSVGElements(svgElement)
+      console.log('🗓️ [processDescription] freshElements.dateText:', freshElements.dateText)
+      const stickerData = await ctx.updateStickerText(ctx.formData.description, freshElements)
+      
+      // Double-check date and courtesy after update
+      const dateEl = svgElement.querySelector('#date-text') as SVGTextElement
+      const courtesyEl = svgElement.querySelector('#courtesy-text') as SVGTextElement  
+      console.log('🗓️ [processDescription] After update - dateEl content:', dateEl?.textContent)
+      console.log('🗓️ [processDescription] After update - courtesyEl content:', courtesyEl?.textContent)
       
       // Update validation warnings
       if (stickerData) {

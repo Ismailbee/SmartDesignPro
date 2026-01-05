@@ -27,24 +27,30 @@ export interface TitleImageConfig {
 // ========================================
 // TITLE LIBRARY DATA
 // ========================================
+// NOTE: Title library entries temporarily disabled to use base template text layout instead
+// The pre-designed SVG graphics (cgwc.svg) have text baked in with fixed layout
+// To restore graphic title injection, uncomment the entries below
 const TITLE_LIBRARY: TitleEntry[] = [
-  // Specific: "Alhamdulillah wedding" - your first title design
-  // SVG is used for color flexibility, then rendered to PNG for reliable export
-  {
-    keywords: ['alhamdulillah', 'wedding'],
-    svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
-    fallbackText: 'Alhamdulillahi on Your Wedding Ceremony',
-    position: { x: -100, y: -20, width: 1800, height: 900 },
-    scale: 1.0
-  },
-  // Default wedding fallback
-  {
-    keywords: ['wedding'],
-    svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
-    fallbackText: 'Alhamdulillahi on Your Wedding Ceremony',
-    position: { x: -100, y: -20, width: 1800, height: 900 },
-    scale: 1.0
-  },
+  // DISABLED: These were injecting pre-designed graphics that override base template text
+  // The base template (wedding-sticker-base.svg) now handles the text layout correctly:
+  // - "ON YOUR" on same line
+  // - "WEDDING" below
+  // 
+  // To re-enable, uncomment these entries:
+  // {
+  //   keywords: ['alhamdulillah', 'wedding'],
+  //   svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
+  //   fallbackText: 'Alhamdulillahi on Your Wedding Ceremony',
+  //   position: { x: -100, y: -20, width: 1800, height: 900 },
+  //   scale: 1.0
+  // },
+  // {
+  //   keywords: ['wedding'],
+  //   svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
+  //   fallbackText: 'Alhamdulillahi on Your Wedding Ceremony',
+  //   position: { x: -100, y: -20, width: 1800, height: 900 },
+  //   scale: 1.0
+  // },
 ]
 
 // Cache for pre-rendered title images (keyed by svgPath + color)

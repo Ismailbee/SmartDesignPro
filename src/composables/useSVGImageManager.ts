@@ -200,6 +200,13 @@ export function useSVGImageManager(options: ImageUploadOptions = {}) {
       // Select the newly added image
       selectedImageId.value = image.id
 
+      console.log('✅ useSVGImageManager.addImage: image added', {
+        id: image.id,
+        dataUrlLength: image.dataUrl?.length || 0,
+        dataUrlStart: image.dataUrl?.substring(0, 50) || 'none',
+        totalImages: images.value.length
+      })
+
       isProcessing.value = false
       return image
     } catch (error) {

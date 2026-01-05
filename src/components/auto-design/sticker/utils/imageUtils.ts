@@ -322,6 +322,11 @@ export function handlePreGenerationCropUtil(
   // Check if BG removal was already handled
   if (backgroundRemovalAlreadyHandled.value) {
     preGeneratedImageFile.value = croppedFile
+    console.log('📸 handlePreGenerationCropUtil: set preGeneratedImageFile', {
+      fileName: croppedFile.name,
+      fileSize: croppedFile.size,
+      fileType: croppedFile.type
+    })
     pictureStepComplete.value = true
     backgroundRemovalAlreadyHandled.value = false
     pendingImageFile.value = null

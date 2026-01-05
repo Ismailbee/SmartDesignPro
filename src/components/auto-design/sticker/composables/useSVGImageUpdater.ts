@@ -78,14 +78,33 @@ export function useSVGImageUpdater(options: UseSVGImageUpdaterOptions): UseSVGIm
     if (!userImageElement && images.length > 0) {
       userImageElement = document.createElementNS('http://www.w3.org/2000/svg', 'image')
       userImageElement.setAttribute('id', 'userImage')
-      if (svgElement.firstChild) {
-        svgElement.insertBefore(userImageElement, svgElement.firstChild)
+      // IMPORTANT: Insert the user image ABOVE the background layers.
+      // Inserting as the first child can put it *behind* the background.
+      const bgImage = svgElement.querySelector('#background-image')
+      const firstText = svgElement.querySelector('text')
+
+      if (bgImage && bgImage.parentNode === svgElement) {
+        bgImage.after(userImageElement)
+      } else if (firstText && firstText.parentNode === svgElement) {
+        svgElement.insertBefore(userImageElement, firstText)
       } else {
         svgElement.appendChild(userImageElement)
       }
     }
 
     if (userImageElement && images.length > 0) {
+      // Ensure layer ordering: background -> user image -> text
+      const bgImage = svgElement.querySelector('#background-image')
+      const firstText = svgElement.querySelector('text')
+      if (bgImage && bgImage.parentNode === svgElement && bgImage.nextSibling !== userImageElement) {
+        bgImage.after(userImageElement)
+      } else if (!bgImage && firstText && firstText.parentNode === svgElement) {
+        // Keep user image before first text element (above shapes, below text)
+        if (userImageElement.nextSibling !== firstText) {
+          svgElement.insertBefore(userImageElement, firstText)
+        }
+      }
+
       // Use the LAST image (most recent)
       const img = images[images.length - 1]
 
@@ -193,6 +212,10 @@ export function useSVGImageUpdater(options: UseSVGImageUpdaterOptions): UseSVGIm
       userImageElement.setAttribute('opacity', (img.opacity / 100).toString())
       userImageElement.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', img.dataUrl)
       userImageElement.setAttribute('href', img.dataUrl)
+      
+      // Ensure user image is visible
+      userImageElement.removeAttribute('display')
+      userImageElement.setAttribute('visibility', 'visible')
 
       userImageElement.setAttribute('data-image-id', img.id)
 

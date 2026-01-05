@@ -892,10 +892,67 @@ weddingChatProcessor = useWeddingChat({
   hasPhoto: computed(() => !!preGeneratedImageFile.value || svgImageManager.images.value.length > 0),
   awaitingPictureDecision: awaitingImageChoice,
   awaitingSizeDecision,
+  awaitingBackgroundRemovalDecision,
   onGenerate: () => requestWeddingPreviewGeneration(),
   onScrollToBottom: scrollToBottom,
   onUploadPicture: () => triggerImageUpload(),
   onSetSize: (size: string) => setWeddingSize(size),
+  onBackgroundRemovalDecision: (shouldRemoveBackground: boolean) => {
+    // Move image from pendingImageFile to preGeneratedImageFile
+    if (pendingImageFile.value) {
+      preGeneratedImageFile.value = pendingImageFile.value
+      console.log('📸 onBackgroundRemovalDecision: set preGeneratedImageFile from pendingImageFile', {
+        shouldRemoveBackground,
+        fileName: preGeneratedImageFile.value.name,
+        fileSize: preGeneratedImageFile.value.size
+      })
+      
+      // Set the auto-remove background flag based on user decision
+      autoRemoveBackground.value = shouldRemoveBackground
+      
+      // Clear pending
+      pendingImageFile.value = null
+      pictureStepComplete.value = true
+      
+      // Add confirmation message
+      chatMessages.value.push({
+        id: Date.now(),
+        text: shouldRemoveBackground 
+          ? "Got it! I'll remove the background from your image. 🎨" 
+          : "Okay! I'll keep the background as is. 📸",
+        sender: 'ai',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })
+      scrollToBottom()
+      
+      // Check if we can proceed to generation
+      const hasAllInfo = extractedInfo.value.names.name1 && extractedInfo.value.date && extractedInfo.value.courtesy
+      const hasSize = sizeStepComplete.value || extractedInfo.value.size
+      
+      setTimeout(() => {
+        if (hasAllInfo && hasSize) {
+          chatMessages.value.push({
+            id: Date.now(),
+            text: "Perfect! Let me create your sticker now! 🎨",
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+          scrollToBottom()
+          formData.description = accumulatedDescription.value
+          setTimeout(() => requestWeddingPreviewGeneration(), 300)
+        } else if (hasAllInfo && !sizeStepComplete.value) {
+          chatMessages.value.push({
+            id: Date.now(),
+            text: "What size would you like the sticker? (e.g., '3x3' or 'default' for 4x4 inches)",
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+          awaitingSizeDecision.value = true
+          scrollToBottom()
+        }
+      }, 500)
+    }
+  },
 })
 
 type WeddingAssistantActionName =

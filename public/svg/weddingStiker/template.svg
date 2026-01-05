@@ -42,10 +42,10 @@
          preserveAspectRatio="xMidYMid slice"/>
 
   <!-- Editable text elements with IDs -->
-  <text id="blessing-text" class="serif-font" x="850.45" y="380" text-anchor="middle" font-size="160" fill="#000">Alhamdulillahi</text>
-  <text id="occasion-text" x="850.45" y="450" text-anchor="middle" font-size="45" font-weight="bold" fill="#000">ON YOUR</text>
-  <text id="event-type-text" class="serif-font" x="850.45" y="600" text-anchor="middle" font-size="180" font-weight="bold" fill="#104C6E">WEDDING</text>
-  <text id="ceremony-text" x="850.45" y="720" text-anchor="middle" font-size="130" font-weight="bold" fill="red">CEREMONY</text>
+  <text id="blessing-text" class="serif-font" x="850.45" y="280" text-anchor="middle" font-size="160" fill="#000">Alhamdulillahi</text>
+  <text id="occasion-text" x="850.45" y="380" text-anchor="middle" font-size="55" font-weight="bold" fill="#000">ON YOUR</text>
+  <text id="event-type-text" class="serif-font" x="850.45" y="560" text-anchor="middle" font-size="150" font-weight="bold" fill="#DAA520">WEDDING</text>
+  <text id="ceremony-text" x="850.45" y="710" text-anchor="middle" font-size="100" font-weight="bold" fill="red">CEREMONY</text>
   
   <!-- New Wedding Names - Clean version positioned below the image -->
   <g id="wedding-names-group" transform="translate(400, 900) scale(2.5)">
