@@ -526,6 +526,7 @@ const {
   getRandomBackground,
   applyNewBackground,
   updateChatPreviewSVG,
+  currentBackgroundPaletteKey,
   LIGHT_BG_COLORS,
   DARK_BG_COLORS,
   RED_GOLD_BG_COLORS,
@@ -578,6 +579,18 @@ function handleMessageAction(action: { type: string; label?: string; route?: str
     case 'generate':
       // Generate the sticker (used by useWeddingChat composable)
       requestWeddingPreviewGeneration()
+      break
+    case 'regenerate':
+      // Regenerate with a new random background
+      regenerateWithNewBackground()
+      break
+    case 'edit':
+      // Open the edit modal
+      showEditModal.value = true
+      break
+    case 'download':
+      // Download the sticker as PNG
+      exportWeddingSticker('png')
       break
     default:
       break
@@ -780,6 +793,32 @@ async function generateWeddingPreview() {
     authStore
   }
   await generateWeddingPreviewUtil(ctx)
+}
+
+// Regenerate with a new random background (keeps same text/image)
+async function regenerateWithNewBackground() {
+  const newBackground = getRandomBackground()
+  if (!newBackground) {
+    console.warn('⚠️ No backgrounds available for regeneration')
+    return
+  }
+  
+  console.log('🔄 Regenerating with new background:', newBackground.name || newBackground.id)
+  
+  // Apply the new background
+  await applyNewBackground(newBackground)
+  
+  // Update the chat preview
+  updateChatPreviewSVG()
+  
+  // Add a chat message about the change
+  chatMessages.value.push({
+    id: Date.now(),
+    text: `✨ New background applied! Click **New** again to try another style.`,
+    sender: 'ai',
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  })
+  scrollToBottom()
 }
 
 // NOTE: State refs provided by useWeddingState composable (crop, upload, form, chat, categories)
@@ -1203,6 +1242,7 @@ async function loadWeddingStickerTemplate() {
     selectedHeadingFont,
     selectedCategory,
     currentBackgroundFileName,
+    currentBackgroundPaletteKey,
     resetReplacement,
     getSVGElements,
     findMatchingTitle,
@@ -1243,6 +1283,7 @@ async function processDescriptionInput() {
     selectedHeadingFont,
     selectedCategory,
     currentBackgroundFileName,
+    currentBackgroundPaletteKey,
     resetReplacement,
     getSVGElements,
     findMatchingTitle,

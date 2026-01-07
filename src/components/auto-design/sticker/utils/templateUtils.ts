@@ -6,6 +6,8 @@
  */
 
 import { nextTick, type Ref } from 'vue'
+import { applyTitleColors } from '../composables/useTitleColors'
+import type { BackgroundPaletteKey } from '@/services/background/background.types'
 
 // Types
 export interface TitleMatch {
@@ -31,6 +33,7 @@ export interface TemplateContext {
   selectedHeadingFont: Ref<string | null>
   selectedCategory: Ref<string | null>
   currentBackgroundFileName: Ref<string>
+  currentBackgroundPaletteKey: Ref<BackgroundPaletteKey>
   
   // Functions
   resetReplacement: () => void
@@ -230,6 +233,11 @@ export async function loadWeddingStickerTemplateUtil(ctx: TemplateContext): Prom
           
           console.log('🎯 Title group inserted with transform:', titleGroup.getAttribute('transform'))
           console.log('🎯 Title group children:', titleGroup.children.length)
+          
+          // Apply title colors based on current background palette
+          const paletteKey = ctx.currentBackgroundPaletteKey?.value || 'dark'
+          applyTitleColors(titleGroup, paletteKey)
+          console.log('🎨 Title colors applied for palette:', paletteKey)
         }
       } else {
         console.warn('🎯 Failed to fetch stikertitle.svg:', titleResponse.status)

@@ -92,6 +92,9 @@ export function useSVGExport() {
             return
           }
           
+          // IMPORTANT: Clear the canvas first to ensure transparency is preserved
+          // Without this, transparent areas may render as black
+          ctx.clearRect(0, 0, canvas.width, canvas.height)
           ctx.drawImage(img, 0, 0)
           
           const dataUrl = canvas.toDataURL('image/png')
@@ -812,6 +815,8 @@ export function useSVGExport() {
             canvas.height = renderHeight
             const ctx = canvas.getContext('2d')
             if (ctx) {
+              // Clear canvas first to preserve transparency
+              ctx.clearRect(0, 0, renderWidth, renderHeight)
               ctx.drawImage(img, 0, 0, renderWidth, renderHeight)
               const dataUrl = canvas.toDataURL('image/png')
               URL.revokeObjectURL(svgUrl)
@@ -858,7 +863,7 @@ export function useSVGExport() {
    * @param originalSvgElement - Optional original SVG element (unused, kept for compatibility)
    */
   async function handleTitleReplacementForExport(svgElement: SVGSVGElement, originalSvgElement?: SVGSVGElement): Promise<void> {
-    // Check if there's a wedding-title-replacement (should be an IMAGE element with PNG data URL)
+    // Check if there's a wedding-title-replacement (could be IMAGE or G element)
     const titleReplacement = svgElement.querySelector('#wedding-title-replacement')
     
     if (titleReplacement) {
@@ -884,22 +889,57 @@ export function useSVGExport() {
         const width = titleReplacement.getAttribute('width')
         const height = titleReplacement.getAttribute('height')
         console.log(`📍 Title image at (${x}, ${y}) size: ${width}x${height}`)
+      } else if (tagName === 'g') {
+        // Handle GROUP element - the title SVG is injected as a group with embedded SVG fonts
+        // The fonts are defined as <font> elements with vector glyphs - these should render correctly
+        // as long as the font definitions are included in the SVG defs
+        console.log('✅ Title is a group element with SVG content and embedded fonts')
+        const textCount = titleReplacement.querySelectorAll('text').length
+        console.log(`   Contains ${textCount} text elements`)
+        
+        // Ensure the group is visible
+        titleReplacement.removeAttribute('style')
+        titleReplacement.setAttribute('opacity', '1')
+        
+        // Log transform for debugging
+        const transform = titleReplacement.getAttribute('transform')
+        console.log(`📍 Title group transform: ${transform}`)
+        
+        // Ensure the embedded font definitions are in the main SVG's defs
+        // The title SVG's fonts (Agraham, Campton Book) are defined as <font> elements
+        const defs = svgElement.querySelector('defs')
+        if (defs) {
+          const fontDefs = defs.querySelectorAll('font')
+          console.log(`   Found ${fontDefs.length} embedded font definitions in defs`)
+        }
       }
       
       // Remove original text elements that should have been replaced by the title
+      // IMPORTANT: Only remove elements that are NOT inside the title replacement group
       const originalTitleElementIds = ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text']
       
       originalTitleElementIds.forEach(id => {
         const elements = svgElement.querySelectorAll(`#${id}`)
         elements.forEach(element => {
+          // Skip if this element is inside the title replacement group
+          if (element.closest('#wedding-title-replacement')) {
+            console.log(`  ✓ Keeping element inside title group: #${id}`)
+            return
+          }
           console.log(`  🗑️ Removing original element: #${id}`)
           element.remove()
         })
       })
       
       // Also remove any text elements with title-related IDs or content
+      // BUT exclude text elements that are inside the wedding-title-replacement group
       const allTextElements = svgElement.querySelectorAll('text')
       allTextElements.forEach(text => {
+        // CRITICAL: Skip text elements that are inside the title replacement group
+        if (text.closest('#wedding-title-replacement')) {
+          return // Don't remove title group text!
+        }
+        
         const id = text.getAttribute('id') || ''
         const content = text.textContent?.toLowerCase() || ''
         
@@ -974,8 +1014,15 @@ export function useSVGExport() {
       })
 
       // Convert remaining non-name text elements to use system fonts
+      // IMPORTANT: Exclude text elements inside the wedding-title-replacement group
+      // The title group has embedded SVG fonts that should be preserved
       const otherTextElements = svgElement.querySelectorAll('text:not([data-render-on-canvas]):not([id^="name"]):not(.name-fnt0):not([class*="name-fnt"]), tspan')
       otherTextElements.forEach(el => {
+        // Skip text elements inside the title replacement group - they have embedded fonts
+        if (el.closest('#wedding-title-replacement')) {
+          return
+        }
+        
         const currentFont = el.getAttribute('font-family') || ''
         
         // Map known fonts to system fallbacks for non-name text
@@ -1130,6 +1177,7 @@ export function useSVGExport() {
       svgString = svgString.replace(/@import\s+url\([^)]+\)\s*;?/gi, '')
       
       // Replace web font references in CSS with system fonts
+      // NOTE: Do NOT replace Agraham or Campton Book - these are embedded SVG fonts from the title SVG
       svgString = svgString.replace(/font-family:\s*['"]?Lato['"]?[^;'"}\n]*/gi, 'font-family: Arial, sans-serif')
       svgString = svgString.replace(/font-family:\s*['"]?Playfair[^;'"}\n]*/gi, 'font-family: "Times New Roman", serif')
       svgString = svgString.replace(/font-family:\s*['"]?Cinzel[^;'"}\n]*/gi, 'font-family: "Times New Roman", serif')
@@ -1137,7 +1185,12 @@ export function useSVGExport() {
       svgString = svgString.replace(/font-family:\s*['"]?Great Day[^;'"}\n]*/gi, 'font-family: cursive')
       
       // Remove empty style tags that might cause issues
+      // BUT preserve style blocks that contain embedded SVG font definitions (Agraham, Campton)
       svgString = svgString.replace(/<style[^>]*>\s*<\/style>/gi, '')
+      
+      // Note: The title SVG uses embedded SVG fonts defined as <font> elements in <defs>
+      // These fonts (Agraham, Campton Book) should be preserved and will render correctly
+      // Do NOT remove <font> definitions from <defs>
     }
 
     // Add XML declaration
@@ -1361,6 +1414,7 @@ export function useSVGExport() {
 
   /**
    * Compress a base64 data URL image to reduce size
+   * Uses PNG format to preserve transparency
    */
   async function compressDataUrl(dataUrl: string, maxWidth: number = 1200, quality: number = 0.85): Promise<string> {
     return new Promise((resolve) => {
@@ -1386,10 +1440,12 @@ export function useSVGExport() {
           return
         }
         
+        // Clear canvas to preserve transparency
+        ctx.clearRect(0, 0, width, height)
         ctx.drawImage(img, 0, 0, width, height)
         
-        // Use JPEG for smaller file size
-        const compressed = canvas.toDataURL('image/jpeg', quality)
+        // Use PNG to preserve transparency (not JPEG which has black backgrounds)
+        const compressed = canvas.toDataURL('image/png')
         console.log(`📉 Compressed image: ${(dataUrl.length / 1024).toFixed(0)}KB → ${(compressed.length / 1024).toFixed(0)}KB`)
         resolve(compressed)
       }
@@ -1639,6 +1695,9 @@ export function useSVGExport() {
               return
             }
 
+            // Clear canvas to ensure transparency is preserved
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight)
+            
             // Draw SVG on canvas (this will have wrong/fallback fonts for names)
             ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight)
             

@@ -19,6 +19,7 @@ import type { BackgroundItem, BackgroundPaletteKey } from '@/services/background
 import { backgroundDisplayName, backgroundPersistKey } from '@/services/background/background.types'
 import { decodeMaybe, inferPaletteKeyFromText, normalizeWeight, resolvePaletteKey } from '@/services/background/background-utils'
 import { resolveBackgroundImageUrl } from '@/services/background/background-image-cache'
+import { applyTitleColors } from './useTitleColors'
 
 // ============================================================================
 // Types & Interfaces
@@ -963,6 +964,13 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
     console.log(`🎨 Updating title color to: ${titleColor} for background: ${backgroundDisplayName(background)}`)
     if (updateTitleColor) {
       await updateTitleColor(svgElement, titleColor)
+    }
+    
+    // Update title SVG group colors based on background palette
+    const titleGroup = svgElement.querySelector('#wedding-title-replacement') as SVGGElement
+    if (titleGroup) {
+      applyTitleColors(titleGroup, palette)
+      console.log(`🏷️ Title SVG colors updated for palette: ${palette}`)
     }
     
     // Update flourish color based on new background
