@@ -212,3 +212,71 @@ export {
   type FormData as WeddingFormData,
   type WeddingStateReturn,
 } from './useWeddingState'
+
+// ========================================
+// MOVED FROM src/composables/ (sticker-only usage)
+// ========================================
+
+// Wedding Sticker Text Updater
+export {
+  useWeddingStickerUpdater,
+  type WeddingStickerElements,
+  type WeddingStickerData,
+} from './useWeddingStickerUpdater'
+
+// Sticker Export (PNG, PDF formats)
+export {
+  useStickerExport,
+  type ExportOptions as StickerExportOptions,
+} from './useStickerExport'
+
+// AI Chat Responses
+export {
+  useAiChatResponses,
+  aiResponseHelper as globalAiResponseHelper,
+  detectIntent as globalDetectIntent,
+  levenshteinDistance as globalLevenshteinDistance,
+  type UserIntent as AiUserIntent,
+  type IntentResult as AiIntentResult,
+} from './useAiChatResponses'
+
+// Text Extraction (names, dates, courtesy)
+export {
+  useTextExtraction,
+  extractNamesFromResponse as textExtractionExtractNames,
+  extractDateFromText as textExtractionExtractDate,
+  extractCourtesyFromText as textExtractionExtractCourtesy,
+  extractSizeFromText as textExtractionExtractSize,
+  parseAllInOneMessage as textExtractionParseAll,
+  type ExtractedNames,
+  type ParseResult,
+} from './useTextExtraction'
+
+// SVG Text Replacement (decorative titles)
+export {
+  useSVGTextReplacement,
+  type ReplacementConfig,
+  type ReplacementState,
+} from './useSVGTextReplacement'
+
+// SVG Image Manager
+export {
+  useSVGImageManager,
+  type SVGImage,
+  type ImageUploadOptions,
+} from './useSVGImageManager'
+
+// SVG Export
+export {
+  useSVGExport,
+  type ExportOptions as SVGExportOptions,
+} from './useSVGExport'
+
+// Dynamic SVG Generator
+export {
+  useDynamicSVG,
+  type DynamicSVGConfig,
+  type SVGDimensions,
+  type ExportConfig,
+  type ElementPosition,
+} from './useDynamicSVG'

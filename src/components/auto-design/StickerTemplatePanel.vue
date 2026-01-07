@@ -161,12 +161,7 @@ const Vue3Lottie = defineAsyncComponent(() =>
 
 // TTS lazy-loading now handled by useSpeechToText composable
 
-// Import composables (needed immediately for setup)
-import { useWeddingStickerUpdater } from '@/composables/useWeddingStickerUpdater'
-import { useSVGImageManager } from '@/composables/useSVGImageManager'
-import { useSVGExport } from '@/composables/useSVGExport'
-import { useDynamicSVG } from '@/composables/useDynamicSVG'
-import { useSVGTextReplacement } from '@/composables/useSVGTextReplacement'
+// Import composables that remain in global location
 import { useBackgroundRemoval } from '@/composables/useBackgroundRemoval'
 import { useImageRetouch } from '@/composables/useImageRetouch'
 import { getBackgroundRefsCached } from '@/services/background-catalog.service'
@@ -189,13 +184,18 @@ const SvgPreview = defineAsyncComponent(() => import('./sticker/SvgPreview.vue')
 // Import types only (no runtime cost)
 import type { ChatMessage, Category, ExtractedInfo } from './sticker'
 
-// Import extracted composables
-import { useTextExtraction } from '@/composables/useTextExtraction'
-import { useAiChatResponses } from '@/composables/useAiChatResponses'
-import { useStickerExport } from '@/composables/useStickerExport'
-
-// Import sticker composables (title, flourish, background management)
+// Import sticker composables (all sticker-specific composables now centralized here)
 import {
+  // Moved from @/composables (sticker-only usage)
+  useWeddingStickerUpdater,
+  useSVGImageManager,
+  useSVGExport,
+  useDynamicSVG,
+  useSVGTextReplacement,
+  useTextExtraction,
+  useAiChatResponses,
+  useStickerExport,
+  // Title library and flourish
   useTitleLibrary,
   useFlourishSystem,
   useBackgroundManager,
