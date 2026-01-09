@@ -227,15 +227,28 @@
 
           <!-- Organization Details Form -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-            <!-- BN/RC Number -->
+            <!-- BN Number -->
             <div class="mb-1">
               <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">
-                📋 BN/RC Number
+                📋 BN Number
               </label>
               <input
                 v-model="businessNumber"
                 type="text"
-                placeholder="Enter business registration number"
+                placeholder="Enter business number"
+                class="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+              />
+            </div>
+
+            <!-- RC Number -->
+            <div class="mb-1">
+              <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">
+                📜 RC Number
+              </label>
+              <input
+                v-model="rcNumber"
+                type="text"
+                placeholder="Enter RC number"
                 class="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
               />
             </div>
@@ -382,6 +395,7 @@ export default defineComponent({
     const organizationName = ref('');
     const organizationSubName = ref('');
     const businessNumber = ref('');
+    const rcNumber = ref('RC1234567'); // Test value
     const headOfficeAddress = ref('');
     const headOfficePhone = ref('');
     const branchAddress1 = ref('');
@@ -553,7 +567,8 @@ export default defineComponent({
     watch([
       organizationName, 
       organizationSubName, 
-      businessNumber, 
+      businessNumber,
+      rcNumber,
       headOfficeAddress, 
       headOfficePhone, 
       branchAddress1, 
@@ -634,6 +649,7 @@ export default defineComponent({
         organizationName: organizationName.value,
         organizationSubName: organizationSubName.value,
         businessNumber: businessNumber.value,
+        rcNumber: rcNumber.value,
         headOfficeAddress: headOfficeAddress.value,
         headOfficePhone: headOfficePhone.value,
         branchAddress1: branchAddress1.value,
@@ -671,6 +687,7 @@ export default defineComponent({
           organizationName.value = formData.organizationName || '';
           organizationSubName.value = formData.organizationSubName || '';
           businessNumber.value = formData.businessNumber || '';
+          rcNumber.value = formData.rcNumber || '';
           headOfficeAddress.value = formData.headOfficeAddress || '';
           headOfficePhone.value = formData.headOfficePhone || '';
           branchAddress1.value = formData.branchAddress1 || '';
@@ -709,6 +726,7 @@ export default defineComponent({
           organizationName: String(organizationName.value || '').trim(),
           organizationSubName: String(organizationSubName.value || '').trim(),
           businessNumber: String(businessNumber.value || '').trim(),
+          rcNumber: String(rcNumber.value || '').trim(),
           headOfficeAddress: String(headOfficeAddress.value || '').trim(),
           headOfficePhone: String(headOfficePhone.value || '').trim(),
           branchAddress1: String(branchAddress1.value || '').trim(),
@@ -747,7 +765,7 @@ export default defineComponent({
 
     const handleRefreshForm = () => {
       // Check if there's any data to clear
-      const hasData = organizationName.value || organizationSubName.value || businessNumber.value || 
+      const hasData = organizationName.value || organizationSubName.value || businessNumber.value || rcNumber.value ||
                      headOfficeAddress.value || smartTextInput.value || logoDataUrl.value;
       
       if (!hasData) {
@@ -760,6 +778,7 @@ export default defineComponent({
         organizationName.value = '';
         organizationSubName.value = '';
         businessNumber.value = '';
+        rcNumber.value = '';
         headOfficeAddress.value = '';
         headOfficePhone.value = '';
         branchAddress1.value = '';
@@ -873,7 +892,7 @@ export default defineComponent({
 
     const createNewInvoice = () => {
       // Check if there's any data that would be lost
-      const hasData = organizationName.value || organizationSubName.value || businessNumber.value || 
+      const hasData = organizationName.value || organizationSubName.value || businessNumber.value || rcNumber.value ||
                      headOfficeAddress.value || logoDataUrl.value;
       
       if (!hasData) {
@@ -892,6 +911,7 @@ export default defineComponent({
         organizationName.value = '';
         organizationSubName.value = '';
         businessNumber.value = '';
+        rcNumber.value = '';
         headOfficeAddress.value = '';
         headOfficePhone.value = '';
         branchAddress1.value = '';
@@ -917,6 +937,7 @@ export default defineComponent({
       organizationName,
       organizationSubName,
       businessNumber,
+      rcNumber,
       headOfficeAddress,
       headOfficePhone,
       branchAddress1,

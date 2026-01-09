@@ -75,13 +75,13 @@ export default defineConfig({
   assetsInclude: [],
   optimizeDeps: {
     include: [
-      'onnxruntime-web', 
       '@capacitor/app', 
       '@capacitor/core',
       'konva',
       'ionicons/icons'
     ],
     exclude: [
+      'onnxruntime-web',
       '@imgly/background-removal',
       // Note: optimizeDeps.exclude must be package ids (not glob paths).
       // The Ican micro-app is excluded at bundling time via rollupOptions.external.

@@ -3,6 +3,18 @@
  * Handles loading and rendering of letterhead SVG templates with dynamic data
  */
 
+import {
+  findTextElement,
+  findTextElements,
+  scaleTextToFit,
+  updateTextElement,
+  hideTextElements,
+  calculateCenterPosition,
+  getTextWidth
+} from '@/composables/useSvgTextManipulation'
+
+import { isValidPhoneNumber, parsePhoneNumber } from 'libphonenumber-js'
+
 export interface LetterHeadData {
   organizationName?: string
   registrationNumber?: string
@@ -11,6 +23,7 @@ export interface LetterHeadData {
   phones?: string[]
   email?: string
   logoDataUrl?: string
+  primaryBrandColor?: string
   referenceFields?: {
     ref?: string
     date?: string
@@ -27,6 +40,72 @@ function toTitleCase(text: string): string {
     .split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
+}
+
+/**
+ * Validate and normalize phone numbers using libphonenumber-js
+ */
+function validateAndNormalizePhones(phones: string[]): string[] {
+  const validPhones: string[] = []
+  
+  for (const phone of phones) {
+    try {
+      // Try to validate with different country codes (Nigeria first, then international)
+      let isValid = isValidPhoneNumber(phone, 'NG') || isValidPhoneNumber(phone)
+      
+      if (isValid) {
+        // Parse and format the number
+        const phoneNumber = parsePhoneNumber(phone, 'NG') || parsePhoneNumber(phone)
+        if (phoneNumber) {
+          // Use international format instead of E.164 for better readability
+          validPhones.push(phoneNumber.formatInternational())
+        } else {
+          // If parsing fails but validation passed, keep original
+          validPhones.push(phone)
+        }
+      } else {
+        // If not valid even with country code, keep original number
+        // Don't replace with "unavailable" as it might still be a valid local format
+        validPhones.push(phone)
+      }
+    } catch (error) {
+      // If any error occurs, keep the original phone number
+      validPhones.push(phone)
+    }
+  }
+  
+  return validPhones
+}
+
+/**
+ * Check if a field value should be considered as "skipped" or "not provided"
+ */
+function isFieldSkipped(value: string | string[] | undefined): boolean {
+  if (!value) return true
+  
+  // Handle array (for phones)
+  if (Array.isArray(value)) {
+    if (value.length === 0) return true
+    // Check if all phone entries are skipped
+    return value.every(v => isFieldSkipped(v))
+  }
+  
+  // Handle string
+  const normalized = value.toLowerCase().trim()
+  const skipPatterns = [
+    'n/a',
+    'no',
+    'none',
+    'i dont have',
+    "i don't have",
+    'i do not have',
+    'skip',
+    'null',
+    'nil',
+    'not available'
+  ]
+  
+  return skipPatterns.some(pattern => normalized === pattern || normalized.includes(pattern))
 }
 
 // Template cache to avoid redundant network requests
@@ -89,234 +168,224 @@ export async function renderLetterHead(data: LetterHeadData): Promise<string> {
     }
 
     const svg = svgDoc.documentElement as unknown as SVGElement
+    
+    // Temporarily attach SVG to DOM for accurate measurements
+    const tempContainer = document.createElement('div')
+    tempContainer.style.position = 'absolute'
+    tempContainer.style.visibility = 'hidden'
+    tempContainer.style.pointerEvents = 'none'
+    document.body.appendChild(tempContainer)
+    tempContainer.appendChild(svg)
 
     // Update text elements based on their positions (approximate line numbers from SVG)
     // We'll search for specific text patterns and replace them
 
+
     // Find and update organization name (split across two text elements)
     if (data.organizationName) {
-      // Convert organization name to uppercase
       const orgNameUpper = data.organizationName.toUpperCase()
       
-      // Calculate center position of the SVG (viewBox width / 2)
-      const centerX = 4133.86 // 8267.72 / 2
+      // Find and update organization name text
+      const orgTextElement = findTextElement(svg, 'WILLMIKE')
       
-      // Replace "WILLMIKE &" and "SONS NIG .LTD" with centered organization name
-      const orgTexts = svg.querySelectorAll('text')
-      let orgTextElement: SVGTextElement | null = null
-      
-      for (let i = 0; i < orgTexts.length; i++) {
-        const text = orgTexts[i]
-        if (text.textContent?.includes('WILLMIKE')) {
-          // Replace with org name in uppercase and center it
-          text.textContent = orgNameUpper
-          text.setAttribute('x', centerX.toString())
-          text.setAttribute('text-anchor', 'middle')
-          orgTextElement = text as SVGTextElement
-          
-          // Hide the second part if it exists
-          if (i + 1 < orgTexts.length && orgTexts[i + 1].textContent?.includes('SONS')) {
-            orgTexts[i + 1].textContent = ''
-          }
-          break
+      if (orgTextElement) {
+        /**
+         * Dynamic organization name fitting:
+         * - Must stay within fixed width boundary
+         * - If text exceeds width, reduce font size to fit
+         * - Font size: starts at 60 if > 25 chars, otherwise 120
+         * - Reduces font size until text fits
+         */
+        
+        // Define boundaries - much more generous to allow larger fonts
+        const logoEndX = 2400 // Right edge of logo with margin
+        const greenStartX = 7200 // Much further right to give more space (was 6400)
+        const maxWidth = greenStartX - logoEndX // ~4800 units maximum width (increased)
+        const safeZoneCenterX = logoEndX + (maxWidth / 2) - 300 // Center point shifted left by 300 units
+        
+        // Always center the text in the available space (shifted left)
+        orgTextElement.setAttribute('x', safeZoneCenterX.toString())
+        orgTextElement.setAttribute('text-anchor', 'middle') // Ensures text is centered around the x position
+        
+        // Get base font size
+        const baseFontSize = parseFloat(orgTextElement.getAttribute('font-size') || '120')
+        
+        // Count total characters (alphabets, symbols, spaces)
+        const charCount = orgNameUpper.length
+        
+        // Set font size based on character count - Large size for short names, very large for long names
+        let fontSize = 3400 // Use 3400px for short names (25 or fewer characters)
+        if (charCount > 25) {
+          fontSize = baseFontSize * 20.0 // Use large size (2400) for long names only
         }
+        
+        // Calculate if text needs font size reduction instead of horizontal scaling
+        // Average character width is more generous for uppercase text
+        const avgCharWidthRatio = 0.45 // Reduced from 0.60 to allow bigger fonts
+        let estimatedWidth = charCount * fontSize * avgCharWidthRatio
+        
+        // If text is too wide, reduce font size more gently
+        while (estimatedWidth > maxWidth && fontSize > 200) { // Higher minimum (was 80)
+          fontSize -= 10 // Smaller reduction steps (was 20)
+          estimatedWidth = charCount * fontSize * avgCharWidthRatio
+        }
+        
+        // Remove horizontal scaling - text should never be compressed
+        const scaleX = 1.0 // Always keep normal width
+        
+        // Set the text content and styling
+        // IMPORTANT: Remove class to prevent CSS override, use inline style
+        orgTextElement.textContent = orgNameUpper
+        orgTextElement.removeAttribute('class') // Remove CSS class that overrides font-size
+        
+        // Apply font size without any horizontal compression
+        // Use CSS variable for brand color, fallback to default if not provided
+        const brandColor = data.primaryBrandColor ? 'var(--primary-brand-color)' : '#058A6C'
+        let styleString = `font-size:${fontSize}px; font-family:'Sans Inserat'; font-weight:normal; fill:${brandColor};`
+        // Remove horizontal scaling - text maintains natural proportions
+        orgTextElement.setAttribute('style', styleString)
+        
+        // Hide the second part of template org name since we put everything in first element
+        hideTextElements(svg, 'SONS')
       }
       
-      // Find and update registration number - position above last 3 letters of org name
+      // Find and update registration number - position based on logo presence
       if (data.registrationNumber && data.registrationNumber !== 'N/A' && orgTextElement) {
-        const texts = svg.querySelectorAll('text')
-        for (const text of texts) {
-          if (text.textContent?.includes('RC NO.')) {
-            text.textContent = `RC NO. ${data.registrationNumber}`
+        const rcTextElement = findTextElement(svg, 'RC NO.')
+        
+        if (rcTextElement) {
+          // First, set the RC number text with smaller font size
+          rcTextElement.textContent = `RC NO.: ${data.registrationNumber}`
+          
+          // Set RC font size to be smaller (10px or 12% of org name font size)
+          const orgFontSize = parseFloat(orgTextElement.getAttribute('font-size') || '120')
+          const rcFontSize = Math.max(10, orgFontSize * 0.12)
+          rcTextElement.setAttribute('font-size', rcFontSize.toString())
+          
+          // Position RC number consistently regardless of logo presence
+          try {
+            // Always position RC above org name, shifted left from right edge
+            const bbox = orgTextElement.getBBox()
+            const orgNameRightEdge = bbox.x + bbox.width
+            const orgNameTop = bbox.y
             
-            // Get the actual bounding box of the organization name text
-            try {
-              const bbox = orgTextElement.getBBox()
-              // Calculate position above the last 3 characters
-              const textWidth = bbox.width
-              const orgNameLength = orgNameUpper.length
-              const charWidth = textWidth / orgNameLength
-              
-              // Calculate X position for center of last 3 characters
-              // Organization name is centered at centerX
-              // Right edge of text is at: centerX + (textWidth / 2)
-              // Last 3 chars start at: right edge - (3 * charWidth)
-              // Center of last 3 chars: right edge - (1.5 * charWidth)
-              const rcX = centerX + (textWidth / 2) - (charWidth * 1.5)
-              
-              text.setAttribute('x', rcX.toString())
-              text.setAttribute('y', '522.2') // Above organization name
-              text.setAttribute('text-anchor', 'middle') // Center the RC text
-            } catch (e) {
-              // Fallback if getBBox fails
-              const charWidth = 70
-              const orgNameLength = orgNameUpper.length
-              const totalWidth = orgNameLength * charWidth
-              const rcX = centerX + (totalWidth / 2) - (charWidth * 1.5)
-              text.setAttribute('x', rcX.toString())
-              text.setAttribute('y', '522.2')
-              text.setAttribute('text-anchor', 'middle')
-            }
-            break
+            const rcX = orgNameRightEdge - 200 // Shift 200 units to the left
+            const rcY = orgNameTop - 5 // Position above with small gap
+            
+            rcTextElement.setAttribute('x', rcX.toString())
+            rcTextElement.setAttribute('y', rcY.toString())
+            rcTextElement.setAttribute('text-anchor', 'end') // Right-align
+            rcTextElement.setAttribute('dominant-baseline', 'auto')
+          } catch (e) {
+            // Fallback to default position if getBBox fails
+            rcTextElement.setAttribute('x', '712')
+            rcTextElement.setAttribute('y', '850')
+            rcTextElement.setAttribute('text-anchor', 'start')
           }
         }
-      } else if (!data.registrationNumber || data.registrationNumber === 'N/A') {
-        // Remove the entire RC number line if not provided
-        const texts = svg.querySelectorAll('text')
-        for (const text of texts) {
-          if (text.textContent?.includes('RC NO.')) {
-            text.textContent = ''
-          }
-        }
+      } else {
+        hideTextElements(svg, 'RC NO.')
       }
     } else {
       // If no organization name, just handle RC number removal if needed
       if (!data.registrationNumber || data.registrationNumber === 'N/A') {
-        const texts = svg.querySelectorAll('text')
-        for (const text of texts) {
-          if (text.textContent?.includes('RC NO.')) {
-            text.textContent = ''
-          }
-        }
+        hideTextElements(svg, 'RC NO.')
       }
     }
 
-    // Calculate center position of the SVG (viewBox width / 2)
-    const centerX = 4133.86 // 8267.72 / 2
+    // Calculate organization name center position for alignment
+    const logoEndX = 2400 // Right edge of logo with margin  
+    const greenStartX = 7200 // Much further right to give more space
+    const maxWidth = greenStartX - logoEndX // ~4800 units maximum width
+    const orgCenterX = logoEndX + (maxWidth / 2) - 300 // Same as organization name center
 
-    // Find and update other address FIRST - inline flex layout left-aligned
-    if (data.otherAddress && data.otherAddress !== 'N/A') {
-      const otherAddressTitleCase = toTitleCase(data.otherAddress)
-      const allTexts = Array.from(svg.querySelectorAll('text'))
-      
-      // Left-aligned inline layout
-      const startX = 2273  // Start position from template
-      const contentX = 3239  // Content position from template
-      const addressRowY = 1098.88  // Y position from template
-      
-      // Update the "Address:" label to be red and left-aligned
-      for (const text of allTexts) {
-        const content = text.textContent || ''
-        if (content.includes('Address:')) {
-          text.textContent = 'Address:'
-          text.setAttribute('x', startX.toString())
-          text.setAttribute('y', addressRowY.toString())
-          text.setAttribute('text-anchor', 'start')  // Left-align
-          text.setAttribute('class', 'fil9 fnt7') // Red bold styling
-          break
-        }
-      }
-      
-      // Update the address content - on same line
-      for (const text of allTexts) {
-        const content = text.textContent || ''
-        if (content.includes('Hydro') || content.includes('Minna')) {
-          text.textContent = otherAddressTitleCase
-          text.setAttribute('x', contentX.toString())
-          text.setAttribute('y', addressRowY.toString())
-          text.setAttribute('text-anchor', 'start')  // Left-align
-          text.setAttribute('class', 'fil2 fnt8') // Black text styling
-          break
-        }
-      }
-    } else {
-      // Remove the entire other address line if not provided
-      const texts = svg.querySelectorAll('text')
-      for (const text of texts) {
-        const content = text.textContent || ''
-        if (content.includes('Address:')) {
+    // Find and update other address - blank everything if skipped
+    const allTexts = Array.from(svg.querySelectorAll('text'))
+    
+    // Find the Minna address label
+    const addressLabel = allTexts.find(text => text.textContent?.includes('Minna Address:') || text.textContent?.includes('Address:'))
+    
+    // Find the address content
+    for (const text of allTexts) {
+      const content = text.textContent || ''
+      if (content.includes('Hydro') || content.includes('Minna')) {
+        if (!isFieldSkipped(data.otherAddress)) {
+          // User provided an address - center the complete "Address: Content" unit
+          const otherAddressTitleCase = toTitleCase(data.otherAddress!)
+          const fullAddressText = `Address: ${otherAddressTitleCase}`
+          text.textContent = fullAddressText
+          // Center the entire text under organization name
+          text.setAttribute('x', orgCenterX.toString())
+          text.setAttribute('text-anchor', 'middle')
+          // Shift the address down a bit
+          const currentY = parseFloat(text.getAttribute('y') || '0')
+          text.setAttribute('y', (currentY + 30).toString())
+          // Apply red and bold styling to the label part only using tspan
+          text.innerHTML = `<tspan fill="red" font-weight="bold">Address:</tspan> ${otherAddressTitleCase}`
+          // Hide the separate label since we're using inline styling
+          if (addressLabel) {
+            addressLabel.textContent = ''
+          }
+        } else {
+          // User skipped address - blank both label and content
           text.textContent = ''
+          if (addressLabel) addressLabel.textContent = ''
         }
-        if (content.includes('Hydro') || content.includes('Minna')) {
+        break
+      }
+    }
+
+    // Find and update head office - blank everything if skipped
+    const headOfficeTexts = Array.from(svg.querySelectorAll('text'))
+    
+    // Find the head office label
+    const headOfficeLabel = headOfficeTexts.find(text => text.textContent?.includes('Head Office:'))
+    
+    // Find the head office content
+    for (const text of headOfficeTexts) {
+      const content = text.textContent || ''
+      if (content.includes('Enogie') || content.includes('Benin')) {
+        if (!isFieldSkipped(data.headOffice)) {
+          // User provided a head office - center the complete "Head Office: Content" unit
+          const headOfficeTitleCase = toTitleCase(data.headOffice!)
+          const fullHeadOfficeText = `Head Office: ${headOfficeTitleCase}`
+          text.textContent = fullHeadOfficeText
+          // Center the entire text under organization name
+          text.setAttribute('x', orgCenterX.toString())
+          text.setAttribute('text-anchor', 'middle')
+          // Shift the head office down a bit more
+          const currentY = parseFloat(text.getAttribute('y') || '0')
+          text.setAttribute('y', (currentY + 60).toString())
+          // Apply red and bold styling to the label part only using tspan
+          text.innerHTML = `<tspan fill="red" font-weight="bold">Head Office:</tspan> ${headOfficeTitleCase}`
+          // Hide the separate label since we're using inline styling
+          if (headOfficeLabel) {
+            headOfficeLabel.textContent = ''
+          }
+        } else {
+          // User skipped head office - blank both label and content
           text.textContent = ''
+          if (headOfficeLabel) headOfficeLabel.textContent = ''
         }
+        break
       }
     }
 
-    // Find and update head office SECOND - inline flex layout, aligned with Address
-    if (data.headOffice) {
-      const headOfficeTitleCase = toTitleCase(data.headOffice)
-      
-      // Use exact same X positions as Address for perfect column alignment
-      const labelX = 2273  // Same as Address label
-      const contentX = 3240  // Adjusted slightly right to align with Address content visually
-      const headOfficeRowY = 1170  // Below Address row with proper spacing
-      
-      // Query fresh text elements for Head Office section
-      const headOfficeTexts = Array.from(svg.querySelectorAll('text'))
-      
-      // Update the "Head Office:" label - left-aligned
-      for (const text of headOfficeTexts) {
-        const content = text.textContent || ''
-        const trimmedContent = content.trim()
-        if (trimmedContent === 'Head' || (content.includes('Head') && !content.includes(':'))) {
-          
-          // CRITICAL: Remove from transform group FIRST
-          const parent = text.parentElement
-          if (parent?.tagName === 'g' && parent.getAttribute('transform')) {
-            const svgRoot = svg.querySelector('svg > g') || svg.querySelector('svg')
-            if (svgRoot) {
-              svgRoot.appendChild(text)
-            }
-          }
-          
-          // NOW update the attributes
-          text.textContent = 'Head Office:'
-          text.setAttribute('x', labelX.toString())
-          text.setAttribute('y', headOfficeRowY.toString())
-          text.setAttribute('text-anchor', 'start')  // Left-align
-          text.setAttribute('class', 'fil9 fnt5') // Red bold styling
-          break
-        }
-      }
-      
-      // Remove the separate "Office:" text if it exists
-      for (const text of headOfficeTexts) {
-        const content = text.textContent || ''
-        if (content.trim() === 'Office:') {
-          const parent = text.parentElement
-          if (parent?.tagName === 'g' && parent.getAttribute('transform')) {
-            parent.removeChild(text)
-          } else {
-            text.textContent = ''
-          }
-        }
-      }
-      
-      // Update the head office content - on same line as label
-      const contentTexts = Array.from(svg.querySelectorAll('text'))
-      for (const text of contentTexts) {
-        const content = text.textContent || ''
-        if ((content.includes('Enogie') || content.includes('Benin')) && 
-            !content.includes('Head Office:') && 
-            content.length > 10) {
-          
-          // CRITICAL: Remove from transform group FIRST
-          const parent = text.parentElement
-          if (parent?.tagName === 'g' && parent.getAttribute('transform')) {
-            const svgRoot = svg.querySelector('svg > g') || svg.querySelector('svg')
-            if (svgRoot) {
-              svgRoot.appendChild(text)
-            }
-          }
-          
-          // NOW update the attributes - match Address content exactly
-          text.textContent = headOfficeTitleCase
-          text.setAttribute('x', contentX.toString())
-          text.setAttribute('y', headOfficeRowY.toString())
-          text.setAttribute('text-anchor', 'start')  // Left-align
-          text.setAttribute('class', 'fil2 fnt8') // Same font class as Address content
-          break
-        }
-      }
-    }
-
-    // Handle phones - replace the template phone numbers with user's numbers
-    if (data.phones && data.phones.length > 0) {
-      const texts = svg.querySelectorAll('text')
+    // Handle phones - replace the template phone numbers with user's numbers or blank if skipped
+    const texts = svg.querySelectorAll('text')
+    const allTextArray = Array.from(texts)
+    
+    // Find phone label (Tel: or Telephone:)
+    const phoneLabel = allTextArray.find(text => 
+      text.textContent?.includes('Tel:') || text.textContent?.includes('Telephone:')
+    )
+    
+    if (!isFieldSkipped(data.phones)) {
+      // User provided phone numbers - validate and normalize them first
+      const validatedPhones = validateAndNormalizePhones(data.phones!)
       
       // Remove any "Phone:" text that was previously added
-      const textsToRemove = Array.from(texts).filter(text => 
+      const textsToRemove = allTextArray.filter(text => 
         text.textContent?.includes('Phone:')
       )
       textsToRemove.forEach(text => text.remove())
@@ -325,21 +394,145 @@ export async function renderLetterHead(data: LetterHeadData): Promise<string> {
       for (const text of texts) {
         const content = text.textContent || ''
         if (content.includes('08035976700') || content.includes('08074383622')) {
-          text.textContent = data.phones.join(', ')
+          const parentGroup = text.parentElement
+          
+          // If 2 or fewer numbers, display them on one line
+          if (validatedPhones.length <= 2) {
+            text.textContent = validatedPhones.join(', ')
+          } else if (validatedPhones.length === 3) {
+            // For exactly 3 numbers: first 2 on first line, 3rd below the first
+            text.textContent = validatedPhones[0] + ', ' + validatedPhones[1] + '.'
+            
+            // Get the position and styling of the current text element
+            const x = text.getAttribute('x')
+            const y = text.getAttribute('y')
+            const textClass = text.getAttribute('class')
+            
+            if (x && y) {
+              const yNum = parseFloat(y)
+              const lineHeight = 140 // Approximate line height based on font size
+              
+              // Create a new text element for the 3rd number (below first number)
+              const thirdPhone = document.createElementNS('http://www.w3.org/2000/svg', 'text')
+              thirdPhone.setAttribute('x', x)
+              thirdPhone.setAttribute('y', (yNum + lineHeight).toString())
+              if (textClass) thirdPhone.setAttribute('class', textClass)
+              thirdPhone.textContent = validatedPhones[2]
+              
+              // Insert the new element
+              if (parentGroup) {
+                parentGroup.appendChild(thirdPhone)
+              } else {
+                text.parentNode?.appendChild(thirdPhone)
+              }
+            }
+          } else {
+            // For 4+ numbers: first 2 on first line, next 2 on second line
+            text.textContent = validatedPhones[0] + ', ' + validatedPhones[1] + '.'
+            
+            // Get the position and styling of the current text element
+            const x = text.getAttribute('x')
+            const y = text.getAttribute('y')
+            const textClass = text.getAttribute('class')
+            
+            if (x && y) {
+              const yNum = parseFloat(y)
+              const lineHeight = 140 // Approximate line height based on font size
+              
+              // Create a new text element for the 3rd and 4th numbers on second line
+              const secondLineText = document.createElementNS('http://www.w3.org/2000/svg', 'text')
+              secondLineText.setAttribute('x', x)
+              secondLineText.setAttribute('y', (yNum + lineHeight).toString())
+              if (textClass) secondLineText.setAttribute('class', textClass)
+              secondLineText.textContent = validatedPhones[2] + ', ' + validatedPhones[3] + '.'
+              
+              // Insert the new element
+              if (parentGroup) {
+                parentGroup.appendChild(secondLineText)
+              } else {
+                text.parentNode?.appendChild(secondLineText)
+              }
+            }
+          }
           break
         }
       }
+    } else {
+      // User skipped phone - blank both label and content
+      for (const text of texts) {
+        const content = text.textContent || ''
+        if (content.includes('08035976700') || content.includes('08074383622')) {
+          text.textContent = ''
+        }
+      }
+      if (phoneLabel) phoneLabel.textContent = ''
     }
 
-    // Email is on the left side - update the existing email text
-    if (data.email) {
-      // Find and update the email text (after "Email:" label)
-      const texts = svg.querySelectorAll('text')
-      for (let i = 0; i < texts.length; i++) {
-        if (texts[i].textContent?.includes('mathewuzzy@gmail')) {
-          texts[i].textContent = data.email
-          break
+    // Email is on the left side - blank everything if skipped
+    const emailTexts = Array.from(svg.querySelectorAll('text'))
+    
+    // Find the email label
+    const emailLabel = emailTexts.find(text => text.textContent?.includes('Email:'))
+    
+    // Find and update the email content
+    for (const text of emailTexts) {
+      if (text.textContent?.includes('mathewuzzy@gmail')) {
+        if (!isFieldSkipped(data.email)) {
+          // Handle multiple emails if provided
+          const emails = data.email!.split(/[,;]/).map(email => email.trim()).filter(email => email)
+          
+          if (emails.length === 1) {
+            // Single email - show it and shift to the left
+            text.textContent = emails[0]
+            // Shift email content further to the left
+            const currentX = parseFloat(text.getAttribute('x') || '0')
+            text.setAttribute('x', (currentX - 500).toString())
+            // Ensure label is visible and shift it further to the left too
+            if (emailLabel) {
+              emailLabel.textContent = 'Email:'
+              const labelX = parseFloat(emailLabel.getAttribute('x') || '0')
+              emailLabel.setAttribute('x', (labelX - 500).toString())
+            }
+          } else if (emails.length > 1) {
+            // Multiple emails - show first email and create additional elements for others
+            text.textContent = emails[0]
+            const currentX = parseFloat(text.getAttribute('x') || '0')
+            const currentY = parseFloat(text.getAttribute('y') || '0')
+            const textClass = text.getAttribute('class')
+            const parentGroup = text.parentElement
+            
+            // Position first email
+            text.setAttribute('x', (currentX - 500).toString())
+            
+            // Create additional text elements for remaining emails
+            for (let i = 1; i < emails.length; i++) {
+              const additionalEmail = document.createElementNS('http://www.w3.org/2000/svg', 'text')
+              additionalEmail.setAttribute('x', (currentX - 500).toString())
+              additionalEmail.setAttribute('y', (currentY + (i * 160)).toString()) // Increased spacing to 160 units
+              if (textClass) additionalEmail.setAttribute('class', textClass)
+              additionalEmail.textContent = emails[i]
+              
+              // Insert the new element
+              if (parentGroup) {
+                parentGroup.appendChild(additionalEmail)
+              } else {
+                text.parentNode?.appendChild(additionalEmail)
+              }
+            }
+            
+            // Position email label
+            if (emailLabel) {
+              emailLabel.textContent = 'Email:'
+              const labelX = parseFloat(emailLabel.getAttribute('x') || '0')
+              emailLabel.setAttribute('x', (labelX - 500).toString())
+            }
+          }
+        } else {
+          // User skipped email - blank both label and content
+          text.textContent = ''
+          if (emailLabel) emailLabel.textContent = ''
         }
+        break
       }
     }
 
@@ -359,9 +552,19 @@ export async function renderLetterHead(data: LetterHeadData): Promise<string> {
       await injectLogo(svg, data.logoDataUrl)
     }
 
+    // Remove SVG from temporary container and clean up
+    document.body.removeChild(tempContainer)
+
     // Serialize the updated SVG
     const serializer = new XMLSerializer()
-    return serializer.serializeToString(svg)
+    let finalSvg = serializer.serializeToString(svg)
+    
+    // Inject CSS variables for brand color
+    if (data.primaryBrandColor) {
+      finalSvg = injectCSSVariables(finalSvg, data.primaryBrandColor)
+    }
+    
+    return finalSvg
   } catch (error) {
     console.error('Error rendering letterhead:', error)
     throw error
@@ -440,13 +643,13 @@ function removeTemplateLogo(svg: Element): void {
 async function injectLogo(svg: Element, logoDataUrl: string): Promise<void> {
   // Create new logo image element
   // Position it in the center where the template logo was (around x=712, y=411)
-  // Template logo is approximately 617x563 pixels (from paths)
+  // Template logo is approximately 617x563 pixels (from paths) - enlarging to 1000x900
   const newImage = document.createElementNS('http://www.w3.org/2000/svg', 'image')
   newImage.setAttribute('class', 'letterhead-logo')
-  newImage.setAttribute('x', '712')  // Left edge of template logo area
-  newImage.setAttribute('y', '411')  // Top edge of template logo area
-  newImage.setAttribute('width', '617')  // Match template logo width
-  newImage.setAttribute('height', '563')  // Match template logo height
+  newImage.setAttribute('x', '300')  // Moved further left to accommodate even larger size
+  newImage.setAttribute('y', '350')  // Moved down from 300 to 350
+  newImage.setAttribute('width', '1000')  // Increased from 800 to 1000
+  newImage.setAttribute('height', '900')  // Increased from 730 to 900
   newImage.setAttribute('href', logoDataUrl)
   newImage.setAttribute('xlink:href', logoDataUrl)
   newImage.setAttribute('preserveAspectRatio', 'xMidYMid meet')
@@ -484,9 +687,92 @@ export function downloadSVG(svgContent: string, filename: string = 'letterhead.s
 }
 
 /**
+ * Update brand color using CSS variables
+ */
+export function updateLetterHeadBrandColor(brandColor: string): void {
+  try {
+    // Set CSS variable on document root
+    document.documentElement.style.setProperty('--primary-brand-color', brandColor)
+    
+    // Also update any SVG elements currently displayed
+    const svgElements = document.querySelectorAll('svg')
+    svgElements.forEach(svg => {
+      // Find any existing style elements within the SVG
+      const styleEl = svg.querySelector('style')
+      if (styleEl && styleEl.textContent) {
+        // Update the CSS variable definition within the SVG
+        let cssContent = styleEl.textContent
+        const variableRegex = /:root\s*\{\s*--primary-brand-color:\s*[^;]+;?\s*\}/g
+        if (variableRegex.test(cssContent)) {
+          cssContent = cssContent.replace(variableRegex, `:root { --primary-brand-color: ${brandColor}; }`)
+          styleEl.textContent = cssContent
+        }
+      }
+    })
+  } catch (error) {
+    console.error('Error updating brand color:', error)
+  }
+}
+
+/**
+ * Inject CSS variables into SVG content
+ */
+function injectCSSVariables(svgContent: string, primaryBrandColor?: string): string {
+  try {
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(svgContent, 'image/svg+xml')
+    const svg = doc.documentElement
+
+    // Find the existing style element
+    const existingStyle = svg.querySelector('style')
+    if (existingStyle && existingStyle.textContent) {
+      let updatedCSS = existingStyle.textContent
+      
+      // Add CSS variable definition at the top
+      updatedCSS = `:root { --primary-brand-color: ${primaryBrandColor || '#058A6C'}; }\n` + updatedCSS
+      
+      // Replace brand-colored fill and stroke classes with CSS variables
+      // Organization name text (fil11)
+      updatedCSS = updatedCSS.replace(/\.fil11\s*\{[^}]*fill:\s*#[0-9a-fA-F]{6}[^}]*\}/g, 
+        '.fil11 {fill:var(--primary-brand-color)}')
+      
+      // Green design element strokes (str1 and str2) 
+      updatedCSS = updatedCSS.replace(/\.str1\s*\{([^}]*)stroke:\s*#058A6C([^}]*)\}/g, 
+        '.str1 {$1stroke:var(--primary-brand-color)$2}')
+      updatedCSS = updatedCSS.replace(/\.str2\s*\{([^}]*)stroke:\s*#058A6C([^}]*)\}/g, 
+        '.str2 {$1stroke:var(--primary-brand-color)$2}')
+      
+      // Add specific polygon selectors for the design elements
+      updatedCSS += `
+        polygon[points="8717.72,342.99 7799.47,926.7 7796.05,155.24 8005.15,0 8717.72,0 "] {
+          fill: var(--primary-brand-color) !important;
+        }
+        polygon[points="-450,11349.93 468.25,10766.21 471.67,11537.67 262.56,11692.91 -450,11692.91 "] {
+          fill: var(--primary-brand-color) !important;
+        }
+      `
+      
+      // Green design fill elements (if any use #058A6C directly)
+      updatedCSS = updatedCSS.replace(/fill:\s*#058A6C/g, 'fill:var(--primary-brand-color)')
+      updatedCSS = updatedCSS.replace(/stroke:\s*#058A6C/g, 'stroke:var(--primary-brand-color)')
+      
+      // Keep grey elements unchanged (fil12: #D2D3D5, etc.)
+      // These will remain hardcoded as intended
+      
+      existingStyle.textContent = updatedCSS
+    }
+
+    return new XMLSerializer().serializeToString(doc)
+  } catch (error) {
+    console.error('Error injecting CSS variables:', error)
+    return svgContent
+  }
+}
+
+/**
  * Convert SVG to PNG
  */
-export async function convertSvgToPng(svgContent: string, width: number = 1200): Promise<string> {
+export async function convertSvgToPng(svgContent: string, width: number = 10000): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image()
     const blob = new Blob([svgContent], { type: 'image/svg+xml' })
@@ -526,7 +812,7 @@ export async function convertSvgToPng(svgContent: string, width: number = 1200):
  */
 export async function downloadAsPng(svgContent: string, filename: string = 'letterhead.png'): Promise<void> {
   try {
-    const pngDataUrl = await convertSvgToPng(svgContent)
+    const pngDataUrl = await convertSvgToPng(svgContent, 10000)
     const link = document.createElement('a')
     link.href = pngDataUrl
     link.download = filename
@@ -557,14 +843,16 @@ async function convertSvgToJpeg(svgContent: string): Promise<string> {
     const url = URL.createObjectURL(blob)
 
     img.onload = () => {
-      canvas.width = img.width
-      canvas.height = img.height
+      // Scale up for higher resolution
+      const scale = 8
+      canvas.width = img.width * scale
+      canvas.height = img.height * scale
       
       // Fill with white background for JPEG
       ctx.fillStyle = '#FFFFFF'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
       
-      ctx.drawImage(img, 0, 0)
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
       URL.revokeObjectURL(url)
       
       // Convert to JPEG with high quality
@@ -604,8 +892,8 @@ export async function downloadAsJpeg(svgContent: string, filename: string = 'let
  */
 export async function downloadAsPdf(svgContent: string, filename: string = 'letterhead.pdf'): Promise<void> {
   try {
-    // Convert SVG to PNG first for better compatibility
-    const pngDataUrl = await convertSvgToPng(svgContent)
+    // Convert SVG to PNG first for better compatibility (maximum resolution)
+    const pngDataUrl = await convertSvgToPng(svgContent, 10000)
     
     // Create a temporary canvas to get image dimensions
     const img = new Image()
@@ -672,6 +960,7 @@ export async function getPreviewSvg(): Promise<string> {
     otherAddress: 'Your Other Office Address Here',
     phones: ['+234-XXX-XXXX-XXX', '+234-XXX-XXXX-XXX'],
     email: 'info@yourcompany.com',
+    primaryBrandColor: '#058A6C',
     referenceFields: {
       ref: 'REF/2024/001',
       date: new Date().toLocaleDateString()

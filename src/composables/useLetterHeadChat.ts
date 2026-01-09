@@ -6,7 +6,7 @@
 import { ref, computed, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user.store'
-import { renderLetterHead, downloadSVG, downloadAsPng, downloadAsJpeg, downloadAsPdf, type LetterHeadData } from '@/services/svgTemplateService'
+import { renderLetterHead, downloadSVG, downloadAsPng, downloadAsJpeg, downloadAsPdf, updateLetterHeadBrandColor, type LetterHeadData } from '@/services/svgTemplateService'
 
 export interface ChatMessage {
   id: number
@@ -19,6 +19,7 @@ export interface ChatMessage {
 export interface ExtractedLetterHeadInfo {
   organizationName: string
   registrationNumber: string
+  rcNumberAttempts: number // Track validation attempts
   headOffice: string
   otherAddress: string
   phones: string[]
@@ -123,9 +124,13 @@ export function useLetterHeadChat() {
   const previewImageUrl = ref<string>('')
   const selectedFormat = ref<'png' | 'jpeg' | 'pdf'>('png')
   
+  // Color configuration state
+  const primaryBrandColor = ref('#058A6C')
+  
   const extractedInfo = ref<ExtractedLetterHeadInfo>({
     organizationName: '',
     registrationNumber: '',
+    rcNumberAttempts: 0,
     headOffice: '',
     otherAddress: '',
     phones: [],
@@ -289,6 +294,7 @@ export function useLetterHeadChat() {
       const hasRC = !!info.registrationNumber // Will be true if set to actual value or 'N/A'
       const hasHeadOffice = !!info.headOffice
       const hasOtherAddress = !!info.otherAddress // Will be true if set to actual value or 'N/A'
+      const hasLogo = !!info.logoDataUrl || info.logoDataUrl === 'skipped' // Check if logo is uploaded or skipped
       const hasPhones = info.phones.length > 0
       const hasEmail = !!info.email
       
@@ -302,20 +308,24 @@ export function useLetterHeadChat() {
         } else if (message.toLowerCase().includes('skip')) {
           responseText = "What's your organization name?"
         } else {
-          // Assume entire message is org name if it's short
-          if (message.length < 50 && !message.toLowerCase().includes('address') && !message.toLowerCase().includes('phone')) {
-            info.organizationName = message
+          // Assume entire message is org name if not just numbers
+          const isJustNumbers = /^[0-9\s]+$/.test(message.trim())
+          const trimmedMessage = message.trim()
+          
+          // Accept the full message as organization name if it contains letters
+          if (!isJustNumbers && trimmedMessage.length > 0) {
+            info.organizationName = trimmedMessage
             responseText = `Got it! RC number? (say 'skip' if none)`
           } else {
             responseText = "What's your organization name?"
           }
         }
       }
-      // Step 2: Registration number
+      // Step 2: Registration number (RC or BN)
       else if (!hasRC) {
         const lowerMsg = message.toLowerCase().trim()
         
-        // Check if user is skipping or doesn't have RC
+        // Check if user is skipping or doesn't have RC/BN
         if (lowerMsg === 'skip' || 
             lowerMsg === 'no' || 
             lowerMsg === 'none' ||
@@ -324,17 +334,45 @@ export function useLetterHeadChat() {
             lowerMsg.includes('do not have') ||
             lowerMsg.includes('dont have') ||
             lowerMsg.includes('no rc') ||
+            lowerMsg.includes('no bn') ||
             lowerMsg.includes('not registered')) {
           info.registrationNumber = 'N/A'  // Mark as skipped
+          info.rcNumberAttempts = 0
           responseText = "OK. Head office address?"
         } else {
-          const rcMatch = message.match(/(?:RC\.?\s*)?([0-9]+)/i)
+          // Extract RC number
+          const rcMatch = message.match(/RC\.?\s*([0-9]+)/i)
+          const numberOnly = message.match(/^([0-9]+)$/)
+          
+          let extractedNumber = ''
           if (rcMatch) {
-            info.registrationNumber = rcMatch[1]
-            responseText = `RC ${info.registrationNumber}. Head office address?`
+            extractedNumber = rcMatch[1]
+          } else if (numberOnly) {
+            extractedNumber = numberOnly[1]
           } else {
-            info.registrationNumber = message.trim()
-            responseText = `RC ${info.registrationNumber}. Head office address?`
+            extractedNumber = message.trim()
+          }
+          
+          // Initialize attempts if not set
+          if (!info.rcNumberAttempts) {
+            info.rcNumberAttempts = 0
+          }
+          info.rcNumberAttempts++
+          
+          // Validate: should be exactly 7 digits
+          const isValid = /^[0-9]{7}$/.test(extractedNumber)
+          
+          if (!isValid && info.rcNumberAttempts === 1) {
+            // First attempt with invalid number - ask to verify
+            responseText = `⚠️ RC numbers are typically 7 digits. You entered "${extractedNumber}". Please check and re-enter your RC number, or type 'skip' if you don't have one.`
+          } else {
+            // Either valid on first try, or second attempt (accept regardless)
+            info.registrationNumber = extractedNumber
+            if (!isValid && info.rcNumberAttempts > 1) {
+              responseText = `RC ${info.registrationNumber} saved. Head office address?`
+            } else {
+              responseText = `RC ${info.registrationNumber}. Head office address?`
+            }
           }
         }
       }
@@ -359,13 +397,37 @@ export function useLetterHeadChat() {
             lowerMsg === 'nope' ||
             lowerMsg.includes('no other')) {
           info.otherAddress = 'N/A'  // Mark as skipped
-          responseText = "Phone number(s)?"
+          responseText = "Want to add a logo? (say 'no' or 'skip' if you don't want to)"
         } else {
           info.otherAddress = message.trim()
-          responseText = "Phone number(s)?"
+          responseText = "Want to add a logo? (say 'no' or 'skip' if you don't want to)"
         }
       }
-      // Step 5: Phone numbers
+      // Step 5: Logo (optional)
+      else if (!hasLogo) {
+        const lowerMsg = message.toLowerCase().trim()
+        if (lowerMsg === 'skip' || 
+            lowerMsg === 'no' || 
+            lowerMsg === 'none' ||
+            lowerMsg === 'nope' ||
+            lowerMsg.includes('no logo') ||
+            lowerMsg.includes("don't want")) {
+          info.logoDataUrl = 'skipped'  // Mark as skipped
+          responseText = "Phone number(s)?"
+        } else if (lowerMsg === 'yes' || lowerMsg.includes('add logo') || lowerMsg.includes('upload')) {
+          responseText = "Great! Click the button below to upload your logo."
+          addAiMessage(responseText, [
+            { type: 'upload_logo', label: 'Upload Logo', variant: 'primary' }
+          ])
+          return
+        } else {
+          // User sent a message but didn't upload - remind them
+          responseText = "Use the logo button (📎) at the bottom to upload your logo, or type 'skip' to continue without a logo."
+          addAiMessage(responseText)
+          return
+        }
+      }
+      // Step 6: Phone numbers
       else if (!hasPhones) {
         const phoneNumbers = message.match(/[+]?[0-9-()\s]+/g)
         if (phoneNumbers) {
@@ -376,16 +438,35 @@ export function useLetterHeadChat() {
           responseText = "Email address?"
         }
       }
-      // Step 6: Email address
+      // Step 7: Email address
       else if (!hasEmail) {
-        info.email = message.trim()
+        const trimmedEmail = message.trim()
+        const lowerMsg = message.toLowerCase().trim()
+        
+        // Check if user is skipping
+        if (lowerMsg === 'skip' || 
+            lowerMsg === 'no' || 
+            lowerMsg === 'none' ||
+            lowerMsg === 'nope' ||
+            lowerMsg.includes('no email') ||
+            lowerMsg.includes("don't have")) {
+          info.email = 'N/A'
+        } else if (!trimmedEmail.includes('@')) {
+          // Invalid email - doesn't have @ symbol
+          responseText = "⚠️ Please provide a valid email address with '@' symbol, or type 'skip' if you don't have one."
+          addAiMessage(responseText)
+          return
+        } else {
+          info.email = trimmedEmail
+        }
         
         // Filter out N/A values for display
         const displayRC = info.registrationNumber !== 'N/A' ? info.registrationNumber : ''
         const displayHeadOffice = info.headOffice !== 'N/A' ? info.headOffice : ''
         const displayOther = info.otherAddress !== 'N/A' ? info.otherAddress : ''
+        const displayEmail = info.email !== 'N/A' ? info.email : ''
         
-        responseText = `All set!\n${info.organizationName}${displayRC ? ` • RC: ${displayRC}` : ''}${displayHeadOffice ? `\n📍 ${displayHeadOffice}` : ''}${displayOther ? `\n📍 ${displayOther}` : ''}\n📞 ${info.phones.join(', ')}\n📧 ${info.email}\n\nChoose format:`
+        responseText = `All set!\n${info.organizationName}${displayRC ? ` • RC: ${displayRC}` : ''}${displayHeadOffice ? `\n📍 ${displayHeadOffice}` : ''}${displayOther ? `\n📍 ${displayOther}` : ''}\n📞 ${info.phones.join(', ')}${displayEmail ? `\n📧 ${displayEmail}` : ''}\n\nChoose format:`
         addAiMessage(responseText, [
           { type: 'format_png', label: 'PNG', variant: 'secondary' },
           { type: 'format_jpeg', label: 'JPEG', variant: 'secondary' },
@@ -428,21 +509,18 @@ export function useLetterHeadChat() {
       downloadLetterHead('pdf')
     } else if (actionType === 'format_png') {
       selectedFormat.value = 'png'
-      addAiMessage('PNG selected. Generate now?', [
-        { type: 'generate', label: 'Generate', variant: 'primary' },
-        { type: 'upload_logo', label: 'Add Logo', variant: 'secondary' }
+      addAiMessage('PNG selected. Ready to generate!', [
+        { type: 'generate', label: 'Generate', variant: 'primary' }
       ])
     } else if (actionType === 'format_jpeg') {
       selectedFormat.value = 'jpeg'
-      addAiMessage('JPEG selected. Generate now?', [
-        { type: 'generate', label: 'Generate', variant: 'primary' },
-        { type: 'upload_logo', label: 'Add Logo', variant: 'secondary' }
+      addAiMessage('JPEG selected. Ready to generate!', [
+        { type: 'generate', label: 'Generate', variant: 'primary' }
       ])
     } else if (actionType === 'format_pdf') {
       selectedFormat.value = 'pdf'
-      addAiMessage('PDF selected. Generate now?', [
-        { type: 'generate', label: 'Generate', variant: 'primary' },
-        { type: 'upload_logo', label: 'Add Logo', variant: 'secondary' }
+      addAiMessage('PDF selected. Ready to generate!', [
+        { type: 'generate', label: 'Generate', variant: 'primary' }
       ])
     } else if (actionType === 'upload_logo') {
       // Trigger logo upload
@@ -467,7 +545,7 @@ export function useLetterHeadChat() {
     }
     
     isGeneratingPreview.value = true
-    generatingMessage.value = 'Generating your letterhead...'
+    generatingMessage.value = `Generating your letterhead as ${selectedFormat.value.toUpperCase()}...`
     
     try {
       // Prepare data for rendering
@@ -479,6 +557,7 @@ export function useLetterHeadChat() {
         phones: extractedInfo.value.phones,
         email: extractedInfo.value.email,
         logoDataUrl: extractedInfo.value.logoDataUrl,
+        primaryBrandColor: primaryBrandColor.value,
         referenceFields: {
           ref: extractedInfo.value.referenceFields.ourRef,
           date: extractedInfo.value.referenceFields.date || new Date().toLocaleDateString()
@@ -493,16 +572,9 @@ export function useLetterHeadChat() {
       previewImageUrl.value = URL.createObjectURL(blob)
       showLetterHeadPreview.value = true
       
-      addAiMessage(
-        "✅ Your letterhead is ready! Here's a preview below.\n\nWould you like to download it?",
-        [
-          { type: `download_${selectedFormat.value}`, label: `Download ${selectedFormat.value.toUpperCase()}`, variant: 'primary' }
-        ]
-      )
-      
     } catch (error) {
       console.error('Preview generation error:', error)
-      addAiMessage("Sorry, I couldn't generate the preview. Please try again.")
+      addAiMessage("Sorry, I couldn't generate the letterhead. Please try again.")
     } finally {
       isGeneratingPreview.value = false
     }
@@ -510,8 +582,6 @@ export function useLetterHeadChat() {
   // Download letterhead
   async function downloadLetterHead(format: 'svg' | 'png' | 'jpeg' | 'pdf') {
     try {
-      addAiMessage(`Preparing your letterhead in ${format.toUpperCase()} format...`)
-      
       // Prepare data for rendering
       const data: LetterHeadData = {
         organizationName: extractedInfo.value.organizationName,
@@ -521,6 +591,7 @@ export function useLetterHeadChat() {
         phones: extractedInfo.value.phones,
         email: extractedInfo.value.email,
         logoDataUrl: extractedInfo.value.logoDataUrl,
+        primaryBrandColor: primaryBrandColor.value,
         referenceFields: {
           ref: extractedInfo.value.referenceFields.ourRef,
           date: extractedInfo.value.referenceFields.date || new Date().toLocaleDateString()
@@ -542,12 +613,15 @@ export function useLetterHeadChat() {
         await downloadAsPdf(renderedSvg, `${filename}.pdf`)
       }
       
-      addAiMessage(`✅ Your letterhead ${format.toUpperCase()} is downloading!`)
-      
     } catch (error) {
       console.error('Download error:', error)
       addAiMessage(`Sorry, I couldn't download the ${format.toUpperCase()}. Please try again.`)
     }
+  }
+  
+  // Update brand color using CSS variables
+  function updateBrandColor() {
+    updateLetterHeadBrandColor(primaryBrandColor.value)
   }
   
   // Handle logo upload
@@ -556,7 +630,7 @@ export function useLetterHeadChat() {
       const reader = new FileReader()
       reader.onload = (e) => {
         extractedInfo.value.logoDataUrl = e.target?.result as string
-        addAiMessage("✓ Logo uploaded successfully! Your letterhead will include your logo.")
+        addAiMessage("✓ Logo uploaded successfully! Now, what's your phone number(s)?")
       }
       reader.readAsDataURL(file)
     } catch (error) {
@@ -586,6 +660,8 @@ export function useLetterHeadChat() {
     previewImageUrl,
     generatingMessage,
     isVoiceEnabled,
+    selectedFormat,
+    primaryBrandColor,
     
     // Computed
     isAuthenticated,
@@ -598,6 +674,7 @@ export function useLetterHeadChat() {
     handleMessageAction,
     initializeChat,
     handleLogoUpload: uploadLogo,
+    updateBrandColor,
     toggleVoice
   }
 }

@@ -74,7 +74,7 @@
               <path d="M12 14C7.58172 14 4 17.5817 4 22H20C20 17.5817 16.4183 14 12 14Z" fill="#64748b"/>
             </svg>
           </div>
-          <h3 class="team-name">----------</h3>
+          <h3 class="team-name">Saidu Musa</h3>
           <p class="team-role">Web Developer</p>
           <p class="team-bio">
             Full-stack developer bringing designs to life

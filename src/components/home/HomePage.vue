@@ -45,9 +45,6 @@
     <!-- Services Section (lazy) -->
     <ServicesSection @learn-more="handleLearnMore" />
 
-    <!-- Process Section (lazy) -->
-    <ProcessSection @start-project="handleStartProject" />
-
     <!-- Team Section (lazy) -->
     <TeamSection />
 
@@ -73,7 +70,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, defineAsyncComponent } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user.store'
 
@@ -85,7 +82,6 @@ import HeroSection from '@/components/home/HeroSection.vue'
 const Sidebar = defineAsyncComponent(() => import('@/components/home/Sidebar.vue'))
 const TemplateSection = defineAsyncComponent(() => import('@/components/home/TemplateSection.vue'))
 const ServicesSection = defineAsyncComponent(() => import('@/components/home/ServicesSection.vue'))
-const ProcessSection = defineAsyncComponent(() => import('@/components/home/ProcessSection.vue'))
 const TeamSection = defineAsyncComponent(() => import('@/components/home/TeamSection.vue'))
 const TestimonialsSection = defineAsyncComponent(() => import('@/components/home/TestimonialsSection.vue'))
 const ContactSection = defineAsyncComponent(() => import('@/components/home/ContactSection.vue'))
@@ -93,6 +89,7 @@ const HomeFooter = defineAsyncComponent(() => import('@/components/home/HomeFoot
 const InteractiveGuide = defineAsyncComponent(() => import('@/components/onboarding/InteractiveGuideEnhanced.vue'))
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const userStore = useUserStore()
 
@@ -223,6 +220,16 @@ onMounted(async () => {
     } catch (error) {
       console.error('Failed to refresh user data:', error)
     }
+  }
+
+  // Check if we should open AutoDesign modal from query parameter
+  if (route.query.openAutoDesign === 'true') {
+    // Wait a bit for components to mount, then open modal
+    setTimeout(() => {
+      homeHeaderRef.value?.toggleAutoDesign()
+      // Clean up query parameter
+      router.replace({ path: '/home' })
+    }, 300)
   }
 
   // Debug: Check if page is scrollable

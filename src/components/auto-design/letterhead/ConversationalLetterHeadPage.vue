@@ -1,5 +1,5 @@
 <template>
-  <div class="letterhead-chat-page">
+  <div class="letterhead-chat-page" :class="{ 'dark-mode': themeStore.isDark }">
     <!-- Header -->
     <div class="page-header">
       <div class="header-content">
@@ -62,6 +62,23 @@
             <p>Your letterhead preview will appear here</p>
           </div>
         </div>
+        
+        <!-- Brand Color Control -->
+        <div v-if="previewSvg" class="color-controls">
+          <div class="color-control-group">
+            <label class="color-label">
+              Brand Color:
+              <input 
+                v-model="primaryBrandColor" 
+                type="color" 
+                class="color-input"
+                @input="updateBrandColor"
+              />
+              <span class="color-value">{{ primaryBrandColor }}</span>
+            </label>
+          </div>
+        </div>
+        
         <div class="preview-actions">
           <button @click="downloadLetterHead" class="action-button primary">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -123,10 +140,12 @@ const LetterHeadChatInput = defineAsyncComponent(() => import('@/components/lett
 import { useLetterHeadChat } from '@/composables/useLetterHeadChat'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user.store'
+import { useThemeStore } from '@/stores/theme'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const userStore = useUserStore()
+const themeStore = useThemeStore()
 
 // Use the composable
 const {
@@ -137,10 +156,13 @@ const {
   extractedInfo,
   previewImageUrl,
   showLetterHeadPreview,
+  selectedFormat,
+  primaryBrandColor,
   handleSendMessage,
   handleMessageAction,
   initializeChat,
-  handleLogoUpload: composableLogoUpload
+  handleLogoUpload: composableLogoUpload,
+  updateBrandColor
 } = useLetterHeadChat()
 
 // Local state
@@ -197,7 +219,7 @@ function closePreview() {
 }
 
 async function downloadLetterHead() {
-  handleMessageAction('download_svg')
+  handleMessageAction(`download_${selectedFormat.value}`)
 }
 
 // Initialize on mount
@@ -378,6 +400,61 @@ onMounted(() => {
   margin: 0;
 }
 
+/* Color Controls */
+.color-controls {
+  padding: 16px 20px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+.color-control-group {
+  margin-bottom: 16px;
+}
+
+.color-control-group:last-child {
+  margin-bottom: 0;
+}
+
+.color-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+}
+
+.color-input {
+  width: 40px;
+  height: 32px;
+  border-radius: 8px;
+  border: 2px solid #e2e8f0;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.color-input:hover {
+  border-color: #10b981;
+}
+
+.color-input:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.color-value {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+  color: #6b7280;
+  background: #f1f5f9;
+  padding: 4px 8px;
+  border-radius: 6px;
+  min-width: 70px;
+  text-align: center;
+}
+
 .preview-actions {
   display: flex;
   gap: 12px;
@@ -514,5 +591,90 @@ onMounted(() => {
   .chat-section {
     border-radius: 0;
   }
+}
+
+/* Dark Mode Styles */
+.letterhead-chat-page.dark-mode {
+  background: #0f172a;
+}
+
+.dark-mode .page-header {
+  background: #1e293b;
+  border-bottom-color: #334155;
+}
+
+.dark-mode .header-title h1 {
+  color: #f1f5f9;
+}
+
+.dark-mode .back-btn,
+.dark-mode .home-btn {
+  background: #334155;
+  color: #f1f5f9;
+  border-color: #475569;
+}
+
+.dark-mode .back-btn:hover,
+.dark-mode .home-btn:hover {
+  background: #475569;
+}
+
+.dark-mode .chat-section {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.dark-mode .preview-section {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.dark-mode .preview-header h3 {
+  color: #f1f5f9;
+}
+
+.dark-mode .close-btn {
+  background: #334155;
+  color: #f1f5f9;
+  border-color: #475569;
+}
+
+.dark-mode .close-btn:hover {
+  background: #475569;
+}
+
+.dark-mode .preview-content {
+  background: #0f172a;
+}
+
+.dark-mode .action-button.secondary {
+  background: #334155;
+  color: #f1f5f9;
+  border-color: #475569;
+}
+
+.dark-mode .action-button.secondary:hover {
+  background: #475569;
+}
+
+.dark-mode .info-panel {
+  background: #1e293b;
+  border-top-color: #334155;
+}
+
+.dark-mode .info-header h3 {
+  color: #f1f5f9;
+}
+
+.dark-mode .info-item {
+  background: #0f172a;
+}
+
+.dark-mode .info-item label {
+  color: #94a3b8;
+}
+
+.dark-mode .info-item p {
+  color: #e2e8f0;
 }
 </style>

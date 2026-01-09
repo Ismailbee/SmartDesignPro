@@ -1565,6 +1565,25 @@
                 >
                   <strong>BN:</strong> {{ businessNumber }}
                 </span>
+                <!-- RC Number positioned below BN if both exist, or in same position if only RC exists -->
+                <span 
+                  v-if="rcNumber?.trim() && logoDataUrl?.trim()"
+                  class="text-slate-900 dark:text-slate-100"
+                  data-text-id="rc-number"
+                  :style="{ 
+                    position: 'absolute',
+                    top: businessNumber?.trim() ? '15px' : '1px',
+                    right: '-5px',
+                    fontSize: '9px',
+                    fontWeight: '500',
+                    lineHeight: '1.1',
+                    whiteSpace: 'nowrap',
+                    paddingLeft: '8px',
+                    letterSpacing: '0.02em'
+                  }"
+                >
+                  <strong>RC:</strong> {{ rcNumber }}
+                </span>
               </h2>
               
               <!-- Subtitle below organization name -->
@@ -1637,6 +1656,25 @@
                   }"
                 >
                   <strong>BN:</strong> {{ businessNumber }}
+                </span>
+                <!-- RC Number positioned below BN if both exist, or in same position if only RC exists (hidden when no logo) -->
+                <span 
+                  v-if="rcNumber?.trim() && logoDataUrl?.trim()"
+                  class="text-slate-900 dark:text-slate-100"
+                  data-text-id="rc-number"
+                  :style="{ 
+                    position: 'absolute',
+                    top: businessNumber?.trim() ? '16px' : '2px',
+                    right: '-5px',
+                    fontSize: '9px',
+                    fontWeight: '500',
+                    lineHeight: '1.1',
+                    whiteSpace: 'nowrap',
+                    paddingLeft: '8px',
+                    letterSpacing: '0.02em'
+                  }"
+                >
+                  <strong>RC:</strong> {{ rcNumber }}
                 </span>
               </h2>
             </div>
@@ -2715,6 +2753,8 @@ export default defineComponent({
       const currentState = {
         organizationName: organizationName.value,
         organizationSubName: organizationSubName.value,
+        businessNumber: businessNumber.value,
+        rcNumber: rcNumber.value,
         headOfficeAddress: headOfficeAddress.value,
         headOfficePhone: headOfficePhone.value,
         branchAddress1: branchAddress1.value,
@@ -2779,6 +2819,8 @@ export default defineComponent({
     const restoreState = (state) => {
       organizationName.value = state.organizationName;
       organizationSubName.value = state.organizationSubName;
+      businessNumber.value = state.businessNumber;
+      rcNumber.value = state.rcNumber;
       headOfficeAddress.value = state.headOfficeAddress;
       headOfficePhone.value = state.headOfficePhone;
       branchAddress1.value = state.branchAddress1;
@@ -2884,6 +2926,7 @@ export default defineComponent({
     const organizationName = ref('');
     const organizationSubName = ref('');
     const businessNumber = ref('123456789RT0001');
+    const rcNumber = ref('RC1234567'); // Test value
     const headOfficeAddress = ref('');
     const headOfficePhone = ref('');
     const branchAddress1 = ref('');
@@ -3570,6 +3613,7 @@ export default defineComponent({
               organizationName.value = String(parsed.organizationName || '').trim();
               organizationSubName.value = String(parsed.organizationSubName || '').trim();
               businessNumber.value = String(parsed.businessNumber || '').trim();
+              rcNumber.value = String(parsed.rcNumber || '').trim();
               headOfficeAddress.value = String(parsed.headOfficeAddress || '').trim();
               headOfficePhone.value = String(parsed.headOfficePhone || '').trim();
               branchAddress1.value = String(parsed.branchAddress1 || '').trim();
@@ -3596,6 +3640,7 @@ export default defineComponent({
               organizationName.value = '';
               organizationSubName.value = '';
               businessNumber.value = '';
+              rcNumber.value = '';
               headOfficeAddress.value = '';
               headOfficePhone.value = '';
               branchAddress1.value = '';
@@ -5524,6 +5569,24 @@ export default defineComponent({
               }
             }
             
+            // RC Number (only show if logo exists and RC number is provided)
+            if (rcNumber.value && logoDataUrl.value) {
+              setCMYKColor(0, 0, 0, 100); // Black
+              pdf.setFontSize(9);
+              pdf.setFont('helvetica', 'normal');
+              const rcText = `RC: ${rcNumber.value}`;
+              
+              if (textAlign === 'center') {
+                 const nameWidth = pdf.getTextWidth(organizationName.value);
+                 const yOffset = businessNumber.value ? 0.35 : 0.2; // Position below BN if both exist
+                 pdf.text(rcText, nameX + nameWidth/2 + 0.1, currentY + yOffset);
+              } else {
+                 const nameWidth = pdf.getTextWidth(organizationName.value);
+                 const yOffset = businessNumber.value ? 0.35 : 0.2; // Position below BN if both exist
+                 pdf.text(rcText, nameX + nameWidth + 0.1, currentY + yOffset);
+              }
+            }
+            
             // Organization subtitle
             if (organizationSubName.value) {
               setCMYKColor(0, 0, 0, 100); // Black
@@ -7031,6 +7094,7 @@ export default defineComponent({
       organizationName,
       organizationSubName,
       businessNumber,
+      rcNumber,
       headOfficeAddress,
       headOfficePhone,
       branchAddress1,
