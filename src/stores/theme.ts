@@ -90,10 +90,14 @@ export const useThemeStore = defineStore('theme', () => {
     const root = document.documentElement
     
     if (isDark.value) {
+      // Add both 'dark-mode' and 'dark' classes for compatibility
+      // Some components use .dark-mode, others use .dark (Tailwind convention)
       root.classList.add('dark-mode')
+      root.classList.add('dark')
       root.setAttribute('data-theme', 'dark')
     } else {
       root.classList.remove('dark-mode')
+      root.classList.remove('dark')
       root.setAttribute('data-theme', 'light')
     }
 

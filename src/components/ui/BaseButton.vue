@@ -217,14 +217,12 @@ export default defineComponent({
   }
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  .base-button--ghost {
-    color: #e5e7eb;
-  }
+/* Dark mode support - uses .dark class from theme store */
+:global(.dark) .base-button--ghost {
+  color: #e5e7eb;
+}
 
-  .base-button--ghost:hover:not(.base-button--disabled):not(.base-button--loading) {
-    background-color: #374151;
-  }
+:global(.dark) .base-button--ghost:hover:not(.base-button--disabled):not(.base-button--loading) {
+  background-color: #374151;
 }
 </style>

@@ -367,6 +367,7 @@ const {
   headingStepComplete,
   awaitingTitleConfirmation,
   pendingTitle,
+  templateDefaultTitle,
   
   // Extracted Info
   extractedInfo,
@@ -932,6 +933,9 @@ weddingChatProcessor = useWeddingChat({
   awaitingPictureDecision: awaitingImageChoice,
   awaitingSizeDecision,
   awaitingBackgroundRemovalDecision,
+  awaitingTitleConfirmation,
+  pendingTitle,
+  templateDefaultTitle,
   onGenerate: () => requestWeddingPreviewGeneration(),
   onScrollToBottom: scrollToBottom,
   onUploadPicture: () => triggerImageUpload(),
@@ -990,6 +994,52 @@ weddingChatProcessor = useWeddingChat({
           scrollToBottom()
         }
       }, 500)
+    }
+  },
+  onTitleConfirmed: async (confirmedTitle: string) => {
+    // Find matching title SVG from library and apply it with correct color
+    console.log('🎯 Title confirmed:', confirmedTitle)
+    
+    const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
+    if (!svgElement) {
+      console.warn('⚠️ No SVG element found for title replacement')
+      return
+    }
+    
+    // Find matching title from library
+    const matchedTitle = findMatchingTitle(confirmedTitle)
+    if (matchedTitle) {
+      console.log('🎯 Found matching title SVG:', matchedTitle.svgPath)
+      
+      // Get the title color based on current background palette
+      const titleColor = getTitleColorForBackground()
+      console.log('🎨 Applying title color:', titleColor)
+      
+      // Replace the title with the SVG image
+      await replaceTitleWithImage(svgElement, {
+        svgPath: matchedTitle.svgPath,
+        targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
+        position: matchedTitle.position || { x: -100, y: -20, width: 1800, height: 900 },
+        scale: matchedTitle.scale || 1.0,
+        color: titleColor
+      })
+      
+      // Sync the updated SVG to the visible chat preview
+      updateChatPreviewSVG()
+      console.log('✅ Chat preview synced with title replacement')
+    } else {
+      console.log('📝 No matching title SVG found, applying custom text:', confirmedTitle)
+      
+      // Restore text elements (remove any existing SVG title image)
+      restoreTitleTextElements(svgElement, ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'])
+      
+      // Apply the custom heading text to the SVG elements
+      customHeading.value = confirmedTitle
+      applyCustomHeadingUtil(svgElement, confirmedTitle)
+      
+      // Sync the updated SVG to the visible chat preview
+      updateChatPreviewSVG()
+      console.log('✅ Chat preview synced with custom heading')
     }
   },
 })
@@ -1261,6 +1311,10 @@ async function loadWeddingStickerTemplate() {
     getSvgElementsRef: () => svgElements
   }
   await loadWeddingStickerTemplateUtil(ctx)
+  
+  // Set the default template title - this is the title shown on the SVG template
+  // The current template uses "Alhamdulillah On Your Wedding Ceremony" as the default
+  templateDefaultTitle.value = 'Alhamdulillah On Your Wedding Ceremony'
 }
 
 // Helper function to update only date and courtesy (not names) when title SVG is active

@@ -117,14 +117,23 @@ router.onError(() => {
   isRouteLoading.value = false
 })
 
-// Splash screen - hide once auth is ready (with minimum display time)
+// Splash screen - hide once auth is ready OR if on a public route
 const showSplash = ref(true)
 const splashStartTime = Date.now()
-const MIN_SPLASH_TIME = 1200 // Reduced from 2000ms for faster perceived load
+const MIN_SPLASH_TIME = 800 // Reduced for faster perceived load
 
-// Watch for auth ready state to hide splash
-watch(isAuthReady, (ready) => {
-  if (ready) {
+// Check if current route is public (doesn't require auth)
+const isPublicRoute = () => {
+  const currentRoute = router.currentRoute.value
+  return currentRoute.meta?.requiresAuth !== true && 
+         currentRoute.meta?.requiresAdmin !== true &&
+         currentRoute.meta?.requiresSpecialAccess !== true
+}
+
+// Watch for auth ready state OR public route to hide splash faster
+watch([isAuthReady, () => router.currentRoute.value.path], ([ready, _path]) => {
+  // Hide splash if auth is ready OR if we're on a public route
+  if (ready || isPublicRoute()) {
     const elapsed = Date.now() - splashStartTime
     const remaining = Math.max(0, MIN_SPLASH_TIME - elapsed)
     setTimeout(() => {
@@ -140,7 +149,7 @@ onMounted(() => {
       console.warn('Splash timeout reached - forcing hide')
       showSplash.value = false
     }
-  }, 5000) // Maximum 5 seconds splash
+  }, 3000) // Reduced from 5 seconds to 3 seconds max
 })
 </script>
 
@@ -218,10 +227,8 @@ ion-spinner {
   backdrop-filter: blur(4px);
 }
 
-@media (prefers-color-scheme: dark) {
-  .route-loading-overlay {
-    background: rgba(17, 24, 39, 0.95);
-  }
+:global(.dark) .route-loading-overlay {
+  background: rgba(17, 24, 39, 0.95);
 }
 
 .route-loading-content {
@@ -238,11 +245,9 @@ ion-spinner {
   margin: 0 auto 16px;
 }
 
-@media (prefers-color-scheme: dark) {
-  .route-loading-spinner {
-    border-color: #374151;
-    border-top-color: #818cf8;
-  }
+:global(.dark) .route-loading-spinner {
+  border-color: #374151;
+  border-top-color: #818cf8;
 }
 
 .route-loading-text {
@@ -252,10 +257,8 @@ ion-spinner {
   margin: 0;
 }
 
-@media (prefers-color-scheme: dark) {
-  .route-loading-text {
-    color: #d1d5db;
-  }
+:global(.dark) .route-loading-text {
+  color: #d1d5db;
 }
 
 @keyframes spin {

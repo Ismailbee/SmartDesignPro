@@ -716,11 +716,18 @@ router.beforeEach(async (to, _from, next) => {
   // Update document title
   document.title = (to.meta.title as string) || 'SmartDesignPro'
 
-  // Wait for auth initialization before making routing decisions
-  if (!authStore.authInitialized) {
-    // Wait for Firebase auth to initialize
+  // Check if this route requires authentication
+  const requiresAuth = to.meta.requiresAuth === true
+  const requiresAdmin = to.meta.requiresAdmin === true
+  const requiresSpecialAccess = to.meta.requiresSpecialAccess === true
+  const needsAuthCheck = requiresAuth || requiresAdmin || requiresSpecialAccess || to.meta.redirectIfAuth
+
+  // Only wait for auth initialization if the route actually needs auth
+  // Public routes can load immediately without waiting for Firebase
+  if (needsAuthCheck && !authStore.authInitialized) {
+    // Wait for Firebase auth to initialize (reduced timeout for better UX)
     let attempts = 0
-    const maxAttempts = 50 // 5 seconds max wait
+    const maxAttempts = 20 // 2 seconds max wait (reduced from 5 seconds)
     while (!authStore.authInitialized && attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 100))
       attempts++

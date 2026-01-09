@@ -49,9 +49,9 @@
   
   <!-- New Wedding Names - Clean version positioned below the image -->
   <g id="wedding-names-group" transform="translate(400, 900) scale(2.5)">
-    <text id="name1-first" x="-50" y="85" fill="#000000" font-size="84.15" font-weight="bold">Muhammad</text>
-    <text id="name2-first" x="10.23" y="160" fill="#000000" font-size="84.15" font-weight="bold">Hauwawu</text>
-    <text id="name-separator" x="-70.3" y="160.4" fill="#B8860B" font-size="84.15" font-weight="bold">&amp;</text>
+    <text id="name1-first" x="-50" y="85" fill="#000000" font-size="84.15" font-weight="bold" font-family="'Cinzel Decorative', Georgia, serif">Muhammad</text>
+    <text id="name2-first" x="10.23" y="160" fill="#000000" font-size="84.15" font-weight="bold" font-family="'Cinzel Decorative', Georgia, serif">Hauwawu</text>
+    <text id="name-separator" x="-70.3" y="160.4" fill="#B8860B" font-size="84.15" font-weight="bold" font-family="'Cinzel Decorative', Georgia, serif">&amp;</text>
   </g>
   <text id="date-text" x="800.45" y="1550" text-anchor="middle" font-size="100" font-weight="bold" fill="#000000">8th March, 2025</text>
   <text id="courtesy-text" x="800.45" y="1720" text-anchor="middle" font-size="90" font-weight="bold" fill="#333333">Courtesy: Maijama'a Famiy</text>

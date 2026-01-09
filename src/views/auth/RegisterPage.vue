@@ -401,40 +401,38 @@ ion-input {
   }
 }
 
-/* Dark mode overrides */
-@media (prefers-color-scheme: dark) {
-  ion-content {
-    --background: #1a202c;
-  }
-  
-  h1 {
-    color: #ffffff;
-  }
-  
-  .subtitle {
-    color: #a0aec0;
-  }
-  
-  .input-group {
-    background: #2d3748;
-    border-color: #4a5568;
-  }
-  
-  .input-group:focus-within {
-    background: #2d3748;
-    border-color: #667eea;
-  }
-  
-  ion-input {
-    --color: #ffffff;
-    --placeholder-color: #718096;
-  }
-  
-  .google-btn {
-    --background: #2d3748;
-    --background-hover: #4a5568;
-    --color: #ffffff;
-    --border-color: #4a5568;
-  }
+/* Dark mode overrides - uses .dark class from theme store */
+:global(.dark) ion-content {
+  --background: #1a202c;
+}
+
+:global(.dark) h1 {
+  color: #ffffff;
+}
+
+:global(.dark) .subtitle {
+  color: #a0aec0;
+}
+
+:global(.dark) .input-group {
+  background: #2d3748;
+  border-color: #4a5568;
+}
+
+:global(.dark) .input-group:focus-within {
+  background: #2d3748;
+  border-color: #667eea;
+}
+
+:global(.dark) ion-input {
+  --color: #ffffff;
+  --placeholder-color: #718096;
+}
+
+:global(.dark) .google-btn {
+  --background: #2d3748;
+  --background-hover: #4a5568;
+  --color: #ffffff;
+  --border-color: #4a5568;
 }
 </style>

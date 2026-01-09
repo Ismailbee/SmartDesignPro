@@ -671,9 +671,9 @@ export function useWeddingStickerUpdater() {
       }).join(' ')
     }
 
-    // Pattern 1: "courtesy:" followed by ANY text (case-insensitive)
-    // Captures everything after "courtesy:" until end of line or period/comma
-    const courtesyPattern = /courtesy:\s*([^\n]+?)(?:\s*$|\.|\n)/i
+    // Pattern 1: "courtesy:" followed by text (case-insensitive)
+    // Captures text after "courtesy:" but stops at brackets or newlines
+    const courtesyPattern = /courtesy:\s*([^\n\(\[]+?)(?:\s*$|\.|\n|\s*\(|\s*\[)/i
     const courtesyMatch = description.match(courtesyPattern)
 
     if (courtesyMatch && courtesyMatch[1]) {
@@ -682,8 +682,8 @@ export function useWeddingStickerUpdater() {
       return { text: capitalizeWords(courtesyText), prefix: 'Courtesy:' }
     }
 
-    // Pattern 2: "coutesy:" (common misspelling) followed by ANY text
-    const misspelledPattern = /coutesy:\s*([^\n]+?)(?:\s*$|\.|\n)/i
+    // Pattern 2: "coutesy:" (common misspelling) followed by text
+    const misspelledPattern = /coutesy:\s*([^\n\(\[]+?)(?:\s*$|\.|\n|\s*\(|\s*\[)/i
     const misspelledMatch = description.match(misspelledPattern)
 
     if (misspelledMatch && misspelledMatch[1]) {
@@ -692,8 +692,9 @@ export function useWeddingStickerUpdater() {
       return { text: capitalizeWords(courtesyText), prefix: 'Courtesy:' }
     }
 
-    // Pattern 3: "cut-cee:" followed by ANY text (case-insensitive)
-    const cutCeePattern = /cut-cee:\s*([^\n]+?)(?:\s*$|\.|\n)/i
+    // Pattern 3: "cut-cee:" followed by text (case-insensitive)
+    // Stops at brackets or newlines
+    const cutCeePattern = /cut-cee:\s*([^\n\(\[]+?)(?:\s*$|\.|\n|\s*\(|\s*\[)/i
     const cutCeeMatch = description.match(cutCeePattern)
 
     if (cutCeeMatch && cutCeeMatch[1]) {

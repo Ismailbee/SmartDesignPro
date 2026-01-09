@@ -280,3 +280,79 @@ button,
   border-color: var(--border-secondary);
 }
 
+/* ============================================================
+   .dark class alias - same as .dark-mode for Tailwind compatibility
+   ============================================================ */
+.dark,
+[data-theme="dark"] {
+  /* Inherit all dark mode CSS variables from .dark-mode */
+  --color-primary: #06b6d4;
+  --color-primary-hover: #22d3ee;
+  --color-primary-light: #164e63;
+  
+  --color-secondary: #a78bfa;
+  --color-secondary-hover: #c4b5fd;
+  
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-error: #f87171;
+  --color-info: #60a5fa;
+  
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --bg-hover: #475569;
+  --bg-overlay: rgba(0, 0, 0, 0.7);
+  
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-tertiary: #94a3b8;
+  --text-inverse: #0f172a;
+  
+  --border-primary: #334155;
+  --border-secondary: #475569;
+  --border-focus: #3b82f6;
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6);
+}
+
+/* Ionic dark mode support */
+.dark ion-content,
+.dark-mode ion-content {
+  --background: var(--bg-primary);
+  --color: var(--text-primary);
+}
+
+.dark ion-toolbar,
+.dark-mode ion-toolbar {
+  --background: var(--bg-secondary);
+  --color: var(--text-primary);
+}
+
+.dark ion-item,
+.dark-mode ion-item {
+  --background: var(--bg-secondary);
+  --color: var(--text-primary);
+}
+
+.dark ion-card,
+.dark-mode ion-card {
+  --background: var(--bg-secondary);
+  --color: var(--text-primary);
+}
+
+.dark ion-input,
+.dark-mode ion-input {
+  --background: var(--bg-tertiary);
+  --color: var(--text-primary);
+  --placeholder-color: var(--text-tertiary);
+}
+
+.dark ion-button,
+.dark-mode ion-button {
+  --background: var(--bg-tertiary);
+  --color: var(--text-primary);
+}

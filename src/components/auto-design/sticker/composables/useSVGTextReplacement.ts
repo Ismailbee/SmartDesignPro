@@ -16,7 +16,8 @@ import { CGWC_TITLE_SVG } from './inlineSvgs'
 const INLINE_SVG_MAP: Record<string, string> = {
   '/svg/Header_tittle/CongratCeremony/cgwc.svg': CGWC_TITLE_SVG,
   '/weddigTitles/cgwc.svg': CGWC_TITLE_SVG,
-  '/weddigTitles/stikertitle.svg': CGWC_TITLE_SVG
+  '/weddigTitles/stikertitle.svg': CGWC_TITLE_SVG,
+  '/titles/alhamdulillah/t1.svg': '', // Will be loaded dynamically
 }
 
 export interface ReplacementConfig {

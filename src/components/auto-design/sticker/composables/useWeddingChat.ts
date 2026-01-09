@@ -59,11 +59,15 @@ export interface UseWeddingChatOptions {
   awaitingPictureDecision?: Ref<boolean>
   awaitingSizeDecision?: Ref<boolean>
   awaitingBackgroundRemovalDecision?: Ref<boolean>
+  awaitingTitleConfirmation?: Ref<boolean>
+  pendingTitle?: Ref<string | null>
+  templateDefaultTitle?: Ref<string | null>
   onGenerate: () => void
   onScrollToBottom: () => void
   onUploadPicture?: () => void
   onSetSize?: (size: string) => void
   onBackgroundRemovalDecision?: (removeBackground: boolean) => void
+  onTitleConfirmed?: (title: string) => void  // Called when title is confirmed to apply SVG with color
 }
 
 export function useWeddingChat(options: UseWeddingChatOptions) {
@@ -76,11 +80,15 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
     awaitingPictureDecision,
     awaitingSizeDecision,
     awaitingBackgroundRemovalDecision,
+    awaitingTitleConfirmation,
+    pendingTitle,
+    templateDefaultTitle,
     onGenerate,
     onScrollToBottom,
     onUploadPicture,
     onSetSize,
     onBackgroundRemovalDecision,
+    onTitleConfirmed,
   } = options
 
   // Track request ID to ignore stale responses
@@ -100,6 +108,16 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
     date: extractedInfo.value.date,
     courtesy: extractedInfo.value.courtesy,
   })
+
+  /**
+   * Check if user's title differs from the template's default title
+   * Normalizes both titles for comparison (lowercase, trim, remove extra spaces)
+   */
+  const titlesDiffer = (userTitle: string, templateTitle: string | null | undefined): boolean => {
+    if (!templateTitle) return false
+    const normalizeTitle = (t: string) => t.toLowerCase().trim().replace(/\s+/g, ' ')
+    return normalizeTitle(userTitle) !== normalizeTitle(templateTitle)
+  }
 
   // Add a message to chat
   const addMessage = (message: ChatMessage) => {
@@ -212,6 +230,70 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
       if (reqId !== requestId) return true
       isAnalyzing.value = false
       
+      // If awaiting title confirmation, "yes" means user wants to use their provided title
+      if (awaitingTitleConfirmation?.value && pendingTitle?.value) {
+        awaitingTitleConfirmation.value = false
+        // Apply the user's title
+        extractedInfo.value.title = pendingTitle.value
+        const userTitle = pendingTitle.value
+        pendingTitle.value = null
+        
+        // Trigger title SVG replacement with correct color
+        if (onTitleConfirmed) {
+          onTitleConfirmed(userTitle)
+        }
+        
+        // Ask for next missing info
+        const updatedCtx = getContext()
+        if (!updatedCtx.hasName) {
+          addMessage({
+            id: Date.now(),
+            text: `Got it! Using "${userTitle}" as your title. Now, what are the names of the couple?`,
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+        } else if (!updatedCtx.hasDate) {
+          addMessage({
+            id: Date.now(),
+            text: `Got it! Using "${userTitle}" as your title. What's the wedding date?`,
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+        } else if (!updatedCtx.hasCourtesy) {
+          addMessage({
+            id: Date.now(),
+            text: `Got it! Using "${userTitle}" as your title. What courtesy text would you like? (e.g., "With love from the family")`,
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+        } else {
+          // All text details complete - ask about picture
+          const hasAnyPhoto = !!hasPhoto?.value
+          if (!hasAnyPhoto) {
+            if (awaitingPictureDecision) awaitingPictureDecision.value = true
+            addMessage({
+              id: Date.now(),
+              text: `Got it! Using "${userTitle}" as your title. Would you like to add a picture?`,
+              sender: 'ai',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              actions: [
+                { type: 'upload', label: 'Add Picture', variant: 'secondary' },
+                { type: 'generate_preview', label: 'No, Generate', variant: 'primary' }
+              ]
+            } as any)
+          } else {
+            addMessage({
+              id: Date.now(),
+              text: `Got it! Using "${userTitle}" as your title. All details are ready!`,
+              sender: 'ai',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              actions: [{ type: 'generate_preview', label: 'Generate', variant: 'primary' }]
+            } as any)
+          }
+        }
+        return true
+      }
+      
       // If awaiting picture decision, "yes" means user wants to add a picture
       if (awaitingPictureDecision?.value) {
         awaitingPictureDecision.value = false
@@ -300,6 +382,70 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
       if (reqId !== requestId) return true
       isAnalyzing.value = false
       
+      // If awaiting title confirmation, "no" means user wants to keep the template's default title
+      if (awaitingTitleConfirmation?.value) {
+        awaitingTitleConfirmation.value = false
+        pendingTitle!.value = null
+        // Use the template's default title
+        const defaultTitle = templateDefaultTitle?.value || 'Alhamdulillah On Your Wedding Ceremony'
+        extractedInfo.value.title = defaultTitle
+        
+        // Trigger title SVG replacement with correct color
+        if (onTitleConfirmed) {
+          onTitleConfirmed(defaultTitle)
+        }
+        
+        // Ask for next missing info
+        const updatedCtx = getContext()
+        if (!updatedCtx.hasName) {
+          addMessage({
+            id: Date.now(),
+            text: `Alright! Keeping the current title. What are the names of the couple?`,
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+        } else if (!updatedCtx.hasDate) {
+          addMessage({
+            id: Date.now(),
+            text: `Alright! Keeping the current title. What's the wedding date?`,
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+        } else if (!updatedCtx.hasCourtesy) {
+          addMessage({
+            id: Date.now(),
+            text: `Alright! Keeping the current title. What courtesy text would you like?`,
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+        } else {
+          // All text details complete - ask about picture
+          const hasAnyPhoto = !!hasPhoto?.value
+          if (!hasAnyPhoto) {
+            if (awaitingPictureDecision) awaitingPictureDecision.value = true
+            addMessage({
+              id: Date.now(),
+              text: `Alright! Keeping the current title. Would you like to add a picture?`,
+              sender: 'ai',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              actions: [
+                { type: 'upload', label: 'Add Picture', variant: 'secondary' },
+                { type: 'generate_preview', label: 'No, Generate', variant: 'primary' }
+              ]
+            } as any)
+          } else {
+            addMessage({
+              id: Date.now(),
+              text: `Alright! Keeping the current title. All details are ready!`,
+              sender: 'ai',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              actions: [{ type: 'generate_preview', label: 'Generate', variant: 'primary' }]
+            } as any)
+          }
+        }
+        return true
+      }
+      
       // If awaiting background removal decision, "no" means user wants to keep background
       if (awaitingBackgroundRemovalDecision?.value) {
         awaitingBackgroundRemovalDecision.value = false
@@ -364,10 +510,28 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
     if (isTitleOnly(message)) {
       const extraction = extractWeddingDetails(message, { hasName: ctx.hasName, hasDate: ctx.hasDate })
       if (extraction.title) {
-        applyExtraction(extraction)
         await offlineDelay()
         if (reqId !== requestId) return true
         isAnalyzing.value = false
+        
+        // Check if user's title differs from template title
+        if (templateDefaultTitle?.value && titlesDiffer(extraction.title, templateDefaultTitle.value)) {
+          // Store the user's title and ask for confirmation
+          if (awaitingTitleConfirmation && pendingTitle) {
+            awaitingTitleConfirmation.value = true
+            pendingTitle.value = extraction.title
+            addMessage({
+              id: Date.now(),
+              text: `You've entered "${extraction.title}" as the title. Would you like to use this title? (Yes/No)`,
+              sender: 'ai',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            })
+            return true
+          }
+        }
+        
+        // Titles match or no template title - apply directly
+        applyExtraction(extraction)
         const updatedCtx = getContext()
         addMessage(getTitleOnlyResponse(extraction.title, updatedCtx))
         return true
@@ -443,6 +607,33 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
     })
 
     if (extraction.foundSomething) {
+      // Check if the extracted title differs from template - ask for confirmation first
+      if (extraction.title && templateDefaultTitle?.value && titlesDiffer(extraction.title, templateDefaultTitle.value)) {
+        if (awaitingTitleConfirmation && pendingTitle) {
+          await offlineDelay()
+          if (reqId !== requestId) return true
+          isAnalyzing.value = false
+          
+          // Store the pending title and all other extracted data for later
+          awaitingTitleConfirmation.value = true
+          pendingTitle.value = extraction.title
+          
+          // Apply non-title extraction (names, date, courtesy) immediately
+          if (extraction.name1) extractedInfo.value.names.name1 = extraction.name1
+          if (extraction.name2) extractedInfo.value.names.name2 = extraction.name2
+          if (extraction.date && !extraction.dateIsPartial) extractedInfo.value.date = extraction.date
+          if (extraction.courtesy) extractedInfo.value.courtesy = extraction.courtesy
+          
+          addMessage({
+            id: Date.now(),
+            text: `You've entered "${extraction.title}" as the title. Would you like to use this title? (Yes/No)`,
+            sender: 'ai',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })
+          return true
+        }
+      }
+      
       // Apply extracted info
       applyExtraction(extraction)
 

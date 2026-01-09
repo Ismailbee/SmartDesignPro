@@ -98,6 +98,7 @@ export interface WeddingStateReturn {
   headingStepComplete: Ref<boolean>
   awaitingTitleConfirmation: Ref<boolean>
   pendingTitle: Ref<string | null>
+  templateDefaultTitle: Ref<string | null>  // The original title from the SVG template
   
   // Extracted Info
   extractedInfo: Ref<ExtractedInfo>
@@ -236,6 +237,7 @@ export function useWeddingState(): WeddingStateReturn {
   const headingStepComplete = ref(false)
   const awaitingTitleConfirmation = ref(false)
   const pendingTitle = ref<string | null>(null)
+  const templateDefaultTitle = ref<string | null>(null)  // The original title from the SVG template
   
   // ========================================
   // Extracted Info
@@ -355,6 +357,7 @@ export function useWeddingState(): WeddingStateReturn {
     headingStepComplete.value = false
     awaitingTitleConfirmation.value = false
     pendingTitle.value = null
+    // NOTE: templateDefaultTitle is NOT reset here - it's set when the template loads
     awaitingHeadingInput.value = false
     awaitingFontChoice.value = false
     
@@ -446,6 +449,7 @@ export function useWeddingState(): WeddingStateReturn {
     headingStepComplete,
     awaitingTitleConfirmation,
     pendingTitle,
+    templateDefaultTitle,
     
     // Extracted Info
     extractedInfo,

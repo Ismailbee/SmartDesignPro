@@ -3,8 +3,16 @@
     "id": "stikertitle",
     "name": "Congratulation Wedding Ceremony",
     "category": "congratulation",
-    "file": "congratulation/stikertitle.svg",
-    "keywords": ["congratulation", "wedding", "ceremony"],
+    "file": "../weddigTitles/cgwc.svg",
+    "keywords": ["Congratulation Wedding Ceremony"],
     "textElements": ["title-text"]
+  },
+  {
+    "id": "alhamdulillah-t1",
+    "name": "Alhamdulillah On Your Wedding Ceremony",
+    "category": "alhamdulillah",
+    "file": "alhamdulillah/t1.svg",
+    "keywords": ["Alhamdulillah On Your Wedding Ceremony"],
+    "textElements": []
   }
 ]

@@ -1,5 +1,8 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  // Use 'class' strategy so dark mode follows theme store, not OS preference
+  // Support both 'dark' and 'dark-mode' classes for compatibility
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{vue,js,jsx,tsx}",

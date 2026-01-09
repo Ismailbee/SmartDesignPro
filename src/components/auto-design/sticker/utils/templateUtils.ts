@@ -167,8 +167,9 @@ export async function loadWeddingStickerTemplateUtil(ctx: TemplateContext): Prom
     
     // Inject the stikertitle.svg title
     try {
-      console.log('🎯 Fetching stikertitle.svg...')
-      const titleResponse = await fetch('/weddigTitles/stikertitle.svg')
+      console.log('🎯 Fetching title SVG...')
+      // Use the alhamdulillah title as default
+      const titleResponse = await fetch('/titles/alhamdulillah/t1.svg')
       console.log('🎯 Title fetch response:', titleResponse.ok, titleResponse.status)
       
       if (titleResponse.ok) {
@@ -187,11 +188,8 @@ export async function loadWeddingStickerTemplateUtil(ctx: TemplateContext): Prom
           titleGroup.setAttribute('id', 'wedding-title-replacement')
           
           // Position to match old title location
-          // Old title centered at x=850.45, y from 280-710 (center ~495)
-          // stikertitle.svg is 262.57 x 124.4
-          // With scale(4): 1050 x 498
-          // Moved slightly left for better centering
-          titleGroup.setAttribute('transform', 'translate(280, 200) scale(4)')
+          // Reduced scale for better sizing
+          titleGroup.setAttribute('transform', 'translate(360, 260) scale(1.4)')
           
           // Copy defs first if they exist (fonts, styles, etc.)
           const titleDefs = titleSvg.querySelector('defs')

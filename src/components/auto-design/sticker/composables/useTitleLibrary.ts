@@ -27,30 +27,34 @@ export interface TitleImageConfig {
 // ========================================
 // TITLE LIBRARY DATA
 // ========================================
-// NOTE: Title library entries temporarily disabled to use base template text layout instead
-// The pre-designed SVG graphics (cgwc.svg) have text baked in with fixed layout
-// To restore graphic title injection, uncomment the entries below
+// Title library entries - these SVG graphics are injected as titles based on keywords
+// The color system automatically applies appropriate colors based on the background
 const TITLE_LIBRARY: TitleEntry[] = [
-  // DISABLED: These were injecting pre-designed graphics that override base template text
-  // The base template (wedding-sticker-base.svg) now handles the text layout correctly:
-  // - "ON YOUR" on same line
-  // - "WEDDING" below
-  // 
-  // To re-enable, uncomment these entries:
-  // {
-  //   keywords: ['alhamdulillah', 'wedding'],
-  //   svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
-  //   fallbackText: 'Alhamdulillahi on Your Wedding Ceremony',
-  //   position: { x: -100, y: -20, width: 1800, height: 900 },
-  //   scale: 1.0
-  // },
-  // {
-  //   keywords: ['wedding'],
-  //   svgPath: '/assets/title/AlahamdulillahiWeddingCeremony/cgwc.svg',
-  //   fallbackText: 'Alhamdulillahi on Your Wedding Ceremony',
-  //   position: { x: -100, y: -20, width: 1800, height: 900 },
-  //   scale: 1.0
-  // },
+  // Alhamdulillah Wedding Title - matches "alhamdulillah" keyword
+  {
+    keywords: ['alhamdulillah', 'wedding'],
+    svgPath: '/titles/alhamdulillah/t1.svg',
+    fallbackText: 'Alhamdulillah On Your Wedding Ceremony',
+    position: { x: 120, y: 80, width: 800, height: 400 },
+    scale: 0.42
+  },
+  // Congratulation Wedding Title - matches "congratulation" keyword
+  // Uses cgwc.svg from weddigTitles folder
+  {
+    keywords: ['congratulation', 'wedding'],
+    svgPath: '/weddigTitles/cgwc.svg',
+    fallbackText: 'Congratulation Wedding Ceremony',
+    position: { x: 120, y: 80, width: 800, height: 400 },
+    scale: 0.42
+  },
+  // Generic wedding fallback - uses alhamdulillah by default
+  {
+    keywords: ['wedding'],
+    svgPath: '/titles/alhamdulillah/t1.svg',
+    fallbackText: 'Alhamdulillah On Your Wedding Ceremony',
+    position: { x: 120, y: 80, width: 800, height: 400 },
+    scale: 0.42
+  },
 ]
 
 // Cache for pre-rendered title images (keyed by svgPath + color)
