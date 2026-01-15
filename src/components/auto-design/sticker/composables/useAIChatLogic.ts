@@ -646,7 +646,7 @@ export function useAIChatLogic(options: UseAIChatLogicOptions) {
             askedQuestions.value.picture = true
             chatMessages.value.push({
               id: Date.now(),
-              text: 'All set! Add a picture?',
+              text: 'Would you like to add a picture?',
               sender: 'ai',
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
               actions: [
@@ -782,7 +782,7 @@ export function useAIChatLogic(options: UseAIChatLogicOptions) {
           const hasDate = !!extractedInfo.value.date
 
           if (hasTitle && hasName && hasDate) {
-            msgText = 'All set. Would you like to add a picture for your design?'
+            msgText = 'Would you like to add a picture?'
             decision.buttons = [
               { type: 'upload', label: 'Add Picture', variant: 'secondary' },
               { type: 'generate_preview', label: 'Generate', variant: 'primary' }
@@ -800,7 +800,7 @@ export function useAIChatLogic(options: UseAIChatLogicOptions) {
           const hasName = !!extractedInfo.value.names.name1
           const hasDate = !!extractedInfo.value.date
           if (hasTitle && hasName && hasDate) {
-            msgText = 'All set. Would you like to add a picture for your design?'
+            msgText = 'Would you like to add a picture?'
             decision.buttons = [
               { type: 'upload', label: 'Add Picture', variant: 'secondary' },
               { type: 'generate_preview', label: 'Generate', variant: 'primary' }

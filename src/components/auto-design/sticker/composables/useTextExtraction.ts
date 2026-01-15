@@ -45,12 +45,17 @@ export function extractNamesFromResponse(text: string): ExtractedNames {
   const bracketMatch = text.match(/\(([^)]+)\)/)
   if (bracketMatch && bracketMatch[1]) {
     const bracketContent = bracketMatch[1].trim()
-    const bracketAndMatch = bracketContent.match(/(.+?)\s*(?:and|&)\s*(.+)/i)
+    const bracketAndMatch = bracketContent.match(/^\s*([a-zA-Z][a-zA-Z'-]+)\s*(?:and|&)\s*([a-zA-Z][a-zA-Z'-]+)\s*$/i)
     if (bracketAndMatch) {
-      return { 
-        name1: capitalizeWords(bracketAndMatch[1].trim()), 
-        name2: capitalizeWords(bracketAndMatch[2].trim()) 
+      return {
+        name1: capitalizeWords(bracketAndMatch[1].trim()),
+        name2: capitalizeWords(bracketAndMatch[2].trim())
       }
+    }
+
+    // If a separator exists but isn't a valid simple pair, don't guess.
+    if (/[A-Za-z].*(?:&|\band\b|\bwith\b).*[A-Za-z]/i.test(bracketContent)) {
+      return { name1: null, name2: null }
     }
     return { name1: capitalizeWords(bracketContent), name2: null }
   }
@@ -67,9 +72,13 @@ export function extractNamesFromResponse(text: string): ExtractedNames {
   
   console.log('[extractNames] Text after cleanup:', textForNames)
 
+  // If user typed a couple separator but it's not a strict "A & B" pair,
+  // do NOT guess a partial name (prevents extracting a stray surname like "Yahaya").
+  const hasCoupleSeparator = /[A-Za-z].*(?:&|\band\b|\bwith\b).*[A-Za-z]/i.test(textForNames)
+
   // Pattern 1: Name and Name or Name & Name (must be capitalized or after ceremony/wedding words)
   // Updated to work even after "ceremony" keyword
-  const andPattern = /\b([A-Z][a-zA-Z0-9'-]*(?:\s+[A-Z][a-zA-Z0-9'-]*)?)\s*(?:and|&|n)\s*([A-Z][a-zA-Z0-9'-]*(?:\s+[A-Z][a-zA-Z0-9'-]*)?)\b/
+  const andPattern = /\b([A-Z][a-zA-Z'-]*)\s*(?:and|&|n)\s*([A-Z][a-zA-Z'-]*)\b/
   const andMatch = textForNames.match(andPattern)
 
   if (andMatch) {
@@ -100,7 +109,7 @@ export function extractNamesFromResponse(text: string): ExtractedNames {
   }
 
   // Try again without case sensitivity
-  const andPatternCI = /\b([a-zA-Z][a-zA-Z0-9'-]*)\s*(?:and|&)\s*([a-zA-Z][a-zA-Z0-9'-]*)\b/i
+  const andPatternCI = /\b([a-zA-Z][a-zA-Z'-]*)\s*(?:and|&)\s*([a-zA-Z][a-zA-Z'-]*)\b/i
   const andMatchCI = textForNames.match(andPatternCI)
 
   if (andMatchCI) {
@@ -116,17 +125,8 @@ export function extractNamesFromResponse(text: string): ExtractedNames {
     }
   }
 
-  // Pattern 2: Two consecutive name-like words
-  const twoNamesMatch = textForNames.match(/\b([a-zA-Z][a-zA-Z'-]{1,})\s+([a-zA-Z][a-zA-Z'-]{1,})\b/i)
-  if (twoNamesMatch) {
-    const word1 = twoNamesMatch[1].toLowerCase()
-    const word2 = twoNamesMatch[2].toLowerCase()
-    if (!COMMON_WORDS.has(word1) && !COMMON_WORDS.has(word2)) {
-      return { 
-        name1: capitalizeWords(twoNamesMatch[1]), 
-        name2: capitalizeWords(twoNamesMatch[2]) 
-      }
-    }
+  if (hasCoupleSeparator) {
+    return { name1: null, name2: null }
   }
 
   // Pattern 3: Single name

@@ -37,7 +37,7 @@
           :show-preview="showWeddingStickerPreview"
           :generating-message="generatingMessage"
           :is-authenticated="authStore.isAuthenticated"
-          :user-name="userStore.user?.name?.split(' ')[0]"
+          :user-name="userStore.user?.name?.split(' ')?.[0]"
           :tokens="userStore.user?.tokens ?? 0"
           @login="authStore.openAuthModal('login')"
           @action="handleMessageAction"
@@ -161,10 +161,15 @@ const Vue3Lottie = defineAsyncComponent(() =>
 
 // TTS lazy-loading now handled by useSpeechToText composable
 
-// Import composables that remain in global location
+// Import composables (needed immediately for setup)
+import { useWeddingStickerUpdater } from './sticker/composables/useWeddingStickerUpdater'
+import { useSVGImageManager } from './sticker/composables/useSVGImageManager'
+import { useSVGExport } from './sticker/composables/useSVGExport'
+import { useDynamicSVG } from './sticker/composables/useDynamicSVG'
+import { useSVGTextReplacement } from './sticker/composables/useSVGTextReplacement'
 import { useBackgroundRemoval } from '@/composables/useBackgroundRemoval'
 import { useImageRetouch } from '@/composables/useImageRetouch'
-import { getBackgroundRefsCached } from '@/services/background-catalog.service'
+import { getBackgroundRefsCached } from '@/services/background/background-catalog.service'
 
 // Lazy load heavy components for better performance
 const ImageCropModal = defineAsyncComponent(() => import('@/components/modals/ImageCropModal.vue'))
@@ -184,18 +189,13 @@ const SvgPreview = defineAsyncComponent(() => import('./sticker/SvgPreview.vue')
 // Import types only (no runtime cost)
 import type { ChatMessage, Category, ExtractedInfo } from './sticker'
 
-// Import sticker composables (all sticker-specific composables now centralized here)
+// Import extracted composables
+import { useTextExtraction } from './sticker/composables/useTextExtraction'
+import { useAiChatResponses } from './sticker/composables/useAiChatResponses'
+import { useStickerExport } from './sticker/composables/useStickerExport'
+
+// Import sticker composables (title, flourish, background management)
 import {
-  // Moved from @/composables (sticker-only usage)
-  useWeddingStickerUpdater,
-  useSVGImageManager,
-  useSVGExport,
-  useDynamicSVG,
-  useSVGTextReplacement,
-  useTextExtraction,
-  useAiChatResponses,
-  useStickerExport,
-  // Title library and flourish
   useTitleLibrary,
   useFlourishSystem,
   useBackgroundManager,
@@ -279,7 +279,6 @@ import {
   stopGeneratingMessages,
   hasConfirmedWeddingSize as hasConfirmedWeddingSizeUtil,
   promptForWeddingSize as promptForWeddingSizeUtil,
-  parseSizeToInches,
   setWeddingSize as setWeddingSizeUtil,
   generateWeddingPreviewUtil,
   handleGenerateMoreUtil,
@@ -290,6 +289,7 @@ import {
 // Import template utilities (extracted for file size reduction)
 import {
   loadWeddingStickerTemplateUtil,
+  ensureDecorativeWeddingTitleUtil,
   processDescriptionInputUtil,
   applyCustomHeadingAndFont,
   resetTitleRenderCache,
@@ -346,27 +346,17 @@ const {
   pictureStepComplete,
   sizeStepComplete,
   awaitingBackgroundRemovalDecision,
+  awaitingTitleConfirmation,
+  pendingTitle,
   awaitingImageUpdateConfirmation,
   backgroundRemovalAlreadyHandled,
   
   // Image State
   pendingImageFile,
-  uploadedImages,
-  lastUploadedImage,
-  awaitingImageChoice,
-  awaitingNameInput,
-  nameExtractionAttempts,
   preGeneratedImageFile,
   preGeneratedImagePreview,
-  
-  // Heading/Title State
-  awaitingHeadingInput,
-  awaitingFontChoice,
-  customHeading,
-  selectedHeadingFont,
-  headingStepComplete,
-  awaitingTitleConfirmation,
-  pendingTitle,
+  uploadedImages,
+  lastUploadedImage,
   templateDefaultTitle,
   
   // Extracted Info
@@ -410,6 +400,11 @@ const {
   
   // DOM Refs
   preGeneratedImageInput,
+  
+  // Heading State
+  customHeading,
+  selectedHeadingFont,
+  headingStepComplete,
   
   // Utility Methods
   resetAskedQuestions,
@@ -621,6 +616,10 @@ function setWeddingSize(sizeRaw: string): void {
 }
 
 function requestWeddingPreviewGeneration(): void {
+  // Always sync description from state before generating
+  // This ensures customHeading and extractedInfo are included in the description
+  syncWeddingDescriptionFromState()
+  
   if (!hasConfirmedWeddingSize()) {
     promptForWeddingSize()
     return
@@ -695,6 +694,22 @@ const editModalExtractedInfo = computed(() => ({
 
 // Handle save from edit modal - update SVG directly
 async function handleEditModalSave(data: { heading: string; name1: string; name2: string; date: string; courtesy: string }) {
+  // STRICT: Only allow simple A & B (single word each) as a couple.
+  // If user typed a full name in name1 and name2 is accidentally populated (often with the surname),
+  // treat it as a single name by clearing name2.
+  const name1Trimmed = (data.name1 || '').trim()
+  const name2Trimmed = (data.name2 || '').trim()
+  const isSingleWord = (value: string) => !!value && !/\s/.test(value)
+  const isStrictCouple = isSingleWord(name1Trimmed) && isSingleWord(name2Trimmed)
+
+  // Common accidental case: name2 equals the last token of name1 (e.g., "Yahaya Suleiman" + "Suleiman")
+  const lastToken = name1Trimmed.split(/\s+/).filter(Boolean).slice(-1)[0] || ''
+  const looksLikeSurnameDup = !!name2Trimmed && !!lastToken && name2Trimmed.toLowerCase() === lastToken.toLowerCase()
+
+  if (name1Trimmed && name2Trimmed && (!isStrictCouple || looksLikeSurnameDup)) {
+    data.name2 = ''
+  }
+
   // Update extracted info
   extractedInfo.value.names.name1 = data.name1 || null
   extractedInfo.value.names.name2 = data.name2 || null
@@ -794,6 +809,23 @@ async function generateWeddingPreview() {
     authStore
   }
   await generateWeddingPreviewUtil(ctx)
+  
+  // CRITICAL: Apply custom heading AFTER generation completes
+  // This ensures the custom heading overrides any default values
+  if (customHeading.value) {
+    const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
+    if (svgElement) {
+      applyCustomHeadingUtil(svgElement, customHeading.value)
+      
+      // Wait for DOM to update before syncing to chat preview
+      await nextTick()
+      
+      // Also sync to chat preview
+      updateChatPreviewSVG()
+    } else {
+      console.warn('Post-generation: no SVG element found to apply custom heading')
+    }
+  }
 }
 
 // Regenerate with a new random background (keeps same text/image)
@@ -803,8 +835,6 @@ async function regenerateWithNewBackground() {
     console.warn('⚠️ No backgrounds available for regeneration')
     return
   }
-  
-  console.log('🔄 Regenerating with new background:', newBackground.name || newBackground.id)
   
   // Apply the new background
   await applyNewBackground(newBackground)
@@ -830,7 +860,7 @@ function trackImageUpload(file: File) {
     chatMessages,
     uploadedImages,
     lastUploadedImage,
-    awaitingImageChoice,
+    awaitingImageChoice: awaitingPictureDecision,
     awaitingImageUpdateConfirmation,
     pendingImageFile,
     showWeddingStickerPreview,
@@ -930,7 +960,7 @@ weddingChatProcessor = useWeddingChat({
   isAnalyzing,
   showPreview: showWeddingStickerPreview,
   hasPhoto: computed(() => !!preGeneratedImageFile.value || svgImageManager.images.value.length > 0),
-  awaitingPictureDecision: awaitingImageChoice,
+  awaitingPictureDecision,
   awaitingSizeDecision,
   awaitingBackgroundRemovalDecision,
   awaitingTitleConfirmation,
@@ -997,50 +1027,25 @@ weddingChatProcessor = useWeddingChat({
     }
   },
   onTitleConfirmed: async (confirmedTitle: string) => {
-    // Find matching title SVG from library and apply it with correct color
-    console.log('🎯 Title confirmed:', confirmedTitle)
+    // ALWAYS set customHeading - even if SVG doesn't exist yet
+    // This ensures the title is used when the preview is generated later
+    customHeading.value = confirmedTitle
+    headingStepComplete.value = true
     
     const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
     if (!svgElement) {
-      console.warn('⚠️ No SVG element found for title replacement')
       return
     }
     
-    // Find matching title from library
-    const matchedTitle = findMatchingTitle(confirmedTitle)
-    if (matchedTitle) {
-      console.log('🎯 Found matching title SVG:', matchedTitle.svgPath)
-      
-      // Get the title color based on current background palette
-      const titleColor = getTitleColorForBackground()
-      console.log('🎨 Applying title color:', titleColor)
-      
-      // Replace the title with the SVG image
-      await replaceTitleWithImage(svgElement, {
-        svgPath: matchedTitle.svgPath,
-        targetElementIds: ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'],
-        position: matchedTitle.position || { x: -100, y: -20, width: 1800, height: 900 },
-        scale: matchedTitle.scale || 1.0,
-        color: titleColor
-      })
-      
-      // Sync the updated SVG to the visible chat preview
-      updateChatPreviewSVG()
-      console.log('✅ Chat preview synced with title replacement')
-    } else {
-      console.log('📝 No matching title SVG found, applying custom text:', confirmedTitle)
-      
-      // Restore text elements (remove any existing SVG title image)
-      restoreTitleTextElements(svgElement, ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text'])
-      
-      // Apply the custom heading text to the SVG elements
-      customHeading.value = confirmedTitle
-      applyCustomHeadingUtil(svgElement, confirmedTitle)
-      
-      // Sync the updated SVG to the visible chat preview
-      updateChatPreviewSVG()
-      console.log('✅ Chat preview synced with custom heading')
-    }
+    // IMPORTANT:
+    // For wedding stickers we keep the decorative title style (t1.svg) and rewrite its internal <text> nodes.
+    // Do NOT replace with a PNG/image title, because that prevents custom-heading edits and ignores our group transform.
+    await ensureDecorativeWeddingTitleUtil(svgElement)
+    applyCustomHeadingUtil(svgElement, confirmedTitle)
+    applyHeadingFontUtil(svgElement, selectedHeadingFont.value)
+
+    // Sync the updated SVG to the visible chat preview
+    updateChatPreviewSVG()
   },
 })
 

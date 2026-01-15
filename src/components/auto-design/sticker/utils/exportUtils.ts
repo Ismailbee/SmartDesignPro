@@ -84,30 +84,32 @@ export async function exportWeddingStickerUtil(
     // Validate SVG is properly configured for export
     validateForExport(svgElement)
 
+    // IMPORTANT: Never mutate the live SVG in the editor during export.
+    // Changing width/height can affect CSS-driven font sizes and layout (causing text jumps).
+    const svgForExport = svgElement.cloneNode(true) as SVGSVGElement
+
     // Get stored export dimensions (set by handleSizeChange)
-    const exportWidthPx = svgElement.getAttribute('data-export-width-px')
-    const exportHeightPx = svgElement.getAttribute('data-export-height-px')
-    const exportWidth = svgElement.getAttribute('data-export-width')
-    const exportHeight = svgElement.getAttribute('data-export-height')
-    const originalStyleWidth = svgElement.style.width
-    const originalStyleHeight = svgElement.style.height
+    const exportWidthPx = svgForExport.getAttribute('data-export-width-px')
+    const exportHeightPx = svgForExport.getAttribute('data-export-height-px')
+    const exportWidth = svgForExport.getAttribute('data-export-width')
+    const exportHeight = svgForExport.getAttribute('data-export-height')
 
     // Apply pixel dimensions for canvas export (critical for PNG)
     if (exportWidthPx && exportHeightPx) {
-      svgElement.setAttribute('width', exportWidthPx)
-      svgElement.setAttribute('height', exportHeightPx)
+      svgForExport.setAttribute('width', exportWidthPx)
+      svgForExport.setAttribute('height', exportHeightPx)
       // Remove CSS constraints that might interfere with the export canvas sizing
-      svgElement.style.width = ''
-      svgElement.style.height = ''
+      svgForExport.style.width = ''
+      svgForExport.style.height = ''
     } else if (exportWidth && exportHeight) {
       // Fallback to inch dimensions
-      svgElement.setAttribute('width', exportWidth)
-      svgElement.setAttribute('height', exportHeight)
-      svgElement.style.width = ''
-      svgElement.style.height = ''
+      svgForExport.setAttribute('width', exportWidth)
+      svgForExport.setAttribute('height', exportHeight)
+      svgForExport.style.width = ''
+      svgForExport.style.height = ''
     } else {
       // No custom size set - calculate from viewBox to preserve aspect ratio
-      const viewBox = svgElement.getAttribute('viewBox')?.split(/\s+|,/).map(Number)
+      const viewBox = svgForExport.getAttribute('viewBox')?.split(/\s+|,/).map(Number)
       if (viewBox && viewBox.length >= 4) {
         const vbWidth = viewBox[2]
         const vbHeight = viewBox[3]
@@ -115,31 +117,23 @@ export async function exportWeddingStickerUtil(
         const scale = PRINT_DPI / 96
         const calculatedWidth = Math.round(vbWidth * scale)
         const calculatedHeight = Math.round(vbHeight * scale)
-        svgElement.setAttribute('width', String(calculatedWidth))
-        svgElement.setAttribute('height', String(calculatedHeight))
-        svgElement.style.width = ''
-        svgElement.style.height = ''
+        svgForExport.setAttribute('width', String(calculatedWidth))
+        svgForExport.setAttribute('height', String(calculatedHeight))
+        svgForExport.style.width = ''
+        svgForExport.style.height = ''
       }
     }
 
     // Ensure preserveAspectRatio is set for distortion-free export
-    if (!svgElement.getAttribute('preserveAspectRatio')) {
-      svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet')
+    if (!svgForExport.getAttribute('preserveAspectRatio')) {
+      svgForExport.setAttribute('preserveAspectRatio', 'xMidYMid meet')
     }
 
-    await exportSVG(svgElement, svgImageManager.images.value, {
+    await exportSVG(svgForExport, svgImageManager.images.value, {
       filename: format === 'svg' ? `${filename}.svg` : `${filename}.png`,
       format,
       pngResolution: PRINT_DPI
     })
-
-    // Restore responsive display settings
-    if (exportWidthPx || exportWidth) {
-      svgElement.setAttribute('width', '100%')
-      svgElement.removeAttribute('height')
-      svgElement.style.width = originalStyleWidth || '100%'
-      svgElement.style.height = originalStyleHeight || 'auto'
-    }
 
     showNotification({
       title: 'Download Successful',

@@ -47,13 +47,6 @@ console.warn = (...args: any[]) => {
   originalWarn.apply(console, args)
 }
 
-// FontAwesome imports
-import { library } from '@fortawesome/fontawesome-svg-core'
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-/* icons import truncated for brevity in snippet; keep your original list */
-
-library.add(/* ...your icons... */)
-
 async function timeoutPromise<T>(p: Promise<T>, ms: number, label = 'operation') {
   let timer: any
   const t = new Promise<T>((_, rej) => {

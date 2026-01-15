@@ -101,6 +101,8 @@ export interface LocalExtractionResult {
   title?: string
   name1?: string
   name2?: string
+  nameSource?: 'bracket' | 'pattern' | 'nlp' | 'none'
+  nameNeedsConfirmation?: boolean
   date?: string
   dateIsPartial?: boolean
   courtesy?: string

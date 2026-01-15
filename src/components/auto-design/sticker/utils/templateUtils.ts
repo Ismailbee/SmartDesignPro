@@ -72,6 +72,80 @@ export function resetTitleRenderCache(): void {
   lastWeddingFlourishRenderKey = ''
 }
 
+export async function ensureDecorativeWeddingTitleUtil(svgElement: SVGSVGElement): Promise<void> {
+  // Always use the decorative title injected from /titles/alhamdulillah/t1.svg.
+  // This keeps headings editable (we can update its internal <text> nodes).
+  const titleElementIds = ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text']
+
+  // Hide base title nodes to avoid duplicates behind the decorative title.
+  titleElementIds.forEach(id => {
+    const el = svgElement.querySelector(`#${id}`) as SVGElement | null
+    if (el) el.setAttribute('display', 'none')
+  })
+
+  // Remove any existing replacement(s) and re-inject fresh.
+  const existingReplacements = Array.from(svgElement.querySelectorAll('#wedding-title-replacement'))
+  existingReplacements.forEach(el => el.remove())
+
+  try {
+    const titleResponse = await fetch('/titles/alhamdulillah/t1.svg')
+
+    if (!titleResponse.ok) {
+      console.warn('Failed to fetch /titles/alhamdulillah/t1.svg:', titleResponse.status)
+      return
+    }
+
+    const titleSvgText = await titleResponse.text()
+
+    const parser = new DOMParser()
+    const titleDoc = parser.parseFromString(titleSvgText, 'image/svg+xml')
+    const titleSvg = titleDoc.querySelector('svg')
+    if (!titleSvg) return
+
+    const titleGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+    titleGroup.setAttribute('id', 'wedding-title-replacement')
+
+    const titleViewBox = titleSvg.getAttribute('viewBox')
+    if (titleViewBox) titleGroup.setAttribute('data-title-viewbox', titleViewBox)
+
+    // Left for better visual balance (noticeable shift in a ~3000px-wide template)
+    titleGroup.setAttribute('transform', 'translate(260, 260) scale(1.4)')
+
+    // Copy defs first (fonts/styles)
+    const titleDefs = titleSvg.querySelector('defs')
+    if (titleDefs) {
+      let svgDefs = svgElement.querySelector('defs')
+      if (!svgDefs) {
+        svgDefs = document.createElementNS('http://www.w3.org/2000/svg', 'defs')
+        svgElement.insertBefore(svgDefs, svgElement.firstChild)
+      }
+      Array.from(titleDefs.children).forEach(child => {
+        svgDefs!.appendChild(child.cloneNode(true))
+      })
+    }
+
+    const layerGroup = titleSvg.querySelector('g[id]')
+    if (layerGroup) {
+      titleGroup.appendChild(layerGroup.cloneNode(true))
+    } else {
+      Array.from(titleSvg.children).forEach(child => {
+        if (child.tagName.toLowerCase() !== 'defs') {
+          titleGroup.appendChild(child.cloneNode(true))
+        }
+      })
+    }
+
+    const svgDefs = svgElement.querySelector('defs')
+    if (svgDefs && svgDefs.nextSibling) {
+      svgElement.insertBefore(titleGroup, svgDefs.nextSibling)
+    } else {
+      svgElement.appendChild(titleGroup)
+    }
+  } catch (e) {
+    console.error('❌ Error injecting title SVG:', e)
+  }
+}
+
 /**
  * Load the wedding sticker SVG template
  */
@@ -149,99 +223,16 @@ export async function loadWeddingStickerTemplateUtil(ctx: TemplateContext): Prom
     })
     ctx.setSvgElements(svgElements)
 
-    // INJECT the stikertitle.svg title graphic
-    // COMPLETELY REMOVE old text elements (not just hide)
-    const titleElements = ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text']
-    titleElements.forEach(id => {
-      const el = svgElement.querySelector(`#${id}`)
-      if (el) {
-        el.remove()
-      }
-    })
-    
-    // Remove any existing title replacement and add new one
-    const existingReplacement = svgElement.querySelector('#wedding-title-replacement')
-    if (existingReplacement) {
-      existingReplacement.remove()
-    }
-    
-    // Inject the stikertitle.svg title
-    try {
-      console.log('🎯 Fetching title SVG...')
-      // Use the alhamdulillah title as default
-      const titleResponse = await fetch('/titles/alhamdulillah/t1.svg')
-      console.log('🎯 Title fetch response:', titleResponse.ok, titleResponse.status)
-      
-      if (titleResponse.ok) {
-        const titleSvgText = await titleResponse.text()
-        console.log('🎯 Title SVG text length:', titleSvgText.length)
-        
-        const parser = new DOMParser()
-        const titleDoc = parser.parseFromString(titleSvgText, 'image/svg+xml')
-        const titleSvg = titleDoc.querySelector('svg')
-        
-        console.log('🎯 Parsed title SVG:', !!titleSvg)
-        
-        if (titleSvg) {
-          // Create a group to hold the title
-          const titleGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-          titleGroup.setAttribute('id', 'wedding-title-replacement')
-          
-          // Position to match old title location
-          // Reduced scale for better sizing
-          titleGroup.setAttribute('transform', 'translate(360, 260) scale(1.4)')
-          
-          // Copy defs first if they exist (fonts, styles, etc.)
-          const titleDefs = titleSvg.querySelector('defs')
-          if (titleDefs) {
-            let svgDefs = svgElement.querySelector('defs')
-            if (!svgDefs) {
-              svgDefs = document.createElementNS('http://www.w3.org/2000/svg', 'defs')
-              svgElement.insertBefore(svgDefs, svgElement.firstChild)
-            }
-            // Copy all defs content
-            Array.from(titleDefs.children).forEach(child => {
-              svgDefs!.appendChild(child.cloneNode(true))
-            })
-            console.log('🎯 Copied defs from title SVG')
-          }
-          
-          // Copy the main content group (Layer_x0020_1 or similar)
-          const layerGroup = titleSvg.querySelector('g[id]')
-          if (layerGroup) {
-            titleGroup.appendChild(layerGroup.cloneNode(true))
-            console.log('🎯 Copied layer group:', layerGroup.id)
-          } else {
-            // Copy all non-defs children
-            Array.from(titleSvg.children).forEach(child => {
-              if (child.tagName.toLowerCase() !== 'defs') {
-                titleGroup.appendChild(child.cloneNode(true))
-              }
-            })
-            console.log('🎯 Copied all non-defs children')
-          }
-          
-          // Find insertion point - after defs but before other content
-          const svgDefs = svgElement.querySelector('defs')
-          if (svgDefs && svgDefs.nextSibling) {
-            svgElement.insertBefore(titleGroup, svgDefs.nextSibling)
-          } else {
-            svgElement.appendChild(titleGroup)
-          }
-          
-          console.log('🎯 Title group inserted with transform:', titleGroup.getAttribute('transform'))
-          console.log('🎯 Title group children:', titleGroup.children.length)
-          
-          // Apply title colors based on current background palette
-          const paletteKey = ctx.currentBackgroundPaletteKey?.value || 'dark'
-          applyTitleColors(titleGroup, paletteKey)
-          console.log('🎨 Title colors applied for palette:', paletteKey)
-        }
-      } else {
-        console.warn('🎯 Failed to fetch stikertitle.svg:', titleResponse.status)
-      }
-    } catch (e) {
-      console.warn('Could not load title SVG:', e)
+    // Title behavior:
+    // - Always inject a decorative title from /titles/alhamdulillah/t1.svg.
+    // - If the user provides a custom heading, we REPLACE the text inside that injected SVG.
+    const hasCustomHeading = !!ctx.customHeading?.value && String(ctx.customHeading.value).trim().length > 0
+
+    await ensureDecorativeWeddingTitleUtil(svgElement)
+
+    if (hasCustomHeading) {
+      ctx.applyCustomHeadingUtil(svgElement, String(ctx.customHeading.value))
+      ctx.applyHeadingFontUtil(svgElement, ctx.selectedHeadingFont?.value || null)
     }
 
     // Insert flourish above names
@@ -254,16 +245,7 @@ export async function loadWeddingStickerTemplateUtil(ctx: TemplateContext): Prom
 
     // Apply current description if any (for names, date, etc.)
     if (ctx.formData.description) {
-      console.log('🗓️ [loadTemplate] Updating text with description:', ctx.formData.description.substring(0, 50))
-      console.log('🗓️ [loadTemplate] svgElements.dateText:', svgElements.dateText)
-      console.log('🗓️ [loadTemplate] svgElements.courtesyText:', svgElements.courtesyText)
       await ctx.updateStickerText(ctx.formData.description, svgElements)
-      
-      // Double-check: directly update date and courtesy elements if they exist in DOM
-      const dateEl = svgElement.querySelector('#date-text') as SVGTextElement
-      const courtesyEl = svgElement.querySelector('#courtesy-text') as SVGTextElement
-      console.log('🗓️ [loadTemplate] Direct query after update - dateEl:', dateEl, 'content:', dateEl?.textContent)
-      console.log('🗓️ [loadTemplate] Direct query after update - courtesyEl:', courtesyEl, 'content:', courtesyEl?.textContent)
     }
   } catch (error) {
     ctx.authStore.showNotification({
@@ -284,7 +266,9 @@ export function applyCustomHeadingAndFont(
   applyCustomHeadingUtil: (svg: SVGSVGElement, heading: string | null) => void,
   applyHeadingFontUtil: (svg: SVGSVGElement, font: string | null) => void
 ): void {
-  if (!customHeading && !selectedHeadingFont) return
+  if (!customHeading && !selectedHeadingFont) {
+    return
+  }
   applyCustomHeadingUtil(svgElement, customHeading)
   applyHeadingFontUtil(svgElement, selectedHeadingFont)
 }
@@ -306,8 +290,18 @@ export async function processDescriptionInputUtil(ctx: TemplateContext): Promise
   if (ctx.selectedCategory.value === 'wedding' && svgElements) {
     const svgElement = ctx.weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
     if (svgElement) {
-      // The old title elements have been removed and replaced with stikertitle.svg
-      // No need to hide them since they're already removed in loadWeddingStickerTemplateUtil
+      // Default title behavior:
+      // - We use a decorative title from /titles/alhamdulillah/t1.svg (id="wedding-title-replacement").
+      // - When a custom heading is set, we replace the TEXT inside that decorative title.
+      const titleElementIds = ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text']
+      const hasDecorativeTitle = !!svgElement.querySelector('#wedding-title-replacement')
+
+      if (hasDecorativeTitle) {
+        titleElementIds.forEach(id => {
+          const el = svgElement.querySelector(`#${id}`) as SVGElement | null
+          if (el) el.setAttribute('display', 'none')
+        })
+      }
       
       // Debug: Check date element
       console.log('🗓️ [processDescription] svgElements.dateText:', svgElements.dateText)

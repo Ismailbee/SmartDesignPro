@@ -17,19 +17,19 @@ export function pick<T>(arr: T[]): T {
  */
 export const greetings = {
   morning: [
-    "Good morning! Please provide your information."
+    "Good morning! Please provide your information so I can design this for you."
   ],
   afternoon: [
-    "Good afternoon! Please provide your information."
+    "Good afternoon! Please provide your information so I can design this for you."
   ],
   evening: [
-    "Good evening! Please provide your information."
+    "Good evening! Please provide your information so I can design this for you."
   ],
   general: [
-    "Hello! Please provide your information."
+    "Hello! Please provide your information so I can design this for you."
   ],
   salam: [
-    "Wa alaikum assalam! Please provide your information."
+    "Wa alaikum assalam! Please provide your information so I can design this for you."
   ]
 }
 
@@ -92,7 +92,7 @@ export const successMessages = [
  */
 export const pictureMessages = {
   ask: [
-    "Would you like to add a photo?"
+    "Would you like to add a picture?"
   ],
   received: [
     "Photo received!",

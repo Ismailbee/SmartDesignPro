@@ -18,12 +18,49 @@ import {
   NAME_STOP_WORDS,
   capitalizeWords as sharedCapitalize,
   normalizeNameCandidate as sharedNormalizeName,
-  BRACKET_PATTERN as SHARED_BRACKET_PATTERN
+  BRACKET_PATTERN as SHARED_BRACKET_PATTERN,
+  NAME_PATTERNS as SHARED_NAME_PATTERNS,
+  extractNamesWithMeta,
+  shouldConfirmExtractedNames
 } from '@/utils/extraction/namePatterns'
 import { 
   COURTESY_PATTERNS,
   extractCourtesy as sharedExtractCourtesy 
 } from '@/utils/extraction/courtesyPatterns'
+
+// Common wedding titles that should be auto-applied without confirmation
+// These are the standard headings users expect on wedding stickers
+export const COMMON_WEDDING_TITLES = [
+  'congratulation on your wedding ceremony',
+  'congratulations on your wedding ceremony',
+  'alhamdulillahi on your wedding ceremony',
+  'alhamdulillah on your wedding ceremony',
+  'congratulation on your wedding',
+  'congratulations on your wedding',
+  'alhamdulillahi on your wedding',
+  'alhamdulillah on your wedding',
+  'happy marriage life',
+  'happy married life',
+  'thanks for attending our wedding',
+  'thank you for attending our wedding',
+  'conjugal bliss',
+  'together forever',
+  'together for ever',
+]
+
+/**
+ * Check if a title is a common/known wedding title
+ * These titles should be applied directly without confirmation
+ */
+export function isCommonWeddingTitle(title: string): boolean {
+  if (!title) return false
+  const normalized = title.toLowerCase().trim().replace(/\s+/g, ' ')
+  return COMMON_WEDDING_TITLES.some(common => 
+    normalized === common || 
+    normalized.includes(common) ||
+    common.includes(normalized)
+  )
+}
 
 // Title patterns for stickers (wedding, graduation, birthday, naming, etc.)
 // NOTE: These are specific to sticker titles and stay here
@@ -35,8 +72,9 @@ const TITLE_PATTERNS = [
   /(barakallah)\s*(on\s+your\s+)?(wedding\s+ceremony|wedding)?/i,
   /(with\s+prayers?)\s*(on\s+your\s+)?(wedding\s+ceremony|wedding)?/i,
   /(best\s+wishes)\s*(on\s+your\s+)?(wedding\s+ceremony|wedding)?/i,
-  /^(wedding\s+ceremony)$/i,
-  // Graduation patterns
+  /^(wedding\s+ceremony)$/i,  // Happy marriage/married life patterns
+  /\b(happy\s+(?:marriage|married)\s+life)\b/i,
+  /\b(wishing\s+you\s+a?\s*happy\s+(?:marriage|married)\s+life)\b/i,  // Graduation patterns
   /(alhamdulillah[i]?)\s*(on\s+your\s+)?(graduation\s+ceremony|graduation)/i,
   /(congratulations?)\s*(on\s+your\s+)?(graduation\s+ceremony|graduation)/i,
   // Birthday patterns
@@ -61,6 +99,8 @@ const TITLE_PATTERNS = [
   /\b(save\s+the\s+date)\b/i,
   /\b(happy\s+wedding)\b/i,
   /\b(thank[s]?\s+for\s+attending)\b/i,
+  /\b(thanks?\s+for\s+attending\s+our\s+wedding)\b/i,
+  /\b(thank\s+you\s+for\s+attending\s+our\s+wedding)\b/i,
   /\b(with\s+love)\b/i,
 ]
 
@@ -68,19 +108,9 @@ const TITLE_PATTERNS = [
 // Using shared BRACKET_PATTERN from utils
 const BRACKET_PATTERN = SHARED_BRACKET_PATTERN
 
-const NAME_PATTERNS = [
-  // Bracketed couples: (A & B) or [A and B]
-  BRACKET_PATTERN,
-  // Explicit label: “names: A & B”, “couple's names are A and B”
-  /\b(?:names?|couple(?:'s)?\s+names?)\s*(?:are|is|:)\s*([^\n]+)$/i,
-  // Bride/Groom labels
-  /\bbride\s*[:\-]\s*([^,\n]+)\s*(?:,|\s)\s*groom\s*[:\-]\s*([^\n]+)$/i,
-  /\bgroom\s*[:\-]\s*([^,\n]+)\s*(?:,|\s)\s*bride\s*[:\-]\s*([^\n]+)$/i,
-  // Fallback: “A & B” / “A and B” / “A with B”
-  /\b([a-zA-Z][a-zA-Z'-]+(?:\s+[a-zA-Z][a-zA-Z'-]+)?)\s*(?:&|and|with)\s*([a-zA-Z][a-zA-Z'-]+(?:\s+[a-zA-Z][a-zA-Z'-]+)?)\b/i,
-  // “wedding of A & B”
-  /(?:ceremony|wedding|marriage)\s+(?:of\s+)?([a-zA-Z][a-zA-Z'-]+(?:\s+[a-zA-Z][a-zA-Z'-]+)?)\s*(?:&|and|with)\s*([a-zA-Z][a-zA-Z'-]+(?:\s+[a-zA-Z][a-zA-Z'-]+)?)\b/i,
-]
+// Use shared NAME_PATTERNS as the single source of truth.
+// This ensures multi-word full names like "Muhammad Haruna & Ramatu Yahaya" work consistently.
+const NAME_PATTERNS = SHARED_NAME_PATTERNS
 
 // Using shared normalizeNameCandidate from namePatterns.ts
 const normalizeNameCandidate = sharedNormalizeName
@@ -110,6 +140,12 @@ export function extractWeddingDetails(
   if (!message || typeof message !== 'string') return result
   const msg = message.trim()
   const lower = msg.toLowerCase()
+
+  // Use a working message for downstream extraction (names/date/courtesy).
+  // If a title is detected at the start (e.g., "Happy Marriage Life ..."),
+  // strip it so title words don't leak into name extraction.
+  let workMsg = msg
+  let workLower = lower
   
   // --- Extract Title/Blessing ---
   // Explicit title/heading assignment: “title is …”, “heading: …”
@@ -117,21 +153,37 @@ export function extractWeddingDetails(
   if (explicitTitleMatch && explicitTitleMatch[1]) {
     result.title = capitalize(explicitTitleMatch[1].trim())
     result.foundSomething = true
+
+    // Remove explicit title assignment from the working message.
+    // Example: "title: Happy Marriage Life" should not affect name parsing.
+    workMsg = msg.replace(explicitTitleMatch[0], '').trim()
+    workMsg = workMsg.replace(/^[\s,;:\-]+/, '').trim()
+    workLower = workMsg.toLowerCase()
   } else {
-  for (const pattern of TITLE_PATTERNS) {
-    const match = msg.match(pattern)
-    if (match) {
-      // Use the full matched phrase for generic title patterns (e.g. “congratulation on your wedding”).
-      result.title = capitalize(match[0].trim())
-      result.foundSomething = true
-      break
+    for (const pattern of TITLE_PATTERNS) {
+      const exec = pattern.exec(msg)
+      if (exec && exec[0]) {
+        const matchedTitle = exec[0].trim()
+        // Use the full matched phrase for generic title patterns (e.g. “congratulation on your wedding”).
+        result.title = capitalize(matchedTitle)
+        result.foundSomething = true
+
+        // If the title appears at the beginning, strip it from the working text.
+        // This prevents cases like: "Happy Marriage Life Sakina and Abdullahi" -> name1 becomes "Life Sakina".
+        const idx = (exec as any).index as number | undefined
+        if (typeof idx === 'number' && idx <= 2) {
+          workMsg = msg.slice(idx + matchedTitle.length).trim()
+          workMsg = workMsg.replace(/^[\s,;:\-]+/, '').trim()
+          workLower = workMsg.toLowerCase()
+        }
+        break
+      }
     }
-  }
   }
   
   // --- Extract Names ---
   for (const pattern of NAME_PATTERNS) {
-    const match = msg.match(pattern)
+    const match = workMsg.match(pattern)
     if (!match) continue
 
     // Brackets: parse the inner content with a couple pattern
@@ -194,12 +246,26 @@ export function extractWeddingDetails(
       }
     }
   }
+
+  // If regex-based extraction didn't find names, use shared fallback (includes compromise NLP).
+  // Mark low-confidence results for confirmation before applying.
+  if (!result.name1 && !result.name2) {
+    const meta = extractNamesWithMeta(workMsg)
+    if (meta.name1) result.name1 = meta.name1
+    if (meta.name2) result.name2 = meta.name2
+    if (meta.source !== 'none' && (meta.name1 || meta.name2)) {
+      result.nameSource = meta.source
+      result.nameNeedsConfirmation = shouldConfirmExtractedNames(meta)
+      result.foundSomething = true
+    }
+  }
   
   // --- Extract Date ---
   for (const pattern of DATE_PATTERNS) {
-    const match = msg.match(pattern)
+    const match = workMsg.match(pattern)
     if (match) {
-      result.date = match[1].trim()
+      // Use match[0] (full match) not match[1] (first capture group)
+      result.date = match[0].trim()
       // Month+Year only (e.g. "January, 2026") needs an exact day.
       result.dateIsPartial = /^(?:January|February|March|April|May|June|July|August|September|October|November|December)\s*,?\s+\d{4}$/i.test(result.date)
       result.foundSomething = true
@@ -209,7 +275,7 @@ export function extractWeddingDetails(
   
   // --- Extract Courtesy Message ---
   for (const pattern of COURTESY_PATTERNS) {
-    const match = msg.match(pattern)
+    const match = workMsg.match(pattern)
     if (match) {
       // Normalize “Courtesy: X” patterns
       if (match[1] && /^courtesy$/i.test(match[1].trim()) && match[2]) {
@@ -225,8 +291,8 @@ export function extractWeddingDetails(
   // Heuristic: “... wedding Fatiha” should not become courtesy.
   // If we have a title-ish phrase and no names were captured, try a trailing single name.
   // Avoid this heuristic if the user is explicitly setting the title/heading.
-  if (!result.name1 && !result.name2 && !/\b(title|heading)\b/i.test(lower)) {
-    const trailingNameMatch = msg.match(/\bwedding\b\s+([A-Za-z']{2,})\s*$/i)
+  if (!result.name1 && !result.name2 && !/\b(title|heading)\b/i.test(workLower)) {
+    const trailingNameMatch = workMsg.match(/\bwedding\b\s+([A-Za-z']{2,})\s*$/i)
     if (trailingNameMatch) {
       const candidate = capitalize(trailingNameMatch[1].trim())
       const stop = new Set([
@@ -256,14 +322,14 @@ export function extractWeddingDetails(
   // If message is short and doesn't match other patterns, it might be a courtesy message
   const hasExistingName = existingInfo?.hasName ?? false
   const hasExistingDate = existingInfo?.hasDate ?? false
-  const noNameInMsg = !NAME_PATTERNS.some(p => p.test(msg))
-  const noDateInMsg = !DATE_PATTERNS.some(p => p.test(msg))
+  const noNameInMsg = !NAME_PATTERNS.some(p => p.test(workMsg))
+  const noDateInMsg = !DATE_PATTERNS.some(p => p.test(workMsg))
   
   if (!result.foundSomething && hasExistingName && hasExistingDate && noNameInMsg && noDateInMsg) {
     // Short text without names/dates is likely a courtesy message
-    const looksLikeQuestion = /\?|\b(what|who|which|how|when|where|need|provide|information|info|details|do\s+i\s+need)\b/i.test(msg)
-    if (msg.length >= 3 && msg.length < 100 && !looksLikeQuestion && !/^(yes|no|ok|hi|hello|hey|thanks)/i.test(msg)) {
-      result.courtesy = msg
+    const looksLikeQuestion = /\?|\b(what|who|which|how|when|where|need|provide|information|info|details|do\s+i\s+need)\b/i.test(workMsg)
+    if (workMsg.length >= 3 && workMsg.length < 100 && !looksLikeQuestion && !/^(yes|no|ok|hi|hello|hey|thanks)/i.test(workMsg)) {
+      result.courtesy = workMsg
       result.foundSomething = true
     }
   }

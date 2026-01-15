@@ -93,7 +93,7 @@ export function extractNamesFromResponse(text: string): { name1: string | null; 
 
   if (bracketMatch && bracketMatch[1]) {
     const bracketContent = bracketMatch[1].trim()
-    const bracketAndPattern = /(.+?)\s*(?:and|&)\s*(.+)/i
+    const bracketAndPattern = /^\s*([a-zA-Z][a-zA-Z'-]+)\s*(?:and|&)\s*([a-zA-Z][a-zA-Z'-]+)\s*$/i
     const bracketAndMatch = bracketContent.match(bracketAndPattern)
 
     if (bracketAndMatch) {
@@ -102,46 +102,12 @@ export function extractNamesFromResponse(text: string): { name1: string | null; 
         name2: capitalizeWords(bracketAndMatch[2].trim()) 
       }
     }
+    // If bracket content contains a couple separator but isn't a strict A & B pair, extract nothing.
+    if (/[A-Za-z].*(?:&|\band\b|\bwith\b).*[A-Za-z]/i.test(bracketContent)) {
+      return { name1: null, name2: null }
+    }
+
     return { name1: capitalizeWords(bracketContent), name2: null }
-  }
-
-  // Special case: "Aishatu & Amina Muhammad" (shared surname at the end)
-  const sharedSurnameAmpersandPattern = /\b([a-zA-Z][a-zA-Z'-]+)\s*&\s*([a-zA-Z][a-zA-Z'-]+)\s+([a-zA-Z][a-zA-Z'-]+)\b/i
-  const sharedSurnameAmpersandMatch = textForNames.match(sharedSurnameAmpersandPattern)
-  if (sharedSurnameAmpersandMatch) {
-    const first = sharedSurnameAmpersandMatch[1].trim()
-    const second = sharedSurnameAmpersandMatch[2].trim()
-    const surname = sharedSurnameAmpersandMatch[3].trim()
-    if (
-      !SKIP_WORDS_BEFORE_AND.includes(first.toLowerCase()) &&
-      !SKIP_WORDS_BEFORE_AND.includes(second.toLowerCase()) &&
-      !SKIP_WORDS_BEFORE_AND.includes(surname.toLowerCase())
-    ) {
-      console.log('[extractNamesFromResponse] Found names via & with shared surname:', first, second, surname)
-      return {
-        name1: capitalizeWords(`${first} ${surname}`),
-        name2: capitalizeWords(`${second} ${surname}`)
-      }
-    }
-  }
-
-  const sharedSurnameAndPattern = /\b([a-zA-Z][a-zA-Z'-]+)\s+(?:and|n)\s+([a-zA-Z][a-zA-Z'-]+)\s+([a-zA-Z][a-zA-Z'-]+)\b/i
-  const sharedSurnameAndMatch = textForNames.match(sharedSurnameAndPattern)
-  if (sharedSurnameAndMatch) {
-    const first = sharedSurnameAndMatch[1].trim()
-    const second = sharedSurnameAndMatch[2].trim()
-    const surname = sharedSurnameAndMatch[3].trim()
-    if (
-      !SKIP_WORDS_BEFORE_AND.includes(first.toLowerCase()) &&
-      !SKIP_WORDS_BEFORE_AND.includes(second.toLowerCase()) &&
-      !SKIP_WORDS_BEFORE_AND.includes(surname.toLowerCase())
-    ) {
-      console.log('[extractNamesFromResponse] Found names via and with shared surname:', first, second, surname)
-      return {
-        name1: capitalizeWords(`${first} ${surname}`),
-        name2: capitalizeWords(`${second} ${surname}`)
-      }
-    }
   }
   
   // Try & pattern first (most explicit)
@@ -159,8 +125,8 @@ export function extractNamesFromResponse(text: string): { name1: string | null; 
     }
   }
   
-  // Then try 'and' pattern
-  const andPattern = /\b([a-zA-Z][a-zA-Z0-9'-]*(?:\s+[a-zA-Z][a-zA-Z0-9'-]*)?)\s+(?:and|n)\s+([a-zA-Z][a-zA-Z0-9'-]*(?:\s+[a-zA-Z][a-zA-Z0-9'-]*)?)\b/i
+  // Then try 'and' pattern (STRICT: single word per side)
+  const andPattern = /\b([a-zA-Z][a-zA-Z'-]+)\s+(?:and|n)\s+([a-zA-Z][a-zA-Z'-]+)\b/i
   const andMatch = textForNames.match(andPattern)
 
   if (andMatch) {
@@ -181,10 +147,15 @@ export function extractNamesFromResponse(text: string): { name1: string | null; 
     }
   }
 
+  // If user typed a couple separator but no strict pair matched, don't guess a single name.
+  if (/[A-Za-z].*(?:&|\band\b|\bwith\b).*[A-Za-z]/i.test(textForNames)) {
+    return { name1: null, name2: null }
+  }
+
   // Pattern 2: Two consecutive words that look like names
   const twoNamesPattern = /\b([a-zA-Z][a-zA-Z'-]{1,})\s+([a-zA-Z][a-zA-Z'-]{1,})\b/i
   const twoNamesMatch = textForNames.match(twoNamesPattern)
-  
+
   if (twoNamesMatch) {
     const word1 = twoNamesMatch[1].toLowerCase()
     const word2 = twoNamesMatch[2].toLowerCase()
@@ -283,7 +254,7 @@ export function parseAllInOneMessage(text: string): {
   let names = { name1: null as string | null, name2: null as string | null }
 
   if (bracketNames) {
-    const andPattern = /(.+?)\s*(?:and|&)\s*(.+)/i
+    const andPattern = /^\s*([a-zA-Z][a-zA-Z'-]+)\s*(?:and|&)\s*([a-zA-Z][a-zA-Z'-]+)\s*$/i
     const andMatch = bracketNames.match(andPattern)
     if (andMatch) {
       names.name1 = andMatch[1].trim()

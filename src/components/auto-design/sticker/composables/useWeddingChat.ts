@@ -8,7 +8,7 @@
 import { ref, computed } from 'vue'
 import type { Ref } from 'vue'
 import type { ChatMessage, ExtractedInfo, LocalExtractionResult, OfflineResponseContext } from '../types'
-import { extractWeddingDetails } from './useLocalExtraction'
+import { extractWeddingDetails, isCommonWeddingTitle } from './useLocalExtraction'
 import {
   offlineDelay,
   isGreeting,
@@ -94,6 +94,10 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
   // Track request ID to ignore stale responses
   let requestId = 0
 
+  // Low-confidence name confirmation state (kept internal to this composable)
+  const awaitingNameConfirmation = ref(false)
+  const pendingNames = ref<{ name1: string; name2: string | null } | null>(null)
+
   // Build context for offline responses
   const getContext = (): OfflineResponseContext => ({
     hasTitle: !!extractedInfo.value.title,
@@ -149,6 +153,72 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
     }
     const lowerMsg = message.trim().toLowerCase()
     const ctx = getContext()
+
+    // If we previously extracted names with low confidence, require confirmation before applying.
+    if (awaitingNameConfirmation.value && pendingNames.value) {
+      // User confirmed
+      if (isAffirmative(lowerMsg)) {
+        extractedInfo.value.names.name1 = pendingNames.value.name1
+        extractedInfo.value.names.name2 = pendingNames.value.name2
+        awaitingNameConfirmation.value = false
+        pendingNames.value = null
+
+        await offlineDelay()
+        if (reqId !== requestId) return true
+        isAnalyzing.value = false
+
+        const updatedCtx = getContext()
+        addMessage(getExtractionSuccessResponse({
+          name1: extractedInfo.value.names.name1 || undefined,
+          name2: extractedInfo.value.names.name2 || undefined,
+        }, updatedCtx))
+        return true
+      }
+
+      // User rejected
+      if (isNegative(lowerMsg)) {
+        await offlineDelay()
+        if (reqId !== requestId) return true
+        isAnalyzing.value = false
+        addMessage({
+          id: Date.now(),
+          text: 'No problem — please type the two names exactly how you want them (example: “Aisha & Suleiman”).',
+          sender: 'ai',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        })
+        return true
+      }
+
+      // Try to parse new names from whatever the user typed
+      const extraction = extractWeddingDetails(message)
+      if (extraction.name1 && extraction.name2) {
+        extractedInfo.value.names.name1 = extraction.name1
+        extractedInfo.value.names.name2 = extraction.name2
+        awaitingNameConfirmation.value = false
+        pendingNames.value = null
+
+        await offlineDelay()
+        if (reqId !== requestId) return true
+        isAnalyzing.value = false
+        const updatedCtx = getContext()
+        addMessage(getExtractionSuccessResponse({
+          name1: extraction.name1,
+          name2: extraction.name2,
+        }, updatedCtx))
+        return true
+      }
+
+      await offlineDelay()
+      if (reqId !== requestId) return true
+      isAnalyzing.value = false
+      addMessage({
+        id: Date.now(),
+        text: 'I didn’t catch the two names clearly. Please type them like “Name1 & Name2”.',
+        sender: 'ai',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })
+      return true
+    }
 
     // Picture/upload intent
     if (/(\bphoto\b|\bpicture\b|\bimage\b)/i.test(lowerMsg)) {
@@ -514,8 +584,13 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
         if (reqId !== requestId) return true
         isAnalyzing.value = false
         
-        // Check if user's title differs from template title
-        if (templateDefaultTitle?.value && titlesDiffer(extraction.title, templateDefaultTitle.value)) {
+        // Check if it's a common wedding title - apply directly without confirmation
+        const isCommonTitle = isCommonWeddingTitle(extraction.title)
+        
+        // Only ask for confirmation if:
+        // 1. Title differs from template AND
+        // 2. It's NOT a common/known wedding title
+        if (!isCommonTitle && templateDefaultTitle?.value && titlesDiffer(extraction.title, templateDefaultTitle.value)) {
           // Store the user's title and ask for confirmation
           if (awaitingTitleConfirmation && pendingTitle) {
             awaitingTitleConfirmation.value = true
@@ -530,10 +605,108 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
           }
         }
         
-        // Titles match or no template title - apply directly
+        // Common title OR titles match OR no template title - apply directly
         applyExtraction(extraction)
+        
+        // Trigger title SVG replacement with correct color
+        if (onTitleConfirmed && extraction.title) {
+          onTitleConfirmed(extraction.title)
+        }
+        
         const updatedCtx = getContext()
-        addMessage(getTitleOnlyResponse(extraction.title, updatedCtx))
+        
+        // Check if all info is complete after setting title
+        if (updatedCtx.hasName && updatedCtx.hasDate && updatedCtx.hasCourtesy) {
+          // All text details complete - ask about picture
+          const hasAnyPhoto = !!hasPhoto?.value
+          if (!hasAnyPhoto) {
+            if (awaitingPictureDecision) awaitingPictureDecision.value = true
+            addMessage({
+              id: Date.now(),
+              text: `Perfect — I'll use "${extraction.title}" as the title. Would you like to add a picture?`,
+              sender: 'ai',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              actions: [
+                { type: 'upload', label: 'Add Picture', variant: 'secondary' },
+                { type: 'generate_preview', label: 'No, Generate', variant: 'primary' }
+              ]
+            } as any)
+          } else {
+            addMessage({
+              id: Date.now(),
+              text: `Perfect — I'll use "${extraction.title}" as the title. All details are ready!`,
+              sender: 'ai',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              actions: [{ type: 'generate_preview', label: 'Generate', variant: 'primary' }]
+            } as any)
+          }
+        } else {
+          // Still missing info - use standard response
+          addMessage(getTitleOnlyResponse(extraction.title, updatedCtx))
+        }
+        return true
+      }
+    }
+
+    // --- Fallback Title Detection ---
+    // If we don't have a title yet, and the message is a short phrase (2-5 words)
+    // that doesn't look like names, date, or courtesy, treat it as a custom title
+    if (!ctx.hasTitle && !isNamesOnly(message) && !isDateOnly(message)) {
+      const trimmed = message.trim()
+      const wordCount = trimmed.split(/\s+/).length
+      const hasNamesPattern = /\b[A-Z][a-z]+\s*(?:&|and|with)\s*[A-Z][a-z]+\b/i.test(trimmed)
+      const hasDatePattern = /\d{1,2}(?:st|nd|rd|th)?\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(trimmed)
+      const hasCourtesyPattern = /^(?:courtesy|from|by)\s*[:\-]/i.test(trimmed)
+      const isQuestion = /\?$/.test(trimmed)
+      
+      // If it's 1-6 words and doesn't match other patterns, treat as custom title
+      if (wordCount >= 1 && wordCount <= 6 && !hasNamesPattern && !hasDatePattern && !hasCourtesyPattern && !isQuestion) {
+        await offlineDelay()
+        if (reqId !== requestId) return true
+        isAnalyzing.value = false
+        
+        // Capitalize the title
+        const customTitle = trimmed.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+        
+        // Apply the custom title
+        extractedInfo.value.title = customTitle
+        
+        // Trigger title SVG replacement
+        if (onTitleConfirmed) {
+          onTitleConfirmed(customTitle)
+        }
+        
+        const updatedCtx = getContext()
+        
+        // Check if all info is complete after setting title
+        if (updatedCtx.hasName && updatedCtx.hasDate && updatedCtx.hasCourtesy) {
+          // All text details complete - ask about picture
+          const hasAnyPhoto = !!hasPhoto?.value
+          if (!hasAnyPhoto) {
+            if (awaitingPictureDecision) awaitingPictureDecision.value = true
+            addMessage({
+              id: Date.now(),
+              text: `Perfect — I'll use "${customTitle}" as the title. Would you like to add a picture?`,
+              sender: 'ai',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              actions: [
+                { type: 'upload', label: 'Add Picture', variant: 'secondary' },
+                { type: 'generate_preview', label: 'No, Generate', variant: 'primary' }
+              ]
+            } as any)
+          } else {
+            addMessage({
+              id: Date.now(),
+              text: `Perfect — I'll use "${customTitle}" as the title. All details are ready!`,
+              sender: 'ai',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              actions: [{ type: 'generate_preview', label: 'Generate', variant: 'primary' }]
+            } as any)
+          }
+        } else {
+          // Still missing info - use standard response
+          addMessage(getTitleOnlyResponse(customTitle, updatedCtx))
+        }
         return true
       }
     }
@@ -608,7 +781,10 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
 
     if (extraction.foundSomething) {
       // Check if the extracted title differs from template - ask for confirmation first
-      if (extraction.title && templateDefaultTitle?.value && titlesDiffer(extraction.title, templateDefaultTitle.value)) {
+      // BUT skip confirmation if it's a common/known wedding title
+      const isCommonTitle = extraction.title ? isCommonWeddingTitle(extraction.title) : false
+      
+      if (extraction.title && !isCommonTitle && templateDefaultTitle?.value && titlesDiffer(extraction.title, templateDefaultTitle.value)) {
         if (awaitingTitleConfirmation && pendingTitle) {
           await offlineDelay()
           if (reqId !== requestId) return true
@@ -634,8 +810,42 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
         }
       }
       
+      // If names were extracted but flagged as low-confidence, ask for confirmation before applying.
+      if (extraction.nameNeedsConfirmation && extraction.name1) {
+        // Apply everything except the names
+        if (extraction.title) extractedInfo.value.title = extraction.title
+        if (extraction.date && !extraction.dateIsPartial) extractedInfo.value.date = extraction.date
+        if (extraction.courtesy) extractedInfo.value.courtesy = extraction.courtesy
+
+        // If a title was extracted, still trigger SVG replacement with correct color
+        if (onTitleConfirmed && extraction.title) {
+          onTitleConfirmed(extraction.title)
+        }
+
+        pendingNames.value = { name1: extraction.name1, name2: extraction.name2 ?? null }
+        awaitingNameConfirmation.value = true
+
+        await offlineDelay()
+        if (reqId !== requestId) return true
+        isAnalyzing.value = false
+
+        const maybeSecond = extraction.name2 ? ` & "${extraction.name2}"` : ''
+        addMessage({
+          id: Date.now(),
+          text: `I found these names: "${extraction.name1}"${maybeSecond}. Reply “yes” to confirm, or type the correct names (example: “Aisha & Suleiman”).`,
+          sender: 'ai',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        })
+        return true
+      }
+
       // Apply extracted info
       applyExtraction(extraction)
+      
+      // If a title was extracted, trigger SVG replacement with correct color
+      if (onTitleConfirmed && extraction.title) {
+        onTitleConfirmed(extraction.title)
+      }
 
       // If names are still missing AND this message didn't include names,
       // let the caller try Ollama instead of replying offline.
@@ -662,7 +872,7 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
           if (awaitingPictureDecision) awaitingPictureDecision.value = true
           addMessage({
             id: Date.now(),
-            text: 'All set! Add a picture?',
+            text: 'Would you like to add a picture?',
             sender: 'ai',
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             actions: [
@@ -714,6 +924,11 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
     
     // Apply extracted data
     applyExtraction(extraction)
+    
+    // If a title was extracted, trigger SVG replacement with correct color
+    if (onTitleConfirmed && extraction.title) {
+      onTitleConfirmed(extraction.title)
+    }
 
     isAnalyzing.value = false
     
@@ -729,7 +944,7 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
         // Ask about picture
         addMessage({
           id: Date.now(),
-          text: 'All set! Add a picture?',
+          text: 'Would you like to add a picture?',
           sender: 'ai',
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           actions: [

@@ -59,6 +59,9 @@ export function isTitleOnly(msg: string): boolean {
     /^(graduation\s+ceremony|graduation)[\s!.?]*$/i,
     /^(happy\s+birthday|birthday\s+ceremony|birthday)[\s!.?]*$/i,
     /^(naming\s+ceremony|naming)[\s!.?]*$/i,
+    // Happy marriage/married life patterns
+    /^(happy\s+married?\s+life)[\s!.?]*$/i,
+    /^(wishing\s+you\s+a?\s*happy\s+married?\s+life)[\s!.?]*$/i,
     // Walima variations (walima, walimah, walimat, walmia, walmiah, wamima, wamimat, wamimah)
     /^(qur'?anic\s+)?(walima|walimah|walimat|walmia|walmiah|wamima|wamimat|wamimah)[\s!.?]*$/i,
     /^(congratulations?\s*(on\s+your\s+)?(qur'?anic\s+)?(walima|walimah|walimat|walmia|walmiah|wamima|wamimat|wamimah))[\s!.?]*$/i,
@@ -73,6 +76,8 @@ export function isTitleOnly(msg: string): boolean {
     /^(happy\s+wedding)[\s!.?]*$/i,
     /^(with\s+love)[\s!.?]*$/i,
     /^(thank[s]?\s+for\s+attending)[\s!.?]*$/i,
+    /^(thanks?\s+for\s+attending\s+our\s+wedding)[\s!.?]*$/i,
+    /^(thank\s+you\s+for\s+attending\s+our\s+wedding)[\s!.?]*$/i,
   ]
   const hasNames = /\b[A-Z][a-z]+\s*(&|and|with)\s*[A-Z][a-z]+\b/i.test(msg)
   const hasDate = /\d{1,2}(st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(msg)
@@ -229,7 +234,9 @@ export function isCapabilityQuestion(msg: string): boolean {
 }
 
 export function getCapabilityResponse() {
-  return createMessage("I create stickers for weddings, graduations, birthdays, naming ceremonies, and more! Just send me your information.")
+  return createMessage(
+    "I create stickers for weddings, graduations, birthdays, naming ceremonies, and more! Please provide your information so I can design this for you."
+  )
 }
 
 /**
@@ -244,7 +251,9 @@ export function isNonWeddingRequest(msg: string): boolean {
 }
 
 export function getNonWeddingResponse() {
-  return createMessage("I create stickers for weddings, graduations, birthdays, naming ceremonies, and more. Please provide your information.")
+  return createMessage(
+    "I create stickers for weddings, graduations, birthdays, naming ceremonies, and more. Please provide your information so I can design this for you."
+  )
 }
 
 /**
@@ -255,7 +264,7 @@ export function isVagueDesignRequest(msg: string): boolean {
 }
 
 export function getVagueDesignResponse() {
-  return createMessage(`Lovely! 💕 Please provide your information.`)
+  return createMessage(`Lovely! 💕 Please provide your information so I can design this for you.`)
 }
 
 /**
@@ -399,7 +408,7 @@ export function isPricingQuestion(msg: string): boolean {
 }
 
 export function getPricingResponse() {
-  return createMessage(`Creating stickers is free! 🎉 Just send me your information and I'll design it for you.`)
+  return createMessage(`Creating stickers is free! 🎉 Please provide your information so I can design this for you.`)
 }
 
 /**
@@ -427,7 +436,7 @@ export function getConfusedResponse() {
  */
 export function getFallbackResponse(ctx: OfflineResponseContext) {
   if (ctx.hasTitle && ctx.hasName && ctx.hasDate && ctx.hasCourtesy) {
-    return createMessage('All details received! Would you like to add a picture?')
+    return createMessage('Would you like to add a picture?')
   }
   const next = getNextQuestion(ctx)
   return createMessage(next)

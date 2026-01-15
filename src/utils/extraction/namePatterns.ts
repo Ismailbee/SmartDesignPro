@@ -5,6 +5,16 @@
  * DO NOT duplicate these patterns elsewhere.
  */
 
+import nlp from 'compromise'
+
+export type NameExtractionSource = 'bracket' | 'pattern' | 'nlp' | 'none'
+
+export interface ExtractedNamesWithMeta {
+  name1: string | null
+  name2: string | null
+  source: NameExtractionSource
+}
+
 /**
  * Pattern to extract names from brackets: (Name1 & Name2) or [Name1 and Name2]
  */
@@ -21,11 +31,26 @@ export const NAME_PATTERNS: RegExp[] = [
   // Bride/Groom labels
   /\bbride\s*[:\-]\s*([^,\n]+)\s*(?:,|\s)\s*groom\s*[:\-]\s*([^\n]+)$/i,
   /\bgroom\s*[:\-]\s*([^,\n]+)\s*(?:,|\s)\s*bride\s*[:\-]\s*([^\n]+)$/i,
-  // Fallback: "A & B" / "A and B" / "A with B"
-  /\b([A-Z][a-zA-Z'-]+(?:\s+[A-Z][a-zA-Z'-]+)?)\s*(?:&|and|with)\s*([A-Z][a-zA-Z'-]+(?:\s+[A-Z][a-zA-Z'-]+)?)\b/,
-  // "wedding of A & B"
-  /(?:ceremony|wedding|marriage)\s+(?:of\s+)?([A-Z][a-zA-Z'-]+(?:\s+[A-Z][a-zA-Z'-]+)?)\s*(?:&|and|with)\s*([A-Z][a-zA-Z'-]+(?:\s+[A-Z][a-zA-Z'-]+)?)\b/i,
+  // Fallback: STRICT couple-only support (single word per side).
+  /\b([A-Za-z][A-Za-z'-]+)\s*(?:&|and|with)\s*([A-Za-z][A-Za-z'-]+)\b/i,
+  // "wedding of A & B" (still strict: single word per side).
+  /(?:ceremony|wedding|marriage)\s+(?:of\s+)?([A-Za-z][A-Za-z'-]+)\s*(?:&|and|with)\s*([A-Za-z][A-Za-z'-]+)\b/i,
 ]
+
+// For now we ONLY support simple A & B (single token each side).
+const STRICT_COUPLE_ONLY = true
+
+function isSingleTokenName(value: string | null | undefined): boolean {
+  const trimmed = (value || '').trim()
+  if (!trimmed) return false
+  return !/\s/.test(trimmed)
+}
+
+function hasPossibleCoupleSeparator(text: string): boolean {
+  if (!text) return false
+  // Guard for cases like "with love" by requiring letters on both sides.
+  return /[A-Za-z].*(?:&|\band\b|\bwith\b).*[A-Za-z]/i.test(text)
+}
 
 /**
  * Stop words that should not be considered as names
@@ -134,6 +159,9 @@ export function normalizeNameCandidate(value: string): string | null {
     .replace(/^(?:names?|couple(?:'s)?\s+names?|bride|groom)\s*[:\-]\s*/i, '')
     .replace(/^(?:is|are|was|were)\s+/i, '')
     .replace(/^(?:the\s+)?(?:wedding|ceremony|marriage)\s+/i, '')
+    // Remove title/slogan words that commonly leak into names
+    // Example: "Happy Marriage Life together Sakina and Abdullahi" -> name1 becomes "Together Sakina"
+    .replace(/^(?:together|forever)\s+/i, '')
     .trim()
 
   // If we accidentally captured a dangling "on", remove it
@@ -159,6 +187,63 @@ export function normalizeNameCandidate(value: string): string | null {
   return capitalizeWords(name)
 }
 
+function extractNamesWithCompromise(text: string): { name1: string | null; name2: string | null } {
+  try {
+    const doc = nlp(text)
+    const people = (doc as any).people?.().out?.('array') as unknown
+    const candidates = Array.isArray(people) ? (people as string[]) : []
+
+    const cleaned = candidates
+      .map(c => normalizeNameCandidate(c))
+      .filter((c): c is string => !!c)
+      // extra safety: slogans/phrases that sometimes get tagged as people
+      .filter(c => {
+        const lower = c.toLowerCase()
+        return !['together', 'forever'].includes(lower)
+      })
+
+    const unique: string[] = []
+    for (const c of cleaned) {
+      if (!unique.includes(c)) unique.push(c)
+      if (unique.length >= 2) break
+    }
+
+    return {
+      name1: unique[0] ?? null,
+      name2: unique[1] ?? null,
+    }
+  } catch {
+    return { name1: null, name2: null }
+  }
+}
+
+function looksSuspiciousName(name: string): boolean {
+  const trimmed = (name || '').trim()
+  if (!trimmed) return true
+  if (/\d/.test(trimmed)) return true
+  if (/[^a-zA-Z\s'\-]/.test(trimmed)) return true
+
+  const parts = trimmed.split(/\s+/).filter(Boolean)
+  if (parts.length > 4) return true
+
+  for (const part of parts) {
+    const lower = part.toLowerCase()
+    if (lower.length <= 1) return true
+    if (NAME_STOP_WORDS.has(lower)) return true
+    if (COMMON_WORDS.has(lower)) return true
+    if (['together', 'forever', 'life'].includes(lower)) return true
+  }
+
+  return false
+}
+
+export function shouldConfirmExtractedNames(meta: ExtractedNamesWithMeta): boolean {
+  if (meta.source === 'nlp') return !!(meta.name1 || meta.name2)
+  if (meta.name1 && looksSuspiciousName(meta.name1)) return true
+  if (meta.name2 && looksSuspiciousName(meta.name2)) return true
+  return false
+}
+
 /**
  * Extract names from bracketed text like (John & Sarah)
  */
@@ -177,8 +262,14 @@ export function extractNamesFromBrackets(text: string): { name1: string | null; 
   // Split by & or "and"
   const separatorMatch = inner.match(/(.+?)\s*(?:&|and)\s*(.+)/i)
   if (separatorMatch) {
-    const name1 = normalizeNameCandidate(separatorMatch[1])
-    const name2 = normalizeNameCandidate(separatorMatch[2])
+    const leftRaw = separatorMatch[1]
+    const rightRaw = separatorMatch[2]
+    if (STRICT_COUPLE_ONLY && (!isSingleTokenName(leftRaw) || !isSingleTokenName(rightRaw))) {
+      return { name1: null, name2: null }
+    }
+
+    const name1 = normalizeNameCandidate(leftRaw)
+    const name2 = normalizeNameCandidate(rightRaw)
     return { name1, name2 }
   }
   
@@ -191,46 +282,74 @@ export function extractNamesFromBrackets(text: string): { name1: string | null; 
  * Extract couple names from any text format
  */
 export function extractNames(text: string): { name1: string | null; name2: string | null } {
+  const { name1, name2 } = extractNamesWithMeta(text)
+  return { name1, name2 }
+}
+
+export function extractNamesWithMeta(text: string): ExtractedNamesWithMeta {
   if (!text || typeof text !== 'string') {
-    return { name1: null, name2: null }
+    return { name1: null, name2: null, source: 'none' }
   }
-  
+
   // Try bracketed names first (most reliable)
   const bracketResult = extractNamesFromBrackets(text)
-  if (bracketResult.name1) {
-    return bracketResult
+  if (bracketResult.name1 || bracketResult.name2) {
+    return { ...bracketResult, source: 'bracket' }
   }
-  
+
   // Try other patterns
   for (const pattern of NAME_PATTERNS) {
     if (pattern === BRACKET_PATTERN) continue // Already tried
-    
+
     const match = text.match(pattern)
-    if (match) {
-      if (match[2]) {
-        // Two capture groups (name1 & name2)
-        const name1 = normalizeNameCandidate(match[1])
-        const name2 = normalizeNameCandidate(match[2])
+    if (!match) continue
+
+    if (match[2]) {
+      if (STRICT_COUPLE_ONLY && (!isSingleTokenName(match[1]) || !isSingleTokenName(match[2]))) {
+        continue
+      }
+
+      const name1 = normalizeNameCandidate(match[1])
+      const name2 = normalizeNameCandidate(match[2])
+      if (name1 || name2) {
+        return { name1, name2, source: 'pattern' }
+      }
+      continue
+    }
+
+    if (match[1]) {
+      const inner = match[1].trim()
+      const separatorMatch = inner.match(/(.+?)\s*(?:&|and)\s*(.+)/i)
+      if (separatorMatch) {
+        if (STRICT_COUPLE_ONLY && (!isSingleTokenName(separatorMatch[1]) || !isSingleTokenName(separatorMatch[2]))) {
+          continue
+        }
+
+        const name1 = normalizeNameCandidate(separatorMatch[1])
+        const name2 = normalizeNameCandidate(separatorMatch[2])
         if (name1 || name2) {
-          return { name1, name2 }
+          return { name1, name2, source: 'pattern' }
         }
-      } else if (match[1]) {
-        // Single capture group - might contain both names
-        const inner = match[1].trim()
-        const separatorMatch = inner.match(/(.+?)\s*(?:&|and)\s*(.+)/i)
-        if (separatorMatch) {
-          const name1 = normalizeNameCandidate(separatorMatch[1])
-          const name2 = normalizeNameCandidate(separatorMatch[2])
-          return { name1, name2 }
-        }
-        // Single name
-        const name1 = normalizeNameCandidate(inner)
-        return { name1, name2: null }
+      }
+
+      const name1 = normalizeNameCandidate(inner)
+      if (name1) {
+        return { name1, name2: null, source: 'pattern' }
       }
     }
   }
-  
-  return { name1: null, name2: null }
+
+  // Last resort: NLP-ish fallback (offline). Useful for OCR/pasted text.
+  // IMPORTANT: When the user typed a couple separator (and/&/with) but it wasn't a valid "A & B",
+  // do NOT fall back to NLP, because it tends to extract the last name only (e.g., "... and Yahaya" -> "Yahaya").
+  if (!STRICT_COUPLE_ONLY || !hasPossibleCoupleSeparator(text)) {
+    const nlpResult = extractNamesWithCompromise(text)
+    if (nlpResult.name1 || nlpResult.name2) {
+      return { ...nlpResult, source: 'nlp' }
+    }
+  }
+
+  return { name1: null, name2: null, source: 'none' }
 }
 
 /**

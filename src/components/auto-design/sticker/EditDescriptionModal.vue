@@ -28,7 +28,10 @@
               class="edit-field-input"
               placeholder="First name (e.g., John)"
             />
-            <span class="names-separator">&</span>
+            <span
+              class="names-separator"
+              :class="{ 'is-hidden': !String(extractedData.name2 || '').trim() }"
+            >&</span>
             <input
               type="text"
               :value="extractedData.name2"
@@ -212,6 +215,10 @@ function saveChanges() {
 
 .edit-modal-content {
   margin-bottom: 20px;
+}
+
+.names-separator.is-hidden {
+  visibility: hidden;
 }
 
 /* Edit Fields */

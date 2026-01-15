@@ -22,6 +22,61 @@ const DEFAULT_EXPORT_OPTIONS: Required<ExportOptions> = {
 }
 
 export function useSVGExport() {
+  function escapeAttrValue(value: string): string {
+    return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+  }
+
+  function inlineComputedTextStylesForCanvasExport(
+    exportSvg: SVGSVGElement,
+    originalSvg: SVGSVGElement
+  ): void {
+    // Canvas export can strip/ignore CSS, which makes text fall back to default font-size and shift.
+    // Freeze the *computed* text presentation into attributes on the cloned SVG.
+    const exportTexts = Array.from(exportSvg.querySelectorAll('text')) as SVGTextElement[]
+    const originalTexts = Array.from(originalSvg.querySelectorAll('text')) as SVGTextElement[]
+
+    for (let i = 0; i < exportTexts.length; i++) {
+      const exportText = exportTexts[i]
+      const id = exportText.getAttribute('id') || ''
+
+      let originalText: SVGTextElement | null = null
+      if (id) {
+        const selector = `[id="${escapeAttrValue(id)}"]`
+        originalText = originalSvg.querySelector(selector) as SVGTextElement | null
+      }
+      // Fallback mapping for texts without IDs (or if IDs don't match).
+      if (!originalText) {
+        originalText = originalTexts[i] || null
+      }
+      if (!originalText) continue
+
+      const style = window.getComputedStyle(originalText)
+
+      const fontSizePx = parseFloat(style.fontSize || '')
+      if (Number.isFinite(fontSizePx)) {
+        exportText.setAttribute('font-size', String(fontSizePx))
+      }
+
+      if (style.fontFamily) exportText.setAttribute('font-family', style.fontFamily)
+      if (style.fontWeight) exportText.setAttribute('font-weight', style.fontWeight)
+
+      // Preserve letter-spacing if explicitly set.
+      if (style.letterSpacing && style.letterSpacing !== 'normal') {
+        exportText.setAttribute('letter-spacing', style.letterSpacing)
+      }
+
+      // Freeze computed fill if available.
+      // NOTE: CSSStyleDeclaration doesn't always expose `.fill`, so use getPropertyValue.
+      const computedFill = (style.getPropertyValue('fill') || (style as any).fill || '').trim()
+      const computedColor = (style.getPropertyValue('color') || style.color || '').trim()
+      if (computedFill && computedFill !== 'none') {
+        exportText.setAttribute('fill', computedFill)
+      } else if (computedColor) {
+        // Some templates style SVG text via `color`; in SVG, `fill` is what matters.
+        exportText.setAttribute('fill', computedColor)
+      }
+    }
+  }
   /**
    * Convert an external image URL to base64 data URL
    * Tries Image loading first, falls back to fetch for CORS issues
@@ -466,6 +521,8 @@ export function useSVGExport() {
       let fontSize = parseFloat(textEl.getAttribute('font-size') || '84.15')
       const fill = textEl.getAttribute('fill') || '#000000'
       const id = textEl.getAttribute('id') || ''
+      const textAnchor = textEl.getAttribute('text-anchor') || 'start'
+      const dominantBaseline = textEl.getAttribute('dominant-baseline') || ''
 
       console.log(`   Processing "${text}": original pos (${x}, ${y}), fontSize=${fontSize}`)
 
@@ -479,7 +536,12 @@ export function useSVGExport() {
       const fontString = `700 ${scaledFontSize}px "${CINZEL_CANVAS_FONT}", "Cinzel Decorative", Georgia, serif`
       ctx.font = fontString
       ctx.fillStyle = fill
-      ctx.textBaseline = 'alphabetic'
+
+      // Match SVG alignment as closely as possible
+      ctx.textAlign = textAnchor === 'middle' ? 'center' : textAnchor === 'end' ? 'right' : 'left'
+      if (dominantBaseline.includes('middle')) ctx.textBaseline = 'middle'
+      else if (dominantBaseline.includes('hanging')) ctx.textBaseline = 'hanging'
+      else ctx.textBaseline = 'alphabetic'
       
       console.log(`   Setting ctx.font = "${fontString}"`)
       console.log(`   Actual ctx.font after set = "${ctx.font}"`)
@@ -1467,6 +1529,10 @@ export function useSVGExport() {
     try {
       // Clone and embed images
       let exportSVG = svgElement.cloneNode(true) as SVGSVGElement
+
+      // Freeze computed text sizes/families from the live editor SVG.
+      // This prevents CSS-driven text from changing size/position at export time.
+      inlineComputedTextStylesForCanvasExport(exportSVG, svgElement)
       
       // Debug: Check if title replacement exists in ORIGINAL SVG
       const originalTitleGroup = svgElement.querySelector('#wedding-title-replacement')

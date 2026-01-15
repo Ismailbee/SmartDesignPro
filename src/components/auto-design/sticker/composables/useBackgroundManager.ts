@@ -1075,11 +1075,6 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
       ? chatPreviewContainer.value 
       : (chatPreviewContainer.value ? [chatPreviewContainer.value] : [])
 
-    console.log('🔄 updateChatPreviewSVG called:', {
-      containersCount: previewContainers.length,
-      containerTypes: previewContainers.map(c => c?.className || 'null')
-    })
-
     if (!weddingPreviewContainer.value) {
       console.warn('⚠️ updateChatPreviewSVG: weddingPreviewContainer is null')
       return
@@ -1090,22 +1085,11 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
       return
     }
 
-    // Debug: log what we're about to clone
-    const bgInMaster = masterSvg.querySelector('#background-image') as SVGImageElement
-    const userImgInMaster = masterSvg.querySelector('#userImage, #placeholder-image') as SVGImageElement
-    console.log('🔄 updateChatPreviewSVG: master SVG state:', {
-      hasBackground: !!bgInMaster,
-      backgroundHref: bgInMaster?.getAttribute('href')?.substring(0, 50) || 'none',
-      hasUserImage: !!userImgInMaster,
-      userImageHref: userImgInMaster?.getAttribute('href')?.substring(0, 50) || 'none'
-    })
 
     previewContainers.forEach((container, idx) => {
       if (container) {
         // Find the preview-placeholder div to inject SVG into (not the wrapper which contains buttons)
         const placeholderDiv = container.querySelector('.preview-placeholder') as HTMLElement || container
-        
-        console.log(`📦 Container ${idx}: found placeholder?`, !!container.querySelector('.preview-placeholder'), 'using:', placeholderDiv.className)
         
         // Clone the master SVG to update chat preview
         const existingSvg = placeholderDiv.querySelector('svg')

@@ -51,6 +51,8 @@ export {
 export {
   extractWeddingDetails,
   hasWeddingDetails,
+  isCommonWeddingTitle,
+  COMMON_WEDDING_TITLES,
 } from './useLocalExtraction'
 
 export type { LocalExtractionResult } from '../types'

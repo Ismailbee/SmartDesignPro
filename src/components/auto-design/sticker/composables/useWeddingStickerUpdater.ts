@@ -315,30 +315,27 @@ export function useWeddingStickerUpdater() {
       return { name1: null, name2: null }
     }
 
-    // Try to split by "and" or "&"
-    const andPattern = /([A-Za-z]+)\s+(?:and|&)\s+([A-Za-z]+)/i
-    const andMatch = nameLine.match(andPattern)
-
-    if (andMatch) {
-      return {
-        name1: andMatch[1].toUpperCase(),
-        name2: andMatch[2].toUpperCase()
-      }
+    // STRICT: Only support single-word A & B (or A and B / A with B).
+    const strictCouple = nameLine.match(/\b([a-zA-Z][a-zA-Z'-]+)\s*(?:and|&|with)\s*([a-zA-Z][a-zA-Z'-]+)\b/i)
+    if (strictCouple) {
+      const first1 = toTitleCase(strictCouple[1])
+      const first2 = toTitleCase(strictCouple[2])
+      return { name1: first1, name2: first2 }
     }
 
-    // Try to split by space (two words)
-    const words = nameLine.split(/\s+/).filter(w => w.length > 0)
-    if (words.length >= 2) {
-      return {
-        name1: words[0].toUpperCase(),
-        name2: words[1].toUpperCase()
-      }
-    } else if (words.length === 1) {
-      // Single name on the line
-      return {
-        name1: words[0].toUpperCase(),
-        name2: null
-      }
+    // If user typed a separator but it's not a valid simple pair, don't extract a partial name.
+    if (/[A-Za-z].*(?:&|\band\b|\bwith\b).*[A-Za-z]/i.test(nameLine)) {
+      return { name1: null, name2: null }
+    }
+
+    // No separator: treat the whole line as a single person's full name.
+    // IMPORTANT: do NOT split "Muhammad Haruna" into two different people.
+    const words = nameLine.split(/\s+/).filter(Boolean)
+    if (words.length >= 1) {
+      const first = toTitleCase(words[0])
+      const last = words.length > 1 ? words.slice(1).join(' ').toUpperCase() : null
+      const full = [first, last].filter(Boolean).join(' ')
+      return { name1: full || null, name2: null }
     }
 
     return { name1: null, name2: null }
@@ -379,7 +376,8 @@ export function useWeddingStickerUpdater() {
       const namesText = match[1].trim()
 
       // Try to split by "and" or "&" to get couples
-      const couplePattern = /([^&]+)\s*(?:&|and)\s*([^&]+)/i
+      // STRICT: only allow single-word A & B (or A and B)
+      const couplePattern = /^\s*([a-zA-Z][a-zA-Z'-]+)\s*(?:&|and)\s*([a-zA-Z][a-zA-Z'-]+)\s*$/i
       const coupleMatch = namesText.match(couplePattern)
 
       if (coupleMatch) {
@@ -413,6 +411,19 @@ export function useWeddingStickerUpdater() {
           name2First: first2,
           name2Last: last2,
           hasSeparator: true  // Separator was detected
+        }
+      }
+
+      // If a separator exists but isn't a valid simple pair, don't guess.
+      if (/[A-Za-z].*(?:&|\band\b).*[A-Za-z]/i.test(namesText)) {
+        return {
+          name1: null,
+          name2: null,
+          name1First: null,
+          name1Last: null,
+          name2First: null,
+          name2Last: null,
+          hasSeparator: false
         }
       }
 
@@ -481,8 +492,9 @@ export function useWeddingStickerUpdater() {
       return bracketNames
     }
 
-    // Fallback: Try to extract "Name & Name" or "Name and Name" without brackets
-    const couplePattern = /\b([a-zA-Z][a-zA-Z'-]+(?:\s+[a-zA-Z][a-zA-Z'-]+)?)\s*(?:&|and)\s*([a-zA-Z][a-zA-Z'-]+(?:\s+[a-zA-Z][a-zA-Z'-]+)?)\b/i
+    // Fallback: STRICT - only allow single-word names on both sides.
+    // This prevents cases like: "Suleiman Yahaya and Yahaya" from extracting "Yahaya" as a second person.
+    const couplePattern = /\b([a-zA-Z][a-zA-Z'-]+)\s*(?:&|and)\s*([a-zA-Z][a-zA-Z'-]+)\b/i
     const coupleMatch = description.match(couplePattern)
 
     if (coupleMatch) {
