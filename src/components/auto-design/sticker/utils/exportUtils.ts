@@ -13,15 +13,20 @@ import type { Ref } from 'vue'
 
 export interface SVGImage {
   id: string
-  dataUrl: string
   file: File
+  dataUrl: string
   x: number
   y: number
   width: number
   height: number
-  scale: number
-  flipX: boolean
-  flipY: boolean
+  rotation: number
+  opacity: number
+  zIndex: number
+  maintainAspectRatio: boolean
+  originalWidth: number
+  originalHeight: number
+  flipped: boolean
+  isRetouched?: boolean
 }
 
 export interface ExportContext {

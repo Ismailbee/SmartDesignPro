@@ -93,7 +93,7 @@ export interface WeddingAssistantDecision {
     courtesy?: string | null
     size?: string | null
   }
-  buttons?: Array<{ type: string; label: string; variant?: string }>
+  buttons?: MessageAction[]
 }
 
 export interface LocalExtractionResult {

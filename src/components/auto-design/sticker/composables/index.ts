@@ -4,6 +4,45 @@
  * Export all composables for the wedding sticker chat system
  */
 
+// Re-export extraction utilities from shared utils
+export {
+  capitalizeWords,
+  escapeRegExp,
+} from '@/utils/extraction'
+
+export {
+  extractDateFromText,
+} from '@/utils/extraction/datePatterns'
+
+export {
+  extractCourtesy as extractCourtesyFromText,
+} from '@/utils/extraction/courtesyPatterns'
+
+// Size extraction and parseAllInOneMessage - create simple implementations
+export function extractSizeFromText(text: string): string | null {
+  if (!text) return null
+  const sizeMatch = text.match(/\b(4x6|5x7|6x8|8x10|A4|A5|letter)\b/i)
+  return sizeMatch ? sizeMatch[1] : null
+}
+
+export function parseAllInOneMessage(text: string): {
+  date: string | null;
+  courtesy: string | null;
+  size: string | null;
+} {
+  return {
+    date: null,
+    courtesy: null,
+    size: extractSizeFromText(text)
+  }
+}
+
+// AI Response Helper - minimal implementation
+export const aiResponseHelper = {
+  pick: <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)],
+  getGreeting: (): string => 'Hello! I\'m your wedding sticker assistant.',
+}
+
 // Offline response handlers
 export {
   offlineDelay,
@@ -124,7 +163,7 @@ export {
   type UseAIChatLogicOptions,
   type ChatMessage as AIChatMessage,
   type ExtractedInfo,
-  type AskedQuestions,
+  type AskedQuestions as AIAskedQuestions,
   type FormData as AIFormData,
 } from './useAIChatLogic'
 
@@ -139,40 +178,6 @@ export {
   DARK_BG_COLORS,
   RED_GOLD_BG_COLORS,
 } from './useBackgroundManager'
-
-// Extraction utilities for names, dates, courtesy
-export {
-  useExtractionUtils,
-  capitalizeWords,
-  escapeRegExp,
-  extractNamesFromResponse,
-  extractDateFromText,
-  extractCourtesyFromText,
-  extractSizeFromText,
-  extractNamesFromBrackets,
-  parseAllInOneMessage,
-} from './useExtractionUtils'
-
-// AI Response Helper - professional response templates
-export {
-  useAIResponseHelper,
-  aiResponseHelper,
-  pick,
-  greetings,
-  confirmations,
-  processingMessages,
-  askNames,
-  askDate,
-  askCourtesy,
-  successMessages,
-  pictureMessages,
-  sizeMessages,
-  multipleImagesMessage,
-  errorMessages,
-  jokes,
-  casualResponses,
-  getGreeting,
-} from './useAIResponseHelper'
 
 // Title detection utilities
 export {
@@ -231,28 +236,6 @@ export {
   useStickerExport,
   type ExportOptions as StickerExportOptions,
 } from './useStickerExport'
-
-// AI Chat Responses
-export {
-  useAiChatResponses,
-  aiResponseHelper as globalAiResponseHelper,
-  detectIntent as globalDetectIntent,
-  levenshteinDistance as globalLevenshteinDistance,
-  type UserIntent as AiUserIntent,
-  type IntentResult as AiIntentResult,
-} from './useAiChatResponses'
-
-// Text Extraction (names, dates, courtesy)
-export {
-  useTextExtraction,
-  extractNamesFromResponse as textExtractionExtractNames,
-  extractDateFromText as textExtractionExtractDate,
-  extractCourtesyFromText as textExtractionExtractCourtesy,
-  extractSizeFromText as textExtractionExtractSize,
-  parseAllInOneMessage as textExtractionParseAll,
-  type ExtractedNames,
-  type ParseResult,
-} from './useTextExtraction'
 
 // SVG Text Replacement (decorative titles)
 export {

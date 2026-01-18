@@ -31,8 +31,34 @@
 }
 
 /* SVG text elements - Apply fonts globally */
-/* Exclude decorative name elements (name1-first, name2-first) that use Cinzel Decorative */
-svg text[id*="name"]:not([id*="name1-first"]):not([id*="name2-first"]):not([id*="name-separator"]) {
+/* Exclude ALL decorative name elements that use embedded fonts from name1.svg */
+/* These elements use: Ubuntu 700 (name1-first, name-separator), Ubuntu 400 (name2-first, name1-last, name2-last) */
+
+/* IMPORTANT: Explicitly preserve embedded fonts for name1.svg elements */
+/* These rules have higher specificity and use !important to override any other styles */
+svg text#name1-first {
+  font-family: 'Ubuntu', Arial, Helvetica, sans-serif !important;
+  font-weight: 700 !important;
+}
+
+svg text#name2-first {
+  font-family: 'Ubuntu', Arial, Helvetica, sans-serif !important;
+  font-weight: 700 !important;
+}
+
+svg text#name1-last,
+svg text#name2-last {
+  font-family: 'Ubuntu', Arial, Helvetica, sans-serif !important;
+  font-weight: 400 !important;
+}
+
+svg text#name-separator {
+  font-family: 'Ubuntu', Arial, Helvetica, sans-serif !important;
+  font-weight: 700 !important;
+}
+
+/* Apply Oswald to other name-related elements that don't use embedded fonts */
+svg text[id*="name"]:not(#name1-first):not(#name2-first):not(#name1-last):not(#name2-last):not(#name-separator) {
   font-family: 'Oswald', 'Anton', 'Arial Narrow', 'Arial', sans-serif;
 }
 

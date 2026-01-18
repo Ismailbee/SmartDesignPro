@@ -190,8 +190,6 @@ const SvgPreview = defineAsyncComponent(() => import('./sticker/SvgPreview.vue')
 import type { ChatMessage, Category, ExtractedInfo } from './sticker'
 
 // Import extracted composables
-import { useTextExtraction } from './sticker/composables/useTextExtraction'
-import { useAiChatResponses } from './sticker/composables/useAiChatResponses'
 import { useStickerExport } from './sticker/composables/useStickerExport'
 
 // Import sticker composables (title, flourish, background management)
@@ -199,12 +197,10 @@ import {
   useTitleLibrary,
   useFlourishSystem,
   useBackgroundManager,
-  // Extraction utilities
-  extractNamesFromResponse,
+  // Extraction utilities (name extraction removed - use DeepSeek AI)
   extractDateFromText,
   extractCourtesyFromText,
   extractSizeFromText,
-  extractNamesFromBrackets,
   parseAllInOneMessage,
   capitalizeWords,
   escapeRegExp,
@@ -718,12 +714,12 @@ async function handleEditModalSave(data: { heading: string; name1: string; name2
   customHeading.value = data.heading || null
   
   // Rebuild description from parts
-  // Use brackets for names so extractNames in useWeddingStickerUpdater can detect them
-  // and trigger the decorative SVG system with proper fonts
+  // NOTE: Name extraction has been removed - DeepSeek AI should be used for names
+  // Names are passed directly from the form data
   const parts: string[] = []
   if (data.heading) parts.push(data.heading)
   if (data.name1 && data.name2) {
-    parts.push(`(${data.name1} & ${data.name2})`)  // Use brackets for extractNames to detect
+    parts.push(`(${data.name1} & ${data.name2})`)
   } else if (data.name1) {
     parts.push(`(${data.name1})`)
   }

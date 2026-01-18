@@ -6,5 +6,3 @@ export type {
   ExtractField,
   ExtractFieldType
 } from './ai.service'
-export { OllamaClient } from './ollama.client'
-export type { OllamaChatRequest, OllamaChatResponse, OllamaMessage, OllamaRole } from './ollama.client'

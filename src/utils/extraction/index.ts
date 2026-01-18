@@ -13,22 +13,6 @@ export {
   isDateOnly,
 } from './datePatterns'
 
-// Name extraction
-export {
-  BRACKET_PATTERN,
-  NAME_PATTERNS,
-  NAME_STOP_WORDS,
-  COMMON_WORDS,
-  REQUEST_PHRASE_PATTERNS,
-  SKIP_WORDS_BEFORE_AND,
-  capitalizeWords,
-  normalizeNameCandidate,
-  extractNamesFromBrackets,
-  extractNames,
-  hasNames,
-  isRequestPhrase,
-} from './namePatterns'
-
 // Courtesy extraction
 export {
   COURTESY_PATTERNS,
@@ -37,6 +21,33 @@ export {
   hasCourtesy,
   isCourtesyOnly,
 } from './courtesyPatterns'
+
+// Name extraction - bracket-based (offline) + DeepSeek helpers
+export {
+  extractNames,
+  extractNamesFromBrackets,
+  hasBracketedNames,
+  formatNamesAsBrackets,
+  emptyNameResult,
+  buildNameExtractionPrompt,
+  parseDeepSeekNameResponse,
+} from './nameExtraction'
+
+export type { NameExtractionResult } from './nameExtraction'
+
+// Simple utility for capitalizing words (kept for general use)
+export function capitalizeWords(str: string): string {
+  if (!str) return ''
+  return str
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
+}
+
+// Escape special regex characters in a string
+export function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
 
 // Re-export types if needed
 export interface ExtractedNames {

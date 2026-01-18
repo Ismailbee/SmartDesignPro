@@ -27,7 +27,7 @@
             <input
               type="checkbox"
               :checked="autoRemoveBackground"
-              @change="$emit('update:auto-remove-background', ($event.target as HTMLInputElement).checked)"
+              @change="handleBackgroundToggle"
               class="toggle-checkbox"
             />
             <span class="toggle-text">Remove background automatically</span>
@@ -106,6 +106,12 @@ function triggerFileInput() {
 // Handle file selection - pass event to parent
 function handleFileSelect(event: Event) {
   emit('file-select', event)
+}
+
+// Handle background toggle
+function handleBackgroundToggle(event: Event) {
+  const target = event.target as HTMLInputElement
+  emit('update:auto-remove-background', target.checked)
 }
 </script>
 

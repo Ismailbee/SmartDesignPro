@@ -8,6 +8,9 @@
  * which handles replacing text elements with SVG images based on keywords.
  */
 
+import { extractNamesFromBrackets as sharedExtractNamesFromBrackets } from '@/utils/extraction'
+import { useDateLibrary } from './useDateLibrary'
+
 export interface WeddingStickerElements {
   blessingText: SVGTextElement | null
   occasionText: SVGTextElement | null
@@ -22,6 +25,7 @@ export interface WeddingStickerElements {
   name2Last: SVGTextElement | null
   nameSeparator: SVGTextElement | null  // The "&" separator between names
   weddingNamesGroup: SVGGElement | null  // The container group for wedding names
+  weddingDateGroup: SVGGElement | null   // The container group for date SVG
   dateText: SVGTextElement | null
   courtesyText: SVGTextElement | null
 }
@@ -292,72 +296,16 @@ export function useWeddingStickerUpdater() {
 
   /**
    * Extract names from newline-separated content
-   * When user presses Enter, extract names from the line after the newline
-   * Examples:
-   *   "Congratulations on your wedding\nSarah Ahmed"
-   *   "Congratulations on your wedding ceremony\nJohn and Mary"
+   * Returns null - use bracket extraction or DeepSeek instead
    */
   const extractNamesFromNewline = (description: string): { name1: string | null; name2: string | null } => {
-    // Check if there's a newline character
-    if (!description.includes('\n')) {
-      return { name1: null, name2: null }
-    }
-
-    // Split by newline and get the line after the first newline
-    const lines = description.split('\n')
-    if (lines.length < 2) {
-      return { name1: null, name2: null }
-    }
-
-    // Get the second line (first line after newline)
-    const nameLine = lines[1].trim()
-    if (!nameLine) {
-      return { name1: null, name2: null }
-    }
-
-    // STRICT: Only support single-word A & B (or A and B / A with B).
-    const strictCouple = nameLine.match(/\b([a-zA-Z][a-zA-Z'-]+)\s*(?:and|&|with)\s*([a-zA-Z][a-zA-Z'-]+)\b/i)
-    if (strictCouple) {
-      const first1 = toTitleCase(strictCouple[1])
-      const first2 = toTitleCase(strictCouple[2])
-      return { name1: first1, name2: first2 }
-    }
-
-    // If user typed a separator but it's not a valid simple pair, don't extract a partial name.
-    if (/[A-Za-z].*(?:&|\band\b|\bwith\b).*[A-Za-z]/i.test(nameLine)) {
-      return { name1: null, name2: null }
-    }
-
-    // No separator: treat the whole line as a single person's full name.
-    // IMPORTANT: do NOT split "Muhammad Haruna" into two different people.
-    const words = nameLine.split(/\s+/).filter(Boolean)
-    if (words.length >= 1) {
-      const first = toTitleCase(words[0])
-      const last = words.length > 1 ? words.slice(1).join(' ').toUpperCase() : null
-      const full = [first, last].filter(Boolean).join(' ')
-      return { name1: full || null, name2: null }
-    }
-
+    // Newline extraction is unreliable - use bracket notation instead
     return { name1: null, name2: null }
   }
 
   /**
-   * Extract names from brackets () or []
-   * Enhanced to support full names with multi-word surnames
-   *
-   * Name Formatting Rules:
-   * - First names: Title Case (first letter uppercase, rest lowercase)
-   * - Surnames: UPPERCASE (all letters uppercase)
-   *
-   * Parsing Logic:
-   * - First word = First Name (Title Case)
-   * - Everything after first word = Surname (UPPERCASE, can be multi-word)
-   * - Ampersand (&) or "and" separates the two people
-   *
-   * Examples:
-   * - "(Suleiman Abdullahi & Ramatu Yunusa)" → first1: "Suleiman", last1: "ABDULLAHI", first2: "Ramatu", last2: "YUNUSA"
-   * - "(John Paul Smith & Mary Jane Doe)" → first1: "John", last1: "PAUL SMITH", first2: "Mary", last2: "JANE DOE"
-   * - "(Sarah Ahmed and Tom Lee)" → first1: "Sarah", last1: "AHMED", first2: "Tom", last2: "LEE"
+   * Extract names from bracket notation: "(Name1 & Name2)"
+   * Uses shared extraction utility from src/utils/extraction/nameExtraction.ts
    */
   const extractNamesFromBrackets = (description: string): {
     name1: string | null;
@@ -366,99 +314,23 @@ export function useWeddingStickerUpdater() {
     name1Last: string | null;
     name2First: string | null;
     name2Last: string | null;
-    hasSeparator: boolean;  // NEW: Indicates if "&" or "and" was detected
+    hasSeparator: boolean;
   } => {
-    // Match content inside () or []
-    const bracketPattern = /[\(\[]([^\)\]]+)[\)\]]/
-    const match = description.match(bracketPattern)
-
-    if (match && match[1]) {
-      const namesText = match[1].trim()
-
-      // Try to split by "and" or "&" to get couples
-      // STRICT: only allow single-word A & B (or A and B)
-      const couplePattern = /^\s*([a-zA-Z][a-zA-Z'-]+)\s*(?:&|and)\s*([a-zA-Z][a-zA-Z'-]+)\s*$/i
-      const coupleMatch = namesText.match(couplePattern)
-
-      if (coupleMatch) {
-        // We have two people with a separator ("&" or "and")
-        const person1 = coupleMatch[1].trim()
-        const person2 = coupleMatch[2].trim()
-
-        // Parse person 1: first word = first name (Title Case), rest = surname (UPPERCASE)
-        const person1Parts = person1.split(/\s+/).filter(w => w.length > 0)
-        const first1 = person1Parts.length > 0 ? toTitleCase(person1Parts[0]) : null
-        const last1 = person1Parts.length > 1
-          ? person1Parts.slice(1).join(' ').toUpperCase()
-          : null
-
-        // Parse person 2: first word = first name (Title Case), rest = surname (UPPERCASE)
-        const person2Parts = person2.split(/\s+/).filter(w => w.length > 0)
-        const first2 = person2Parts.length > 0 ? toTitleCase(person2Parts[0]) : null
-        const last2 = person2Parts.length > 1
-          ? person2Parts.slice(1).join(' ').toUpperCase()
-          : null
-
-        // For backward compatibility, combine first + last for name1 and name2
-        const fullName1 = [first1, last1].filter(Boolean).join(' ')
-        const fullName2 = [first2, last2].filter(Boolean).join(' ')
-
-        return {
-          name1: fullName1 || null,
-          name2: fullName2 || null,
-          name1First: first1,
-          name1Last: last1,
-          name2First: first2,
-          name2Last: last2,
-          hasSeparator: true  // Separator was detected
-        }
-      }
-
-      // If a separator exists but isn't a valid simple pair, don't guess.
-      if (/[A-Za-z].*(?:&|\band\b).*[A-Za-z]/i.test(namesText)) {
-        return {
-          name1: null,
-          name2: null,
-          name1First: null,
-          name1Last: null,
-          name2First: null,
-          name2Last: null,
-          hasSeparator: false
-        }
-      }
-
-      // Single person or simple format (no separator)
-      const words = namesText.split(/\s+/).filter(w => w.length > 0)
-      if (words.length >= 2) {
-        // Multiple words - first is first name (Title Case), rest is surname (UPPERCASE)
-        const firstName = toTitleCase(words[0])
-        const lastName = words.slice(1).join(' ').toUpperCase()
-        const fullName = [firstName, lastName].join(' ')
-
-        return {
-          name1: fullName,
-          name2: null,
-          name1First: firstName,
-          name1Last: lastName,
-          name2First: null,
-          name2Last: null,
-          hasSeparator: false  // No separator detected
-        }
-      } else if (words.length === 1) {
-        // Single word - treat as first name only (Title Case)
-        const firstName = toTitleCase(words[0])
-        return {
-          name1: firstName,
-          name2: null,
-          name1First: firstName,
-          name1Last: null,
-          name2First: null,
-          name2Last: null,
-          hasSeparator: false  // No separator detected
-        }
+    // Use shared extraction utility
+    const result = sharedExtractNamesFromBrackets(description)
+    
+    if (result && result.name1) {
+      return {
+        name1: result.name1,
+        name2: result.name2,
+        name1First: result.name1First,
+        name1Last: result.name1Last,
+        name2First: result.name2First,
+        name2Last: result.name2Last,
+        hasSeparator: !!result.name2
       }
     }
-
+    
     return {
       name1: null,
       name2: null,
@@ -466,16 +338,13 @@ export function useWeddingStickerUpdater() {
       name1Last: null,
       name2First: null,
       name2Last: null,
-      hasSeparator: false  // No separator detected
+      hasSeparator: false
     }
   }
 
   /**
-   * Extract names from description
-   * Primary: extracts names from content inside brackets () or []
-   * Fallback: extracts "Name & Name" or "Name and Name" pattern without brackets
-   * Returns both full names and separated first/last names
-   * Examples: "(Sarah Ahmed)", "[John Mary]", "(Fatima and Ibrahim)", "yahaya & muhamma"
+   * Extract names from description using bracket notation
+   * Uses shared extraction utility from src/utils/extraction/nameExtraction.ts
    */
   const extractNames = (description: string): {
     name1: string | null;
@@ -486,61 +355,8 @@ export function useWeddingStickerUpdater() {
     name2Last: string | null;
     hasSeparator: boolean;
   } => {
-    // Primary: use bracket-based extraction
-    const bracketNames = extractNamesFromBrackets(description)
-    if (bracketNames.name1First || bracketNames.name2First) {
-      return bracketNames
-    }
-
-    // Fallback: STRICT - only allow single-word names on both sides.
-    // This prevents cases like: "Suleiman Yahaya and Yahaya" from extracting "Yahaya" as a second person.
-    const couplePattern = /\b([a-zA-Z][a-zA-Z'-]+)\s*(?:&|and)\s*([a-zA-Z][a-zA-Z'-]+)\b/i
-    const coupleMatch = description.match(couplePattern)
-
-    if (coupleMatch) {
-      const person1 = coupleMatch[1].trim()
-      const person2 = coupleMatch[2].trim()
-
-      // Parse person 1
-      const person1Parts = person1.split(/\s+/).filter(w => w.length > 0)
-      const first1 = person1Parts.length > 0 ? toTitleCase(person1Parts[0]) : null
-      const last1 = person1Parts.length > 1
-        ? person1Parts.slice(1).join(' ').toUpperCase()
-        : null
-
-      // Parse person 2
-      const person2Parts = person2.split(/\s+/).filter(w => w.length > 0)
-      const first2 = person2Parts.length > 0 ? toTitleCase(person2Parts[0]) : null
-      const last2 = person2Parts.length > 1
-        ? person2Parts.slice(1).join(' ').toUpperCase()
-        : null
-
-      const fullName1 = [first1, last1].filter(Boolean).join(' ')
-      const fullName2 = [first2, last2].filter(Boolean).join(' ')
-
-      console.log('📝 Fallback name extraction (no brackets):', { fullName1, fullName2 })
-
-      return {
-        name1: fullName1 || null,
-        name2: fullName2 || null,
-        name1First: first1,
-        name1Last: last1,
-        name2First: first2,
-        name2Last: last2,
-        hasSeparator: true
-      }
-    }
-
-    // Return null if no names found
-    return {
-      name1: null,
-      name2: null,
-      name1First: null,
-      name1Last: null,
-      name2First: null,
-      name2Last: null,
-      hasSeparator: false
-    }
+    // Use bracket extraction
+    return extractNamesFromBrackets(description)
   }
 
   /**
@@ -750,34 +566,42 @@ export function useWeddingStickerUpdater() {
       return cachedNameSVG
     }
 
-    // Decorative name + surname SVG stored under public/assets
-    // Note: space must be URL-encoded for fetch()
-    const svgPath = '/assets/name&surname/name%20and%20surname.svg'
-
     try {
-      console.log('🔄 Attempting to load decorative SVG from:', svgPath)
+      // Prefer the new name library asset.
+      // Fallback to the legacy decorative name+surname asset if needed.
+      const candidatePaths = [
+        '/names/name1.svg',
+        '/assets/name&surname/name%20and%20surname.svg'
+      ]
 
-      const response = await fetch(svgPath)
+      let svgContent: string | null = null
+      let loadedFrom: string | null = null
 
-      console.log('📡 Fetch response:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        url: response.url
-      })
-
-      if (!response.ok) {
-        console.error('❌ Failed to load name SVG:', {
+      for (const svgPath of candidatePaths) {
+        console.log('🔄 Attempting to load decorative name SVG from:', svgPath)
+        const response = await fetch(svgPath)
+        console.log('📡 Fetch response:', {
           status: response.status,
           statusText: response.statusText,
+          ok: response.ok,
           url: response.url
         })
-        console.error('💡 Tip: Check if file exists at public/assets/name&surname/name and surname.svg')
+        if (!response.ok) continue
+        svgContent = await response.text()
+        loadedFrom = svgPath
+        break
+      }
+
+      if (!svgContent || !loadedFrom) {
+        console.error('❌ Failed to load name SVG from all candidates')
+        console.error('💡 Tip: Ensure one of these exists under public/:')
+        console.error('   - public/names/name1.svg')
+        console.error('   - public/assets/name&surname/name and surname.svg')
         return null
       }
 
-      const svgContent = await response.text()
       console.log('✅ Successfully loaded name SVG file')
+      console.log('   Loaded from:', loadedFrom)
       console.log('   Content length:', svgContent.length, 'characters')
       console.log('   First 100 chars:', svgContent.substring(0, 100))
 
@@ -788,8 +612,9 @@ export function useWeddingStickerUpdater() {
       return svgContent
     } catch (error) {
       console.error('❌ Error loading name SVG:', error)
-      console.error('   Path attempted:', svgPath)
+      console.error('   Paths attempted: public/names/name1.svg, public/assets/name&surname/name and surname.svg')
       console.error('💡 Possible causes:')
+      console.error('   - File does not exist at public/names/name1.svg')
       console.error('   - File does not exist at public/assets/name&surname/name and surname.svg')
       console.error('   - CORS policy blocking the request')
       console.error('   - Network error or server not running')
@@ -969,6 +794,7 @@ export function useWeddingStickerUpdater() {
     // Prefer DOM-based updates so we can support any decorative SVG that
     // provides the expected ids (name1-first, name2-first, name-separator, optional surname ids).
     let modifiedSVG = svgContent
+    let skipPositioning = false
     try {
       const parser = new DOMParser()
       const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml')
@@ -976,6 +802,8 @@ export function useWeddingStickerUpdater() {
       if (parserError) {
         throw new Error(parserError.textContent || 'SVG parse error')
       }
+
+      skipPositioning = svgDoc.documentElement.getAttribute('data-skip-positioning') === 'true'
 
       const elName1 = svgDoc.querySelector('text#name1-first') as SVGTextElement | null
       const elName2 = svgDoc.querySelector('text#name2-first') as SVGTextElement | null
@@ -985,25 +813,49 @@ export function useWeddingStickerUpdater() {
 
       if (elName1) {
         elName1.textContent = formattedName1
-        elName1.setAttribute('x', name1XPosition)
-        elName1.setAttribute('y', name1YPosition)
-        elName1.style.fontSize = `${fontSize}px`
-        elName1.style.fontFamily = fontFamily
+        if (!skipPositioning) {
+          elName1.setAttribute('x', name1XPosition)
+          elName1.setAttribute('y', name1YPosition)
+        }
+        if (!skipPositioning) {
+          elName1.setAttribute('font-weight', '900')
+          elName1.style.fontSize = `${fontSize}px`
+          elName1.style.fontFamily = fontFamily
+        }
+        if (!skipPositioning) {
+          elName1.style.fontWeight = '900'
+        }
       }
 
       if (elName2) {
         elName2.textContent = formattedName2
-        elName2.setAttribute('x', name2XPosition)
-        elName2.setAttribute('y', name2YPosition)
-        elName2.style.fontSize = `${fontSize}px`
-        elName2.style.fontFamily = fontFamily
+        if (!skipPositioning) {
+          elName2.setAttribute('x', name2XPosition)
+          elName2.setAttribute('y', name2YPosition)
+        }
+        if (!skipPositioning) {
+          elName2.setAttribute('font-weight', '900')
+          elName2.style.fontSize = `${fontSize}px`
+          elName2.style.fontFamily = fontFamily
+        }
+        if (!skipPositioning) {
+          elName2.style.fontWeight = '900'
+        }
       }
 
       if (elSep) {
-        elSep.setAttribute('x', separatorXPosition)
-        elSep.setAttribute('y', separatorYPosition)
-        elSep.style.fontSize = `${fontSize}px`
-        elSep.style.fontFamily = fontFamily
+        if (!skipPositioning) {
+          elSep.setAttribute('x', separatorXPosition)
+          elSep.setAttribute('y', separatorYPosition)
+        }
+        if (!skipPositioning) {
+          elSep.setAttribute('font-weight', '900')
+          elSep.style.fontSize = `${fontSize}px`
+          elSep.style.fontFamily = fontFamily
+        }
+        if (!skipPositioning) {
+          elSep.style.fontWeight = '900'
+        }
       }
 
       if (formattedLast1 && elLast1) {
@@ -1013,7 +865,7 @@ export function useWeddingStickerUpdater() {
         elLast2.textContent = formattedLast2
       }
 
-      if (hasLongName) {
+      if (hasLongName && !skipPositioning) {
         if (elName1) elName1.style.letterSpacing = '-1px'
         if (elName2) elName2.style.letterSpacing = '-1px'
       }
@@ -1024,6 +876,13 @@ export function useWeddingStickerUpdater() {
       // Keep legacy regex-based behavior if parsing fails.
       console.warn('⚠️ Decorative SVG DOM update failed, falling back to regex replacement:', e)
       modifiedSVG = svgContent
+    }
+
+    // For the name library SVGs (data-skip-positioning="true"), we only replace the text content.
+    // Do NOT alter font-size/font-family/font-weight/letter-spacing via regex.
+    if (skipPositioning) {
+      console.log('ℹ️ Using data-skip-positioning="true" name SVG: injecting as-is (no font/position adjustments).')
+      return modifiedSVG
     }
 
     // If DOM update succeeded, we already applied fontFamily/fontSize directly.
@@ -1122,33 +981,112 @@ export function useWeddingStickerUpdater() {
         return
       }
 
-      // STEP 1: Inject the style definition directly into the root SVG
-      // This preserves the Cinzel Decorative Bold font and color classes
-      const loadedStyle = svgDoc.querySelector('style')
-      if (loadedStyle) {
-        // Remove existing style if present, so we can update it with new font size
-        const existingStyle = rootSVG.querySelector('style#cinzel-decorative-style')
-        if (existingStyle) {
-          existingStyle.remove()
-          console.log('🔄 Removed existing style to update with new font size')
-        }
+      const injectAsIs = svgDoc.documentElement.getAttribute('data-skip-positioning') === 'true'
+
+      // STEP 1: Inject supporting defs/styles as needed.
+      // For data-skip-positioning="true" assets, we still need to inject @font-face styles
+      // but we don't rewrite them (keep original font definitions).
+      
+      // ALWAYS inject @font-face styles regardless of injectAsIs flag
+      // This ensures embedded fonts (like Grand Hotel) are available in the target SVG
+      const allStyles = svgDoc.querySelectorAll('style')
+      allStyles.forEach(loadedStyle => {
+        const cssText = loadedStyle.textContent || ''
         
-        // Import and append the style element directly to root SVG
-        const importedStyle = document.importNode(loadedStyle, true) as Element
-        importedStyle.id = 'cinzel-decorative-style' // Add ID to track it
-        rootSVG.insertBefore(importedStyle, rootSVG.firstChild)
-        console.log('✅ Style definition (Cinzel Decorative Bold) injected into root SVG')
-      } else {
-        console.warn('⚠️ No <style> section found in loaded SVG - font may not render correctly')
+        // Check if this style contains @font-face declarations
+        if (cssText.includes('@font-face')) {
+          const styleId = loadedStyle.id || (cssText.includes('Grand Hotel') ? 'grand-hotel-embedded-font' : 'injected-font-style')
+          
+          // Check if this font style already exists in root
+          const existingStyle = rootSVG.querySelector(`style#${styleId}`)
+          if (existingStyle) {
+            console.log(`🔄 Font style #${styleId} already exists at root, skipping`)
+            return
+          }
+          
+          // Inject font-face style directly into root SVG
+          const importedStyle = document.importNode(loadedStyle, true) as Element
+          importedStyle.id = styleId
+          rootSVG.insertBefore(importedStyle, rootSVG.firstChild)
+          console.log(`✅ Font @font-face style #${styleId} injected at root SVG level`)
+        }
+      })
+      
+      // For non-skip-positioning assets, also inject other styles
+      if (!injectAsIs) {
+        const loadedStyle = svgDoc.querySelector('style:not([id*="font"])')
+        if (loadedStyle && !loadedStyle.textContent?.includes('@font-face')) {
+          const existingStyle = rootSVG.querySelector('style#cinzel-decorative-style')
+          if (existingStyle) {
+            existingStyle.remove()
+            console.log('🔄 Removed existing style to update with new font size')
+          }
+          const importedStyle = document.importNode(loadedStyle, true) as Element
+          importedStyle.id = 'cinzel-decorative-style'
+          rootSVG.insertBefore(importedStyle, rootSVG.firstChild)
+          console.log('✅ Style definition injected into root SVG')
+        }
+      }
+
+      // Always merge <defs> (fonts/clipPaths/etc.) if present.
+      const loadedDefs = svgDoc.querySelector('defs')
+      if (loadedDefs) {
+        let rootDefs = rootSVG.querySelector('defs')
+        if (!rootDefs) {
+          rootDefs = document.createElementNS('http://www.w3.org/2000/svg', 'defs')
+          rootSVG.insertBefore(rootDefs, rootSVG.firstChild)
+        }
+
+        const hasElementWithId = (id: string): boolean => {
+          const safeId = id.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+          return Boolean(rootSVG.querySelector(`[id="${safeId}"]`))
+        }
+
+        Array.from(loadedDefs.children).forEach(child => {
+          const childEl = child as Element
+          const childId = childEl?.getAttribute?.('id')
+
+          if (childId && hasElementWithId(childId)) {
+            return
+          }
+
+          // IMPORTANT: <style> elements with @font-face MUST be placed directly in <svg>,
+          // NOT inside <defs>. Browsers may not process CSS inside <defs> correctly.
+          if (childEl?.tagName?.toLowerCase?.() === 'style') {
+            const cssText = childEl.textContent || ''
+            
+            // Check if this is a font-face style that needs to be at root level
+            if (cssText.includes('@font-face')) {
+              // Check if Grand Hotel font is already at root
+              const existingGrandHotel = rootSVG.querySelector('style#grand-hotel-embedded-font')
+              if (cssText.includes('Grand Hotel') && existingGrandHotel) {
+                console.log('🔄 Grand Hotel font style already exists at root, skipping')
+                return
+              }
+              
+              // Inject font-face style directly into root SVG (NOT inside defs)
+              const importedStyle = document.importNode(childEl, true) as Element
+              if (!importedStyle.id && cssText.includes('Grand Hotel')) {
+                importedStyle.id = 'grand-hotel-embedded-font'
+              }
+              rootSVG.insertBefore(importedStyle, rootSVG.firstChild)
+              console.log('✅ Font @font-face style injected at root SVG level (not in defs)')
+              return
+            }
+          }
+
+          rootDefs!.appendChild(document.importNode(child, true))
+        })
       }
 
       // STEP 2: Find the main group element containing the names and decorative elements
       // In name02.svg, this is the outer <g> element
       const svgRoot = svgDoc.documentElement
-      // Try to find a group with transform first (legacy support)
-      let mainGroup = svgRoot.querySelector('g[transform]')
-      
-      // If not found, just take the first group (for updated name02.svg without transform)
+      let mainGroup = svgRoot.querySelector('g#Layer_x0020_1_0')
+      if (!mainGroup) {
+        // Legacy support: some assets wrap everything in a transformed group
+        mainGroup = svgRoot.querySelector('g[transform]')
+      }
       if (!mainGroup) {
         mainGroup = svgRoot.querySelector('g')
       }
@@ -1166,9 +1104,8 @@ export function useWeddingStickerUpdater() {
         targetElement.removeChild(targetElement.firstChild)
       }
 
-      // STEP 4: Clone and import all child nodes from the loaded SVG group
-      // This includes the text elements AND the decorative path
-      // IMPORTANT: document.importNode(child, true) preserves ALL attributes including x, y coordinates
+      // STEP 4: Inject EXACTLY as in the loaded SVG group (no wrappers, no transforms, no style forcing)
+      // IMPORTANT: document.importNode(child, true) preserves ALL attributes including x/y/font.
       const children = Array.from(mainGroup.childNodes)
       children.forEach(child => {
         const importedNode = document.importNode(child, true)
@@ -1178,6 +1115,53 @@ export function useWeddingStickerUpdater() {
       // STEP 5: Mark the group with a data attribute to indicate decorative SVG is loaded
       // This prevents the old text-based rendering from interfering
       targetElement.setAttribute('data-decorative-svg-loaded', 'true')
+
+      // STEP 5.5: CENTER the injected content for data-skip-positioning="true" SVGs
+      // The name1.svg has its own coordinate system and needs to be centered within the template
+      if (injectAsIs && rootSVG) {
+        // Get the viewBox of the source SVG to understand its coordinate system
+        const viewBoxAttr = svgRoot.getAttribute('viewBox')
+        if (viewBoxAttr) {
+          const [vbX, vbY, vbWidth, vbHeight] = viewBoxAttr.split(/\s+/).map(parseFloat)
+          console.log(`📐 Source SVG viewBox: ${vbX} ${vbY} ${vbWidth} ${vbHeight}`)
+          
+          // Get the template viewBox for positioning reference
+          const templateViewBox = rootSVG.getAttribute('viewBox')
+          if (templateViewBox) {
+            const [, , templateWidth] = templateViewBox.split(/\s+/).map(parseFloat)
+            
+            // The names should be centered around x=850 (same as blessing text, occasion, etc.)
+            // Calculate the current wedding-names-group transform
+            const currentTransform = targetElement.getAttribute('transform') || 'translate(400, 900) scale(2.5)'
+            
+            // Parse the current transform to extract scale and translate values
+            const scaleMatch = currentTransform.match(/scale\(([^)]+)\)/)
+            const translateMatch = currentTransform.match(/translate\(([^)]+)\)/)
+            
+            const scale = scaleMatch ? parseFloat(scaleMatch[1].split(/[\s,]+/)[0]) : 2.5
+            const translateParts = translateMatch ? translateMatch[1].split(/[\s,]+/).map(parseFloat) : [300, 600]
+            const translateY = translateParts[1] || 600
+            
+            // Calculate the new X translate to center the content
+            // The content width after scaling is vbWidth * scale
+            // To center at x=1150, we need: translateX = 1150 - (vbWidth * scale / 2)
+            // But we also need to account for the content's internal positioning
+            // The name1.svg content is already centered within its viewBox
+            const contentWidthAfterScale = vbWidth * scale
+            const targetCenterX = 1050  // Shift further left for better visual alignment
+            const newTranslateX = targetCenterX - (contentWidthAfterScale / 2)
+            
+            const newTransform = `translate(${newTranslateX}, ${translateY}) scale(${scale})`
+            targetElement.setAttribute('transform', newTransform)
+            
+            console.log(`📍 Centering decorative name SVG:`)
+            console.log(`   Original transform: ${currentTransform}`)
+            console.log(`   New transform: ${newTransform}`)
+            console.log(`   Content width (scaled): ${contentWidthAfterScale}`)
+            console.log(`   Target center X: ${targetCenterX}`)
+          }
+        }
+      }
 
       // STEP 6: Log coordinate preservation details
       const textElements = targetElement.querySelectorAll('text')
@@ -1192,7 +1176,7 @@ export function useWeddingStickerUpdater() {
       console.log('✅ Successfully injected name SVG into template')
       console.log('   Transform maintained:', targetElement.getAttribute('transform'))
       console.log('   Children injected:', children.length)
-      console.log('   Font definition preserved: Cinzel Decorative')
+      console.log('   Injected as-is:', injectAsIs)
       console.log('   Original coordinates preserved:')
       coordinates.forEach(coord => console.log('     ' + coord))
       console.log('   Old text elements removed and replaced with decorative SVG')
@@ -1207,6 +1191,15 @@ export function useWeddingStickerUpdater() {
   const updateStickerText = async (description: string, elements: WeddingStickerElements): Promise<WeddingStickerData> => {
     // Ensure description is always a string
     const safeDescription = typeof description === 'string' ? description : String(description || '')
+    
+    // Check if decorative title replacement exists - if so, we should NOT touch original title elements
+    // The decorative title system handles the blessing/occasion/eventType/ceremony display
+    const svgRoot = elements.weddingNamesGroup?.ownerSVGElement || elements.blessingText?.ownerSVGElement
+    const hasDecorativeTitle = !!svgRoot?.querySelector('#wedding-title-replacement')
+    
+    if (hasDecorativeTitle) {
+      console.log('🎨 Decorative title detected - skipping original title element updates')
+    }
     
     // Default data used ONLY when description is empty
     const defaultData: WeddingStickerData = {
@@ -1274,7 +1267,7 @@ export function useWeddingStickerUpdater() {
 
     // 1. Extract first word as blessing text
     // Use clean header to avoid picking up "(Name" as blessing
-    let firstWord = null
+    let firstWord: string | null = null
     if (hasCustomHeader) {
        firstWord = cleanHeader.split(/\s+/)[0]
        // Capitalize
@@ -1472,17 +1465,45 @@ export function useWeddingStickerUpdater() {
       if (name2) data.name2 = name2
     }
 
-    // 4. Extract date with enhanced pattern matching
+    // 4. Extract date with enhanced pattern matching and inject date SVG
     console.log('🔍 Attempting to extract date from description:', description)
     const extractedDate = extractDate(description)
     console.log('🔍 Extracted date result:', extractedDate)
     console.log('🔍 Date element found:', !!elements.dateText)
-    console.log('🔍 Date element details:', elements.dateText ? `id="${elements.dateText.id}" content="${elements.dateText.textContent}"` : 'null')
+    console.log('🔍 Date group found:', !!elements.weddingDateGroup)
     if (extractedDate) {
       // extractDate already includes "on" prefix
       data.date = extractedDate
-      if (elements.dateText) {
+      
+      // Try to inject the decorative date SVG
+      const svgRoot = elements.weddingNamesGroup?.ownerSVGElement || elements.dateText?.ownerSVGElement
+      if (svgRoot) {
+        const { injectDateSVG } = useDateLibrary()
+        try {
+          const injected = await injectDateSVG(svgRoot as unknown as SVGSVGElement, extractedDate)
+          if (injected) {
+            console.log(`📅 Date SVG injected: "${extractedDate}"`)
+          } else {
+            console.warn('⚠️ Date SVG injection returned false; falling back to plain text')
+            if (elements.dateText) {
+              elements.dateText.textContent = data.date
+              elements.dateText.removeAttribute('display')
+              console.log(`📅 Date text fallback: "${data.date}"`)
+            }
+          }
+        } catch (err) {
+          console.error('❌ Failed to inject date SVG:', err)
+          // Fallback to text update if SVG injection fails
+          if (elements.dateText) {
+            elements.dateText.textContent = data.date
+            elements.dateText.removeAttribute('display')
+            console.log(`📅 Date text fallback: "${data.date}"`)
+          }
+        }
+      } else if (elements.dateText) {
+        // Fallback to text update if no SVG root
         elements.dateText.textContent = data.date
+        elements.dateText.removeAttribute('display')
         console.log(`📅 Date updated: "${data.date}"`)
       } else if (elements.weddingNamesGroup || elements.name1Text) {
         // Only log error if SVG seems to be loaded but element is missing
@@ -1490,6 +1511,11 @@ export function useWeddingStickerUpdater() {
       }
     } else {
       console.log('⚠️ No date extracted from description')
+      // Ensure fallback date text stays hidden when no date is provided
+      if (elements.dateText) {
+        elements.dateText.textContent = ''
+        elements.dateText.setAttribute('display', 'none')
+      }
     }
 
     // 5. Extract courtesy/family name with enhanced pattern matching
@@ -1545,6 +1571,7 @@ export function useWeddingStickerUpdater() {
         name2Last: null,
         nameSeparator: null,
         weddingNamesGroup: null,
+        weddingDateGroup: null,
         dateText: null,
         courtesyText: null
       }
@@ -1563,6 +1590,7 @@ export function useWeddingStickerUpdater() {
       name2Last: svgElement.querySelector('#name2-last') as SVGTextElement,
       nameSeparator: svgElement.querySelector('#name-separator') as SVGTextElement,
       weddingNamesGroup: svgElement.querySelector('#wedding-names-group') as SVGGElement,
+      weddingDateGroup: svgElement.querySelector('#wedding-date-group') as SVGGElement,
       dateText: svgElement.querySelector('#date-text') as SVGTextElement,
       courtesyText: svgElement.querySelector('#courtesy-text') as SVGTextElement
     }

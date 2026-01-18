@@ -4,8 +4,31 @@
     <style type="text/css">
       @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&amp;family=Lato:wght@400;700&amp;display=swap');
       
+      /* Default font for most text elements */
       text {
         font-family: 'Lato', 'Arial', 'Helvetica', sans-serif;
+      }
+      
+      /* IMPORTANT: Preserve embedded Ubuntu fonts for decorative name elements */
+      text#name1-first {
+        font-family: 'Ubuntu', Arial, Helvetica, sans-serif !important;
+        font-weight: 700 !important;
+      }
+
+      text#name1-last,
+      text#name2-last {
+        font-family: 'Ubuntu', Arial, Helvetica, sans-serif !important;
+        font-weight: 400 !important;
+      }
+
+      text#name2-first {
+        font-family: 'Ubuntu', Arial, Helvetica, sans-serif !important;
+        font-weight: 700 !important;
+      }
+
+      text#name-separator {
+        font-family: 'Ubuntu', Arial, Helvetica, sans-serif !important;
+        font-weight: 700 !important;
       }
       
       .serif-font {
@@ -42,17 +65,24 @@
          preserveAspectRatio="xMidYMid slice"/>
 
   <!-- Editable text elements with IDs -->
-  <text id="blessing-text" class="serif-font" x="850.45" y="280" text-anchor="middle" font-size="160" fill="#000">Alhamdulillahi</text>
-  <text id="occasion-text" x="850.45" y="380" text-anchor="middle" font-size="55" font-weight="bold" fill="#000">ON YOUR</text>
-  <text id="event-type-text" class="serif-font" x="850.45" y="560" text-anchor="middle" font-size="150" font-weight="bold" fill="#DAA520">WEDDING</text>
-  <text id="ceremony-text" x="850.45" y="710" text-anchor="middle" font-size="100" font-weight="bold" fill="red">CEREMONY</text>
+  <text id="blessing-text" class="serif-font" x="850.45" y="60" text-anchor="middle" font-size="160" fill="#000">Alhamdulillahi</text>
+  <text id="occasion-text" x="850.45" y="160" text-anchor="middle" font-size="55" font-weight="bold" fill="#000">ON YOUR</text>
+  <text id="event-type-text" class="serif-font" x="850.45" y="340" text-anchor="middle" font-size="150" font-weight="bold" fill="#DAA520">WEDDING</text>
+  <text id="ceremony-text" x="850.45" y="490" text-anchor="middle" font-size="100" font-weight="bold" fill="red">CEREMONY</text>
   
   <!-- New Wedding Names - Clean version positioned on the left side, not overlapping image -->
-  <g id="wedding-names-group" transform="translate(400, 950) scale(2.0)">
-    <text id="name1-first" x="0" y="85" fill="#000000" font-size="84.15" font-weight="bold">Muhammad</text>
-    <text id="name2-first" x="60" y="160" fill="#000000" font-size="84.15" font-weight="bold">Hauwawu</text>
-    <text id="name-separator" x="-20" y="160.4" fill="#B8860B" font-size="84.15" font-weight="bold">&amp;</text>
+  <g id="wedding-names-group" transform="translate(650, 680) scale(2.2)">
+    <text id="name1-first" x="0" y="85" fill="#000000" font-size="72" font-weight="900">Muhammad</text>
+    <text id="name2-first" x="60" y="160" fill="#000000" font-size="72" font-weight="900">Hauwawu</text>
+    <text id="name-separator" x="-20" y="160.4" fill="#B8860B" font-size="84.15" font-weight="900">&amp;</text>
   </g>
-  <text id="date-text" x="750" y="1450" text-anchor="middle" font-size="100" font-weight="bold" fill="#000000">8th March, 2025</text>
+  
+  <!-- Date SVG injection group - positioned on the left side -->
+  <g id="wedding-date-group" transform="translate(1300, 1000) scale(17)">
+    <!-- Date SVG will be injected here -->
+  </g>
+  
+  <!-- Hidden plain text date (kept for fallback) -->
+  <text id="date-text" x="750" y="1450" text-anchor="middle" font-size="100" font-weight="bold" fill="#000000" display="none">8th March, 2025</text>
   <text id="courtesy-text" x="750" y="1580" text-anchor="middle" font-size="85" font-weight="bold" fill="#333333">Courtesy: Maijama'a Famiy</text>
 </svg>

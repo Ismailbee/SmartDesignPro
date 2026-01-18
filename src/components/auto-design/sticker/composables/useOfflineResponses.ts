@@ -35,7 +35,7 @@ function getNextQuestion(ctx: OfflineResponseContext): string {
     return 'What title/heading should I put at the top? (Example: “Wedding Ceremony”)'
   }
   if (!ctx.hasName) {
-    return 'Who are the two names on the sticker? (Example: “Aisha & Suleiman”)'
+    return 'Who are the two names on the sticker? Please put them in brackets like “(Aisha & Suleiman)”.'
   }
   if (!ctx.hasDate) {
     return 'What date should I put? (Example: “6th Jan 2026”)'
@@ -99,7 +99,9 @@ export function getTitleOnlyResponse(title: string, ctx: OfflineResponseContext)
  * e.g., "Suleiman & Aisha", "John and Mary"
  */
 export function isNamesOnly(msg: string): boolean {
-  const namesPattern = /^\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s*(&|and|with)\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s*$/i
+  // Enforce bracketed couple names to avoid ambiguity and support multi-word names.
+  // Example: (Mustapha Mohammed & Salamatu Abdulrahman)
+  const namesPattern = /^\s*[\[(]\s*([A-Za-z][A-Za-z'\-]+(?:\s+[A-Za-z][A-Za-z'\-]+)*)\s*(?:&|and|with)\s*([A-Za-z][A-Za-z'\-]+(?:\s+[A-Za-z][A-Za-z'\-]+)*)\s*[\])]\s*$/i
   const hasTitle = /(wedding|graduation|birthday|naming|ceremony|congratulation|alhamdulillah|nikkah)/i.test(msg)
   const hasDate = /\d{1,2}(st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)|\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/i.test(msg)
   const hasCourtesy = /(courtesy|from|by)\s*:/i.test(msg)
@@ -184,7 +186,12 @@ export function getGreetingResponse(msg: string, ctx: OfflineResponseContext) {
     return createMessage(`${greet} You can generate your sticker now.`)
   }
 
-  // Be more human: ask only the next question.
+  // If user just said hi/greeting, ask for all their information
+  if (!ctx.hasTitle && !ctx.hasName && !ctx.hasDate) {
+    return createMessage(`${greet} I'm here to help you create a beautiful wedding sticker. Please provide your wedding details — the couple names (in brackets like “(Aisha & Suleiman)”), the wedding date, and any special message or heading you'd like.`)
+  }
+
+  // Otherwise ask for the next missing piece
   const next = getNextQuestion(ctx)
   return createMessage(`${greet} ${next}`)
 }
@@ -370,7 +377,7 @@ export function isHelp(msg: string): boolean {
 
 export function getHelpResponse() {
   return createMessage(
-    `Here’s how to do it:\n\n1) Send the title/heading\n2) Send the two names (e.g., “Aisha & Suleiman”)\n3) Send the date\n4) Send a short courtesy line\n\n${getNextQuestion({
+    `Here’s how to do it:\n\n1) Send the title/heading\n2) Send the two names in brackets (e.g., “(Aisha & Suleiman)”)\n3) Send the date\n4) Send a short courtesy line\n\n${getNextQuestion({
       hasTitle: false,
       hasName: false,
       hasDate: false,

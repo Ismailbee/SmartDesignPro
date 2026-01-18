@@ -538,31 +538,31 @@ export function useDynamicSVG() {
   /**
    * Validate SVG is properly configured for export
    */
-  function validateForExport(svg: SVGSVGElement): { valid: boolean; issues: string[] } {
-    const issues: string[] = []
+  function validateForExport(svg: SVGSVGElement): { valid: boolean; warnings: string[] } {
+    const warnings: string[] = []
     
     if (!svg.getAttribute('viewBox')) {
-      issues.push('Missing viewBox attribute')
+      warnings.push('Missing viewBox attribute')
     }
     
     if (!svg.getAttribute('preserveAspectRatio')) {
-      issues.push('Missing preserveAspectRatio attribute')
+      warnings.push('Missing preserveAspectRatio attribute')
     }
     
     if (!svg.getAttribute('data-export-width-px') || !svg.getAttribute('data-export-height-px')) {
-      issues.push('Missing export dimension metadata (data-export-width-px, data-export-height-px)')
+      warnings.push('Missing export dimension metadata (data-export-width-px, data-export-height-px)')
     }
     
     const images = svg.querySelectorAll('image')
     images.forEach((img, i) => {
       if (!img.getAttribute('preserveAspectRatio')) {
-        issues.push(`Image #${i + 1} missing preserveAspectRatio`)
+        warnings.push(`Image #${i + 1} missing preserveAspectRatio`)
       }
     })
     
     return {
-      valid: issues.length === 0,
-      issues
+      valid: warnings.length === 0,
+      warnings
     }
   }
 

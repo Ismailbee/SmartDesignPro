@@ -35,6 +35,16 @@ export function useSVGExport() {
     const exportTexts = Array.from(exportSvg.querySelectorAll('text')) as SVGTextElement[]
     const originalTexts = Array.from(originalSvg.querySelectorAll('text')) as SVGTextElement[]
 
+    // Convert computed CSS pixel sizes into SVG user units so the export matches the editor.
+    // In the editor the SVG is typically scaled via viewBox; computed font-size is in CSS px.
+    // If we write those raw px numbers into SVG attributes (user units), export can shift.
+    const vb = originalSvg.getAttribute('viewBox')?.split(/\s+|,/).map(Number) || []
+    const rect = originalSvg.getBoundingClientRect?.() as DOMRect | undefined
+    const vbW = vb.length >= 4 ? vb[2] : NaN
+    const vbH = vb.length >= 4 ? vb[3] : NaN
+    const pxPerUserX = rect && Number.isFinite(vbW) && vbW > 0 ? rect.width / vbW : NaN
+    const pxPerUserY = rect && Number.isFinite(vbH) && vbH > 0 ? rect.height / vbH : NaN
+
     for (let i = 0; i < exportTexts.length; i++) {
       const exportText = exportTexts[i]
       const id = exportText.getAttribute('id') || ''
@@ -54,15 +64,40 @@ export function useSVGExport() {
 
       const fontSizePx = parseFloat(style.fontSize || '')
       if (Number.isFinite(fontSizePx)) {
-        exportText.setAttribute('font-size', String(fontSizePx))
+        // Use Y scale for font-size conversion (vertical measure).
+        if (Number.isFinite(pxPerUserY) && pxPerUserY > 0) {
+          exportText.setAttribute('font-size', String(fontSizePx / pxPerUserY))
+        } else {
+          exportText.setAttribute('font-size', String(fontSizePx))
+        }
       }
 
-      if (style.fontFamily) exportText.setAttribute('font-family', style.fontFamily)
-      if (style.fontWeight) exportText.setAttribute('font-weight', style.fontWeight)
+      // IMPORTANT: Preserve explicit font-family attributes from the SVG (e.g., "Grand Hotel" in name library SVGs).
+      // Only apply computed font-family if the element doesn't already have an explicit font-family attribute.
+      // This prevents CSS fallback fonts from overwriting intentionally set SVG font families.
+      const existingFontFamily = exportText.getAttribute('font-family')
+      if (!existingFontFamily && style.fontFamily) {
+        exportText.setAttribute('font-family', style.fontFamily)
+      } else if (existingFontFamily) {
+        console.log(`📝 Preserving explicit font-family="${existingFontFamily}" for #${id || 'unnamed'} (not overwriting with computed CSS)`)
+      }
+      
+      // Similarly, preserve explicit font-weight if already set on the element
+      const existingFontWeight = exportText.getAttribute('font-weight')
+      if (!existingFontWeight && style.fontWeight) {
+        exportText.setAttribute('font-weight', style.fontWeight)
+      }
 
       // Preserve letter-spacing if explicitly set.
       if (style.letterSpacing && style.letterSpacing !== 'normal') {
-        exportText.setAttribute('letter-spacing', style.letterSpacing)
+        // If letter-spacing is in px, convert to user units like font-size.
+        const ls = String(style.letterSpacing).trim()
+        const pxMatch = ls.match(/^(-?[\d.]+)px$/i)
+        if (pxMatch && Number.isFinite(pxPerUserX) && pxPerUserX > 0) {
+          exportText.setAttribute('letter-spacing', String(Number(pxMatch[1]) / pxPerUserX))
+        } else {
+          exportText.setAttribute('letter-spacing', ls)
+        }
       }
 
       // Freeze computed fill if available.
@@ -212,56 +247,25 @@ export function useSVGExport() {
     const firstTextElement = clonedSVG.querySelector('text')
     const insertionPoint = firstTextElement || clonedSVG
 
-    // Get the viewBox to understand the SVG dimensions
-    const viewBox = clonedSVG.getAttribute('viewBox')?.split(/\s+|,/).map(Number) || [0, 0, 2996.9, 1685.75]
-    const svgHeight = viewBox[3]
-    
-    // Get the clip path rect to understand the image area
-    const clipRect = clonedSVG.querySelector('clipPath#imageClip rect, defs clipPath#imageClip rect')
-    let clipX = 1400, clipY = 0, clipWidth = 1580, clipHeight = svgHeight
-    if (clipRect) {
-      clipX = parseFloat(clipRect.getAttribute('x') || '1400')
-      clipY = parseFloat(clipRect.getAttribute('y') || '0')
-      clipWidth = parseFloat(clipRect.getAttribute('width') || '1580')
-      clipHeight = parseFloat(clipRect.getAttribute('height') || String(svgHeight))
-    }
-
     // Add each image as an <image> element
     sortedImages.forEach(img => {
       // Check if there's a placeholder/userImage element to update first
       const userImageElement = clonedSVG.querySelector('#userImage') || clonedSVG.querySelector('#placeholder-image')
       
       if (userImageElement) {
-        // For user images, position them to fill the clip area completely
-        // Use the clip rect dimensions to ensure full coverage
-        userImageElement.setAttribute('x', String(clipX))
-        userImageElement.setAttribute('y', String(clipY))
-        userImageElement.setAttribute('width', String(clipWidth))
-        userImageElement.setAttribute('height', String(clipHeight))
+        // IMPORTANT: Do NOT override geometry here.
+        // The live editor already computed/updated the correct x/y/width/height/transform/clip-path.
+        // Overwriting those during export causes the downloaded PNG/SVG to shift the image.
         userImageElement.setAttribute('opacity', (img.opacity / 100).toString())
         userImageElement.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', img.dataUrl)
         userImageElement.setAttribute('href', img.dataUrl)
+
+        // Preserve visibility
+        userImageElement.removeAttribute('display')
+        userImageElement.setAttribute('visibility', 'visible')
+        userImageElement.setAttribute('data-image-id', img.id)
         
-        // Apply rotation if needed
-        if (img.rotation !== 0) {
-          const centerX = clipX + clipWidth / 2
-          const centerY = clipY + clipHeight / 2
-          userImageElement.setAttribute('transform', `rotate(${img.rotation} ${centerX} ${centerY})`)
-        } else {
-          userImageElement.removeAttribute('transform')
-        }
-        
-        // Ensure clip-path and preserveAspectRatio are set correctly
-        if (userImageElement.id === 'userImage') {
-             if (!userImageElement.hasAttribute('clip-path')) {
-                userImageElement.setAttribute('clip-path', 'url(#imageClip)')
-             }
-             // Use xMidYMid slice to fill the clip area while maintaining aspect ratio
-             // The image will be cropped but not stretched
-             userImageElement.setAttribute('preserveAspectRatio', 'xMidYMid slice')
-        }
-        
-        console.log(`📸 User image positioned to fill clip area: x=${clipX}, y=${clipY}, w=${clipWidth}, h=${clipHeight}`)
+        console.log('📸 User image embedded for export (geometry preserved)')
         
         return // Skip creating new element
       }
@@ -276,6 +280,10 @@ export function useSVGExport() {
       imageElement.setAttribute('height', img.height.toString())
       imageElement.setAttribute('opacity', (img.opacity / 100).toString())
       imageElement.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', img.dataUrl)
+      imageElement.setAttribute('href', img.dataUrl)
+
+      // Match editor behavior: keep aspect ratio unless explicitly disabled
+      imageElement.setAttribute('preserveAspectRatio', img.maintainAspectRatio ? 'xMidYMin slice' : 'none')
 
       // Apply rotation if needed
       if (img.rotation !== 0) {
@@ -303,14 +311,28 @@ export function useSVGExport() {
     latin: 'https://fonts.gstatic.com/s/cinzeldecorative/v19/daaHSScvJGqLYhG8nNt8KPPswUAPniZoadlESTE.woff2',
     latinExt: 'https://fonts.gstatic.com/s/cinzeldecorative/v19/daaHSScvJGqLYhG8nNt8KPPswUAPniZoadlKSTG7lQ.woff2'
   }
+
+  /**
+   * Local font URLs (served from /public) for wedding names.
+   * These must be available offline (no runtime Google Fonts dependency).
+   */
+  const UBUNTU_FONT_URLS = {
+    regular: '/fonts/ubuntu-400.woff2',
+    bold: '/fonts/ubuntu-700.woff2'
+  }
   
   // Unique font family name to avoid conflicts with any existing registrations
   const CINZEL_CANVAS_FONT = 'CinzelDecorativeCanvas'
+  const UBUNTU_CANVAS_FONT = 'Ubuntu'
 
   // Cache for the fetched font
   let cachedCinzelFontBase64: string | null = null
   let cinzelFontLoaded = false
   let cinzelFontFace: FontFace | null = null
+
+  // Cache for Ubuntu fonts
+  let ubuntuFontsLoaded = false
+  let ubuntuFontFaces: FontFace[] = []
 
   /**
    * Load Cinzel Decorative font into the document for canvas rendering
@@ -390,6 +412,76 @@ export function useSVGExport() {
       return true
     } catch (error) {
       console.error('❌ Error loading Cinzel font:', error)
+      return false
+    }
+  }
+
+  /**
+   * Load Ubuntu fonts (400 + 700) into the document for canvas rendering.
+   * Used for wedding names in the decorative name library SVGs.
+   */
+  async function loadUbuntuFontsForCanvas(): Promise<boolean> {
+    if (ubuntuFontsLoaded && ubuntuFontFaces.length > 0) {
+      await document.fonts.ready
+      const regularOk = document.fonts.check(`400 48px "${UBUNTU_CANVAS_FONT}"`)
+      const boldOk = document.fonts.check(`700 48px "${UBUNTU_CANVAS_FONT}"`)
+      if (regularOk && boldOk) return true
+      ubuntuFontsLoaded = false
+    }
+
+    try {
+      console.log('📥 Loading Ubuntu fonts for canvas...')
+      console.log('   Target font family name:', UBUNTU_CANVAS_FONT)
+
+      const [regularResp, boldResp] = await Promise.all([
+        fetch(UBUNTU_FONT_URLS.regular, { cache: 'force-cache' }),
+        fetch(UBUNTU_FONT_URLS.bold, { cache: 'force-cache' })
+      ])
+
+      if (!regularResp.ok) {
+        console.warn(`Failed to fetch Ubuntu 400: ${regularResp.status} ${regularResp.statusText}`)
+        return false
+      }
+      if (!boldResp.ok) {
+        console.warn(`Failed to fetch Ubuntu 700: ${boldResp.status} ${boldResp.statusText}`)
+        return false
+      }
+
+      const [regularData, boldData] = await Promise.all([regularResp.arrayBuffer(), boldResp.arrayBuffer()])
+
+      const regularFace = new FontFace(UBUNTU_CANVAS_FONT, regularData, {
+        weight: '400',
+        style: 'normal',
+        display: 'swap'
+      })
+      const boldFace = new FontFace(UBUNTU_CANVAS_FONT, boldData, {
+        weight: '700',
+        style: 'normal',
+        display: 'swap'
+      })
+
+      await Promise.all([regularFace.load(), boldFace.load()])
+      document.fonts.add(regularFace)
+      document.fonts.add(boldFace)
+      ubuntuFontFaces = [regularFace, boldFace]
+
+      await document.fonts.ready
+      await new Promise(resolve => setTimeout(resolve, 50))
+
+      const regularOk = document.fonts.check(`400 48px "${UBUNTU_CANVAS_FONT}"`)
+      const boldOk = document.fonts.check(`700 48px "${UBUNTU_CANVAS_FONT}"`)
+      ubuntuFontsLoaded = regularOk && boldOk
+
+      if (ubuntuFontsLoaded) {
+        console.log(`✅ ${UBUNTU_CANVAS_FONT} (400/700) loaded into document.fonts`)
+      } else {
+        console.warn('⚠️ Ubuntu fonts were added but availability check failed')
+        ubuntuFontsLoaded = true
+      }
+
+      return true
+    } catch (error) {
+      console.error('❌ Error loading Ubuntu fonts:', error)
       return false
     }
   }
@@ -505,9 +597,13 @@ export function useSVGExport() {
       return
     }
 
-    console.log(`🎨 Rendering ${nameTexts.length} name texts with ${CINZEL_CANVAS_FONT} font...`)
+    console.log(`🎨 Rendering ${nameTexts.length} name texts with original fonts...`)
 
-    // Wait for font to be fully ready
+    // Load Ubuntu (wedding names) and Cinzel (decorative titles) fonts for canvas
+    await loadUbuntuFontsForCanvas()
+    await loadCinzelFontForCanvas()
+
+    // Wait for fonts to be fully ready
     if (document.fonts) {
       await document.fonts.ready
     }
@@ -524,16 +620,30 @@ export function useSVGExport() {
       const textAnchor = textEl.getAttribute('text-anchor') || 'start'
       const dominantBaseline = textEl.getAttribute('dominant-baseline') || ''
 
-      console.log(`   Processing "${text}": original pos (${x}, ${y}), fontSize=${fontSize}`)
+      // Get original font properties from the SVG element
+      const originalFontFamily = textEl.getAttribute('font-family') || 'Georgia'
+      const originalFontWeight = textEl.getAttribute('font-weight') || '400'
+      
+      console.log(`   Processing "${text}": original pos (${x}, ${y}), fontSize=${fontSize}, font=${originalFontFamily}, weight=${originalFontWeight}`)
 
       // Scale to canvas coordinates
       const scaledX = x * scaleX
       const scaledY = y * scaleY
       const scaledFontSize = fontSize * Math.min(scaleX, scaleY)
 
-      // Set font - use our loaded Cinzel font with unique name
-      // The font string format: [font-style] [font-weight] font-size font-family
-      const fontString = `700 ${scaledFontSize}px "${CINZEL_CANVAS_FONT}", "Cinzel Decorative", Georgia, serif`
+      // Map original font-family to our canvas-loaded font
+      let canvasFontFamily: string
+      if (originalFontFamily.toLowerCase().includes('ubuntu')) {
+        canvasFontFamily = `"${UBUNTU_CANVAS_FONT}", Arial, Helvetica, sans-serif`
+      } else if (originalFontFamily.toLowerCase().includes('cinzel')) {
+        canvasFontFamily = `"${CINZEL_CANVAS_FONT}", "Cinzel Decorative", Georgia, serif`
+      } else {
+        canvasFontFamily = `${originalFontFamily}, Georgia, serif`
+      }
+
+      // Set font - use the mapped canvas font with original weight
+      // The font string format: [font-weight] font-size font-family
+      const fontString = `${originalFontWeight} ${scaledFontSize}px ${canvasFontFamily}`
       ctx.font = fontString
       ctx.fillStyle = fill
 
@@ -559,6 +669,8 @@ export function useSVGExport() {
    */
   async function preloadFonts(): Promise<void> {
     const fontsToLoad = [
+      { family: 'Ubuntu', weight: '400' },
+      { family: 'Ubuntu', weight: '700' },
       { family: 'Cinzel Decorative', weight: '700' },
       { family: 'Playfair Display', weight: '700' },
       { family: 'Lato', weight: '400' }
@@ -654,31 +766,65 @@ export function useSVGExport() {
 
     console.log(`🔄 Flattening transform: translate(${tx}, ${ty}) scale(${scale})`)
 
+    // Helper function to parse matrix transform: matrix(a, b, c, d, e, f)
+    // where e is translateX and f is translateY
+    const parseMatrixTransform = (matrixStr: string): { a: number; b: number; c: number; d: number; e: number; f: number } | null => {
+      const matrixMatch = matrixStr.match(/matrix\(\s*([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s*\)/)
+      if (matrixMatch) {
+        return {
+          a: parseFloat(matrixMatch[1]),
+          b: parseFloat(matrixMatch[2]),
+          c: parseFloat(matrixMatch[3]),
+          d: parseFloat(matrixMatch[4]),
+          e: parseFloat(matrixMatch[5]),
+          f: parseFloat(matrixMatch[6])
+        }
+      }
+      return null
+    }
+
     // Apply transform to all text elements inside the group
+    // Handle both direct text elements and text elements inside nested groups (like name1.svg)
     const textElements = namesGroup.querySelectorAll('text')
     textElements.forEach(text => {
-      const x = parseFloat(text.getAttribute('x') || '0')
-      const y = parseFloat(text.getAttribute('y') || '0')
+      let x = parseFloat(text.getAttribute('x') || '0')
+      let y = parseFloat(text.getAttribute('y') || '0')
       const fontSize = parseFloat(text.getAttribute('font-size') || '84.15')
 
-      // Apply scale and translate: newX = x * scale + tx, newY = y * scale + ty
-      const newX = x * scale + tx
-      const newY = y * scale + ty
+      // Check if the text element is inside a nested group with a matrix transform
+      const parentGroup = text.parentElement
+      if (parentGroup && parentGroup.tagName.toLowerCase() === 'g' && parentGroup !== namesGroup) {
+        const parentTransform = parentGroup.getAttribute('transform')
+        if (parentTransform) {
+          const matrix = parseMatrixTransform(parentTransform)
+          if (matrix) {
+            // Apply matrix transform: x' = a*x + c*y + e, y' = b*x + d*y + f
+            const newX = matrix.a * x + matrix.c * y + matrix.e
+            const newY = matrix.b * x + matrix.d * y + matrix.f
+            x = newX
+            y = newY
+            console.log(`   Applying parent matrix transform: (${text.getAttribute('x')}, ${text.getAttribute('y')}) → (${x}, ${y})`)
+          }
+        }
+      }
+
+      // Apply the wedding-names-group scale and translate: newX = x * scale + tx, newY = y * scale + ty
+      const finalX = x * scale + tx
+      const finalY = y * scale + ty
       const newFontSize = fontSize * scale
 
-      text.setAttribute('x', String(newX))
-      text.setAttribute('y', String(newY))
+      text.setAttribute('x', String(finalX))
+      text.setAttribute('y', String(finalY))
       text.setAttribute('font-size', String(newFontSize))
       
       // Mark as a name text element for later identification
       text.setAttribute('data-is-name-text', 'true')
       
-      // Use Cinzel Decorative font (will be embedded as Base64)
-      // The font is fetched from Google Fonts and embedded in ensureFontsEmbedded
-      text.setAttribute('font-family', "'Cinzel Decorative', Georgia, serif")
-      text.setAttribute('font-weight', '700')
-
-      console.log(`   Text "${text.textContent?.substring(0, 10)}": (${x}, ${y}) → (${newX}, ${newY}), font: ${fontSize} → ${newFontSize}`)
+      // PRESERVE original font-family from the SVG (e.g., Grand Hotel for first names, Raleway for last names)
+      // Do NOT override the font - the embedded @font-face in name1.svg ensures the font is available
+      const originalFont = text.getAttribute('font-family') || 'Georgia, serif'
+      const originalWeight = text.getAttribute('font-weight') || '400'
+      console.log(`   Text "${text.textContent?.substring(0, 10)}": final pos (${finalX}, ${finalY}), font: ${fontSize} → ${newFontSize}, family: ${originalFont}, weight: ${originalWeight}`)
     })
 
     // Move the text elements out of the group to the root level (before the group)
@@ -926,6 +1072,23 @@ export function useSVGExport() {
    */
   async function handleTitleReplacementForExport(svgElement: SVGSVGElement, originalSvgElement?: SVGSVGElement): Promise<void> {
     // Check if there's a wedding-title-replacement (could be IMAGE or G element)
+    // Defensive: if multiple pipelines injected it, keep one and remove duplicates.
+    const allReplacements = Array.from(svgElement.querySelectorAll('#wedding-title-replacement'))
+    if (allReplacements.length > 1) {
+      const preferred =
+        (allReplacements.find(el => el.tagName.toLowerCase() === 'g' && (el as SVGGElement).querySelector('text')) as Element | undefined) ||
+        (allReplacements.find(el => el.tagName.toLowerCase() === 'image') as Element | undefined) ||
+        allReplacements[0]
+
+      allReplacements.forEach(el => {
+        if (el !== preferred) el.remove()
+      })
+      console.warn('handleTitleReplacementForExport: removed duplicate #wedding-title-replacement nodes:', {
+        before: allReplacements.length,
+        keptTag: preferred?.tagName
+      })
+    }
+
     const titleReplacement = svgElement.querySelector('#wedding-title-replacement')
     
     if (titleReplacement) {
@@ -953,8 +1116,6 @@ export function useSVGExport() {
         console.log(`📍 Title image at (${x}, ${y}) size: ${width}x${height}`)
       } else if (tagName === 'g') {
         // Handle GROUP element - the title SVG is injected as a group with embedded SVG fonts
-        // The fonts are defined as <font> elements with vector glyphs - these should render correctly
-        // as long as the font definitions are included in the SVG defs
         console.log('✅ Title is a group element with SVG content and embedded fonts')
         const textCount = titleReplacement.querySelectorAll('text').length
         console.log(`   Contains ${textCount} text elements`)
@@ -966,57 +1127,73 @@ export function useSVGExport() {
         // Log transform for debugging
         const transform = titleReplacement.getAttribute('transform')
         console.log(`📍 Title group transform: ${transform}`)
-        
-        // Ensure the embedded font definitions are in the main SVG's defs
-        // The title SVG's fonts (Agraham, Campton Book) are defined as <font> elements
-        const defs = svgElement.querySelector('defs')
-        if (defs) {
-          const fontDefs = defs.querySelectorAll('font')
-          console.log(`   Found ${fontDefs.length} embedded font definitions in defs`)
-        }
       }
       
-      // Remove original text elements that should have been replaced by the title
-      // IMPORTANT: Only remove elements that are NOT inside the title replacement group
+      // CRITICAL: When a decorative title replacement exists, ALWAYS remove the original
+      // title elements regardless of their display state. Canvas ignores display:none.
       const originalTitleElementIds = ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text']
       
       originalTitleElementIds.forEach(id => {
+        // Remove ALL elements with this ID that are NOT inside the replacement
         const elements = svgElement.querySelectorAll(`#${id}`)
         elements.forEach(element => {
-          // Skip if this element is inside the title replacement group
           if (element.closest('#wedding-title-replacement')) {
             console.log(`  ✓ Keeping element inside title group: #${id}`)
             return
           }
-          console.log(`  🗑️ Removing original element: #${id}`)
+          console.log(`  🗑️ Removing original title element: #${id}`)
           element.remove()
         })
       })
       
-      // Also remove any text elements with title-related IDs or content
-      // BUT exclude text elements that are inside the wedding-title-replacement group
-      const allTextElements = svgElement.querySelectorAll('text')
-      allTextElements.forEach(text => {
-        // CRITICAL: Skip text elements that are inside the title replacement group
-        if (text.closest('#wedding-title-replacement')) {
-          return // Don't remove title group text!
+      // Remove any elements marked as hidden by the editor
+      const hiddenTitleElements = svgElement.querySelectorAll('[data-title-hidden="true"]')
+      hiddenTitleElements.forEach(el => {
+        if (!el.closest('#wedding-title-replacement')) {
+          console.log(`  🗑️ Removing hidden title element: #${el.getAttribute('id') || 'no-id'}`)
+          el.remove()
         }
+      })
+      
+      // Aggressively remove ALL text/tspan outside the title replacement that could be title-related
+      const allTextElements = svgElement.querySelectorAll('text, tspan')
+      allTextElements.forEach(text => {
+        // CRITICAL: Skip elements inside the title replacement group or wedding-names-group
+        if (text.closest('#wedding-title-replacement')) return
+        if (text.closest('#wedding-names-group')) return
         
         const id = text.getAttribute('id') || ''
-        const content = text.textContent?.toLowerCase() || ''
+        const cls = text.getAttribute('class') || ''
+        const content = text.textContent?.toLowerCase().trim() || ''
         
-        // Remove text elements with title-related IDs or patterns
+        // Skip non-title elements (date, courtesy, names)
+        if (id === 'date-text' || id === 'courtesy-text') return
+        if (id.includes('name') && !id.includes('ceremony')) return
+        
+        // Remove by ID pattern
         if (id.includes('blessing') || id.includes('occasion') || 
             id.includes('event') || id.includes('ceremony')) {
-          console.log(`  🗑️ Removing title-related text by ID: ${id}`)
+          console.log(`  🗑️ Removing title text by ID: ${id}`)
           text.remove()
           return
         }
         
-        // Also remove by content - these are the default template texts
-        const titleKeywords = ['alhamdulillahi', 'on your', 'wedding', 'ceremony', 'nikkah', 'fatiha']
+        // Remove by template title classes (fil0, fil1, fil2, fil3)
+        if (/\bfil[0-3]\b/.test(cls)) {
+          console.log(`  🗑️ Removing title text by class: "${cls}"`)
+          text.remove()
+          return
+        }
+        
+        // Remove by content - title keywords (more comprehensive list)
+        const titleKeywords = [
+          'alhamdulillahi', 'alhamdulillah', 'bismillah',
+          'on your', 'wedding', 'ceremony', 'nikkah', 'fatiha', 
+          'congratulation', 'congratulations', 'congrats',
+          'walimat', 'walimah', 'quran', 'naming'
+        ]
         if (titleKeywords.some(keyword => content.includes(keyword))) {
-          console.log(`  🗑️ Removing title-related text by content: "${content.substring(0, 30)}"`)
+          console.log(`  🗑️ Removing title text by content: "${content.substring(0, 30)}"`)
           text.remove()
         }
       })
@@ -1036,7 +1213,8 @@ export function useSVGExport() {
     if (forCanvas) {
       console.log('🎨 Preparing SVG for canvas export (hiding name texts for overlay)...')
       
-      // Load the Cinzel font for canvas use
+      // Load Ubuntu (wedding names) and Cinzel (decorative titles) fonts for canvas use
+      await loadUbuntuFontsForCanvas()
       await loadCinzelFontForCanvas()
 
       // Remove existing @import styles (they don't work in canvas)
@@ -1123,6 +1301,28 @@ export function useSVGExport() {
       
       text {
         font-family: 'Lato', 'Arial', 'Helvetica', sans-serif;
+      }
+      
+      /* IMPORTANT: Preserve embedded Ubuntu fonts for decorative name elements */
+      text#name1-first {
+        font-family: 'Ubuntu', Arial, Helvetica, sans-serif !important;
+        font-weight: 700 !important;
+      }
+
+      text#name1-last,
+      text#name2-last {
+        font-family: 'Ubuntu', Arial, Helvetica, sans-serif !important;
+        font-weight: 400 !important;
+      }
+
+      text#name2-first {
+        font-family: 'Ubuntu', Arial, Helvetica, sans-serif !important;
+        font-weight: 700 !important;
+      }
+
+      text#name-separator {
+        font-family: 'Ubuntu', Arial, Helvetica, sans-serif !important;
+        font-weight: 700 !important;
       }
       
       .serif-font {
@@ -1458,6 +1658,19 @@ export function useSVGExport() {
       // Pass original svgElement so we can copy styles if they're missing in the clone
       await handleTitleReplacementForExport(exportSVG, svgElement)
 
+      // FINAL SAFETY CHECK: Remove any remaining original title elements
+      const hasTitleReplacement = !!exportSVG.querySelector('#wedding-title-replacement')
+      if (hasTitleReplacement) {
+        const originalTitleIds = ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text']
+        originalTitleIds.forEach(id => {
+          const el = exportSVG.querySelector(`#${id}`)
+          if (el) {
+            console.warn(`🧹 SVG Export: Removing stray original title element #${id}`)
+            el.remove()
+          }
+        })
+      }
+
       // Ensure fonts are embedded
       await ensureFontsEmbedded(exportSVG)
 
@@ -1570,10 +1783,11 @@ export function useSVGExport() {
       // Fix image aspect ratio - ensure user images maintain their proportions
       const userImage = exportSVG.querySelector('#userImage') as SVGImageElement
       if (userImage) {
-        // Use xMidYMid meet to maintain aspect ratio without stretching
-        // 'meet' ensures the entire image is visible, 'slice' would crop
-        userImage.setAttribute('preserveAspectRatio', 'xMidYMid slice')
-        console.log('📸 User image aspect ratio set to xMidYMid slice')
+        // Match the live editor (useSVGImageUpdater) to avoid apparent vertical shifting.
+        // Only set it if missing, otherwise preserve the template/editor value.
+        if (!userImage.getAttribute('preserveAspectRatio')) {
+          userImage.setAttribute('preserveAspectRatio', 'xMidYMin slice')
+        }
 
       }
       
@@ -1611,15 +1825,28 @@ export function useSVGExport() {
         child => child.tagName.toLowerCase() === 'text'
       ) as SVGTextElement[]
       
+      // Check if we have a decorative title replacement - if so, original title elements should be removed
+      const hasTitleReplacement = !!exportSVG.querySelector('#wedding-title-replacement')
+      
       rootTextElements.forEach(textEl => {
         const x = parseFloat(textEl.getAttribute('x') || '0')
         const y = parseFloat(textEl.getAttribute('y') || '0')
         const id = textEl.getAttribute('id') || ''
         
-        // Skip legitimate text elements (those with proper IDs)
-        if (id && (id.includes('text') || id.includes('name') || id.includes('separator') || 
-                   id.includes('blessing') || id.includes('occasion') || id.includes('event') ||
-                   id.includes('ceremony') || id.includes('date') || id.includes('courtesy'))) {
+        // CRITICAL: If decorative title replacement exists, REMOVE original title elements
+        // These are the base template elements that should be hidden but canvas ignores display:none
+        if (hasTitleReplacement) {
+          const originalTitleIds = ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text']
+          if (originalTitleIds.includes(id)) {
+            console.log(`🧹 FINAL CLEANUP: Removing original title element #${id} (decorative title exists)`)
+            textEl.remove()
+            return
+          }
+        }
+        
+        // Skip other legitimate text elements (date, courtesy, names)
+        if (id && (id === 'date-text' || id === 'courtesy-text' || 
+                   id.includes('name') || id.includes('separator'))) {
           return
         }
         
@@ -1706,13 +1933,19 @@ export function useSVGExport() {
       })
       
       // CRITICAL: Check if original title text elements are still present (they shouldn't be!)
+      // If they are, REMOVE them as a final safety measure
       const originalTitleIds = ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text']
-      originalTitleIds.forEach(id => {
-        const el = exportSVG.querySelector(`#${id}`)
-        if (el) {
-          console.error(`❌ ORIGINAL TEXT STILL PRESENT: #${id} with content: "${el.textContent}"`)
-        }
-      })
+      const hasTitleReplacementFinal = !!exportSVG.querySelector('#wedding-title-replacement')
+      
+      if (hasTitleReplacementFinal) {
+        originalTitleIds.forEach(id => {
+          const el = exportSVG.querySelector(`#${id}`)
+          if (el) {
+            console.error(`❌ ORIGINAL TEXT STILL PRESENT - REMOVING NOW: #${id} with content: "${el.textContent}"`)
+            el.remove()
+          }
+        })
+      }
       
       // For very large SVGs (>5MB), use alternative rendering approach
       // This avoids the Image element limitation with large data URLs
@@ -1918,36 +2151,63 @@ export function useSVGExport() {
     // Load the Cinzel font first for name texts
     await loadCinzelFontForCanvas()
     
-    // First draw direct text elements (not in groups)
-    const directTextElements = Array.from(svgElement.querySelectorAll(':scope > text'))
-    for (const textEl of directTextElements) {
-      drawTextElement(ctx, textEl as SVGTextElement, 0, 0, 1, scaleX, scaleY)
-    }
-    
-    // Then draw text elements inside groups (handling transforms)
-    const groups = svgElement.querySelectorAll('g')
-    for (const group of groups) {
-      const transform = group.getAttribute('transform') || ''
-      let translateX = 0, translateY = 0, groupScale = 1
-      
-      // Parse translate
+    const parseGroupTransform = (transform: string): { translateX: number; translateY: number; scale: number } => {
+      let translateX = 0
+      let translateY = 0
+      let scale = 1
+
       const translateMatch = transform.match(/translate\s*\(\s*([-\d.]+)\s*,?\s*([-\d.]+)?\s*\)/)
       if (translateMatch) {
         translateX = parseFloat(translateMatch[1]) || 0
         translateY = parseFloat(translateMatch[2]) || 0
       }
-      
-      // Parse scale
+
       const scaleMatch = transform.match(/scale\s*\(\s*([-\d.]+)\s*(?:,?\s*([-\d.]+))?\s*\)/)
       if (scaleMatch) {
-        groupScale = parseFloat(scaleMatch[1]) || 1
+        scale = parseFloat(scaleMatch[1]) || 1
       }
-      
-      // Draw text elements inside this group
-      const textElements = group.querySelectorAll('text')
-      for (const textEl of textElements) {
-        drawTextElement(ctx, textEl as SVGTextElement, translateX, translateY, groupScale, scaleX, scaleY)
+
+      return { translateX, translateY, scale }
+    }
+
+    const drawGroupRecursive = (
+      group: SVGGElement,
+      parentTranslateX: number,
+      parentTranslateY: number,
+      parentScale: number
+    ) => {
+      const transform = group.getAttribute('transform') || ''
+      const { translateX, translateY, scale } = parseGroupTransform(transform)
+
+      // IMPORTANT:
+      // Our drawTextElement() assumes the child's local coords are scaled then translated.
+      // When composing transforms for nested groups, the child's translate must be scaled
+      // by the parent's scale.
+      const combinedScale = parentScale * scale
+      const combinedTranslateX = parentTranslateX + translateX * parentScale
+      const combinedTranslateY = parentTranslateY + translateY * parentScale
+
+      const directTexts = Array.from(group.querySelectorAll(':scope > text')) as SVGTextElement[]
+      for (const textEl of directTexts) {
+        drawTextElement(ctx, textEl, combinedTranslateX, combinedTranslateY, combinedScale, scaleX, scaleY)
       }
+
+      const childGroups = Array.from(group.querySelectorAll(':scope > g')) as SVGGElement[]
+      for (const child of childGroups) {
+        drawGroupRecursive(child, combinedTranslateX, combinedTranslateY, combinedScale)
+      }
+    }
+
+    // Draw direct text elements (not in groups)
+    const directTextElements = Array.from(svgElement.querySelectorAll(':scope > text')) as SVGTextElement[]
+    for (const textEl of directTextElements) {
+      drawTextElement(ctx, textEl, 0, 0, 1, scaleX, scaleY)
+    }
+
+    // Draw grouped text elements once (avoid drawing descendant texts multiple times)
+    const topGroups = Array.from(svgElement.querySelectorAll(':scope > g')) as SVGGElement[]
+    for (const group of topGroups) {
+      drawGroupRecursive(group, 0, 0, 1)
     }
   }
   

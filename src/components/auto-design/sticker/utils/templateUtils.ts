@@ -77,11 +77,9 @@ export async function ensureDecorativeWeddingTitleUtil(svgElement: SVGSVGElement
   // This keeps headings editable (we can update its internal <text> nodes).
   const titleElementIds = ['blessing-text', 'occasion-text', 'event-type-text', 'ceremony-text']
 
-  // Hide base title nodes to avoid duplicates behind the decorative title.
-  titleElementIds.forEach(id => {
-    const el = svgElement.querySelector(`#${id}`) as SVGElement | null
-    if (el) el.setAttribute('display', 'none')
-  })
+  // IMPORTANT:
+  // Don't hide base title nodes until we successfully inject the decorative SVG.
+  // If fetch/parse fails, hiding first would make the title disappear entirely.
 
   // Remove any existing replacement(s) and re-inject fresh.
   const existingReplacements = Array.from(svgElement.querySelectorAll('#wedding-title-replacement'))
@@ -102,14 +100,20 @@ export async function ensureDecorativeWeddingTitleUtil(svgElement: SVGSVGElement
     const titleSvg = titleDoc.querySelector('svg')
     if (!titleSvg) return
 
+    // Now that we have a valid decorative SVG, hide base title nodes to avoid duplicates.
+    titleElementIds.forEach(id => {
+      const el = svgElement.querySelector(`#${id}`) as SVGElement | null
+      if (el) el.setAttribute('display', 'none')
+    })
+
     const titleGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
     titleGroup.setAttribute('id', 'wedding-title-replacement')
 
     const titleViewBox = titleSvg.getAttribute('viewBox')
     if (titleViewBox) titleGroup.setAttribute('data-title-viewbox', titleViewBox)
 
-    // Left for better visual balance (noticeable shift in a ~3000px-wide template)
-    titleGroup.setAttribute('transform', 'translate(260, 260) scale(1.4)')
+    // Keep the same position + fonts; reduce overall size via scale only.
+    titleGroup.setAttribute('transform', 'translate(280, 150) scale(1.1)')
 
     // Copy defs first (fonts/styles)
     const titleDefs = titleSvg.querySelector('defs')
@@ -136,7 +140,16 @@ export async function ensureDecorativeWeddingTitleUtil(svgElement: SVGSVGElement
     }
 
     const svgDefs = svgElement.querySelector('defs')
-    if (svgDefs && svgDefs.nextSibling) {
+
+    // Insert at the same layer location as the original title text so it stays visible
+    // (inserting right after <defs> can place the title behind the background/waves).
+    const firstTitleNode = titleElementIds
+      .map(id => svgElement.querySelector(`#${id}`) as SVGElement | null)
+      .find(Boolean)
+
+    if (firstTitleNode && firstTitleNode.parentNode) {
+      firstTitleNode.parentNode.insertBefore(titleGroup, firstTitleNode)
+    } else if (svgDefs && svgDefs.nextSibling) {
       svgElement.insertBefore(titleGroup, svgDefs.nextSibling)
     } else {
       svgElement.appendChild(titleGroup)
@@ -235,13 +248,13 @@ export async function loadWeddingStickerTemplateUtil(ctx: TemplateContext): Prom
       ctx.applyHeadingFontUtil(svgElement, ctx.selectedHeadingFont?.value || null)
     }
 
-    // Insert flourish above names
-    try {
-      const flourishColor = ctx.getFlourishColorForBackground()
-      await ctx.insertFlourishAboveNames(svgElement, flourishColor)
-    } catch (e) {
-      // Non-fatal
-    }
+    // DISABLED: Flourish above names - user requested to hide it
+    // try {
+    //   const flourishColor = ctx.getFlourishColorForBackground()
+    //   await ctx.insertFlourishAboveNames(svgElement, flourishColor)
+    // } catch (e) {
+    //   // Non-fatal
+    // }
 
     // Apply current description if any (for names, date, etc.)
     if (ctx.formData.description) {
@@ -307,14 +320,14 @@ export async function processDescriptionInputUtil(ctx: TemplateContext): Promise
       console.log('🗓️ [processDescription] svgElements.dateText:', svgElements.dateText)
       console.log('🗓️ [processDescription] Direct query #date-text:', svgElement.querySelector('#date-text'))
       
-      // Insert flourish above names with matching color
-      const flourishColor = ctx.getFlourishColorForBackground()
-      const flourishCacheKey = [flourishColor, ctx.currentBackgroundFileName.value || ''].join('|')
-      const hasFlourish = !!svgElement.querySelector('#wedding-flourish')
-      if (!hasFlourish || flourishCacheKey !== lastWeddingFlourishRenderKey) {
-        lastWeddingFlourishRenderKey = flourishCacheKey
-        await ctx.insertFlourishAboveNames(svgElement, flourishColor)
-      }
+      // DISABLED: Flourish above names - user requested to hide it
+      // const flourishColor = ctx.getFlourishColorForBackground()
+      // const flourishCacheKey = [flourishColor, ctx.currentBackgroundFileName.value || ''].join('|')
+      // const hasFlourish = !!svgElement.querySelector('#wedding-flourish')
+      // if (!hasFlourish || flourishCacheKey !== lastWeddingFlourishRenderKey) {
+      //   lastWeddingFlourishRenderKey = flourishCacheKey
+      //   await ctx.insertFlourishAboveNames(svgElement, flourishColor)
+      // }
       
       // Update text content (names, date, courtesy, blessing, occasion, event type, ceremony)
       // Re-query elements to ensure we have fresh references

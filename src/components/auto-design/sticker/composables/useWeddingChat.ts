@@ -182,7 +182,7 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
         isAnalyzing.value = false
         addMessage({
           id: Date.now(),
-          text: 'No problem — please type the two names exactly how you want them (example: “Aisha & Suleiman”).',
+          text: 'No problem — please type the two names inside brackets like “(Aisha & Suleiman)”.',
           sender: 'ai',
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         })
@@ -213,7 +213,7 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
       isAnalyzing.value = false
       addMessage({
         id: Date.now(),
-        text: 'I didn’t catch the two names clearly. Please type them like “Name1 & Name2”.',
+        text: 'I didn’t catch the two names clearly. Please type them inside brackets like “(Name1 & Name2)”.',
         sender: 'ai',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       })
@@ -832,7 +832,7 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
         const maybeSecond = extraction.name2 ? ` & "${extraction.name2}"` : ''
         addMessage({
           id: Date.now(),
-          text: `I found these names: "${extraction.name1}"${maybeSecond}. Reply “yes” to confirm, or type the correct names (example: “Aisha & Suleiman”).`,
+          text: `I found these names: "${extraction.name1}"${maybeSecond}. Reply “yes” to confirm, or type the correct names in brackets (example: “(Aisha & Suleiman)”).`,
           sender: 'ai',
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         })

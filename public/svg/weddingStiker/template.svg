@@ -2,10 +2,25 @@
   
   <defs>
     <style type="text/css">
-      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&amp;family=Lato:wght@400;700&amp;display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&amp;family=Lato:wght@400;700&amp;family=Grand+Hotel&amp;family=Raleway:wght@900&amp;display=swap');
       
+      /* Default font for most text elements */
       text {
         font-family: 'Lato', 'Arial', 'Helvetica', sans-serif;
+      }
+      
+      /* IMPORTANT: Preserve Grand Hotel font for name1.svg name elements */
+      text#name1-first,
+      text#name2-first {
+        font-family: 'Grand Hotel', cursive, Georgia, serif !important;
+      }
+      
+      /* IMPORTANT: Preserve Raleway font for name1.svg surname and separator elements */
+      text#name1-last,
+      text#name2-last,
+      text#name-separator {
+        font-family: 'Raleway', Arial, Helvetica, sans-serif !important;
+        font-weight: 900 !important;
       }
       
       .serif-font {
@@ -42,13 +57,13 @@
          preserveAspectRatio="xMidYMid slice"/>
 
   <!-- Editable text elements with IDs -->
-  <text id="blessing-text" class="serif-font" x="850.45" y="280" text-anchor="middle" font-size="160" fill="#000">Alhamdulillahi</text>
-  <text id="occasion-text" x="850.45" y="380" text-anchor="middle" font-size="55" font-weight="bold" fill="#000">ON YOUR</text>
-  <text id="event-type-text" class="serif-font" x="850.45" y="560" text-anchor="middle" font-size="150" font-weight="bold" fill="#DAA520">WEDDING</text>
-  <text id="ceremony-text" x="850.45" y="710" text-anchor="middle" font-size="100" font-weight="bold" fill="red">CEREMONY</text>
+  <text id="blessing-text" class="serif-font" x="850.45" y="180" text-anchor="middle" font-size="160" fill="#000">Alhamdulillahi</text>
+  <text id="occasion-text" x="850.45" y="280" text-anchor="middle" font-size="55" font-weight="bold" fill="#000">ON YOUR</text>
+  <text id="event-type-text" class="serif-font" x="850.45" y="460" text-anchor="middle" font-size="150" font-weight="bold" fill="#DAA520">WEDDING</text>
+  <text id="ceremony-text" x="850.45" y="610" text-anchor="middle" font-size="100" font-weight="bold" fill="red">CEREMONY</text>
   
   <!-- New Wedding Names - Clean version positioned below the image -->
-  <g id="wedding-names-group" transform="translate(400, 900) scale(2.5)">
+  <g id="wedding-names-group" transform="translate(300, 600) scale(2.5)">
     <text id="name1-first" x="-50" y="85" fill="#000000" font-size="84.15" font-weight="bold" font-family="'Cinzel Decorative', Georgia, serif">Muhammad</text>
     <text id="name2-first" x="10.23" y="160" fill="#000000" font-size="84.15" font-weight="bold" font-family="'Cinzel Decorative', Georgia, serif">Hauwawu</text>
     <text id="name-separator" x="-70.3" y="160.4" fill="#B8860B" font-size="84.15" font-weight="bold" font-family="'Cinzel Decorative', Georgia, serif">&amp;</text>

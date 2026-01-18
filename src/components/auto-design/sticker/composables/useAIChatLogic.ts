@@ -46,11 +46,11 @@ export interface WeddingAssistantDecision {
     courtesy?: string | null
     size?: string | null
   }
-  buttons?: Array<{ type: string; label: string; variant?: string }>
+  buttons?: MessageAction[]
 }
 
 // Import shared types
-import type { ChatMessage, ExtractedInfo } from '../types'
+import type { ChatMessage, ExtractedInfo, MessageAction } from '../types'
 export type { ChatMessage, ExtractedInfo }
 
 export interface AskedQuestions {
@@ -265,95 +265,42 @@ export function useAIChatLogic(options: UseAIChatLogicOptions) {
   }
 
   /**
-   * Try to extract wedding details locally without Ollama
+   * Try to extract wedding details locally using shared extraction utilities.
+   * Name extraction removed - use DeepSeek AI for name extraction when needed.
    */
   function tryLocalExtraction(message: string): {
     foundSomething: boolean
-    name1?: string
-    name2?: string
     date?: string
     courtesy?: string
   } {
     const result: ReturnType<typeof tryLocalExtraction> = { foundSomething: false }
     const msg = message.trim()
     
-    // --- Extract Names ---
-    const namePatterns = [
-      /([A-Z][a-zA-Z']+(?:\s+[A-Z][a-zA-Z']+)?)\s*(?:&|and|AND|with)\s*([A-Z][a-zA-Z']+(?:\s+[A-Z][a-zA-Z']+)?)/,
-      /([a-zA-Z][a-zA-Z']+(?:\s+[a-zA-Z][a-zA-Z']+)?)\s*(?:&|and)\s*([a-zA-Z][a-zA-Z']+(?:\s+[a-zA-Z][a-zA-Z']+)?)/i,
-      /(?:ceremony|wedding|marriage)\s+(?:of\s+)?([A-Z][a-zA-Z']+(?:\s+[A-Z][a-zA-Z']+)?)\s*(?:&|and|AND|with)\s*([A-Z][a-zA-Z']+(?:\s+[A-Z][a-zA-Z']+)?)/i,
-    ]
+    // Use shared extraction from useLocalExtraction
+    // Name extraction has been removed - let DeepSeek handle names
+    const extraction = extractWeddingDetails(msg, {
+      hasName: !!extractedInfo.value?.names?.name1,
+      hasDate: !!extractedInfo.value?.date,
+    })
     
-    for (const pattern of namePatterns) {
-      const match = msg.match(pattern)
-      if (match && match[1].length > 1 && match[2].length > 1) {
-        const capitalize = (str: string) => str.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
-        result.name1 = capitalize(match[1].trim())
-        result.name2 = capitalize(match[2].trim())
-        result.foundSomething = true
-        break
-      }
+    if (extraction.date) {
+      result.date = extraction.date
+      result.foundSomething = true
     }
     
-    // --- Extract Date ---
-    const datePatterns = [
-      /(\d{1,2}(?:st|nd|rd|th)?\s+(?:January|February|March|April|May|June|July|August|September|October|November|December),?\s+\d{4})/i,
-      /((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})/i,
-      /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/,
-      /(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/,
-      /on\s+(\d{1,2}(?:st|nd|rd|th)?\s+(?:January|February|March|April|May|June|July|August|September|October|November|December))/i,
-    ]
-    
-    for (const pattern of datePatterns) {
-      const match = msg.match(pattern)
-      if (match) {
-        result.date = match[1].trim()
-        result.foundSomething = true
-        break
-      }
-    }
-    
-    // --- Extract Courtesy Message ---
-    const courtesyPatterns = [
-      /^((?:congratulation|congratulations|felicitation|best wishes|wishing you|celebrating)[\s\w]*(?:ceremony|wedding|marriage|union|love)?)/i,
-      /((?:with love|courtesy|from|by)[\s:]*(?:the\s+)?[\w\s]+(?:family|families))/i,
-      /(we invite you[\s\w]+)/i,
-      /((?:alhamdulillah|alhamdulillahi|masha ?allah|barakallah)[\s\w]*)/i,
-      /^(the\s+[\w\s]+family)/i,
-      /^(family\s+of\s+[\w\s]+)/i,
-      /^(from\s+[\w\s]+)/i,
-    ]
-    
-    for (const pattern of courtesyPatterns) {
-      const match = msg.match(pattern)
-      if (match) {
-        result.courtesy = match[1].trim()
-        result.foundSomething = true
-        break
-      }
+    if (extraction.courtesy) {
+      result.courtesy = extraction.courtesy
+      result.foundSomething = true
     }
     
     // If message is short and doesn't match other patterns, it might be a courtesy message
     const hasExistingName = !!extractedInfo.value?.names?.name1
     const hasExistingDate = !!extractedInfo.value?.date
-    const noNameInMsg = !namePatterns.some(p => p.test(msg))
-    const noDateInMsg = !datePatterns.some(p => p.test(msg))
     
-    if (!result.foundSomething && hasExistingName && hasExistingDate && noNameInMsg && noDateInMsg) {
+    if (!result.foundSomething && hasExistingName && hasExistingDate) {
       if (msg.length >= 3 && msg.length < 100 && !/^(yes|no|ok|hi|hello|hey|thanks)/i.test(msg)) {
         result.courtesy = msg
         result.foundSomething = true
-      }
-    }
-    
-    // If we found names but no courtesy, try to extract greeting as courtesy
-    if (result.name1 && !result.courtesy) {
-      const looksLikeGreeting = /congratulat|celebrat|invite|wish|alhamdulillah/i.test(msg)
-      if (looksLikeGreeting) {
-        const beforeNames = msg.split(/[A-Z][a-z]+\s*(?:&|and)/i)[0]?.trim()
-        if (beforeNames && beforeNames.length > 10) {
-          result.courtesy = beforeNames
-        }
       }
     }
     
@@ -511,7 +458,7 @@ export function useAIChatLogic(options: UseAIChatLogicOptions) {
       isAnalyzing.value = false
       chatMessages.value.push({
         id: Date.now(),
-        text: "Hi! 😊 Let’s start — what title/heading should I put at the top? (Example: ‘Wedding Ceremony’)",
+        text: "Hi! 😊 I'm here to help you create a beautiful wedding sticker. Please provide your wedding details — names of the couple, wedding date, and any special message or heading you'd like.",
         sender: 'ai',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       })

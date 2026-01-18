@@ -133,6 +133,21 @@ export function applyCustomHeadingUtil(
     return
   }
 
+  const normalizedHeading = String(customHeadingValue).replace(/\s+/g, ' ').trim()
+  if (!normalizedHeading) return
+
+  // Visual spacing for custom headings (requested).
+  // Keep it subtle and only apply when the template didn't already define spacing.
+  const DEFAULT_CUSTOM_HEADING_LETTER_SPACING = '0.06em'
+  const ensureHeadingSpacing = (t: SVGTextElement) => {
+    const hasAttr = !!t.getAttribute('letter-spacing')
+    const hasStyle = !!(t as any).style?.letterSpacing
+    if (!hasAttr && !hasStyle) {
+      t.setAttribute('letter-spacing', DEFAULT_CUSTOM_HEADING_LETTER_SPACING)
+      ;(t as any).style && (((t as any).style.letterSpacing = DEFAULT_CUSTOM_HEADING_LETTER_SPACING) as any)
+    }
+  }
+
   // If you want the decorative title to keep its original template sizing
   // (no auto-scale / auto-fit / auto-spacing), keep this enabled.
   const DISABLE_CUSTOM_TITLE_AUTOSIZE = true
@@ -166,7 +181,7 @@ export function applyCustomHeadingUtil(
 
     const titleTexts = Array.from(titleReplacement.querySelectorAll('text')) as SVGTextElement[]
 
-    const tokens = customHeadingValue.trim().split(/\s+/).filter(Boolean)
+    const tokens = normalizedHeading.split(/\s+/).filter(Boolean)
     const upperTokens = tokens.map(t => t.toUpperCase())
     const tokenCountAll = upperTokens.length
 
@@ -420,10 +435,17 @@ export function applyCustomHeadingUtil(
         })
       }
 
+      // Apply subtle spacing to visible heading lines.
+      titleTexts.slice(0, 4).forEach((t, i) => {
+        if (!lines[i]?.trim()) return
+        ensureHeadingSpacing(t)
+      })
+
     } else if (titleTexts.length > 0) {
       // Fallback: set full heading on first line, clear others.
-      titleTexts[0].textContent = customHeadingValue
+      titleTexts[0].textContent = normalizedHeading
       titleTexts.slice(1).forEach(t => (t.textContent = ''))
+      ensureHeadingSpacing(titleTexts[0])
     } else {
       console.warn('applyCustomHeadingUtil: #wedding-title-replacement has no <text> nodes')
     }
@@ -443,7 +465,7 @@ export function applyCustomHeadingUtil(
     }
   })
 
-  const headingParts = customHeadingValue.split(/\s+/)
+  const headingParts = normalizedHeading.split(/\s+/)
 
   if (headingParts.length >= 4 && blessingText && occasionText && eventTypeText && ceremonyText) {
     blessingText.textContent = headingParts[0]
@@ -473,12 +495,17 @@ export function applyCustomHeadingUtil(
       hasCeremony: !!ceremonyText
     })
   }
+
+  ;[blessingText, occasionText, eventTypeText, ceremonyText].forEach(el => {
+    if (!el) return
+    ensureHeadingSpacing(el)
+  })
 }
 
 // Apply heading font to SVG elements
 export function applyHeadingFontUtil(
   svgElement: SVGElement | null,
-  selectedFont: 'playfair' | 'lato' | null
+  selectedFont: string | null
 ): void {
   if (!svgElement || !selectedFont) return
   

@@ -1,10 +1,17 @@
-import { OllamaClient, type OllamaMessage } from './ollama.client'
+/**
+ * AI Service - Unified AI interface using DeepSeek API
+ * 
+ * This service provides a unified interface for AI operations.
+ * Uses DeepSeek API for all AI capabilities (Ollama removed).
+ */
+
+import axios from 'axios'
 import { extractFirstJsonBlock, safeJsonParse } from './json.util'
 
 export interface AIServiceConfig {
   /** Default model used if not provided per-call. */
   model?: string
-  /** Default timeout for requests. */
+  /** Default timeout for requests (ms). */
   timeoutMs?: number
 }
 
@@ -46,20 +53,29 @@ function clamp01(value: number): number {
 }
 
 export class AIService {
-  private readonly client: OllamaClient
   private readonly config: Required<AIServiceConfig>
+  private readonly apiKey: string | undefined
 
-  constructor(client?: OllamaClient, config: AIServiceConfig = {}) {
-    const envModel = (import.meta as any).env?.VITE_OLLAMA_MODEL as string | undefined
-    const envTimeout = (import.meta as any).env?.VITE_OLLAMA_TIMEOUT_MS as string | undefined
-
-    this.client = client ?? new OllamaClient()
+  constructor(config: AIServiceConfig = {}) {
+    const envTimeout = (import.meta as any).env?.VITE_DEEPSEEK_TIMEOUT_MS as string | undefined
+    
+    this.apiKey = (import.meta as any).env?.VITE_DEEPSEEK_API_KEY as string | undefined
     this.config = {
-      model: config.model ?? envModel ?? 'qwen2.5:0.5b',
-      timeoutMs: config.timeoutMs ?? (envTimeout ? Number(envTimeout) : 60_000)
+      model: config.model ?? 'deepseek-chat',
+      timeoutMs: config.timeoutMs ?? (envTimeout ? Number(envTimeout) : 30_000)
     }
   }
 
+  /**
+   * Check if AI service is available (has API key configured)
+   */
+  isAvailable(): boolean {
+    return !!this.apiKey
+  }
+
+  /**
+   * Send a chat message and get a text response
+   */
   async chatText(params: {
     system?: string
     user: string
@@ -68,27 +84,43 @@ export class AIService {
     timeoutMs?: number
     maxTokens?: number
   }): Promise<string> {
-    const messages: OllamaMessage[] = []
-    if (params.system) messages.push({ role: 'system', content: params.system })
+    if (!this.apiKey) {
+      console.warn('DeepSeek API key not configured - AI features unavailable')
+      return ''
+    }
+
+    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = []
+    if (params.system) {
+      messages.push({ role: 'system', content: params.system })
+    }
     messages.push({ role: 'user', content: params.user })
 
-    const resp = await this.client.chat(
-      {
-        model: params.model ?? this.config.model,
-        messages,
-        stream: false,
-        options: {
-          temperature: params.temperature ?? 0.3,  // Lower = faster, more deterministic
-          num_predict: params.maxTokens ?? 150,    // Limit output tokens for speed
-          top_k: 20,                                // Faster sampling
-          top_p: 0.9,                               // Nucleus sampling
-          repeat_penalty: 1.1                       // Reduce repetition
+    try {
+      const response = await axios.post(
+        'https://api.deepseek.com/chat/completions',
+        {
+          model: params.model ?? this.config.model,
+          messages,
+          temperature: params.temperature ?? 0.3,
+          max_tokens: params.maxTokens ?? 150
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`
+          },
+          timeout: params.timeoutMs ?? this.config.timeoutMs
         }
-      },
-      { timeoutMs: params.timeoutMs ?? this.config.timeoutMs }
-    )
+      )
 
-    return resp.message?.content ?? ''
+      if (response.data?.choices?.[0]?.message?.content) {
+        return response.data.choices[0].message.content.trim()
+      }
+      return ''
+    } catch (error: any) {
+      console.error('DeepSeek API Error:', error?.response?.data || error?.message || error)
+      throw new Error(error?.response?.data?.error?.message || error?.message || 'AI request failed')
+    }
   }
 
   /**

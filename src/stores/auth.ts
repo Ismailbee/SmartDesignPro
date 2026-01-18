@@ -508,7 +508,7 @@ export const useAuthStore = defineStore('auth', () => {
    * Show success notification - DISABLED for cleaner mobile UX
    * Notifications are disabled to reduce visual clutter on mobile devices
    */
-  function showNotification(data: { title: string; message: string; type: 'success' | 'error' | 'info'; duration?: number }) {
+  function showNotification(data: { title: string; message: string; type: 'success' | 'error' | 'info' | 'warning'; duration?: number }) {
     // Notifications disabled - only log to console for debugging
     console.log(`[${data.type.toUpperCase()}] ${data.title}: ${data.message}`)
     // Uncomment below to re-enable notifications:

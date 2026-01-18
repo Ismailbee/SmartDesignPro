@@ -11,7 +11,7 @@
           <input
             type="text"
             :value="extractedData.heading"
-            @input="updateField('heading', ($event.target as HTMLInputElement).value)"
+            @input="handleInput('heading', $event)"
             class="edit-field-input"
             placeholder="e.g., Congratulations on your wedding"
           />
@@ -24,7 +24,7 @@
             <input
               type="text"
               :value="extractedData.name1"
-              @input="updateField('name1', ($event.target as HTMLInputElement).value)"
+              @input="handleInput('name1', $event)"
               class="edit-field-input"
               placeholder="First name (e.g., John)"
             />
@@ -35,7 +35,7 @@
             <input
               type="text"
               :value="extractedData.name2"
-              @input="updateField('name2', ($event.target as HTMLInputElement).value)"
+              @input="handleInput('name2', $event)"
               class="edit-field-input"
               placeholder="Second name (e.g., Mary)"
             />
@@ -48,7 +48,7 @@
           <input
             type="text"
             :value="extractedData.date"
-            @input="updateField('date', ($event.target as HTMLInputElement).value)"
+            @input="handleInput('date', $event)"
             class="edit-field-input"
             placeholder="e.g., 25th December 2025"
           />
@@ -60,7 +60,7 @@
           <input
             type="text"
             :value="extractedData.courtesy"
-            @input="updateField('courtesy', ($event.target as HTMLInputElement).value)"
+            @input="handleInput('courtesy', $event)"
             class="edit-field-input"
             placeholder="e.g., The Johnson Family"
           />
@@ -74,7 +74,7 @@
           <textarea
             v-if="showRaw"
             :value="description"
-            @input="$emit('update:description', ($event.target as HTMLTextAreaElement).value)"
+            @input="handleDescriptionInput"
             class="edit-modal-textarea"
             rows="4"
             placeholder="Enter full description..."
@@ -156,6 +156,16 @@ watch(() => props.extractedInfo, (newInfo) => {
 
 function updateField(field: keyof typeof extractedData, value: string) {
   extractedData[field] = value
+}
+
+function handleInput(field: keyof typeof extractedData, event: Event) {
+  const target = event.target as HTMLInputElement
+  updateField(field, target.value)
+}
+
+function handleDescriptionInput(event: Event) {
+  const target = event.target as HTMLTextAreaElement
+  emit('update:description', target.value)
 }
 
 function saveChanges() {
