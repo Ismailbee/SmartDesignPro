@@ -5,6 +5,31 @@ import { ref, reactive } from 'vue'
  * Handles image upload, embedding, positioning, and layer management for SVG templates
  */
 
+// ============================================
+// SLOT LAYOUT CONSTANTS
+// Centralized positioning values for wedding sticker template slots
+// ============================================
+export const SLOT_POSITIONS = {
+  main: {
+    x: 1300,
+    y: 0,
+    width: 1700,
+    height: 1685.75
+  },
+  secondary: {
+    x: 2500,
+    y: 380,
+    width: 420,
+    height: 520
+  },
+  tertiary: {
+    x: 2500,
+    y: 950,
+    width: 420,
+    height: 520
+  }
+} as const
+
 export interface SVGImage {
   id: string
   file: File
@@ -34,7 +59,8 @@ export interface ImageUploadOptions {
 
 const DEFAULT_OPTIONS: Required<ImageUploadOptions> = {
   maxFileSize: 5 * 1024 * 1024, // 5MB
-  allowedTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'],
+  // Keep in sync with file input accept attributes used across the app.
+  allowedTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/svg+xml'],
   defaultWidth: 300,
   defaultHeight: 300,
   defaultX: 100,
@@ -340,6 +366,98 @@ export function useSVGImageManager(options: ImageUploadOptions = {}) {
   }
 
   /**
+   * Swap an image with the main image (index 0)
+   * When promoting a small-box image to main:
+   * - Uses original uncropped source
+   * - Resets all positioning/slicing constraints
+   * - Applies main-image layout rules fresh
+   */
+  function swapWithMain(imageId: string): boolean {
+    const index = images.value.findIndex(img => img.id === imageId)
+    if (index <= 0) {
+      // Already main or not found
+      return false
+    }
+
+    const mainImage = images.value[0]
+    const selectedImage = images.value[index]
+
+    // Store original data URLs (uncropped source)
+    const mainDataUrl = mainImage.dataUrl
+    const mainFile = mainImage.file
+    const mainOriginalWidth = mainImage.originalWidth
+    const mainOriginalHeight = mainImage.originalHeight
+
+    const selectedDataUrl = selectedImage.dataUrl
+    const selectedFile = selectedImage.file
+    const selectedOriginalWidth = selectedImage.originalWidth
+    const selectedOriginalHeight = selectedImage.originalHeight
+    
+    // Preserve the small box's group position so the new image in that slot keeps the user's reposition
+    const smallBoxGroupTranslateX = (selectedImage as any).groupTranslateX
+    const smallBoxGroupTranslateY = (selectedImage as any).groupTranslateY
+
+    // Reset the selected image to become main with fresh layout
+    // Use original dimensions and reset all positioning
+    selectedImage.dataUrl = selectedDataUrl
+    selectedImage.file = selectedFile
+    selectedImage.originalWidth = selectedOriginalWidth
+    selectedImage.originalHeight = selectedOriginalHeight
+    // Reset positioning for main slot using constants
+    selectedImage.x = SLOT_POSITIONS.main.x
+    selectedImage.y = SLOT_POSITIONS.main.y
+    selectedImage.width = SLOT_POSITIONS.main.width
+    selectedImage.height = SLOT_POSITIONS.main.height
+    selectedImage.rotation = 0
+    selectedImage.flipped = false
+    // Clear any box-specific constraints (main image doesn't use group transform)
+    delete (selectedImage as any).groupTranslateX
+    delete (selectedImage as any).groupTranslateY
+    delete (selectedImage as any).hasUserPosition
+
+    // Reset the main image to become small-box with fresh layout
+    mainImage.dataUrl = mainDataUrl
+    mainImage.file = mainFile
+    mainImage.originalWidth = mainOriginalWidth
+    mainImage.originalHeight = mainOriginalHeight
+    // Reset positioning for small slot using constants
+    const smallSlot = index === 1 ? SLOT_POSITIONS.secondary : SLOT_POSITIONS.tertiary
+    mainImage.x = smallSlot.x
+    mainImage.y = smallSlot.y
+    mainImage.width = smallSlot.width
+    mainImage.height = smallSlot.height
+    mainImage.rotation = 0
+    mainImage.flipped = false
+    // Preserve the small box's group position if user repositioned it
+    if (smallBoxGroupTranslateX !== undefined && smallBoxGroupTranslateY !== undefined) {
+      (mainImage as any).groupTranslateX = smallBoxGroupTranslateX;
+      (mainImage as any).groupTranslateY = smallBoxGroupTranslateY
+    } else {
+      delete (mainImage as any).groupTranslateX
+      delete (mainImage as any).groupTranslateY
+    }
+    delete (mainImage as any).hasUserPosition
+
+    // Swap positions in array
+    images.value[0] = selectedImage
+    images.value[index] = mainImage
+
+    // Update z-indices
+    images.value.forEach((img, idx) => {
+      img.zIndex = idx
+    })
+
+    console.log('🔄 Image swapped with main:', {
+      newMainId: selectedImage.id,
+      oldMainId: mainImage.id,
+      newMainIndex: 0,
+      oldMainIndex: index
+    })
+
+    return true
+  }
+
+  /**
    * Clear all images
    */
   function clearAllImages() {
@@ -400,6 +518,7 @@ export function useSVGImageManager(options: ImageUploadOptions = {}) {
     moveImageDown,
     bringToFront,
     sendToBack,
+    swapWithMain,
     clearAllImages,
     handleDragOver,
     handleDragLeave,

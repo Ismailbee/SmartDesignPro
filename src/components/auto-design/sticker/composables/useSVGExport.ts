@@ -35,6 +35,11 @@ export function useSVGExport() {
     const exportTexts = Array.from(exportSvg.querySelectorAll('text')) as SVGTextElement[]
     const originalTexts = Array.from(originalSvg.querySelectorAll('text')) as SVGTextElement[]
 
+    // IMPORTANT: Some templates (or injected title SVGs) style tracking on <tspan>.
+    // If we only freeze <text>, letter-spacing can change after export.
+    const exportTspans = Array.from(exportSvg.querySelectorAll('tspan')) as SVGTSpanElement[]
+    const originalTspans = Array.from(originalSvg.querySelectorAll('tspan')) as SVGTSpanElement[]
+
     // Convert computed CSS pixel sizes into SVG user units so the export matches the editor.
     // In the editor the SVG is typically scaled via viewBox; computed font-size is in CSS px.
     // If we write those raw px numbers into SVG attributes (user units), export can shift.
@@ -42,75 +47,124 @@ export function useSVGExport() {
     const rect = originalSvg.getBoundingClientRect?.() as DOMRect | undefined
     const vbW = vb.length >= 4 ? vb[2] : NaN
     const vbH = vb.length >= 4 ? vb[3] : NaN
-    const pxPerUserX = rect && Number.isFinite(vbW) && vbW > 0 ? rect.width / vbW : NaN
-    const pxPerUserY = rect && Number.isFinite(vbH) && vbH > 0 ? rect.height / vbH : NaN
 
-    for (let i = 0; i < exportTexts.length; i++) {
-      const exportText = exportTexts[i]
-      const id = exportText.getAttribute('id') || ''
+    // When exporting, callers often pass a cloned SVG that's not connected to the DOM.
+    // In that case, getBoundingClientRect() can be 0x0, which would break px→user-unit conversion.
+    // Fall back to the SVG's width/height attributes (which exportWeddingStickerUtil sets to pixel dims).
+    const widthAttr = (originalSvg.getAttribute('width') || '').trim()
+    const heightAttr = (originalSvg.getAttribute('height') || '').trim()
+    const widthPx = parseFloat(widthAttr)
+    const heightPx = parseFloat(heightAttr)
+    const rectWidth = rect && rect.width > 0 ? rect.width : (Number.isFinite(widthPx) ? widthPx : NaN)
+    const rectHeight = rect && rect.height > 0 ? rect.height : (Number.isFinite(heightPx) ? heightPx : NaN)
 
-      let originalText: SVGTextElement | null = null
+    const pxPerUserX = Number.isFinite(rectWidth) && Number.isFinite(vbW) && vbW > 0 ? rectWidth / vbW : NaN
+    const pxPerUserY = Number.isFinite(rectHeight) && Number.isFinite(vbH) && vbH > 0 ? rectHeight / vbH : NaN
+
+    const findOriginalForExportNode = (exportNode: SVGTextElement | SVGTSpanElement): SVGTextElement | SVGTSpanElement | null => {
+      const id = exportNode.getAttribute('id') || ''
       if (id) {
         const selector = `[id="${escapeAttrValue(id)}"]`
-        originalText = originalSvg.querySelector(selector) as SVGTextElement | null
+        const byId = originalSvg.querySelector(selector) as (SVGTextElement | SVGTSpanElement) | null
+        if (byId) return byId
       }
-      // Fallback mapping for texts without IDs (or if IDs don't match).
-      if (!originalText) {
-        originalText = originalTexts[i] || null
-      }
-      if (!originalText) continue
 
-      const style = window.getComputedStyle(originalText)
+      // For <tspan>, try to map inside the corresponding parent <text>.
+      if (exportNode.tagName.toLowerCase() === 'tspan') {
+        const exportParentText = exportNode.closest('text') as SVGTextElement | null
+        const parentId = exportParentText?.getAttribute('id') || ''
+        if (exportParentText && parentId) {
+          const origParent = originalSvg.querySelector(`[id="${escapeAttrValue(parentId)}"]`) as SVGTextElement | null
+          if (origParent) {
+            const exportSiblings = Array.from(exportParentText.querySelectorAll('tspan'))
+            const index = exportSiblings.indexOf(exportNode as unknown as SVGTSpanElement)
+            if (index >= 0) {
+              const origSiblings = Array.from(origParent.querySelectorAll('tspan'))
+              return (origSiblings[index] as SVGTSpanElement | undefined) || null
+            }
+          }
+        }
+      }
+
+      // Last-resort fallback mapping by index within the same tag name.
+      if (exportNode.tagName.toLowerCase() === 'text') {
+        const i = exportTexts.indexOf(exportNode as unknown as SVGTextElement)
+        return (originalTexts[i] as SVGTextElement | undefined) || null
+      }
+      if (exportNode.tagName.toLowerCase() === 'tspan') {
+        const i = exportTspans.indexOf(exportNode as unknown as SVGTSpanElement)
+        return (originalTspans[i] as SVGTSpanElement | undefined) || null
+      }
+
+      return null
+    }
+
+    const applyComputedTextPresentation = (exportNode: SVGTextElement | SVGTSpanElement) => {
+      const originalNode = findOriginalForExportNode(exportNode)
+      if (!originalNode) return
+
+      const style = window.getComputedStyle(originalNode)
 
       const fontSizePx = parseFloat(style.fontSize || '')
-      if (Number.isFinite(fontSizePx)) {
-        // Use Y scale for font-size conversion (vertical measure).
-        if (Number.isFinite(pxPerUserY) && pxPerUserY > 0) {
-          exportText.setAttribute('font-size', String(fontSizePx / pxPerUserY))
-        } else {
-          exportText.setAttribute('font-size', String(fontSizePx))
+      // Convert computed CSS font-size px → SVG user units when possible.
+      // Only do this for <text>; setting font-size on <tspan> is allowed but can be surprising.
+      if (exportNode.tagName.toLowerCase() === 'text') {
+        if (Number.isFinite(fontSizePx) && Number.isFinite(pxPerUserY) && pxPerUserY > 0) {
+          exportNode.setAttribute('font-size', String(fontSizePx / pxPerUserY))
         }
       }
 
-      // IMPORTANT: Preserve explicit font-family attributes from the SVG (e.g., "Grand Hotel" in name library SVGs).
-      // Only apply computed font-family if the element doesn't already have an explicit font-family attribute.
-      // This prevents CSS fallback fonts from overwriting intentionally set SVG font families.
-      const existingFontFamily = exportText.getAttribute('font-family')
+      // Preserve explicit font-family attributes from the SVG.
+      const existingFontFamily = exportNode.getAttribute('font-family')
       if (!existingFontFamily && style.fontFamily) {
-        exportText.setAttribute('font-family', style.fontFamily)
-      } else if (existingFontFamily) {
-        console.log(`📝 Preserving explicit font-family="${existingFontFamily}" for #${id || 'unnamed'} (not overwriting with computed CSS)`)
-      }
-      
-      // Similarly, preserve explicit font-weight if already set on the element
-      const existingFontWeight = exportText.getAttribute('font-weight')
-      if (!existingFontWeight && style.fontWeight) {
-        exportText.setAttribute('font-weight', style.fontWeight)
+        exportNode.setAttribute('font-family', style.fontFamily)
       }
 
-      // Preserve letter-spacing if explicitly set.
-      if (style.letterSpacing && style.letterSpacing !== 'normal') {
-        // If letter-spacing is in px, convert to user units like font-size.
+      // Preserve explicit font-weight if already set on the element.
+      const existingFontWeight = exportNode.getAttribute('font-weight')
+      if (!existingFontWeight && style.fontWeight) {
+        exportNode.setAttribute('font-weight', style.fontWeight)
+      }
+
+      // Preserve letter-spacing (tracking).
+      // Use em-based values when possible so we don't depend on SVG layout measurement.
+      const existingLetterSpacing = exportNode.getAttribute('letter-spacing')
+      if ((!existingLetterSpacing || existingLetterSpacing === 'normal') && style.letterSpacing && style.letterSpacing !== 'normal') {
         const ls = String(style.letterSpacing).trim()
         const pxMatch = ls.match(/^(-?[\d.]+)px$/i)
-        if (pxMatch && Number.isFinite(pxPerUserX) && pxPerUserX > 0) {
-          exportText.setAttribute('letter-spacing', String(Number(pxMatch[1]) / pxPerUserX))
+        const emMatch = ls.match(/^(-?[\d.]+)em$/i)
+
+        if (pxMatch && Number.isFinite(fontSizePx) && fontSizePx > 0) {
+          const letterPx = Number(pxMatch[1])
+          const letterEm = letterPx / fontSizePx
+          exportNode.setAttribute('letter-spacing', `${letterEm}em`)
+        } else if (emMatch) {
+          exportNode.setAttribute('letter-spacing', ls)
         } else {
-          exportText.setAttribute('letter-spacing', ls)
+          // Fallback: keep raw unit string (px, pt, etc)
+          exportNode.setAttribute('letter-spacing', ls)
         }
+
+        // Some SVG renderers are more consistent when letter-spacing is also set as a style.
+        const currentStyle = (exportNode.getAttribute('style') || '').trim()
+        const styleWithoutLetterSpacing = currentStyle.replace(/(^|;)\s*letter-spacing\s*:[^;]*;?/gi, '$1').trim()
+        const sep = styleWithoutLetterSpacing && !styleWithoutLetterSpacing.endsWith(';') ? '; ' : ''
+        exportNode.setAttribute('style', `${styleWithoutLetterSpacing}${sep}letter-spacing: ${exportNode.getAttribute('letter-spacing')};`)
       }
 
       // Freeze computed fill if available.
-      // NOTE: CSSStyleDeclaration doesn't always expose `.fill`, so use getPropertyValue.
       const computedFill = (style.getPropertyValue('fill') || (style as any).fill || '').trim()
       const computedColor = (style.getPropertyValue('color') || style.color || '').trim()
       if (computedFill && computedFill !== 'none') {
-        exportText.setAttribute('fill', computedFill)
+        exportNode.setAttribute('fill', computedFill)
       } else if (computedColor) {
-        // Some templates style SVG text via `color`; in SVG, `fill` is what matters.
-        exportText.setAttribute('fill', computedColor)
+        exportNode.setAttribute('fill', computedColor)
       }
     }
+
+    // Apply to both <text> and <tspan>.
+    exportTexts.forEach(applyComputedTextPresentation)
+    exportTspans.forEach(applyComputedTextPresentation)
   }
   /**
    * Convert an external image URL to base64 data URL
@@ -239,7 +293,10 @@ export function useSVGExport() {
     // Clone the SVG to avoid modifying the original
     const clonedSVG = svgElement.cloneNode(true) as SVGSVGElement
 
-    // Sort images by z-index to maintain layer order
+    // Keep both orderings:
+    // - orderedImages: stable slot mapping (images[0]=main, [1]=secondary, [2]=tertiary)
+    // - sortedImages: z-index order for templates that don't have fixed placeholders
+    const orderedImages = [...images]
     const sortedImages = [...images].sort((a, b) => a.zIndex - b.zIndex)
 
     // Find the insertion point (after background elements, before text elements)
@@ -247,29 +304,68 @@ export function useSVGExport() {
     const firstTextElement = clonedSVG.querySelector('text')
     const insertionPoint = firstTextElement || clonedSVG
 
-    // Add each image as an <image> element
-    sortedImages.forEach(img => {
-      // Check if there's a placeholder/userImage element to update first
-      const userImageElement = clonedSVG.querySelector('#userImage') || clonedSVG.querySelector('#placeholder-image')
-      
-      if (userImageElement) {
-        // IMPORTANT: Do NOT override geometry here.
-        // The live editor already computed/updated the correct x/y/width/height/transform/clip-path.
-        // Overwriting those during export causes the downloaded PNG/SVG to shift the image.
-        userImageElement.setAttribute('opacity', (img.opacity / 100).toString())
-        userImageElement.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', img.dataUrl)
-        userImageElement.setAttribute('href', img.dataUrl)
+    // Prefer updating fixed placeholders (wedding sticker + similar templates)
+    const mainSlot = (clonedSVG.querySelector('#userImage') || clonedSVG.querySelector('#placeholder-image')) as SVGImageElement | null
+    if (mainSlot) {
+      const updateSlot = (slotImageId: string, slotGroupId: string | null, img: SVGImage | undefined, useSlice: boolean = false) => {
+        const imgEl = clonedSVG.querySelector(`#${slotImageId}`) as SVGImageElement | null
+        const groupEl = slotGroupId ? (clonedSVG.querySelector(`#${slotGroupId}`) as SVGGElement | null) : null
+        if (!imgEl) return
 
-        // Preserve visibility
-        userImageElement.removeAttribute('display')
-        userImageElement.setAttribute('visibility', 'visible')
-        userImageElement.setAttribute('data-image-id', img.id)
-        
-        console.log('📸 User image embedded for export (geometry preserved)')
-        
-        return // Skip creating new element
+        if (!img?.dataUrl) {
+          if (groupEl) groupEl.setAttribute('display', 'none')
+          imgEl.setAttribute('href', '')
+          imgEl.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', '')
+          imgEl.removeAttribute('data-image-id')
+          return
+        }
+
+        if (groupEl) {
+          groupEl.removeAttribute('display')
+          groupEl.setAttribute('visibility', 'visible')
+          
+          // Apply group transform if user moved the box
+          if ((img as any).groupTranslateX !== undefined && (img as any).groupTranslateY !== undefined) {
+            groupEl.setAttribute('transform', `translate(${(img as any).groupTranslateX}, ${(img as any).groupTranslateY})`)
+          }
+          
+          // Ensure frame rect has thick border for export
+          const frameRect = groupEl.querySelector('rect') as SVGRectElement | null
+          if (frameRect) {
+            frameRect.setAttribute('stroke-width', '12')
+            frameRect.setAttribute('stroke-opacity', '0.95')
+          }
+        }
+
+        imgEl.setAttribute('opacity', (img.opacity / 100).toString())
+        imgEl.setAttribute('href', img.dataUrl)
+        imgEl.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', img.dataUrl)
+        imgEl.removeAttribute('display')
+        imgEl.setAttribute('visibility', 'visible')
+        imgEl.setAttribute('data-image-id', img.id)
+
+        // Use xMidYMin slice to anchor at TOP (heads visible, crop from bottom)
+        imgEl.setAttribute('preserveAspectRatio', useSlice ? 'xMidYMin slice' : 'xMidYMid meet')
       }
 
+      // Main image = first uploaded image (use meet)
+      // Also handle main-image-group transform
+      const mainImageGroup = clonedSVG.querySelector('#main-image-group') as SVGGElement | null
+      if (mainImageGroup && orderedImages[0] && (orderedImages[0] as any).groupTranslateX !== undefined) {
+        mainImageGroup.setAttribute('transform', `translate(${(orderedImages[0] as any).groupTranslateX}, ${(orderedImages[0] as any).groupTranslateY})`)
+      }
+      updateSlot(mainSlot.id || 'userImage', null, orderedImages[0], false)
+
+      // Secondary/tertiary boxed slots - use slice to auto-fit
+      updateSlot('userImageSecondary', 'secondary-image-group', orderedImages[1], true)
+      updateSlot('userImageTertiary', 'tertiary-image-group', orderedImages[2], true)
+
+      console.log('📸 Images embedded for export (placeholders updated, geometry preserved)')
+      return clonedSVG
+    }
+
+    // Fallback: templates without placeholders - add each image as an <image> element
+    sortedImages.forEach(img => {
       const imageElement = document.createElementNS('http://www.w3.org/2000/svg', 'image')
       
       // Set attributes
@@ -282,8 +378,8 @@ export function useSVGExport() {
       imageElement.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', img.dataUrl)
       imageElement.setAttribute('href', img.dataUrl)
 
-      // Match editor behavior: keep aspect ratio unless explicitly disabled
-      imageElement.setAttribute('preserveAspectRatio', img.maintainAspectRatio ? 'xMidYMin slice' : 'none')
+      // Match requirement/editor behavior: keep aspect ratio unless explicitly disabled
+      imageElement.setAttribute('preserveAspectRatio', img.maintainAspectRatio ? 'xMidYMid meet' : 'none')
 
       // Apply rotation if needed
       if (img.rotation !== 0) {
@@ -554,6 +650,8 @@ export function useSVGExport() {
     
     // Get viewBox for scaling
     const viewBox = svgElement.getAttribute('viewBox')?.split(/\s+|,/).map(Number) || [0, 0, 2996.9, 1685.75]
+    const vbMinX = viewBox[0] || 0
+    const vbMinY = viewBox[1] || 0
     const svgWidth = viewBox[2]
     const svgHeight = viewBox[3]
     const scaleX = canvasWidth / svgWidth
@@ -626,9 +724,9 @@ export function useSVGExport() {
       
       console.log(`   Processing "${text}": original pos (${x}, ${y}), fontSize=${fontSize}, font=${originalFontFamily}, weight=${originalFontWeight}`)
 
-      // Scale to canvas coordinates
-      const scaledX = x * scaleX
-      const scaledY = y * scaleY
+      // Scale to canvas coordinates (account for non-zero/negative viewBox origins)
+      const scaledX = (x - vbMinX) * scaleX
+      const scaledY = (y - vbMinY) * scaleY
       const scaledFontSize = fontSize * Math.min(scaleX, scaleY)
 
       // Map original font-family to our canvas-loaded font
@@ -792,7 +890,9 @@ export function useSVGExport() {
       const fontSize = parseFloat(text.getAttribute('font-size') || '84.15')
 
       // Check if the text element is inside a nested group with a matrix transform
-      const parentGroup = text.parentElement
+      const parentGroup = (text.parentNode && text.parentNode.nodeType === Node.ELEMENT_NODE
+        ? (text.parentNode as Element)
+        : null)
       if (parentGroup && parentGroup.tagName.toLowerCase() === 'g' && parentGroup !== namesGroup) {
         const parentTransform = parentGroup.getAttribute('transform')
         if (parentTransform) {
@@ -1647,6 +1747,10 @@ export function useSVGExport() {
       // Clone and embed images
       let exportSVG = svgElement.cloneNode(true) as SVGSVGElement
 
+      // Freeze computed text sizes/families/letter-spacing from the live editor SVG.
+      // This prevents title tracking (e.g. CEREMONY letter-spacing) changing in exported SVG viewers.
+      inlineComputedTextStylesForCanvasExport(exportSVG, svgElement)
+
       if (config.includeImages && images.length > 0) {
         exportSVG = embedImagesInSVG(exportSVG, images)
       }
@@ -1781,15 +1885,17 @@ export function useSVGExport() {
       flattenGroupTransforms(exportSVG)
       
       // Fix image aspect ratio - ensure user images maintain their proportions
-      const userImage = exportSVG.querySelector('#userImage') as SVGImageElement
-      if (userImage) {
-        // Match the live editor (useSVGImageUpdater) to avoid apparent vertical shifting.
-        // Only set it if missing, otherwise preserve the template/editor value.
-        if (!userImage.getAttribute('preserveAspectRatio')) {
-          userImage.setAttribute('preserveAspectRatio', 'xMidYMin slice')
-        }
+      const imageIds = ['userImage', 'userImageSecondary', 'userImageTertiary']
+      imageIds.forEach(id => {
+        const imgEl = exportSVG.querySelector(`#${id}`) as SVGImageElement | null
+        if (!imgEl) return
 
-      }
+        // Match the live editor (useSVGImageUpdater) to avoid apparent shifting.
+        // Only set it if missing, otherwise preserve the template/editor value.
+        if (!imgEl.getAttribute('preserveAspectRatio')) {
+          imgEl.setAttribute('preserveAspectRatio', 'xMidYMid meet')
+        }
+      })
       
       // For PNG export, compress embedded images to reduce SVG size
       // Large base64 images (>5MB total) can cause canvas rendering to fail
@@ -1888,9 +1994,12 @@ export function useSVGExport() {
       exportSVG.setAttribute('width', String(canvasWidth))
       exportSVG.setAttribute('height', String(canvasHeight))
       
-      // CRITICAL: Ensure preserveAspectRatio matches the canvas dimensions
-      // Use 'none' to prevent any scaling/fitting - we want exact pixel-to-pixel match
-      exportSVG.setAttribute('preserveAspectRatio', 'none')
+      // IMPORTANT: Do not force preserveAspectRatio="none".
+      // If width/height and viewBox ratios ever diverge, "none" will stretch the design.
+      // The size picker adjusts viewBox to match the requested aspect ratio, so "meet" preserves geometry.
+      if (!exportSVG.getAttribute('preserveAspectRatio')) {
+        exportSVG.setAttribute('preserveAspectRatio', 'xMidYMid meet')
+      }
 
       // Serialize SVG with canvas-specific cleanup (removes @import, web fonts, etc.)
       const svgString = serializeSVG(exportSVG, true)
@@ -1947,14 +2056,6 @@ export function useSVGExport() {
         })
       }
       
-      // For very large SVGs (>5MB), use alternative rendering approach
-      // This avoids the Image element limitation with large data URLs
-      if (svgSizeMB > 5) {
-        console.log('📊 Large SVG detected, using direct canvas rendering...')
-        await exportLargeSVGAsPNG(exportSVG, canvasWidth, canvasHeight, config.filename)
-        return
-      }
-      
       // For large SVGs (>5MB), the base64 data URL approach may fail
       // Use Blob URL instead which handles large data better
       const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
@@ -1969,17 +2070,31 @@ export function useSVGExport() {
       img.crossOrigin = 'anonymous'
 
       await new Promise<void>((resolve, reject) => {
+        let settled = false
+        const settleResolve = () => {
+          if (settled) return
+          settled = true
+          resolve()
+        }
+        const settleReject = (err: unknown) => {
+          if (settled) return
+          settled = true
+          reject(err)
+        }
+
         // Set a timeout in case image loading hangs
         const timeout = setTimeout(() => {
+          if (settled) return
+          settled = true
           URL.revokeObjectURL(svgUrl)
-          console.warn('⏱️ PNG export timeout - trying alternative method...')
-          // Try alternative approach for large files
-          exportLargeSVGAsPNG(exportSVG, canvasWidth, canvasHeight, config.filename)
-            .then(resolve)
-            .catch(reject)
-        }, 30000) // 30 second timeout, then try alternative
+          img.onload = null
+          img.onerror = null
+          console.warn('⏱️ PNG export timeout - aborting to avoid incorrect fallback rendering')
+          settleReject(new Error('PNG export timed out. Try lowering PNG resolution or download as SVG.'))
+        }, 60000) // 60 second timeout
 
         img.onload = async () => {
+          if (settled) return
           clearTimeout(timeout)
           try {
             // Create canvas
@@ -2013,32 +2128,27 @@ export function useSVGExport() {
                 const pngFilename = config.filename.replace(/\.svg$/, '.png')
                 downloadFile(blob, pngFilename, 'image/png')
                 console.log('✅ PNG exported successfully:', pngFilename)
-                resolve()
+                settleResolve()
               } else {
-                reject(new Error('Failed to create PNG blob'))
+                settleReject(new Error('Failed to create PNG blob'))
               }
             }, 'image/png')
           } catch (drawError) {
             URL.revokeObjectURL(svgUrl)
             console.error('Canvas draw error:', drawError)
-            reject(new Error('Failed to draw SVG on canvas'))
+            settleReject(new Error('Failed to draw SVG on canvas'))
           }
         }
 
-        img.onerror = async (e) => {
+        img.onerror = (e) => {
+          if (settled) return
           clearTimeout(timeout)
           URL.revokeObjectURL(svgUrl)
           console.error('❌ Image load error:', e)
-          console.log('📊 Trying alternative PNG export method...')
-          
-          try {
-            // Try alternative approach for large files
-            await exportLargeSVGAsPNG(exportSVG, canvasWidth, canvasHeight, config.filename)
-            resolve()
-          } catch (altError) {
-            console.error('Alternative method also failed:', altError)
-            reject(new Error('Failed to export PNG - file may be too large. Try downloading as SVG instead.'))
-          }
+          // IMPORTANT: Do not fall back to the direct-canvas renderer here.
+          // It does not support gradients/clipPaths/etc reliably (e.g., fill="url(#id0)"),
+          // and produces visibly incorrect exports.
+          settleReject(new Error('Failed to load SVG for PNG export. Try lowering PNG resolution or download as SVG.'))
         }
 
         img.src = svgUrl
@@ -2072,6 +2182,8 @@ export function useSVGExport() {
     
     // Get viewBox for coordinate transformation
     const viewBox = svgElement.getAttribute('viewBox')?.split(/\s+|,/).map(Number) || [0, 0, width, height]
+    const vbMinX = viewBox[0] || 0
+    const vbMinY = viewBox[1] || 0
     const scaleX = width / viewBox[2]
     const scaleY = height / viewBox[3]
     
@@ -2095,7 +2207,9 @@ export function useSVGExport() {
         if (d) {
           const path2D = new Path2D(d)
           ctx.save()
+          // Map viewBox user coords → canvas coords: (x - vbMinX) * scaleX, (y - vbMinY) * scaleY
           ctx.scale(scaleX, scaleY)
+          ctx.translate(-vbMinX, -vbMinY)
           ctx.fill(path2D)
           ctx.restore()
         }
@@ -2109,8 +2223,8 @@ export function useSVGExport() {
       if (!href) continue
       
       // Get image position and size
-      const x = parseFloat(imgEl.getAttribute('x') || '0') * scaleX
-      const y = parseFloat(imgEl.getAttribute('y') || '0') * scaleY
+      const x = (parseFloat(imgEl.getAttribute('x') || '0') - vbMinX) * scaleX
+      const y = (parseFloat(imgEl.getAttribute('y') || '0') - vbMinY) * scaleY
       const imgWidth = parseFloat(imgEl.getAttribute('width') || '100') * scaleX
       const imgHeight = parseFloat(imgEl.getAttribute('height') || '100') * scaleY
       
@@ -2122,7 +2236,7 @@ export function useSVGExport() {
     }
     
     // Draw text elements (including those inside groups)
-    await drawAllTextElements(ctx, svgElement, scaleX, scaleY)
+    await drawAllTextElements(ctx, svgElement, scaleX, scaleY, vbMinX, vbMinY)
     
     // Export as PNG
     return new Promise((resolve, reject) => {
@@ -2146,9 +2260,12 @@ export function useSVGExport() {
     ctx: CanvasRenderingContext2D, 
     svgElement: SVGSVGElement, 
     scaleX: number, 
-    scaleY: number
+    scaleY: number,
+    viewBoxMinX: number = 0,
+    viewBoxMinY: number = 0
   ): Promise<void> {
-    // Load the Cinzel font first for name texts
+    // Load fonts that may be referenced by injected name/title SVGs.
+    await loadUbuntuFontsForCanvas()
     await loadCinzelFontForCanvas()
     
     const parseGroupTransform = (transform: string): { translateX: number; translateY: number; scale: number } => {
@@ -2189,7 +2306,7 @@ export function useSVGExport() {
 
       const directTexts = Array.from(group.querySelectorAll(':scope > text')) as SVGTextElement[]
       for (const textEl of directTexts) {
-        drawTextElement(ctx, textEl, combinedTranslateX, combinedTranslateY, combinedScale, scaleX, scaleY)
+        drawTextElement(ctx, textEl, combinedTranslateX, combinedTranslateY, combinedScale, scaleX, scaleY, viewBoxMinX, viewBoxMinY)
       }
 
       const childGroups = Array.from(group.querySelectorAll(':scope > g')) as SVGGElement[]
@@ -2201,7 +2318,7 @@ export function useSVGExport() {
     // Draw direct text elements (not in groups)
     const directTextElements = Array.from(svgElement.querySelectorAll(':scope > text')) as SVGTextElement[]
     for (const textEl of directTextElements) {
-      drawTextElement(ctx, textEl, 0, 0, 1, scaleX, scaleY)
+      drawTextElement(ctx, textEl, 0, 0, 1, scaleX, scaleY, viewBoxMinX, viewBoxMinY)
     }
 
     // Draw grouped text elements once (avoid drawing descendant texts multiple times)
@@ -2221,42 +2338,42 @@ export function useSVGExport() {
     groupTranslateY: number,
     groupScale: number,
     viewBoxScaleX: number,
-    viewBoxScaleY: number
+    viewBoxScaleY: number,
+    viewBoxMinX: number,
+    viewBoxMinY: number
   ): void {
     const localX = parseFloat(textEl.getAttribute('x') || '0')
     const localY = parseFloat(textEl.getAttribute('y') || '0')
     
-    // Apply group transform then viewBox scale
-    const x = (groupTranslateX + localX * groupScale) * viewBoxScaleX
-    const y = (groupTranslateY + localY * groupScale) * viewBoxScaleY
+    // Apply group transform, account for viewBox origin, then scale to canvas
+    const userX = groupTranslateX + localX * groupScale
+    const userY = groupTranslateY + localY * groupScale
+    const x = (userX - viewBoxMinX) * viewBoxScaleX
+    const y = (userY - viewBoxMinY) * viewBoxScaleY
     
     const fill = textEl.getAttribute('fill') || '#000000'
     const baseFontSize = parseFloat(textEl.getAttribute('font-size') || '16')
-    const fontSize = baseFontSize * groupScale * viewBoxScaleX
+    const fontSize = baseFontSize * groupScale * Math.min(viewBoxScaleX, viewBoxScaleY)
     const fontWeight = textEl.getAttribute('font-weight') || 'normal'
     const fontFamily = textEl.getAttribute('font-family') || 'Arial, sans-serif'
     const textAnchor = textEl.getAttribute('text-anchor') || 'start'
     const textClass = textEl.getAttribute('class') || ''
     const textId = textEl.getAttribute('id') || ''
     
-    // Check if this is a name text element (should use Cinzel font)
-    const isNameText = textClass.includes('name-fnt') || 
-                       textId.startsWith('name1') || 
-                       textId.startsWith('name2') || 
-                       textId === 'name-separator' ||
-                       textEl.getAttribute('data-is-name-text') === 'true'
-    
+    // Map requested fonts to canvas-available families (we preload Ubuntu + Cinzel).
+    const lowerFamily = fontFamily.toLowerCase()
     let cleanFontFamily: string
-    if (isNameText && cinzelFontLoaded) {
-      // Use our loaded Cinzel font for name text
+    if (lowerFamily.includes('ubuntu')) {
+      cleanFontFamily = `"${UBUNTU_CANVAS_FONT}", Arial, Helvetica, sans-serif`
+    } else if (lowerFamily.includes('cinzel')) {
       cleanFontFamily = `"${CINZEL_CANVAS_FONT}", "Cinzel Decorative", Georgia, serif`
     } else {
-      // Clean up font family for canvas - replace web fonts with system fonts
+      // Clean up font family for canvas - replace common web fonts with system fonts
       cleanFontFamily = fontFamily
-        .replace(/['"]?Lato['"]?/gi, 'Arial')
-        .replace(/['"]?Playfair[^'"]*['"]?/gi, '"Times New Roman"')
-        .replace(/['"]?Montserrat['"]?/gi, 'Arial')
-        .replace(/['"]?Cinzel[^'"]*['"]?/gi, '"Times New Roman"')
+        .replace(/['"]?lato['"]?/gi, 'Arial')
+        .replace(/['"]?playfair[^'"]*['"]?/gi, '"Times New Roman"')
+        .replace(/['"]?montserrat['"]?/gi, 'Arial')
+        .replace(/['"]?cinzel[^'"]*['"]?/gi, '"Times New Roman"')
     }
     
     ctx.fillStyle = fill

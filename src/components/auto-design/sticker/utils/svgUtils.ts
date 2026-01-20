@@ -36,6 +36,12 @@ export function makeSVGImageDraggable(
   let baseWidth = 0
   let baseHeight = 0
 
+  // Small boxed slots are meant to be a fixed-size frame; users should only drag to change crop position.
+  const isFixedSizeSlot =
+    imageElement.id === 'userImageSecondary' ||
+    imageElement.id === 'userImageTertiary' ||
+    imageElement.getAttribute('data-disable-scale') === 'true'
+
   // Add visual feedback
   imageElement.style.cursor = 'grab'
   imageElement.style.transition = 'opacity 0.2s, filter 0.2s'
@@ -61,10 +67,13 @@ export function makeSVGImageDraggable(
     const svgElement = imageElement.ownerSVGElement
     if (!svgElement) return
 
+    const ctm = svgElement.getScreenCTM()
+    if (!ctm) return
+    
     const pt = svgElement.createSVGPoint()
     pt.x = e.clientX
     pt.y = e.clientY
-    const svgPt = pt.matrixTransform(svgElement.getScreenCTM()?.inverse())
+    const svgPt = pt.matrixTransform(ctm.inverse())
 
     startX = svgPt.x
     startY = svgPt.y
@@ -83,10 +92,13 @@ export function makeSVGImageDraggable(
     const svgElement = imageElement.ownerSVGElement
     if (!svgElement) return
 
+    const ctm = svgElement.getScreenCTM()
+    if (!ctm) return
+
     const pt = svgElement.createSVGPoint()
     pt.x = e.clientX
     pt.y = e.clientY
-    const svgPt = pt.matrixTransform(svgElement.getScreenCTM()?.inverse())
+    const svgPt = pt.matrixTransform(ctm.inverse())
 
     let dx = svgPt.x - startX
     const dy = svgPt.y - startY
@@ -103,7 +115,8 @@ export function makeSVGImageDraggable(
     imageElement.setAttribute('x', newX.toString())
     imageElement.setAttribute('y', newY.toString())
 
-    svgImageManager.updateImage(imageId, { x: newX, y: newY })
+    imageElement.setAttribute('data-user-position', 'true')
+    svgImageManager.updateImage(imageId, { x: newX, y: newY, hasUserPosition: true })
     e.preventDefault()
   }
 
@@ -127,7 +140,9 @@ export function makeSVGImageDraggable(
       const pt = svgElement.createSVGPoint()
       pt.x = touch.clientX
       pt.y = touch.clientY
-      const svgPt = pt.matrixTransform(svgElement.getScreenCTM()?.inverse())
+      const ctm = svgElement.getScreenCTM()
+      if (!ctm) return
+      const svgPt = pt.matrixTransform(ctm.inverse())
 
       startX = svgPt.x
       startY = svgPt.y
@@ -137,6 +152,11 @@ export function makeSVGImageDraggable(
       imageElement.style.opacity = '0.8'
       imageElement.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))'
     } else if (e.touches.length === 2) {
+      // Disable pinch-resize for the small fixed-size slots.
+      if (isFixedSizeSlot) {
+        e.preventDefault()
+        return
+      }
       isDragging = false
       const touch1 = e.touches[0]
       const touch2 = e.touches[1]
@@ -166,7 +186,9 @@ export function makeSVGImageDraggable(
       const pt = svgElement.createSVGPoint()
       pt.x = touch.clientX
       pt.y = touch.clientY
-      const svgPt = pt.matrixTransform(svgElement.getScreenCTM()?.inverse())
+      const ctm = svgElement.getScreenCTM()
+      if (!ctm) return
+      const svgPt = pt.matrixTransform(ctm.inverse())
 
       let dx = svgPt.x - startX
       const dy = svgPt.y - startY
@@ -181,8 +203,13 @@ export function makeSVGImageDraggable(
 
       imageElement.setAttribute('x', newX.toString())
       imageElement.setAttribute('y', newY.toString())
-      svgImageManager.updateImage(imageId, { x: newX, y: newY })
+      imageElement.setAttribute('data-user-position', 'true')
+      svgImageManager.updateImage(imageId, { x: newX, y: newY, hasUserPosition: true })
     } else if (e.touches.length === 2) {
+      if (isFixedSizeSlot) {
+        e.preventDefault()
+        return
+      }
       const touch1 = e.touches[0]
       const touch2 = e.touches[1]
       const currentDistance = Math.hypot(
@@ -245,6 +272,176 @@ export function makeSVGImageDraggable(
 }
 
 // ============================================
+// MAKE SVG GROUP DRAGGABLE (for small image boxes)
+// ============================================
+
+export function makeSVGGroupDraggable(
+  groupElement: SVGGElement,
+  imageId: string,
+  svgImageManager: ImageManager
+) {
+  if (groupElement.getAttribute('data-group-draggable') === 'true') {
+    return
+  }
+
+  let isDragging = false
+  let startX = 0
+  let startY = 0
+  let initialTranslateX = 0
+  let initialTranslateY = 0
+
+  // Parse existing transform to get translate values
+  function getTranslate(): { x: number; y: number } {
+    const transform = groupElement.getAttribute('transform') || ''
+    const match = transform.match(/translate\(\s*([\d.-]+)\s*,?\s*([\d.-]*)\s*\)/)
+    if (match) {
+      return { x: parseFloat(match[1]) || 0, y: parseFloat(match[2]) || 0 }
+    }
+    return { x: 0, y: 0 }
+  }
+
+  function setTranslate(x: number, y: number) {
+    groupElement.setAttribute('transform', `translate(${x}, ${y})`)
+  }
+
+  groupElement.style.cursor = 'grab'
+  groupElement.setAttribute('data-group-draggable', 'true')
+
+  const handleMouseDown = (e: MouseEvent) => {
+    isDragging = true
+    const svgElement = groupElement.ownerSVGElement
+    if (!svgElement) return
+
+    const pt = svgElement.createSVGPoint()
+    pt.x = e.clientX
+    pt.y = e.clientY
+    const svgPt = pt.matrixTransform(svgElement.getScreenCTM()?.inverse())
+
+    startX = svgPt.x
+    startY = svgPt.y
+    const current = getTranslate()
+    initialTranslateX = current.x
+    initialTranslateY = current.y
+
+    groupElement.style.cursor = 'grabbing'
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return
+
+    const svgElement = groupElement.ownerSVGElement
+    if (!svgElement) return
+
+    const pt = svgElement.createSVGPoint()
+    pt.x = e.clientX
+    pt.y = e.clientY
+    const svgPt = pt.matrixTransform(svgElement.getScreenCTM()?.inverse())
+
+    const dx = svgPt.x - startX
+    const dy = svgPt.y - startY
+
+    const newX = initialTranslateX + dx
+    const newY = initialTranslateY + dy
+
+    setTranslate(newX, newY)
+
+    // Store position in image manager
+    svgImageManager.updateImage(imageId, { 
+      groupTranslateX: newX, 
+      groupTranslateY: newY,
+      hasUserPosition: true 
+    })
+    e.preventDefault()
+  }
+
+  const handleMouseUp = () => {
+    if (isDragging) {
+      isDragging = false
+      groupElement.style.cursor = 'grab'
+    }
+  }
+
+  const handleTouchStart = (e: TouchEvent) => {
+    if (e.touches.length === 1) {
+      isDragging = true
+      const svgElement = groupElement.ownerSVGElement
+      if (!svgElement) return
+
+      const touch = e.touches[0]
+      const pt = svgElement.createSVGPoint()
+      pt.x = touch.clientX
+      pt.y = touch.clientY
+      const ctm = svgElement.getScreenCTM()
+      if (!ctm) return
+      const svgPt = pt.matrixTransform(ctm.inverse())
+
+      startX = svgPt.x
+      startY = svgPt.y
+      const current = getTranslate()
+      initialTranslateX = current.x
+      initialTranslateY = current.y
+    }
+    e.preventDefault()
+  }
+
+  const handleTouchMove = (e: TouchEvent) => {
+    if (e.touches.length === 1 && isDragging) {
+      const svgElement = groupElement.ownerSVGElement
+      if (!svgElement) return
+
+      const touch = e.touches[0]
+      const pt = svgElement.createSVGPoint()
+      pt.x = touch.clientX
+      pt.y = touch.clientY
+      const ctm = svgElement.getScreenCTM()
+      if (!ctm) return
+      const svgPt = pt.matrixTransform(ctm.inverse())
+
+      const dx = svgPt.x - startX
+      const dy = svgPt.y - startY
+
+      const newX = initialTranslateX + dx
+      const newY = initialTranslateY + dy
+
+      setTranslate(newX, newY)
+
+      svgImageManager.updateImage(imageId, { 
+        groupTranslateX: newX, 
+        groupTranslateY: newY,
+        hasUserPosition: true 
+      })
+    }
+    e.preventDefault()
+  }
+
+  const handleTouchEnd = () => {
+    isDragging = false
+  }
+
+  groupElement.addEventListener('mousedown', handleMouseDown)
+  document.addEventListener('mousemove', handleMouseMove)
+  document.addEventListener('mouseup', handleMouseUp)
+  groupElement.addEventListener('touchstart', handleTouchStart, { passive: false })
+  groupElement.addEventListener('touchmove', handleTouchMove, { passive: false })
+  groupElement.addEventListener('touchend', handleTouchEnd)
+
+  // Mark as draggable and store cleanup function
+  groupElement.setAttribute('data-group-draggable', 'true')
+  
+  const cleanup = () => {
+    groupElement.removeEventListener('mousedown', handleMouseDown)
+    document.removeEventListener('mousemove', handleMouseMove)
+    document.removeEventListener('mouseup', handleMouseUp)
+    groupElement.removeEventListener('touchstart', handleTouchStart)
+    groupElement.removeEventListener('touchmove', handleTouchMove)
+    groupElement.removeEventListener('touchend', handleTouchEnd)
+  }
+  ;(groupElement as any).__groupDragCleanup = cleanup
+}
+
+// ============================================
 // UPDATE SVG WITH IMAGES
 // ============================================
 
@@ -265,7 +462,10 @@ interface SVGImage {
 
 interface UpdateSVGDeps {
   weddingPreviewContainer: { value: HTMLDivElement | null }
-  svgImageManager: { images: { value: SVGImage[] } }
+  svgImageManager: { 
+    images: { value: SVGImage[] }
+    updateImage: (id: string, updates: Record<string, any>) => void
+  }
   formData: { customSize?: string }
   preGeneratedImageFile: { value: File | null }
   makeSVGImageDraggableFn: (el: SVGImageElement, id: string) => void
@@ -297,6 +497,95 @@ export function updateSVGWithImages(deps: UpdateSVGDeps) {
     hasDataUrl: !!img.dataUrl,
     dataUrlLength: img.dataUrl?.length || 0
   })))
+
+  function updateSmallSlot(slotGroupId: string, slotImageId: string, img: SVGImage | undefined) {
+    const group = svgElement.querySelector(`#${slotGroupId}`) as SVGGElement | null
+    const imageEl = svgElement.querySelector(`#${slotImageId}`) as SVGImageElement | null
+    if (!group || !imageEl) return
+
+    // Cache the template slot geometry once so we can restore it if user pinch-scaled accidentally.
+    if (!imageEl.getAttribute('data-slot-base-width')) {
+      imageEl.setAttribute('data-slot-base-x', imageEl.getAttribute('x') || '0')
+      imageEl.setAttribute('data-slot-base-y', imageEl.getAttribute('y') || '0')
+      imageEl.setAttribute('data-slot-base-width', imageEl.getAttribute('width') || '0')
+      imageEl.setAttribute('data-slot-base-height', imageEl.getAttribute('height') || '0')
+    }
+
+    if (!img?.dataUrl) {
+      group.setAttribute('display', 'none')
+      imageEl.setAttribute('href', '')
+      imageEl.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', '')
+      imageEl.removeAttribute('data-image-id')
+      return
+    }
+
+    group.removeAttribute('display')
+    group.setAttribute('visibility', 'visible')
+
+    // Ensure the frame rect remains visible with thick border
+    const frameRect = group.querySelector('rect') as SVGRectElement | null
+    if (frameRect) {
+      frameRect.removeAttribute('display')
+      frameRect.setAttribute('visibility', 'visible')
+      frameRect.setAttribute('stroke-width', '20')
+      frameRect.setAttribute('stroke-opacity', '1')
+    }
+
+    imageEl.setAttribute('opacity', (img.opacity / 100).toString())
+    imageEl.setAttribute('href', img.dataUrl)
+    imageEl.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', img.dataUrl)
+    // Use xMidYMin slice to anchor at TOP (heads visible, crop from bottom)
+    imageEl.setAttribute('preserveAspectRatio', 'xMidYMin slice')
+    imageEl.removeAttribute('display')
+    imageEl.setAttribute('visibility', 'visible')
+    imageEl.setAttribute('data-image-id', img.id)
+
+    // Lock small-slot image size to the template frame by default.
+    // Users can drag to adjust crop position, but we don't want pinch-resize here.
+    const baseW = parseFloat(imageEl.getAttribute('data-slot-base-width') || '')
+    const baseH = parseFloat(imageEl.getAttribute('data-slot-base-height') || '')
+    if (Number.isFinite(baseW) && baseW > 0) imageEl.setAttribute('width', String(baseW))
+    if (Number.isFinite(baseH) && baseH > 0) imageEl.setAttribute('height', String(baseH))
+
+    // Check if user has repositioned the group
+    const hasGroupPosition = (img as any).groupTranslateX !== undefined && (img as any).groupTranslateY !== undefined
+
+    // If the user hasn't dragged this slot AND hasn't repositioned the group, reset to base x/y (prevents drift).
+    if (!(img as any).hasUserPosition && !hasGroupPosition) {
+      const baseX = parseFloat(imageEl.getAttribute('data-slot-base-x') || '')
+      const baseY = parseFloat(imageEl.getAttribute('data-slot-base-y') || '')
+      if (Number.isFinite(baseX)) imageEl.setAttribute('x', String(baseX))
+      if (Number.isFinite(baseY)) imageEl.setAttribute('y', String(baseY))
+      imageEl.removeAttribute('data-user-position')
+      // Reset group transform only if no saved group position
+      group.removeAttribute('transform')
+    }
+
+    // If the user has moved the group, restore the transform
+    if (hasGroupPosition) {
+      group.setAttribute('transform', `translate(${(img as any).groupTranslateX}, ${(img as any).groupTranslateY})`)
+    }
+
+    // Apply flip transform to the image element if flipped
+    if (img.flipped) {
+      const imgX = parseFloat(imageEl.getAttribute('x') || '0')
+      const imgWidth = parseFloat(imageEl.getAttribute('width') || '100')
+      const centerX = imgX + imgWidth / 2
+      imageEl.setAttribute('transform', `translate(${centerX}, 0) scale(-1, 1) translate(-${centerX}, 0)`)
+    } else {
+      imageEl.removeAttribute('transform')
+    }
+
+    // Make the entire group draggable (frame + image move together)
+    if (!group.hasAttribute('data-group-draggable')) {
+      group.style.pointerEvents = 'all'
+      makeSVGGroupDraggable(group, img.id, svgImageManager)
+    }
+  }
+
+  // Always keep the small slots in sync (if the current template includes them).
+  updateSmallSlot('secondary-image-group', 'userImageSecondary', images[1])
+  updateSmallSlot('tertiary-image-group', 'userImageTertiary', images[2])
   
   // Check for userImage element
   let userImageElement = svgElement.querySelector('#userImage') || svgElement.querySelector('#placeholder-image')
@@ -319,7 +608,8 @@ export function updateSVGWithImages(deps: UpdateSVGDeps) {
   }
   
   if (userImageElement && images.length > 0) {
-    const img = images[images.length - 1]
+    // Stable ordering: first image is main, second/third are small slots.
+    const img = images[0]
 
     const viewBox = svgElement.getAttribute('viewBox')?.split(' ').map(Number)
     const svgWidth = viewBox ? viewBox[2] : parseFloat(svgElement.getAttribute('width') || '400')
@@ -382,31 +672,36 @@ export function updateSVGWithImages(deps: UpdateSVGDeps) {
     let adjustedX: number
     let adjustedY: number
     
+    // IMPORTANT: The clip-path defines the visible frame area.
+    // We should NOT expand/move the clip rect to match the image size; that would remove the crop.
+    // Keep the clip rect fixed to the frame (full height for this template), and move the image behind it.
     if (hasCustomSize && isLargeTemplate) {
       adjustedHeight = svgHeight
       const frameAspect = frameWidth / frameHeight
       adjustedWidth = adjustedHeight * frameAspect
       adjustedX = frameX + (frameWidth - adjustedWidth) / 2
       adjustedY = 0
-      userImageElement.removeAttribute('clip-path')
     } else {
       const scale = (img.width / img.originalWidth) || 1.15
       adjustedWidth = frameWidth * scale
       adjustedHeight = frameHeight * scale
       adjustedX = frameX - (adjustedWidth - frameWidth) / 2
       adjustedY = 0
-      
-      const clipPathRect = svgElement.querySelector('clipPath#imageClip rect, defs clipPath#imageClip rect')
-      if (clipPathRect && isLargeTemplate) {
-        const clipX = adjustedX
-        const clipY = 0
-        const clipWidth = adjustedWidth
-        const clipHeight = svgHeight
-        clipPathRect.setAttribute('x', clipX.toString())
-        clipPathRect.setAttribute('y', clipY.toString())
-        clipPathRect.setAttribute('width', clipWidth.toString())
-        clipPathRect.setAttribute('height', clipHeight.toString())
-      }
+    }
+
+    const clipPathRect = svgElement.querySelector('clipPath#imageClip rect, defs clipPath#imageClip rect')
+    if (clipPathRect && isLargeTemplate) {
+      clipPathRect.setAttribute('x', frameX.toString())
+      clipPathRect.setAttribute('y', '0')
+      clipPathRect.setAttribute('width', frameWidth.toString())
+      clipPathRect.setAttribute('height', svgHeight.toString())
+    }
+
+    // Respect manual drag positioning if the user moved the image.
+    if ((img as any).hasUserPosition && Number.isFinite(img.x) && Number.isFinite(img.y)) {
+      adjustedX = img.x
+      adjustedY = img.y
+      userImageElement.setAttribute('data-user-position', 'true')
     }
     
     if (!img.dataUrl || img.dataUrl.length < 100) {
@@ -441,16 +736,24 @@ export function updateSVGWithImages(deps: UpdateSVGDeps) {
     
     userImageElement.setAttribute('data-image-id', img.id)
     
-    if (!userImageElement.hasAttribute('data-draggable')) {
+    // Make the main image group draggable (not just the image)
+    const mainImageGroup = svgElement.querySelector('#main-image-group') as SVGGElement | null
+    if (mainImageGroup && !mainImageGroup.hasAttribute('data-group-draggable')) {
+      mainImageGroup.style.pointerEvents = 'all'
+      makeSVGGroupDraggable(mainImageGroup, img.id, svgImageManager)
+    } else if (!userImageElement.hasAttribute('data-draggable')) {
+      // Fallback for templates without main-image-group
       makeSVGImageDraggableFn(userImageElement as SVGImageElement, img.id)
     }
     
-    if (!userImageElement.hasAttribute('clip-path')) {
-      if (userImageElement.id === 'userImage' && isLargeTemplate) {
-        userImageElement.setAttribute('clip-path', 'url(#imageClip)')
-      }
+    // Restore main image group transform if user moved it
+    if (mainImageGroup && (img as any).groupTranslateX !== undefined && (img as any).groupTranslateY !== undefined) {
+      mainImageGroup.setAttribute('transform', `translate(${(img as any).groupTranslateX}, ${(img as any).groupTranslateY})`)
     }
-    userImageElement.setAttribute('preserveAspectRatio', 'xMidYMin slice')
+    
+    // No clipPath for main image - use meet to show full image without cropping
+    userImageElement.removeAttribute('clip-path')
+    userImageElement.setAttribute('preserveAspectRatio', 'xMidYMid meet')
 
     const transforms: string[] = []
     const displayCenterX = adjustedX + adjustedWidth / 2
@@ -579,6 +882,8 @@ export async function handleSizeChange(
   let newViewBoxWidth: number
   let newViewBoxHeight: number
 
+  // Preserve the original template geometry and only expand the canvas.
+  // This avoids cumulative transforms/path edits that can drift the design over repeated size changes.
   if (newAspectRatio > origAspectRatio) {
     newViewBoxHeight = origHeight
     newViewBoxWidth = origHeight * newAspectRatio
@@ -587,36 +892,21 @@ export async function handleSizeChange(
     newViewBoxHeight = origWidth / newAspectRatio
   }
 
-  svgElement.setAttribute('viewBox', `0 0 ${newViewBoxWidth} ${newViewBoxHeight}`)
-  svgElement.setAttribute('width', `${widthPixels}`)
-  svgElement.setAttribute('height', `${heightPixels}`)
+  // Center the original content in the new aspect ratio by shifting the viewBox origin.
+  // This avoids introducing wrapper transforms that complicate export and text positioning.
+  const viewBoxMinX = (origWidth - newViewBoxWidth) / 2
+  const viewBoxMinY = (origHeight - newViewBoxHeight) / 2
+
+  svgElement.setAttribute('viewBox', `${viewBoxMinX} ${viewBoxMinY} ${newViewBoxWidth} ${newViewBoxHeight}`)
+
+  // For the live preview, keep the SVG responsive. Do NOT set huge pixel width/height here;
+  // we only store export dimensions as metadata for the exporter.
+  svgElement.removeAttribute('width')
+  svgElement.removeAttribute('height')
   svgElement.style.width = '100%'
   svgElement.style.height = 'auto'
   svgElement.style.maxWidth = '100%'
   svgElement.style.display = 'block'
-
-  const contentOffsetX = (newViewBoxWidth - origWidth) / 2
-  const contentOffsetY = (newViewBoxHeight - origHeight) / 2
-
-  let contentWrapper = svgElement.querySelector('#content-wrapper') as SVGGElement
-
-  if (!contentWrapper) {
-    contentWrapper = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-    contentWrapper.setAttribute('id', 'content-wrapper')
-    const children = Array.from(svgElement.children)
-    children.forEach(child => {
-      if (child.tagName !== 'defs' && child.id !== 'content-wrapper') {
-        contentWrapper.appendChild(child)
-      }
-    })
-    svgElement.appendChild(contentWrapper)
-  }
-
-  if (contentOffsetX !== 0 || contentOffsetY !== 0) {
-    contentWrapper.setAttribute('transform', `translate(${contentOffsetX}, ${contentOffsetY})`)
-  } else {
-    contentWrapper.removeAttribute('transform')
-  }
 
   // Update background rects
   const bgRects = svgElement.querySelectorAll('rect')
@@ -624,93 +914,38 @@ export async function handleSizeChange(
     const rectW = parseFloat(rect.getAttribute('width') || '0')
     const rectH = parseFloat(rect.getAttribute('height') || '0')
     if (Math.abs(rectW - origWidth) < 10 && Math.abs(rectH - origHeight) < 10) {
-      rect.setAttribute('x', '0')
-      rect.setAttribute('y', '0')
+      rect.setAttribute('x', String(viewBoxMinX))
+      rect.setAttribute('y', String(viewBoxMinY))
       rect.setAttribute('width', String(newViewBoxWidth))
       rect.setAttribute('height', String(newViewBoxHeight))
-      if (rect.parentElement === (contentWrapper as unknown as HTMLElement)) {
-        svgElement.insertBefore(rect, contentWrapper)
+
+      // Ensure the background is not inside any wrapper/group so it covers the full canvas.
+      // Use parentNode for correct SVG typings (parentElement can be HTMLElement-typed).
+      if (rect.parentNode && rect.parentNode !== svgElement) {
+        rect.parentNode.removeChild(rect)
+        const defs = svgElement.querySelector('defs')
+        if (defs && defs.nextSibling) svgElement.insertBefore(rect, defs.nextSibling)
+        else svgElement.insertBefore(rect, svgElement.firstChild)
       }
     }
   })
-  
-  // Update clip-path
-  const clipPathRect = svgElement.querySelector('clipPath#imageClip rect, defs clipPath#imageClip rect')
-  if (clipPathRect) {
-    const origClipX = 1400
-    const origClipWidth = 1580
-    const scaleX = newViewBoxWidth / origWidth
-    
-    const newClipX = origClipX * scaleX + contentOffsetX
-    const newClipWidth = origClipWidth * scaleX
-    
-    clipPathRect.setAttribute('x', String(newClipX))
-    clipPathRect.setAttribute('y', '0')
-    clipPathRect.setAttribute('width', String(newClipWidth))
-    clipPathRect.setAttribute('height', String(newViewBoxHeight))
-  }
-
-  // Scale wave paths
-  const wavePaths = svgElement.querySelectorAll('path[fill="#FFCC29"], path[fill="url(#g1)"], path[fill="#507C95"], path[fill="#104C6E"]')
-  if (wavePaths.length > 0) {
-    const heightRatio = newViewBoxHeight / origHeight
-    wavePaths.forEach((path) => {
-      const d = path.getAttribute('d')
-      if (d) {
-        const scaledD = d.replace(/v([\d.]+)/g, (match, val) => {
-          const scaledVal = parseFloat(val) * heightRatio
-          return `v${scaledVal.toFixed(2)}`
-        })
-        
-        const finalD = scaledD.replace(/([MmCcSsQqTtAaLlHhVv])([\d.-]+)\s+([\d.-]+)/g, (match, cmd, x, y) => {
-          if (cmd === 'M' || cmd === 'm' || cmd === 'c' || cmd === 'C') {
-            return `${cmd}${x} ${(parseFloat(y) * heightRatio).toFixed(2)}`
-          }
-          return match
-        })
-        
-        path.setAttribute('d', finalD)
-      }
-    })
-  }
-
-  // Reposition text elements
-  const heightDelta = newViewBoxHeight - origHeight
-  if (heightDelta > 0) {
-    const textOffset = heightDelta * 0.3
-    
-    const dateTextEl = svgElement.querySelector('#date-text') as SVGTextElement
-    if (dateTextEl) {
-      const currentY = parseFloat(dateTextEl.getAttribute('y') || '1480')
-      dateTextEl.setAttribute('y', String(currentY + textOffset))
-    }
-    
-    const courtesyTextEl = svgElement.querySelector('#courtesy-text') as SVGTextElement
-    if (courtesyTextEl) {
-      const currentY = parseFloat(courtesyTextEl.getAttribute('y') || '1600')
-      courtesyTextEl.setAttribute('y', String(currentY + textOffset))
-    }
-    
-    const weddingNamesGroup = svgElement.querySelector('#wedding-names-group') as SVGGElement
-    if (weddingNamesGroup) {
-      const transform = weddingNamesGroup.getAttribute('transform') || 'translate(400, 900) scale(2.5)'
-      const translateMatch = transform.match(/translate\((\d+(?:\.\d+)?),\s*(\d+(?:\.\d+)?)\)/)
-      if (translateMatch) {
-        const currentX = parseFloat(translateMatch[1])
-        const currentY = parseFloat(translateMatch[2])
-        const newTransform = transform.replace(/translate\([^)]+\)/, `translate(${currentX}, ${currentY + textOffset})`)
-        weddingNamesGroup.setAttribute('transform', newTransform)
-      }
-    }
-  }
 
   // Update background image
   const bgImage = svgElement.querySelector('#background-image') as SVGImageElement
   if (bgImage) {
     bgImage.setAttribute('width', String(newViewBoxWidth))
     bgImage.setAttribute('height', String(newViewBoxHeight))
-    bgImage.setAttribute('x', '0')
-    bgImage.setAttribute('y', '0')
+    bgImage.setAttribute('x', String(viewBoxMinX))
+    bgImage.setAttribute('y', String(viewBoxMinY))
+
+    // Ensure it's at root so it isn't affected by any transforms.
+    // Use parentNode for correct SVG typings.
+    if (bgImage.parentNode && bgImage.parentNode !== svgElement) {
+      bgImage.parentNode.removeChild(bgImage)
+      const defs = svgElement.querySelector('defs')
+      if (defs && defs.nextSibling) svgElement.insertBefore(bgImage, defs.nextSibling)
+      else svgElement.insertBefore(bgImage, svgElement.firstChild)
+    }
   }
 
   await nextTick()

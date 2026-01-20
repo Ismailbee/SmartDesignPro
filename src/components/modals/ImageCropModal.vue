@@ -1,5 +1,5 @@
 <template>
-  <ion-modal :is-open="isOpen" @didDismiss="handleCancel" class="crop-modal">
+  <ion-modal :is-open="isOpen" :backdrop-dismiss="false" @didDismiss="handleDidDismiss" class="crop-modal">
     <ion-header>
       <ion-toolbar>
         <ion-title>Crop Image</ion-title>
@@ -177,6 +177,8 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
+const hasEmittedClose = ref(false)
+
 const imageRef = ref<HTMLImageElement | null>(null)
 const selectedAspectRatio = ref<number | undefined>(undefined)
 const imageInfo = ref<{ originalWidth: number; originalHeight: number; fileSize: string } | null>(null)
@@ -208,6 +210,7 @@ watch(() => props.isOpen, async (isOpen) => {
   console.log('🎨 Modal isOpen changed:', isOpen)
 
   if (isOpen) {
+    hasEmittedClose.value = false
     console.log('🎨 Modal opening, imageSrc:', props.imageSrc)
     await nextTick()
     if (imageRef.value) {
@@ -224,6 +227,12 @@ watch(() => props.isOpen, async (isOpen) => {
     destroyCropper()
   }
 }, { immediate: true })
+
+function handleDidDismiss() {
+  // Always destroy on dismiss. Do NOT emit close here, because
+  // didDismiss can fire after we already reopened for the next queued crop.
+  destroyCropper()
+}
 
 function handleImageLoad() {
   console.log('🎨 Image loaded, initializing cropper')
@@ -298,7 +307,10 @@ async function handleApplyCrop() {
 
 function handleCancel() {
   destroyCropper()
-  emit('close')
+  if (!hasEmittedClose.value) {
+    hasEmittedClose.value = true
+    emit('close')
+  }
 }
 
 function formatFileSize(bytes: number): string {

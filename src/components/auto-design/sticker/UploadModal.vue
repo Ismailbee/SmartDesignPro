@@ -16,9 +16,9 @@
         </div>
 
         <!-- Title -->
-        <h2 class="upload-modal-title">Upload Your Picture</h2>
+        <h2 class="upload-modal-title">Upload Your Pictures</h2>
         <p class="upload-modal-description">
-          Upload a photo for your wedding sticker.
+          Upload 1–3 photos for your wedding sticker.
         </p>
 
         <!-- Background Removal Toggle -->
@@ -58,6 +58,7 @@
           <input
             ref="fileInput"
             type="file"
+            multiple
             accept="image/png,image/jpeg,image/jpg,image/webp"
             class="hidden"
             @change="handleFileSelect"

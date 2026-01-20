@@ -42,9 +42,19 @@
       <stop offset="100%" style="stop-color:#FF9900;stop-opacity:1" />
     </linearGradient>
 
-    <!-- Clip path for image - Full-height rectangular box -->
+    <!-- Clip path for image - Full-height rectangular box (larger area) -->
     <clipPath id="imageClip">
-      <rect x="1400" y="0" width="1580" height="1685.75" rx="0" ry="0"/>
+      <rect x="1300" y="0" width="1700" height="1685.75" rx="0" ry="0"/>
+    </clipPath>
+
+    <!-- Secondary image clip (top-right box) - matches frame exactly -->
+    <clipPath id="secondaryImageClip">
+      <rect x="2500" y="380" width="420" height="520" rx="36" ry="36"/>
+    </clipPath>
+
+    <!-- Tertiary image clip (stacked under secondary) - matches frame exactly -->
+    <clipPath id="tertiaryImageClip">
+      <rect x="2500" y="950" width="420" height="520" rx="36" ry="36"/>
     </clipPath>
   </defs>
   
@@ -57,24 +67,45 @@
   <path fill="#507C95" d="M0 539.04c926.95 695.49 1904.9-177.45 2996.89 529.68v617.04H0z"/>
   <path fill="#104C6E" d="M0 616.09c926.95 695.48 1904.9-254.49 2996.89 452.63v617.04H0z"/>
 
-  <!-- User image with clip path applied - starts from top of clip area -->
-  <image id="userImage" x="1400" y="0" width="1580" height="1685.75" 
-         opacity="1" 
-         href="" 
-         clip-path="url(#imageClip)"
-         preserveAspectRatio="xMidYMid slice"/>
+  <!-- Main image box (draggable as a group) -->
+  <g id="main-image-group">
+    <image id="userImage" x="1300" y="0" width="1700" height="1685.75" 
+           opacity="1" 
+           href="" 
+           preserveAspectRatio="xMidYMin slice"/>
+  </g>
+
+    <!-- Secondary image box (hidden unless a 2nd image is uploaded) -->
+    <g id="secondary-image-group" display="none">
+      <rect id="secondaryImageFrame" x="2500" y="380" width="420" height="520" rx="36" ry="36"
+        fill="#FFFFFF" fill-opacity="0.92" stroke="#FFFFFF" stroke-opacity="1" stroke-width="20"/>
+      <image id="userImageSecondary" x="2500" y="380" width="420" height="520"
+         opacity="1" href=""
+         clip-path="url(#secondaryImageClip)"
+         preserveAspectRatio="xMidYMin slice"/>
+    </g>
+
+    <!-- Tertiary image box (hidden unless a 3rd image is uploaded) -->
+    <g id="tertiary-image-group" display="none">
+      <rect id="tertiaryImageFrame" x="2500" y="950" width="420" height="520" rx="36" ry="36"
+        fill="#FFFFFF" fill-opacity="0.92" stroke="#FFFFFF" stroke-opacity="1" stroke-width="20"/>
+      <image id="userImageTertiary" x="2500" y="950" width="420" height="520"
+         opacity="1" href=""
+         clip-path="url(#tertiaryImageClip)"
+         preserveAspectRatio="xMidYMin slice"/>
+    </g>
 
   <!-- Editable text elements with IDs -->
-  <text id="blessing-text" class="serif-font" x="850.45" y="60" text-anchor="middle" font-size="160" fill="#000">Alhamdulillahi</text>
+  <text id="blessing-text" class="serif-font" x="850.45" y="50" text-anchor="middle" font-size="160" fill="#000">Alhamdulillahi</text>
   <text id="occasion-text" x="850.45" y="160" text-anchor="middle" font-size="55" font-weight="bold" fill="#000">ON YOUR</text>
   <text id="event-type-text" class="serif-font" x="850.45" y="340" text-anchor="middle" font-size="150" font-weight="bold" fill="#DAA520">WEDDING</text>
   <text id="ceremony-text" x="850.45" y="490" text-anchor="middle" font-size="100" font-weight="bold" fill="red">CEREMONY</text>
   
   <!-- New Wedding Names - Clean version positioned on the left side, not overlapping image -->
   <g id="wedding-names-group" transform="translate(650, 680) scale(2.2)">
-    <text id="name1-first" x="0" y="85" fill="#000000" font-size="72" font-weight="900">Muhammad</text>
-    <text id="name2-first" x="60" y="160" fill="#000000" font-size="72" font-weight="900">Hauwawu</text>
-    <text id="name-separator" x="-20" y="160.4" fill="#B8860B" font-size="84.15" font-weight="900">&amp;</text>
+    <text id="name1-first" x="0" y="85" fill="#000000" font-size="68" font-weight="900">Muhammad</text>
+    <text id="name2-first" x="60" y="160" fill="#000000" font-size="68" font-weight="900">Hauwawu</text>
+    <text id="name-separator" x="-20" y="160.4" fill="#B8860B" font-size="80" font-weight="900">&amp;</text>
   </g>
   
   <!-- Date SVG injection group - positioned on the left side -->

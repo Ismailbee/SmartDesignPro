@@ -169,6 +169,8 @@ export interface UseBackgroundManagerOptions {
   weddingPreviewContainer: Ref<HTMLElement | null>
   /** Reference to the chat preview container(s) */
   chatPreviewContainer: Ref<HTMLElement | HTMLElement[] | null>
+  /** Optional hook to post-process each cloned chat preview SVG (e.g. attach drag handlers) */
+  postProcessChatPreviewSvg?: (svg: SVGSVGElement) => void
   /** Callback to clear title image cache when background changes */
   clearTitleImageCache?: () => void
   /** Callback to update SVG with images after background change */
@@ -191,6 +193,7 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
     clearTitleImageCache,
     updateSVGWithImages,
     updateTitleColor,
+    postProcessChatPreviewSvg,
     flourishSystem,
     persistenceKey,
   } = options
@@ -692,19 +695,37 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
     const existingBgRect = svgElement.querySelector('rect[fill="#F8F8F8"]')
     const existingBgImage = svgElement.querySelector('#background-image')
     
-    // Find wave path elements (they have specific fill colors) - use broader selector
-    // Also find paths that might have been modified
-    const wavePaths = svgElement.querySelectorAll('path[fill="#FFCC29"], path[fill="url(#g1)"], path[fill="#507C95"], path[fill="#104C6E"], path[d*="776.51"], path[d*="539.04"], path[d*="616.09"]')
+    // Find ALL wave path elements - get all direct child paths that form the wave background
+    // These are the paths with specific fill colors OR paths that come right after the background rect
+    const allPaths = svgElement.querySelectorAll(':scope > path')
+    const wavePaths: SVGPathElement[] = []
+    
+    allPaths.forEach(path => {
+      const fill = path.getAttribute('fill') || ''
+      const d = path.getAttribute('d') || ''
+      // Check if it's one of the wave paths by fill color or path content
+      if (
+        fill === '#FFCC29' || 
+        fill.includes('url(#g1)') || 
+        fill === '#507C95' || 
+        fill === '#104C6E' ||
+        d.includes('776.51') ||
+        d.includes('539.04') ||
+        d.includes('616.09')
+      ) {
+        wavePaths.push(path as SVGPathElement)
+      }
+    })
 
     console.log(`🌊 Found ${wavePaths.length} wave paths to hide`)
 
     // Remove or hide wave paths - use both style and attribute for reliability
-    wavePaths.forEach((path, index) => {
-      const pathEl = path as SVGPathElement
+    wavePaths.forEach((pathEl, index) => {
       pathEl.style.display = 'none'
       pathEl.style.visibility = 'hidden'
       pathEl.setAttribute('opacity', '0')
-      console.log(`  - Hidden wave path ${index + 1}`)
+      pathEl.setAttribute('data-hidden-wave', 'true')
+      console.log(`  - Hidden wave path ${index + 1}: fill=${pathEl.getAttribute('fill')}`)
     })
 
     // Hide the default background rect
@@ -1006,14 +1027,30 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
       existingBgImage.remove()
     }
 
-    // Hide template background rect + wave paths (same selectors as applyNewBackground)
+    // Hide template background rect + wave paths (same logic as applyNewBackground)
     const existingBgRect = svgElement.querySelector('rect[fill="#F8F8F8"]')
-    const wavePaths = svgElement.querySelectorAll(
-      'path[fill="#FFCC29"], path[fill="url(#g1)"], path[fill="#507C95"], path[fill="#104C6E"], path[d*="776.51"], path[d*="539.04"], path[d*="616.09"]'
-    )
+    
+    // Find ALL wave path elements
+    const allPaths = svgElement.querySelectorAll(':scope > path')
+    const wavePaths: SVGPathElement[] = []
+    
+    allPaths.forEach(path => {
+      const fill = path.getAttribute('fill') || ''
+      const d = path.getAttribute('d') || ''
+      if (
+        fill === '#FFCC29' || 
+        fill.includes('url(#g1)') || 
+        fill === '#507C95' || 
+        fill === '#104C6E' ||
+        d.includes('776.51') ||
+        d.includes('539.04') ||
+        d.includes('616.09')
+      ) {
+        wavePaths.push(path as SVGPathElement)
+      }
+    })
 
-    wavePaths.forEach((path) => {
-      const pathEl = path as SVGPathElement
+    wavePaths.forEach((pathEl) => {
       pathEl.style.display = 'none'
       pathEl.style.visibility = 'hidden'
       pathEl.setAttribute('opacity', '0')
@@ -1124,6 +1161,14 @@ export function useBackgroundManager(options: UseBackgroundManagerOptions) {
         
         placeholderDiv.appendChild(clonedSvg)
         console.log(`✅ Container ${idx}: cloned SVG appended to preview placeholder`)
+
+        // Allow parent to attach interactions (dragging, etc.) to the newly cloned SVG.
+        // Important: cloneNode does not preserve event listeners.
+        try {
+          postProcessChatPreviewSvg?.(clonedSvg)
+        } catch (e) {
+          console.warn('⚠️ postProcessChatPreviewSvg failed', e)
+        }
       }
     })
   }

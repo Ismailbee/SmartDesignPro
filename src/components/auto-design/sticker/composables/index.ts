@@ -265,3 +265,10 @@ export {
   type ExportConfig,
   type ElementPosition,
 } from './useDynamicSVG'
+
+// Upload Chat Flow (multi-photo crop, choose main, bg removal prompt)
+export {
+  useUploadChatFlow,
+  type UseUploadChatFlowDeps,
+  type UseUploadChatFlowReturn,
+} from './useUploadChatFlow'

@@ -100,6 +100,7 @@
       <input
         ref="preGeneratedImageInput"
         type="file"
+        multiple
         accept="image/png,image/jpeg,image/jpg,image/webp"
         class="hidden"
         @change="handlePreGeneratedImageSelect"
@@ -138,6 +139,63 @@
       @save="handleEditModalSave"
       @close="closeEditModal"
     />
+
+    <!-- Image Swap Confirmation Modal -->
+    <Teleport to="body">
+      <div v-if="showImageActionModal" class="swap-confirmation-overlay" @click.self="cancelImageAction">
+        <div class="swap-confirmation-modal">
+          <div class="swap-modal-icon">📷</div>
+          <h3 class="swap-modal-title">What would you like to do?</h3>
+          <p class="swap-modal-text">
+            Choose an action for this image
+          </p>
+          <div class="swap-modal-actions image-action-buttons">
+            <button class="swap-btn swap-btn-flip" @click="flipSelectedImage">
+              <span class="btn-icon">↔️</span>
+              Flip Image
+            </button>
+            <button class="swap-btn swap-btn-drag" @click="selectSmallBoxDragMode">
+              <span class="btn-icon">✋</span>
+              Reposition Box
+            </button>
+            <button class="swap-btn swap-btn-confirm" @click="selectSwapMode">
+              <span class="btn-icon">🔄</span>
+              Swap with Main
+            </button>
+            <button class="swap-btn swap-btn-cancel" @click="cancelImageAction">Cancel</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Main Image Action Modal -->
+      <div v-if="showMainImageModal" class="swap-confirmation-overlay" @click.self="cancelMainImageAction">
+        <div class="swap-confirmation-modal">
+          <div class="swap-modal-icon">🖼️</div>
+          <h3 class="swap-modal-title">Main Image Options</h3>
+          <p class="swap-modal-text">
+            Choose an action for the main image
+          </p>
+          <div class="swap-modal-actions image-action-buttons">
+            <button class="swap-btn swap-btn-flip" @click="flipMainImage">
+              <span class="btn-icon">↔️</span>
+              Flip Image
+            </button>
+            <button class="swap-btn swap-btn-drag" @click="selectMainDragMode">
+              <span class="btn-icon">✋</span>
+              Reposition
+            </button>
+            <button class="swap-btn swap-btn-cancel" @click="cancelMainImageAction">Cancel</button>
+            <p class="swap-modal-hint">💡 Tip: Click Reposition to drag the image</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Swapping Loading Overlay -->
+      <div v-if="isSwapping" class="swap-loading-overlay">
+        <div class="swap-loading-spinner"></div>
+        <p class="swap-loading-text">Swapping images...</p>
+      </div>
+    </Teleport>
   </div>
   </div>
 </template>
@@ -226,6 +284,8 @@ import {
   useWeddingPreviewGeneration,
   // Image Upload Flow composable
   useImageUploadFlow,
+  // Upload Chat Flow composable
+  useUploadChatFlow,
   // Wedding State composable
   useWeddingState,
 } from './sticker/composables'
@@ -256,6 +316,7 @@ import {
   buildWeddingChatTranscriptForAIUtil,
   parseSizeToInchesUtil,
   syncWeddingDescriptionFromStateUtil,
+  addAIMessageWithTypingUtil,
   type ChatMessage as ChatMessageType
 } from './sticker/utils/chatUtils'
 
@@ -457,6 +518,163 @@ const svgImageManager = useSVGImageManager({
   defaultHeight: 400
 })
 
+// Image action modal state (flip or swap for small images)
+const showImageActionModal = ref(false)
+const pendingActionImageId = ref<string | null>(null)
+const isSwapping = ref(false)
+
+// Main image action modal state
+const showMainImageModal = ref(false)
+const isMainImageDragEnabled = ref(false)
+
+// Small box drag state
+const isSmallBoxDragEnabled = ref(false)
+const activeSmallBoxId = ref<string | null>(null)
+
+/**
+ * Handle single click on the main image to show action options
+ */
+function handleMainImageClick() {
+  // If drag mode is enabled, don't show modal
+  if (isMainImageDragEnabled.value) return
+  if (svgImageManager.images.value.length === 0) return
+  showMainImageModal.value = true
+}
+
+/**
+ * Flip the main image
+ */
+function flipMainImage() {
+  const mainImage = svgImageManager.images.value[0]
+  if (!mainImage) return
+  
+  // Toggle flip state
+  svgImageManager.updateImage(mainImage.id, { flipped: !mainImage.flipped })
+  
+  // Update the SVG display
+  nextTick(() => {
+    _updateSVGWithImages?.()
+    updateChatPreviewSVG()
+  })
+  
+  showMainImageModal.value = false
+}
+
+/**
+ * Cancel the main image action modal
+ */
+function cancelMainImageAction() {
+  showMainImageModal.value = false
+}
+
+/**
+ * User selected drag/reposition mode for main image
+ */
+function selectMainDragMode() {
+  showMainImageModal.value = false
+  isMainImageDragEnabled.value = true
+  
+  // Show feedback to user
+  console.log('✋ Main image drag mode enabled - drag to reposition')
+}
+
+/**
+ * User selected drag/reposition mode for small box
+ */
+function selectSmallBoxDragMode() {
+  if (!pendingActionImageId.value) return
+  
+  // Determine which group this image belongs to
+  const index = svgImageManager.images.value.findIndex(img => img.id === pendingActionImageId.value)
+  const groupId = index === 1 ? 'secondary-image-group' : index === 2 ? 'tertiary-image-group' : null
+  
+  if (groupId) {
+    activeSmallBoxId.value = groupId
+    isSmallBoxDragEnabled.value = true
+    console.log(`✋ Small box drag mode enabled for ${groupId}`)
+  }
+  
+  showImageActionModal.value = false
+  pendingActionImageId.value = null
+}
+
+/**
+ * Handle single click on a small image to show action options
+ * Only shows for non-main images (index > 0)
+ */
+function handleImageClick(imageId: string) {
+  const index = svgImageManager.images.value.findIndex(img => img.id === imageId)
+  if (index <= 0) {
+    // Main image - no action needed
+    return
+  }
+  
+  // Show action modal
+  pendingActionImageId.value = imageId
+  showImageActionModal.value = true
+}
+
+/**
+ * Flip the selected small image
+ */
+function flipSelectedImage() {
+  if (!pendingActionImageId.value) return
+  
+  const image = svgImageManager.images.value.find(img => img.id === pendingActionImageId.value)
+  if (!image) return
+  
+  // Toggle flip state
+  svgImageManager.updateImage(pendingActionImageId.value, { flipped: !image.flipped })
+  
+  // Update the SVG display
+  nextTick(() => {
+    _updateSVGWithImages?.()
+    updateChatPreviewSVG()
+  })
+  
+  showImageActionModal.value = false
+  pendingActionImageId.value = null
+}
+
+/**
+ * User selected swap mode - execute the swap
+ */
+async function selectSwapMode() {
+  if (!pendingActionImageId.value) return
+  
+  showImageActionModal.value = false
+  isSwapping.value = true
+  
+  // Small delay for visual feedback
+  await new Promise(resolve => setTimeout(resolve, 300))
+  
+  const success = svgImageManager.swapWithMain(pendingActionImageId.value)
+  if (success) {
+    // Update SVG with new image positions in the main container
+    await nextTick()
+    _updateSVGWithImages?.()
+    
+    // Wait for DOM to update
+    await nextTick()
+    
+    // Update the chat preview (the visible preview in the chat) to reflect the swap
+    updateChatPreviewSVG()
+    
+    console.log('🔄 Swap complete - preview updated')
+  }
+  
+  isSwapping.value = false
+  pendingActionImageId.value = null
+}
+
+/**
+ * Cancel the image action
+ */
+function cancelImageAction() {
+  showImageActionModal.value = false
+  pendingActionImageId.value = null
+}
+
 // NOTE: isRetouching, showImageControls, showUploadOptions provided by useWeddingState composable
 
 // SVG Text Replacement (for Nikkah graphics)
@@ -525,6 +743,358 @@ const {
 } = useBackgroundManager({
   weddingPreviewContainer,
   chatPreviewContainer: chatPreviewContainer as Ref<HTMLElement | HTMLElement[] | null>,
+  postProcessChatPreviewSvg: (clonedSvg) => {
+    // Enable dragging for the fixed-size small slots inside the chat preview clone.
+    // This must be re-attached on every update because cloneNode strips listeners.
+    try {
+      const masterSvg = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement | null
+      if (!masterSvg) return
+
+      // Drag handler for main image only
+      const attachImageDrag = (
+        imageElId: 'userImage' | 'placeholder-image'
+      ) => {
+        const previewImageEl = clonedSvg.querySelector(`#${imageElId}`) as SVGImageElement | null
+        if (!previewImageEl) return
+
+        // Avoid attaching multiple times on the same node.
+        if (previewImageEl.getAttribute('data-preview-draggable') === 'true') return
+        previewImageEl.setAttribute('data-preview-draggable', 'true')
+
+        previewImageEl.style.pointerEvents = 'all'
+        previewImageEl.style.cursor = 'pointer'
+
+        let dragging = false
+        let startX = 0
+        let startY = 0
+        let initialX = 0
+        let initialY = 0
+        let pointerId: number | null = null
+
+        const toSvgPoint = (svg: SVGSVGElement, clientX: number, clientY: number) => {
+          const pt = svg.createSVGPoint()
+          pt.x = clientX
+          pt.y = clientY
+          return pt.matrixTransform(svg.getScreenCTM()?.inverse())
+        }
+
+        const onPointerDown = (e: PointerEvent) => {
+          // If drag mode is not enabled, show modal instead
+          if (!isMainImageDragEnabled.value) {
+            e.preventDefault()
+            e.stopPropagation()
+            handleMainImageClick()
+            return
+          }
+
+          // Only primary button for mouse; for touch, button is usually 0.
+          if (e.pointerType === 'mouse' && e.button !== 0) return
+
+          const svg = previewImageEl.ownerSVGElement
+          if (!svg) return
+
+          dragging = true
+          pointerId = e.pointerId
+          previewImageEl.setPointerCapture(e.pointerId)
+
+          const p = toSvgPoint(svg, e.clientX, e.clientY)
+          startX = p.x
+          startY = p.y
+          initialX = parseFloat(previewImageEl.getAttribute('x') || '0')
+          initialY = parseFloat(previewImageEl.getAttribute('y') || '0')
+
+          previewImageEl.style.cursor = 'grabbing'
+          previewImageEl.style.opacity = '0.9'
+          e.preventDefault()
+        }
+
+        const onPointerMove = (e: PointerEvent) => {
+          if (!dragging) return
+          if (pointerId !== null && e.pointerId !== pointerId) return
+
+          const svg = previewImageEl.ownerSVGElement
+          if (!svg) return
+
+          const p = toSvgPoint(svg, e.clientX, e.clientY)
+          let dx = p.x - startX
+          const dy = p.y - startY
+
+          // Main image is always at index 0
+          const mainImageId = svgImageManager.images.value[0]?.id
+          const imageDataId = previewImageEl.getAttribute('data-image-id') || mainImageId || ''
+          const img = svgImageManager.images.value.find(i => i.id === imageDataId)
+          if (img?.flipped) dx = -dx
+
+          const newX = initialX + dx
+          const newY = initialY + dy
+
+          // Update preview element immediately
+          previewImageEl.setAttribute('x', String(newX))
+          previewImageEl.setAttribute('y', String(newY))
+          previewImageEl.setAttribute('data-user-position', 'true')
+
+          // Persist in manager state
+          if (imageDataId) {
+            svgImageManager.updateImage(imageDataId, { x: newX, y: newY, hasUserPosition: true } as any)
+          }
+
+          // Mirror into the hidden master SVG so export + future clones keep the position.
+          const masterEl = masterSvg.querySelector(`#${imageElId}`) as SVGImageElement | null
+          if (masterEl) {
+            masterEl.setAttribute('x', String(newX))
+            masterEl.setAttribute('y', String(newY))
+            masterEl.setAttribute('data-user-position', 'true')
+          }
+
+          e.preventDefault()
+        }
+
+        const endDrag = (e?: PointerEvent) => {
+          if (!dragging) return
+          dragging = false
+          pointerId = null
+          
+          // Disable drag mode after drag ends so next click shows modal again
+          isMainImageDragEnabled.value = false
+          previewImageEl.style.cursor = 'pointer'
+          previewImageEl.style.opacity = '1'
+          if (e) {
+            try { previewImageEl.releasePointerCapture(e.pointerId) } catch { /* ignore */ }
+          }
+        }
+
+        // Update cursor based on drag mode
+        watch(isMainImageDragEnabled, (enabled) => {
+          previewImageEl.style.cursor = enabled ? 'grab' : 'pointer'
+        })
+
+        previewImageEl.addEventListener('pointerdown', onPointerDown)
+        previewImageEl.addEventListener('pointermove', onPointerMove)
+        previewImageEl.addEventListener('pointerup', endDrag)
+        previewImageEl.addEventListener('pointercancel', endDrag)
+      }
+
+      // Click-only handler for small images (no drag, just modal trigger)
+      const attachSmallImageClickHandler = (
+        imageElId: 'userImageSecondary' | 'userImageTertiary'
+      ) => {
+        const previewImageEl = clonedSvg.querySelector(`#${imageElId}`) as SVGImageElement | null
+        if (!previewImageEl) return
+
+        // Skip if group is hidden
+        const groupId = imageElId === 'userImageSecondary' ? 'secondary-image-group' : 'tertiary-image-group'
+        const group = clonedSvg.querySelector(`#${groupId}`) as SVGGElement | null
+        const display = group?.getAttribute('display')
+        if (display === 'none') return
+
+        // Avoid attaching multiple times
+        if (previewImageEl.getAttribute('data-click-handler') === 'true') return
+        previewImageEl.setAttribute('data-click-handler', 'true')
+
+        previewImageEl.style.pointerEvents = 'all'
+        previewImageEl.style.cursor = 'pointer'
+
+        // Track if we're in the middle of a drag to prevent click
+        let didDrag = false
+
+        // Watch for drag mode changes to update cursor
+        watch([isSmallBoxDragEnabled, activeSmallBoxId], ([enabled, activeId]) => {
+          if (enabled && activeId === groupId) {
+            previewImageEl.style.cursor = 'grab'
+            didDrag = false // Reset when entering drag mode
+          } else {
+            previewImageEl.style.cursor = 'pointer'
+          }
+        })
+
+        // Track pointer movement to detect drag
+        previewImageEl.addEventListener('pointermove', () => {
+          if (isSmallBoxDragEnabled.value && activeSmallBoxId.value === groupId) {
+            didDrag = true
+          }
+        })
+
+        previewImageEl.addEventListener('click', (e) => {
+          // If drag mode is enabled OR we just finished dragging, don't show modal
+          if (isSmallBoxDragEnabled.value && activeSmallBoxId.value === groupId) {
+            e.preventDefault()
+            e.stopPropagation()
+            return
+          }
+          
+          // If we just dragged, don't show modal (small delay to allow drag to complete)
+          if (didDrag) {
+            e.preventDefault()
+            e.stopPropagation()
+            didDrag = false
+            return
+          }
+          
+          e.preventDefault()
+          e.stopPropagation()
+          
+          const fallbackId = imageElId === 'userImageSecondary'
+            ? svgImageManager.images.value[1]?.id
+            : svgImageManager.images.value[2]?.id
+
+          const imageDataId = previewImageEl.getAttribute('data-image-id') || fallbackId || ''
+          if (imageDataId) {
+            handleImageClick(imageDataId)
+          }
+        })
+      }
+
+      // Drag handler for small box - attached to IMAGE but moves the GROUP
+      const attachSmallBoxDrag = (
+        imageElId: 'userImageSecondary' | 'userImageTertiary',
+        groupId: 'secondary-image-group' | 'tertiary-image-group'
+      ) => {
+        const previewImageEl = clonedSvg.querySelector(`#${imageElId}`) as SVGImageElement | null
+        const groupEl = clonedSvg.querySelector(`#${groupId}`) as SVGGElement | null
+        if (!previewImageEl || !groupEl) return
+
+        // Skip if group is hidden
+        const display = groupEl.getAttribute('display')
+        if (display === 'none') return
+
+        // Also get the master SVG group for syncing
+        const masterGroupEl = masterSvg?.querySelector(`#${groupId}`) as SVGGElement | null
+
+        // Avoid attaching multiple times
+        if (previewImageEl.getAttribute('data-box-draggable') === 'true') return
+        previewImageEl.setAttribute('data-box-draggable', 'true')
+
+        let dragging = false
+        let startX = 0
+        let startY = 0
+        let initialTranslateX = 0
+        let initialTranslateY = 0
+        let pointerId: number | null = null
+
+        const toSvgPoint = (svg: SVGSVGElement, clientX: number, clientY: number) => {
+          const pt = svg.createSVGPoint()
+          pt.x = clientX
+          pt.y = clientY
+          return pt.matrixTransform(svg.getScreenCTM()?.inverse())
+        }
+
+        // Parse existing transform to get translate values
+        const parseTransform = (el: SVGGElement): { x: number, y: number } => {
+          const transform = el.getAttribute('transform') || ''
+          const match = transform.match(/translate\(\s*([-\d.]+)\s*,?\s*([-\d.]+)?\s*\)/)
+          if (match) {
+            return { x: parseFloat(match[1]) || 0, y: parseFloat(match[2]) || 0 }
+          }
+          return { x: 0, y: 0 }
+        }
+
+        const onPointerDown = (e: PointerEvent) => {
+          // Only allow drag if drag mode is enabled for this group
+          if (!isSmallBoxDragEnabled.value || activeSmallBoxId.value !== groupId) {
+            return // Let the click event handle showing modal
+          }
+
+          // Only primary button for mouse
+          if (e.pointerType === 'mouse' && e.button !== 0) return
+
+          const svg = groupEl.ownerSVGElement
+          if (!svg) return
+
+          dragging = true
+          pointerId = e.pointerId
+          previewImageEl.setPointerCapture(e.pointerId)
+
+          const p = toSvgPoint(svg, e.clientX, e.clientY)
+          startX = p.x
+          startY = p.y
+          
+          const currentTransform = parseTransform(groupEl)
+          initialTranslateX = currentTransform.x
+          initialTranslateY = currentTransform.y
+
+          previewImageEl.style.cursor = 'grabbing'
+          groupEl.style.opacity = '0.9'
+          e.preventDefault()
+          e.stopPropagation()
+        }
+
+        const onPointerMove = (e: PointerEvent) => {
+          if (!dragging) return
+          if (pointerId !== null && e.pointerId !== pointerId) return
+
+          const svg = groupEl.ownerSVGElement
+          if (!svg) return
+
+          const p = toSvgPoint(svg, e.clientX, e.clientY)
+          const dx = p.x - startX
+          const dy = p.y - startY
+
+          const newX = initialTranslateX + dx
+          const newY = initialTranslateY + dy
+
+          // Update the GROUP transform (moves both frame and image together)
+          groupEl.setAttribute('transform', `translate(${newX}, ${newY})`)
+
+          // Mirror to master SVG for export
+          if (masterGroupEl) {
+            masterGroupEl.setAttribute('transform', `translate(${newX}, ${newY})`)
+          }
+
+          e.preventDefault()
+        }
+
+        const endDrag = (e?: PointerEvent) => {
+          if (!dragging) return
+          
+          // Get the final position before resetting state
+          const finalTransform = parseTransform(groupEl)
+          
+          dragging = false
+          pointerId = null
+          
+          // Save the position to the image manager so it persists across flip/swap
+          const imageIndex = groupId === 'secondary-image-group' ? 1 : 2
+          const imageData = svgImageManager.images.value[imageIndex]
+          if (imageData) {
+            // Store group transform on the image data
+            svgImageManager.updateImage(imageData.id, {
+              groupTranslateX: finalTransform.x,
+              groupTranslateY: finalTransform.y
+            } as any)
+            console.log(`📍 Saved small box position: ${groupId}`, finalTransform)
+          }
+          
+          // Disable drag mode after drag ends
+          isSmallBoxDragEnabled.value = false
+          activeSmallBoxId.value = null
+          previewImageEl.style.cursor = 'pointer'
+          groupEl.style.opacity = '1'
+          if (e) {
+            try { previewImageEl.releasePointerCapture(e.pointerId) } catch { /* ignore */ }
+          }
+        }
+
+        previewImageEl.addEventListener('pointerdown', onPointerDown)
+        previewImageEl.addEventListener('pointermove', onPointerMove)
+        previewImageEl.addEventListener('pointerup', endDrag)
+        previewImageEl.addEventListener('pointercancel', endDrag)
+      }
+
+      // Main image drag only (small boxes don't have drag, only click for flip/swap)
+      attachImageDrag('userImage')
+      attachImageDrag('placeholder-image')
+
+      // Small boxed slots - click handler for modal AND drag handler for reposition
+      attachSmallImageClickHandler('userImageSecondary')
+      attachSmallImageClickHandler('userImageTertiary')
+
+      // Small box drag - attached to image but moves the group
+      attachSmallBoxDrag('userImageSecondary', 'secondary-image-group')
+      attachSmallBoxDrag('userImageTertiary', 'tertiary-image-group')
+    } catch (e) {
+      console.warn('⚠️ Failed to enable chat preview dragging', e)
+    }
+  },
   clearTitleImageCache,
   updateSVGWithImages: () => _updateSVGWithImages?.(),
   updateTitleColor,
@@ -545,6 +1115,10 @@ watch(bgManagerBackgroundFileName, (newVal) => {
 
 // Handle action button clicks in messages
 function handleMessageAction(action: { type: string; label?: string; route?: string }) {
+  if (uploadChatFlow.handleUploadChatAction(action.type)) {
+    return
+  }
+
   switch (action.type) {
     case 'login':
       // Navigate to login page (same as "Get Started" button on home page)
@@ -564,8 +1138,14 @@ function handleMessageAction(action: { type: string; label?: string; route?: str
       break
     case 'upload':
     case 'add_photo':
-      // Trigger image upload (used by useWeddingChat composable)
-      triggerImageUpload()
+      // Upload behavior depends on whether we already have a preview:
+      // - Before preview: pick the main photo (preGeneratedImageInput)
+      // - After preview: add more photos (opens UploadModal)
+      if (showWeddingStickerPreview.value) {
+        showUploadModal.value = true
+      } else {
+        triggerImageUpload()
+      }
       break
     case 'generate_preview':
     case 'generate':
@@ -750,7 +1330,11 @@ async function handleEditModalSave(data: { heading: string; name1: string; name2
 function triggerImageUpload() {
   showUploadOptions.value = false
   if (selectedCategory.value === 'wedding') {
-    preGeneratedImageInput.value?.click()
+    if (showWeddingStickerPreview.value) {
+      showUploadModal.value = true
+    } else {
+      preGeneratedImageInput.value?.click()
+    }
   }
 }
 
@@ -822,6 +1406,13 @@ async function generateWeddingPreview() {
       console.warn('Post-generation: no SVG element found to apply custom heading')
     }
   }
+
+  // If the user uploaded 2–3 photos before generation, inject the extra ones now.
+  // Doing this after generation avoids the preview util clearing images later.
+  await nextTick()
+  await addPreGenerationExtrasToPreview()
+  await nextTick()
+  updateChatPreviewSVG()
 }
 
 // Regenerate with a new random background (keeps same text/image)
@@ -838,14 +1429,8 @@ async function regenerateWithNewBackground() {
   // Update the chat preview
   updateChatPreviewSVG()
   
-  // Add a chat message about the change
-  chatMessages.value.push({
-    id: Date.now(),
-    text: `✨ New background applied! Click **New** again to try another style.`,
-    sender: 'ai',
-    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  })
-  scrollToBottom()
+  // Add a chat message about the change with typing indicator
+  addAIMessageWithTyping(`✨ New background applied! Click **New** again to try another style.`)
 }
 
 // NOTE: State refs provided by useWeddingState composable (crop, upload, form, chat, categories)
@@ -868,13 +1453,7 @@ function trackImageUpload(file: File) {
 function showChatHelp() {
   const helpText = "Let me show you how it works!\n\n1. Type your details or upload a picture\n2. Use two fingers to resize images on mobile\n3. Click the voice icon to hear me speak!\n\nIt's easy! Let's go!"
 
-  chatMessages.value.push({
-    id: Date.now(),
-    text: helpText,
-    sender: 'ai',
-    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  })
-  scrollToBottom()
+  addAIMessageWithTyping(helpText)
 }
 
 // Setup auto-speak watcher for AI messages (using composable)
@@ -915,6 +1494,41 @@ const scrollToBottom = () => {
     })
   }
 }
+
+/**
+ * Add an AI message with typing indicator animation
+ * Shows three dots for 1 second, then reveals the actual message
+ */
+function addAIMessageWithTyping(
+  text: string, 
+  options?: {
+    image?: string
+    type?: 'text' | 'preview'
+    actions?: ChatMessageType['actions']
+    typingDelay?: number
+  }
+): Promise<void> {
+  return addAIMessageWithTypingUtil(text, chatMessages, scrollToBottom, options as any)
+}
+
+// Upload-related chat flow (multi-photo crop → choose main → bg removal for all)
+const uploadChatFlow = useUploadChatFlow({
+  chatMessages: chatMessages as any,
+  scrollToBottom,
+  showNotification: (opts) => authStore.showNotification(opts),
+  autoRemoveBackground,
+  preGeneratedImageFile,
+  pendingImageFile,
+  pictureStepComplete,
+  extractedInfo: extractedInfo as any,
+  sizeStepComplete,
+  awaitingSizeDecision,
+  accumulatedDescription,
+  formData,
+  requestWeddingPreviewGeneration,
+})
+
+const { pendingPreGenerationExtraCroppedFiles } = uploadChatFlow
 
 // SPEECH-TO-TEXT & TTS - Forward reference for sendMessage
 let _sendMessageRef: (() => void) | null = null
@@ -983,39 +1597,22 @@ weddingChatProcessor = useWeddingChat({
       pendingImageFile.value = null
       pictureStepComplete.value = true
       
-      // Add confirmation message
-      chatMessages.value.push({
-        id: Date.now(),
-        text: shouldRemoveBackground 
-          ? "Got it! I'll remove the background from your image. 🎨" 
-          : "Okay! I'll keep the background as is. 📸",
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
-      scrollToBottom()
+      // Add confirmation message with typing indicator
+      addAIMessageWithTyping(shouldRemoveBackground 
+        ? "Got it! I'll remove the background from your image. 🎨" 
+        : "Okay! I'll keep the background as is. 📸")
       
       // Check if we can proceed to generation
       const hasAllInfo = extractedInfo.value.names.name1 && extractedInfo.value.date && extractedInfo.value.courtesy
       const hasSize = sizeStepComplete.value || extractedInfo.value.size
       
-      setTimeout(() => {
+      setTimeout(async () => {
         if (hasAllInfo && hasSize) {
-          chatMessages.value.push({
-            id: Date.now(),
-            text: "Perfect! Let me create your sticker now! 🎨",
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
+          await addAIMessageWithTyping("Perfect! Let me create your sticker now! 🎨")
           formData.description = accumulatedDescription.value
           setTimeout(() => requestWeddingPreviewGeneration(), 300)
         } else if (hasAllInfo && !sizeStepComplete.value) {
-          chatMessages.value.push({
-            id: Date.now(),
-            text: "What size would you like the sticker? (e.g., '3x3' or 'default' for 4x4 inches)",
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
+          await addAIMessageWithTyping("What size would you like the sticker? (e.g., '3x3' or 'default' for 4x4 inches)")
           awaitingSizeDecision.value = true
           scrollToBottom()
         }
@@ -1149,13 +1746,7 @@ async function analyzeMessage(lastUserMessage: string) {
     }
 
     isAnalyzing.value = false
-    chatMessages.value.push({
-      id: Date.now(),
-      text: responseText,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-    scrollToBottom()
+    addAIMessageWithTyping(responseText)
     return
   }
 
@@ -1167,17 +1758,11 @@ async function analyzeMessage(lastUserMessage: string) {
   if (!hasName) missing.push('names')
   if (!hasDate) missing.push('date')
 
-  const responseText = missing.length > 0
+  const responseText2 = missing.length > 0
     ? `Please share the ${missing.join(', ')} for your wedding sticker.`
     : 'I have all your details! Would you like to generate your wedding sticker?'
 
-  chatMessages.value.push({
-    id: Date.now(),
-    text: responseText,
-    sender: 'ai',
-    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  })
-  scrollToBottom()
+  addAIMessageWithTyping(responseText2)
 }
 
 
@@ -1428,7 +2013,49 @@ async function handleImageFileSelect(event: Event) {
 
 // Image crop modal handlers - refactored to use utilities
 async function handleCropComplete(data: CropCompleteData) {
+  isApplyingCrop.value = true
+
   if (isPreGenerationCrop.value) {
+    if (isPreGenerationMultiCropping.value) {
+      const current = cropImageFile.value
+      if (!current) {
+        isApplyingCrop.value = false
+        return
+      }
+
+      const croppedFile = new File([data.blob], current.name, {
+        type: 'image/png',
+        lastModified: Date.now()
+      })
+
+      uploadChatFlow.recordPreGenerationCrop(croppedFile, data.dataUrl)
+
+      // Mark this file as processed (we always crop the first queue item)
+      preGenerationCropQueue.value.shift()
+
+      const next = preGenerationCropQueue.value[0]
+      if (next) {
+        // Continue cropping next photo after the modal closes
+        setTimeout(() => {
+          startPreGenerationCrop(next)
+          isApplyingCrop.value = false
+        }, CROP_MODAL_REOPEN_DELAY_MS)
+        return
+      }
+
+      // Finished cropping all selected photos — ask which should be the main picture
+      uploadChatFlow.promptForMainPhotoChoice()
+
+      // Reset multi-crop mode
+      isPreGenerationMultiCropping.value = false
+      preGenerationCropQueue.value = []
+
+      setTimeout(() => {
+        isApplyingCrop.value = false
+      }, CROP_MODAL_REOPEN_DELAY_MS)
+      return
+    }
+
     // Use utility for pre-generation crop handling
     const deps = {
       svgImageManager,
@@ -1461,6 +2088,7 @@ async function handleCropComplete(data: CropCompleteData) {
       cropImageSrc.value = ''
     }
     cropImageFile.value = null
+    isApplyingCrop.value = false
     return
   }
 
@@ -1472,9 +2100,26 @@ async function handleCropComplete(data: CropCompleteData) {
   })
 
   // Clean up
-  URL.revokeObjectURL(cropImageSrc.value)
-  cropImageSrc.value = ''
+  if (cropImageSrc.value) {
+    URL.revokeObjectURL(cropImageSrc.value)
+    cropImageSrc.value = ''
+  }
   cropImageFile.value = null
+
+  // If user selected multiple files, continue the queue after the modal closes.
+  const next = postGenerationCropQueue.value.shift()
+  if (next) {
+    // Defer until after the current modal close handler runs,
+    // otherwise it may revoke the next image URL.
+    setTimeout(() => {
+      startPostGenerationCrop(next)
+      isApplyingCrop.value = false
+    }, CROP_MODAL_REOPEN_DELAY_MS)
+    return
+  }
+
+  // Crop is done applying; if the user cancels the next one, we should clear the queue.
+  isApplyingCrop.value = false
 }
 
 function handleCropModalClose() {
@@ -1487,6 +2132,17 @@ function handleCropModalClose() {
     cropImageSrc.value = ''
   }
   cropImageFile.value = null
+
+  // If the user cancelled (not applying a crop), drop any queued crops.
+  if (!isApplyingCrop.value) {
+    postGenerationCropQueue.value = []
+    const hadPreGenerationQueue = isPreGenerationMultiCropping.value || preGenerationCropQueue.value.length > 0
+    if (hadPreGenerationQueue) {
+      isPreGenerationMultiCropping.value = false
+      preGenerationCropQueue.value = []
+      uploadChatFlow.resetUploadChatState()
+    }
+  }
 }
 
 function updateSelectedImageProperty(property: string, value: any) {
@@ -1609,6 +2265,106 @@ watch([() => formData.svgWidth, () => formData.svgHeight], ([newWidth, newHeight
 })
 
 // Upload Modal Functions
+const MAX_UPLOAD_IMAGES = 3
+const CROP_MODAL_REOPEN_DELAY_MS = 350
+const postGenerationCropQueue = ref<File[]>([])
+const isApplyingCrop = ref(false)
+const isPreGenerationMultiCropping = ref(false)
+const preGenerationCropQueue = ref<File[]>([])
+
+function startPostGenerationCrop(file: File) {
+  // This crop is for adding a new photo slot; avoid replacing a currently selected image.
+  svgImageManager.selectImage(null)
+
+  // Ensure any previous object URL is cleaned up before starting a new crop
+  if (cropImageSrc.value) {
+    URL.revokeObjectURL(cropImageSrc.value)
+    cropImageSrc.value = ''
+  }
+
+  cropImageSrc.value = URL.createObjectURL(file)
+  cropImageFile.value = file
+  isPreGenerationCrop.value = false
+  showCropModal.value = true
+}
+
+function enqueuePostGenerationCrops(files: File[]) {
+  const currentCount = svgImageManager.images.value.length
+  const remainingSlots = Math.max(0, MAX_UPLOAD_IMAGES - currentCount)
+
+  // If already at capacity, allow replacing only one slot per action.
+  const maxToQueue = remainingSlots > 0 ? remainingSlots : 1
+  const toQueue = files.slice(0, maxToQueue)
+  const skipped = files.length - toQueue.length
+
+  postGenerationCropQueue.value.push(...toQueue)
+
+  if (skipped > 0) {
+    authStore.showNotification({
+      title: 'Extra photos skipped',
+      message: `You can use up to ${MAX_UPLOAD_IMAGES} photos per sticker.`,
+      type: 'info'
+    })
+  }
+
+  if (!showCropModal.value && postGenerationCropQueue.value.length > 0) {
+    const next = postGenerationCropQueue.value.shift()
+    if (next) startPostGenerationCrop(next)
+  }
+}
+
+async function addPreGenerationExtrasToPreview(): Promise<void> {
+  if (!showWeddingStickerPreview.value) return
+  if (pendingPreGenerationExtraCroppedFiles.value.length === 0) return
+  if (!weddingPreviewContainer.value) return
+
+  const svgElement = weddingPreviewContainer.value.querySelector('svg') as SVGSVGElement
+  if (!svgElement) return
+
+  const extras = pendingPreGenerationExtraCroppedFiles.value.slice(0, MAX_UPLOAD_IMAGES - 1)
+  pendingPreGenerationExtraCroppedFiles.value = []
+
+  uploadChatFlow.announceAddingExtrasToPreview(extras.length)
+
+  for (const file of extras) {
+    let fileToProcess = file
+    if (autoRemoveBackground.value && isBackgroundRemovalSupported()) {
+      try {
+        const result = await removeBackground(fileToProcess, {
+          quality: 'high',
+          outputFormat: 'image/png',
+          maxDimensions: 2048
+        })
+        fileToProcess = new File([result.blob], fileToProcess.name.replace(/\.[^/.]+$/, '.png'), {
+          type: 'image/png',
+          lastModified: Date.now()
+        })
+      } catch (error) {
+        // Continue with original image
+      }
+    }
+
+    await svgImageManager.addImage(fileToProcess, svgElement)
+  }
+
+  updateSVGWithImages()
+}
+
+// Note: extra (2nd/3rd) photos are injected after generation completes.
+
+function startPreGenerationCrop(file: File) {
+  // Ensure any previous object URL is cleaned up before starting a new crop
+  if (cropImageSrc.value) {
+    URL.revokeObjectURL(cropImageSrc.value)
+    cropImageSrc.value = ''
+  }
+
+  cropImageSrc.value = URL.createObjectURL(file)
+  cropImageFile.value = file
+  isPreGenerationCrop.value = true
+  showCropModal.value = true
+}
+
 function closeUploadModal() {
   if (!uploadModalProcessing.value) {
     showUploadModal.value = false
@@ -1621,7 +2377,7 @@ async function handleModalFileSelect(event: Event) {
   const files = target.files
 
   if (files && files.length > 0) {
-    const file = files[0]
+    const selectedFiles = Array.from(files)
 
     // Start processing
     uploadModalProcessing.value = true
@@ -1634,8 +2390,8 @@ async function handleModalFileSelect(event: Event) {
       uploadModalProgress.value = 30
       await new Promise(resolve => setTimeout(resolve, 300))
 
-      // Store file for later processing
-      pendingImageFile.value = file
+      // Store first file for compatibility with any legacy flows
+      pendingImageFile.value = selectedFiles[0]
       
       uploadModalProgress.value = 100
       uploadModalStatusText.value = 'Image uploaded!'
@@ -1646,25 +2402,9 @@ async function handleModalFileSelect(event: Event) {
         closeUploadModal()
         uploadModalProcessing.value = false
         
-        // If preview is already shown, ask if user wants to use this image
         if (showWeddingStickerPreview.value) {
-          awaitingBackgroundRemovalDecision.value = true // Reuse this flag or create a new one? 
-          // Actually, let's use a specific flow for this.
-          // We can reuse awaitingBackgroundRemovalDecision but the prompt is different.
-          
-          chatMessages.value.push({
-            id: Date.now(),
-            text: "New picture! Use this one? (yes/no)",
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            image: URL.createObjectURL(file)
-          })
-          scrollToBottom()
-
-          // We need a way to know we are in "confirm image update" mode.
-          // Let's use a new state or piggyback on awaitingBackgroundRemovalDecision with a context check?
-          // For simplicity, let's add a new state variable: awaitingImageUpdateConfirmation
-          awaitingImageUpdateConfirmation.value = true
+          // Post-generation: add 2nd/3rd images (or replace one) via sequential crop.
+          enqueuePostGenerationCrops(selectedFiles)
 
         } else {
           // Normal flow (before generation)
@@ -1703,21 +2443,39 @@ function handlePreGeneratedImageSelect(event: Event) {
   const files = target.files
 
   if (files && files.length > 0) {
-    const file = files[0]
+    const allSelected = Array.from(files)
+    const selectedFiles = allSelected.slice(0, MAX_UPLOAD_IMAGES)
 
-    // Track the image upload for AI management
-    trackImageUpload(file)
+    if (allSelected.length > MAX_UPLOAD_IMAGES) {
+      authStore.showNotification({
+        title: 'Too many photos',
+        message: `You can use up to ${MAX_UPLOAD_IMAGES} photos. I’ll use the first ${MAX_UPLOAD_IMAGES}.`,
+        type: 'info'
+      })
+    }
 
-    // Store the file for after cropping
-    pendingImageFile.value = file
+    if (selectedFiles.length > 1) {
+      isPreGenerationMultiCropping.value = true
+      preGenerationCropQueue.value = [...selectedFiles]
+      uploadChatFlow.resetUploadChatState()
+      uploadChatFlow.announcePreGenerationCroppingStart(selectedFiles.length)
 
-    // Open crop modal IMMEDIATELY (before sending to chat)
-    // Create image URL for crop modal
-    const imageUrl = URL.createObjectURL(file)
-    cropImageSrc.value = imageUrl
-    cropImageFile.value = file
-    isPreGenerationCrop.value = true
-    showCropModal.value = true
+      // Track only the first file to avoid duplicate “multiple upload” prompts
+      trackImageUpload(selectedFiles[0])
+      pendingImageFile.value = selectedFiles[0]
+
+      startPreGenerationCrop(selectedFiles[0])
+    } else {
+      const file = selectedFiles[0]
+
+      // Track the image upload for AI management
+      trackImageUpload(file)
+
+      // Store the file for after cropping
+      pendingImageFile.value = file
+
+      startPreGenerationCrop(file)
+    }
 
     // The chat message will be sent AFTER cropping is complete
     // See handleCropComplete for the post-crop flow
@@ -1759,6 +2517,17 @@ onBeforeUnmount(() => {
   if (preGeneratedImagePreview.value) {
     URL.revokeObjectURL(preGeneratedImagePreview.value)
     preGeneratedImagePreview.value = null
+  }
+  
+  // Cleanup draggable group event listeners to prevent memory leaks
+  if (weddingPreviewContainer.value) {
+    const draggableGroups = weddingPreviewContainer.value.querySelectorAll('[data-group-draggable="true"]')
+    draggableGroups.forEach((group) => {
+      const cleanup = (group as any).__groupDragCleanup
+      if (typeof cleanup === 'function') {
+        cleanup()
+      }
+    })
   }
 })
 </script>

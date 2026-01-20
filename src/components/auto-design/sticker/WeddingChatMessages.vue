@@ -548,6 +548,8 @@ defineExpose({
   justify-content: center;
   padding: 16px;
   background: var(--bg-tertiary);
+  /* Make touch/pointer dragging inside the SVG reliable (prevents scroll hijacking). */
+  touch-action: none;
 }
 
 .preview-placeholder :deep(svg) {
@@ -556,22 +558,25 @@ defineExpose({
   height: auto;
   display: block;
   margin: 0 auto;
+  touch-action: none;
 }
 
 /* Message Actions */
 .message-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   margin-top: 8px;
+  flex-wrap: wrap;
 }
 
 .action-btn {
-  padding: 8px 16px;
+  padding: 6px 10px;
   border: 1px solid var(--border-primary);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
+  line-height: 1.1;
   cursor: pointer;
   transition: all 0.2s ease;
 }

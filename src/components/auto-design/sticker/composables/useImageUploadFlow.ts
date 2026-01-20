@@ -71,6 +71,8 @@ export interface UseImageUploadFlowOptions {
   svgImageManager: {
     clearAllImages: () => void
     addImage: (file: File, svgElement: SVGSVGElement) => Promise<void>
+    removeImage: (id: string) => void
+    moveImageDown: (id: string) => void
     images: Ref<any[]>
     selectedImageId: Ref<string | null>
     updateImage: (id: string, updates: any) => void
@@ -179,6 +181,20 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions): UseImage
   // ============================================================================
   const backgroundRemovalError = ref<string | null>(null)
 
+  const MAX_UPLOAD_IMAGES = 3
+
+  async function addImageWithLimit(file: File, svgElement: SVGSVGElement): Promise<void> {
+    // Preserve the first image as the main image.
+    // When exceeding max, replace the last slot (tertiary, then secondary).
+    while (svgImageManager.images.value.length >= MAX_UPLOAD_IMAGES) {
+      const last = svgImageManager.images.value[svgImageManager.images.value.length - 1]
+      if (!last?.id) break
+      svgImageManager.removeImage(last.id)
+    }
+
+    await svgImageManager.addImage(file, svgElement)
+  }
+
   // ============================================================================
   // Helper: Get current time string
   // ============================================================================
@@ -198,11 +214,17 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions): UseImage
   // ============================================================================
   async function handleImageDrop(event: DragEvent): Promise<void> {
     const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
-    
-    // Clear existing images to prevent accumulation/duplication
-    svgImageManager.clearAllImages()
-    
-    await svgImageManager.handleDrop?.(event, svgElement)
+
+    if (!svgElement) return
+
+    // Allow dropping multiple files; keep up to MAX_UPLOAD_IMAGES.
+    event.preventDefault()
+    const files = event.dataTransfer?.files
+    if (files && files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        await addImageWithLimit(files[i], svgElement)
+      }
+    }
     
     // Update SVG preview with new images
     updateSVGWithImages()
@@ -373,10 +395,31 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions): UseImage
     })
 
     // Clear existing images to prevent accumulation/duplication
-    svgImageManager.clearAllImages()
+    const currentImages = svgImageManager.images.value
 
-    // Add the cropped image using the existing image manager
-    await svgImageManager.addImage(croppedFile, svgElement)
+    // Default behavior for multi-image: add into the next available slot
+    if (currentImages.length < MAX_UPLOAD_IMAGES) {
+      await addImageWithLimit(croppedFile, svgElement)
+    } else {
+      // At max capacity: replace the currently selected image (or last)
+      const selectedId = svgImageManager.selectedImageId.value
+      const replaceId = selectedId || currentImages[currentImages.length - 1]?.id
+      if (replaceId) {
+        const index = currentImages.findIndex((img: any) => img?.id === replaceId)
+        svgImageManager.removeImage(replaceId)
+        await svgImageManager.addImage(croppedFile, svgElement)
+
+        // Move the newly-added image back into the original slot index.
+        const newId = svgImageManager.selectedImageId.value
+        if (newId && index >= 0) {
+          while (currentImages.findIndex((img: any) => img?.id === newId) > index) {
+            svgImageManager.moveImageDown(newId)
+          }
+        }
+      } else {
+        await addImageWithLimit(croppedFile, svgElement)
+      }
+    }
 
     // Update SVG preview with new images
     updateSVGWithImages()

@@ -492,3 +492,191 @@
 .sticker-page-wrapper:not(.wedding-active) .wedding-preview-section {
   margin-bottom: 80px;
 }
+
+/* ========================================
+   Image Swap Confirmation Modal
+   ======================================== */
+.swap-confirmation-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.swap-confirmation-modal {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 320px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.swap-modal-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.swap-modal-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 8px 0;
+}
+
+.swap-modal-text {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+}
+
+.swap-modal-text small {
+  display: block;
+  margin-top: 8px;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.swap-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.swap-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.swap-btn-cancel {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.swap-btn-cancel:hover {
+  background: #e5e7eb;
+}
+
+.swap-btn-confirm {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+}
+
+.swap-btn-confirm:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.swap-btn-confirm:active {
+  transform: translateY(0);
+}
+
+/* Image Action Modal Buttons */
+.image-action-buttons {
+  flex-direction: column;
+  gap: 10px;
+}
+
+.image-action-buttons .swap-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 20px;
+}
+
+.image-action-buttons .btn-icon {
+  font-size: 18px;
+}
+
+.swap-btn-drag {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+}
+
+.swap-btn-drag:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+/* Flip Button */
+.swap-btn-flip {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: white;
+}
+
+.swap-btn-flip:hover {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+}
+
+/* Modal Hint Text */
+.swap-modal-hint {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+}
+
+/* Swapping Loading Overlay */
+.swap-loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  backdrop-filter: blur(6px);
+}
+
+.swap-loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.swap-loading-text {
+  margin-top: 16px;
+  color: white;
+  font-size: 16px;
+  font-weight: 500;
+}

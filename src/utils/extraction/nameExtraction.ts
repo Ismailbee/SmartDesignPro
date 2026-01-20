@@ -40,18 +40,39 @@ const NAME_SEPARATORS = [
 ]
 
 /**
- * Split a full name into first and last parts
- * Handles single names and multi-part names
+ * Split a full name into first name and remaining parts
+ * 
+ * Rules:
+ * - First name: The very first word only
+ * - Remaining: ALL other parts (surname, middle names, nicknames, bracketed text)
+ * - Never split remaining parts across multiple lines
+ * 
+ * Examples:
+ * - "Muhammad" -> { first: "Muhammad", remaining: null }
+ * - "Muhammad Ali" -> { first: "Muhammad", remaining: "Ali" }
+ * - "Muhammad Ali Hassan" -> { first: "Muhammad", remaining: "Ali Hassan" }
+ * - "Aisha (Iya)" -> { first: "Aisha", remaining: "(Iya)" }
+ * - "Muhammad Ali (Cassius)" -> { first: "Muhammad", remaining: "Ali (Cassius)" }
  */
 function splitName(fullName: string): { first: string; last: string | null } {
-  const parts = fullName.trim().split(/\s+/)
-  if (parts.length === 1) {
-    return { first: parts[0], last: null }
+  const trimmed = fullName.trim()
+  
+  // Find the first space - everything before is first name, everything after is remaining
+  const firstSpaceIndex = trimmed.indexOf(' ')
+  
+  if (firstSpaceIndex === -1) {
+    // Single word - just the first name
+    return { first: trimmed, last: null }
   }
-  // First name is the first word, last name is all remaining words
+  
+  // First name is the first word only
+  const first = trimmed.substring(0, firstSpaceIndex)
+  // Remaining is EVERYTHING after the first word (preserved as a single unit)
+  const last = trimmed.substring(firstSpaceIndex + 1).trim()
+  
   return {
-    first: parts[0],
-    last: parts.slice(1).join(' ')
+    first,
+    last: last || null
   }
 }
 

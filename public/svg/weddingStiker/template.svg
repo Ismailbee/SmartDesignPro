@@ -54,7 +54,7 @@
          opacity="1" 
          href="" 
          clip-path="url(#imageClip)"
-         preserveAspectRatio="xMidYMid slice"/>
+         preserveAspectRatio="xMidYMid meet"/>
 
   <!-- Editable text elements with IDs -->
   <text id="blessing-text" class="serif-font" x="850.45" y="180" text-anchor="middle" font-size="160" fill="#000">Alhamdulillahi</text>

@@ -26,10 +26,12 @@ export interface UseSVGImageUpdaterOptions {
   weddingPreviewContainer: Ref<HTMLDivElement | null>
   svgImageManager: {
     images: Ref<SVGImageData[]>
+    updateImage?: (id: string, updates: Record<string, any>) => void
   }
   formData: { customSize?: string }
   preGeneratedImageFile: Ref<File | null>
   makeSVGImageDraggable: (el: SVGImageElement, id: string) => void
+  makeSVGGroupDraggable?: (group: SVGGElement, id: string) => void
 }
 
 export interface UseSVGImageUpdaterReturn {
@@ -42,7 +44,8 @@ export function useSVGImageUpdater(options: UseSVGImageUpdaterOptions): UseSVGIm
     svgImageManager,
     formData,
     preGeneratedImageFile,
-    makeSVGImageDraggable
+    makeSVGImageDraggable,
+    makeSVGGroupDraggable
   } = options
 
   function updateSVGWithImages() {
@@ -58,6 +61,61 @@ export function useSVGImageUpdater(options: UseSVGImageUpdaterOptions): UseSVGIm
     }
 
     const images = svgImageManager.images.value
+
+    function updateSmallSlot(slotGroupId: string, slotImageId: string, img: SVGImageData | undefined) {
+      const group = svgElement.querySelector(`#${slotGroupId}`) as SVGGElement | null
+      const imageEl = svgElement.querySelector(`#${slotImageId}`) as SVGImageElement | null
+      if (!group || !imageEl) return
+
+      if (!img?.dataUrl) {
+        group.setAttribute('display', 'none')
+        imageEl.setAttribute('href', '')
+        imageEl.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', '')
+        imageEl.removeAttribute('data-image-id')
+        return
+      }
+
+      group.removeAttribute('display')
+      group.setAttribute('visibility', 'visible')
+      
+      // Ensure frame rect has thick border
+      const frameRect = group.querySelector('rect') as SVGRectElement | null
+      if (frameRect) {
+        frameRect.setAttribute('stroke-width', '20')
+        frameRect.setAttribute('stroke-opacity', '1')
+      }
+
+      imageEl.setAttribute('opacity', (img.opacity / 100).toString())
+      imageEl.setAttribute('href', img.dataUrl)
+      imageEl.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', img.dataUrl)
+      // Use xMidYMin slice to anchor at TOP (heads visible, crop from bottom)
+      imageEl.setAttribute('preserveAspectRatio', 'xMidYMin slice')
+      imageEl.removeAttribute('display')
+      imageEl.setAttribute('visibility', 'visible')
+      imageEl.setAttribute('data-image-id', img.id)
+      
+      // Restore group transform if user moved the box
+      if ((img as any).groupTranslateX !== undefined && (img as any).groupTranslateY !== undefined) {
+        group.setAttribute('transform', `translate(${(img as any).groupTranslateX}, ${(img as any).groupTranslateY})`)
+      }
+      
+      // Apply flip transform to the image element if flipped
+      if (img.flipped) {
+        // Get image dimensions for flip center calculation
+        const imgX = parseFloat(imageEl.getAttribute('x') || '0')
+        const imgWidth = parseFloat(imageEl.getAttribute('width') || '100')
+        const centerX = imgX + imgWidth / 2
+        imageEl.setAttribute('transform', `translate(${centerX}, 0) scale(-1, 1) translate(-${centerX}, 0)`)
+      } else {
+        imageEl.removeAttribute('transform')
+      }
+      
+      // Make the group draggable
+      if (makeSVGGroupDraggable && !group.hasAttribute('data-group-draggable')) {
+        group.style.pointerEvents = 'all'
+        makeSVGGroupDraggable(group, img.id)
+      }
+    }
 
     console.log('📸 updateSVGWithImages called:', {
       imagesCount: images.length,
@@ -105,8 +163,8 @@ export function useSVGImageUpdater(options: UseSVGImageUpdaterOptions): UseSVGIm
         }
       }
 
-      // Use the LAST image (most recent)
-      const img = images[images.length - 1]
+      // Use the FIRST image as the main image (stable ordering: first upload = main)
+      const img = images[0]
 
       // Determine frame dimensions based on SVG size
       const viewBox = svgElement.getAttribute('viewBox')?.split(' ').map(Number)
@@ -174,29 +232,29 @@ export function useSVGImageUpdater(options: UseSVGImageUpdaterOptions): UseSVGIm
       let adjustedX: number
       let adjustedY: number
 
+      // IMPORTANT: The clip-path defines the visible frame area.
+      // Do NOT expand/move the clip rect to match the image size; that removes the crop.
+      // Keep the clip rect fixed to the frame, and move the image behind it.
       if (hasCustomSize && isLargeTemplate) {
-        // Span image to full SVG height
         adjustedHeight = svgHeight
         const frameAspect = frameWidth / frameHeight
         adjustedWidth = adjustedHeight * frameAspect
         adjustedX = frameX + (frameWidth - adjustedWidth) / 2
         adjustedY = 0
-        userImageElement.removeAttribute('clip-path')
       } else {
         const scale = (img.width / img.originalWidth) || 1.15
         adjustedWidth = frameWidth * scale
         adjustedHeight = frameHeight * scale
         adjustedX = frameX - (adjustedWidth - frameWidth) / 2
         adjustedY = 0
+      }
 
-        // Update clip-path
-        const clipPathRect = svgElement.querySelector('clipPath#imageClip rect, defs clipPath#imageClip rect')
-        if (clipPathRect && isLargeTemplate) {
-          clipPathRect.setAttribute('x', adjustedX.toString())
-          clipPathRect.setAttribute('y', '0')
-          clipPathRect.setAttribute('width', adjustedWidth.toString())
-          clipPathRect.setAttribute('height', svgHeight.toString())
-        }
+      const clipPathRect = svgElement.querySelector('clipPath#imageClip rect, defs clipPath#imageClip rect')
+      if (clipPathRect && isLargeTemplate) {
+        clipPathRect.setAttribute('x', frameX.toString())
+        clipPathRect.setAttribute('y', '0')
+        clipPathRect.setAttribute('width', frameWidth.toString())
+        clipPathRect.setAttribute('height', svgHeight.toString())
       }
 
       // Verify dataUrl is valid
@@ -219,18 +277,24 @@ export function useSVGImageUpdater(options: UseSVGImageUpdaterOptions): UseSVGIm
 
       userImageElement.setAttribute('data-image-id', img.id)
 
-      // Make draggable
-      if (!userImageElement.hasAttribute('data-draggable')) {
+      // Make the main image group draggable (not just the image)
+      const mainImageGroup = svgElement.querySelector('#main-image-group') as SVGGElement | null
+      if (mainImageGroup && makeSVGGroupDraggable && !mainImageGroup.hasAttribute('data-group-draggable')) {
+        mainImageGroup.style.pointerEvents = 'all'
+        makeSVGGroupDraggable(mainImageGroup, img.id)
+      } else if (!userImageElement.hasAttribute('data-draggable')) {
+        // Fallback for templates without main-image-group
         makeSVGImageDraggable(userImageElement as SVGImageElement, img.id)
       }
-
-      if (!userImageElement.hasAttribute('clip-path')) {
-        if (userImageElement.id === 'userImage' && isLargeTemplate) {
-          userImageElement.setAttribute('clip-path', 'url(#imageClip)')
-        }
+      
+      // Restore main image group transform if user moved it
+      if (mainImageGroup && (img as any).groupTranslateX !== undefined && (img as any).groupTranslateY !== undefined) {
+        mainImageGroup.setAttribute('transform', `translate(${(img as any).groupTranslateX}, ${(img as any).groupTranslateY})`)
       }
 
-      userImageElement.setAttribute('preserveAspectRatio', 'xMidYMin slice')
+      // No clipPath for main image - use meet to show full image without cropping
+      userImageElement.removeAttribute('clip-path')
+      userImageElement.setAttribute('preserveAspectRatio', 'xMidYMid meet')
 
       // Build transforms
       const transforms: string[] = []
@@ -255,8 +319,16 @@ export function useSVGImageUpdater(options: UseSVGImageUpdaterOptions): UseSVGIm
       const existingImages = svgElement.querySelectorAll('image[id^="user-image-"]')
       existingImages.forEach(img => img.remove())
 
+      // Secondary + tertiary slots (fixed elements in the base SVG)
+      updateSmallSlot('secondary-image-group', 'userImageSecondary', images[1])
+      updateSmallSlot('tertiary-image-group', 'userImageTertiary', images[2])
+
       return
     }
+
+    // Even if we couldn't update the main image, keep small slots in sync.
+    updateSmallSlot('secondary-image-group', 'userImageSecondary', images[1])
+    updateSmallSlot('tertiary-image-group', 'userImageTertiary', images[2])
 
     // Fallback behavior
     const existingImages = svgElement.querySelectorAll('image[id^="user-image-"]')

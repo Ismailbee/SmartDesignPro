@@ -161,14 +161,23 @@ export function useFlourishSystem(
       flourishImage.setAttribute('href', pngDataUrl)
       flourishImage.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', pngDataUrl)
       flourishImage.setAttribute('preserveAspectRatio', 'xMidYMid meet')
+      flourishImage.setAttribute('display', 'inline')
+      flourishImage.setAttribute('visibility', 'visible')
+      flourishImage.setAttribute('opacity', '1')
       flourishImage.setAttribute('data-svg-path', randomFlourishPath)
       flourishImage.setAttribute('data-color', flourishColor)
       
       // Find the names group and insert flourish before it (above in visual layer)
       const namesGroup = svgElement.querySelector('#wedding-names-group')
       if (namesGroup) {
-        svgElement.insertBefore(flourishImage, namesGroup)
-        console.log('✅ Flourish inserted above names group')
+        const parent = namesGroup.parentNode
+        if (parent) {
+          parent.insertBefore(flourishImage, namesGroup)
+          console.log('✅ Flourish inserted above names group')
+        } else {
+          svgElement.appendChild(flourishImage)
+          console.log('✅ Flourish appended to SVG (names group has no parent)')
+        }
       } else {
         // Fallback: append to SVG
         svgElement.appendChild(flourishImage)

@@ -390,6 +390,7 @@ export async function handlePostGenerationCropUtil(
   deps: Pick<CropHandlerDeps, 'svgImageManager' | 'weddingPreviewContainer' | 'updateSVGWithImagesFn'>
 ): Promise<void> {
   const { svgImageManager, weddingPreviewContainer, updateSVGWithImagesFn } = deps
+  const MAX_UPLOAD_IMAGES = 3
   
   const svgElement = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement
 
@@ -403,11 +404,51 @@ export async function handlePostGenerationCropUtil(
     lastModified: Date.now()
   })
 
-  // Clear existing images to prevent accumulation/duplication
-  svgImageManager.clearAllImages()
+  // Multi-image behavior:
+  // - Keep the first image as the main image (stable ordering)
+  // - Add into next available slot up to MAX_UPLOAD_IMAGES
+  // - If at capacity, replace selected image (or last)
+  const currentImages = svgImageManager.images.value
 
-  // Add the cropped image using the existing image manager
-  await svgImageManager.addImage(croppedFile, svgElement)
+  const selectedId = svgImageManager.selectedImageId.value
+  const selectedImage = selectedId ? currentImages.find((img: any) => img?.id === selectedId) : null
+  const isRetouchExisting = !!selectedImage && selectedImage.file === cropImageFile.value
+
+  if (isRetouchExisting && selectedId) {
+    const index = currentImages.findIndex((img: any) => img?.id === selectedId)
+    svgImageManager.removeImage(selectedId)
+    await svgImageManager.addImage(croppedFile, svgElement)
+
+    const newId = svgImageManager.selectedImageId.value
+    if (newId && index >= 0) {
+      while (currentImages.findIndex((img: any) => img?.id === newId) > index) {
+        svgImageManager.moveImageDown(newId)
+      }
+    }
+  } else if (currentImages.length < MAX_UPLOAD_IMAGES) {
+    await svgImageManager.addImage(croppedFile, svgElement)
+  } else {
+    const replaceId = selectedId || currentImages[currentImages.length - 1]?.id
+
+    if (replaceId) {
+      const index = currentImages.findIndex((img: any) => img?.id === replaceId)
+      svgImageManager.removeImage(replaceId)
+      await svgImageManager.addImage(croppedFile, svgElement)
+
+      // Move the newly-added image back into the original slot index.
+      const newId = svgImageManager.selectedImageId.value
+      if (newId && index >= 0) {
+        while (currentImages.findIndex((img: any) => img?.id === newId) > index) {
+          svgImageManager.moveImageDown(newId)
+        }
+      }
+    } else {
+      // Fallback: replace last slot
+      const lastId = currentImages[currentImages.length - 1]?.id
+      if (lastId) svgImageManager.removeImage(lastId)
+      await svgImageManager.addImage(croppedFile, svgElement)
+    }
+  }
 
   // Update SVG preview with new images
   updateSVGWithImagesFn()

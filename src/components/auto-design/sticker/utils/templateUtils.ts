@@ -248,11 +248,13 @@ export async function loadWeddingStickerTemplateUtil(ctx: TemplateContext): Prom
       ctx.applyHeadingFontUtil(svgElement, ctx.selectedHeadingFont?.value || null)
     }
 
-    // DISABLED: Flourish above names - user requested to hide it
+    // Flourish above names - DISABLED per user request
     // try {
     //   const flourishColor = ctx.getFlourishColorForBackground()
+    //   const flourishCacheKey = [flourishColor, ctx.currentBackgroundFileName.value || ''].join('|')
+    //   lastWeddingFlourishRenderKey = flourishCacheKey
     //   await ctx.insertFlourishAboveNames(svgElement, flourishColor)
-    // } catch (e) {
+    // } catch {
     //   // Non-fatal
     // }
 
@@ -319,8 +321,8 @@ export async function processDescriptionInputUtil(ctx: TemplateContext): Promise
       // Debug: Check date element
       console.log('🗓️ [processDescription] svgElements.dateText:', svgElements.dateText)
       console.log('🗓️ [processDescription] Direct query #date-text:', svgElement.querySelector('#date-text'))
-      
-      // DISABLED: Flourish above names - user requested to hide it
+
+      // Flourish above names - DISABLED per user request
       // const flourishColor = ctx.getFlourishColorForBackground()
       // const flourishCacheKey = [flourishColor, ctx.currentBackgroundFileName.value || ''].join('|')
       // const hasFlourish = !!svgElement.querySelector('#wedding-flourish')

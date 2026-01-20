@@ -136,6 +136,54 @@ export function addAIMessageUtil(
 }
 
 /**
+ * Add an AI message with typing indicator animation
+ * Shows three dots loading animation for 1 second, then reveals the actual message
+ */
+export function addAIMessageWithTypingUtil(
+  text: string,
+  chatMessages: Ref<ChatMessage[]>,
+  scrollToBottom: () => void,
+  options?: {
+    image?: string
+    type?: 'text' | 'preview'
+    actions?: ChatMessage['actions']
+    typingDelay?: number // default 1000ms
+  }
+): Promise<void> {
+  return new Promise((resolve) => {
+    const messageId = Date.now()
+    const delay = options?.typingDelay ?? 1000
+    
+    // First add a loading message (typing indicator)
+    chatMessages.value.push({
+      id: messageId,
+      text: '',
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isLoading: true
+    })
+    scrollToBottom()
+    
+    // After delay, replace loading with actual message
+    setTimeout(() => {
+      const index = chatMessages.value.findIndex(m => m.id === messageId)
+      if (index !== -1) {
+        chatMessages.value[index] = {
+          id: messageId,
+          text,
+          sender: 'ai',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isLoading: false,
+          ...options
+        }
+      }
+      scrollToBottom()
+      resolve()
+    }, delay)
+  })
+}
+
+/**
  * Build wedding chat context for AI
  */
 export function buildWeddingChatContextForAIUtil(

@@ -64,6 +64,7 @@ const titleImageCache = new Map<string, string>()
 // COMPOSABLE
 // ========================================
 export function useTitleLibrary() {
+  const isDev = typeof import.meta !== 'undefined' && !!(import.meta as any).env?.DEV
   
   /**
    * Clear title image cache (call when background changes to force re-render with new color)
@@ -112,7 +113,7 @@ export function useTitleLibrary() {
     const cacheKey = `${svgUrl}-${color || 'default'}-${width}x${height}`
     
     // Check cache first
-    if (titleImageCache.has(cacheKey)) {
+    if (!isDev && titleImageCache.has(cacheKey)) {
       console.log('📦 Using cached title PNG:', cacheKey)
       return titleImageCache.get(cacheKey)!
     }
@@ -120,7 +121,7 @@ export function useTitleLibrary() {
     console.log('🎨 Rendering SVG to PNG:', svgUrl, 'color:', color, 'size:', width, 'x', height)
     
     // Fetch the SVG
-    const response = await fetch(svgUrl)
+    const response = await fetch(svgUrl, { cache: isDev ? 'no-store' : 'default' })
     if (!response.ok) {
       throw new Error(`Failed to fetch SVG: ${response.status}`)
     }
@@ -214,8 +215,10 @@ export function useTitleLibrary() {
           
           URL.revokeObjectURL(svgBlobUrl)
           
-          // Cache the result
-          titleImageCache.set(cacheKey, pngDataUrl)
+          // Cache the result (skip in dev so asset edits reflect immediately)
+          if (!isDev) {
+            titleImageCache.set(cacheKey, pngDataUrl)
+          }
           console.log('✅ SVG rendered to PNG, size:', pngDataUrl.length, 'bytes')
           
           resolve(pngDataUrl)

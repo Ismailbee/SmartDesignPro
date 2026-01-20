@@ -269,7 +269,7 @@ export function useDynamicSVG() {
     // CRITICAL: preserveAspectRatio for images
     // 'xMidYMid slice' = center and crop to fill container
     // 'xMidYMid meet' = center and fit within container (may have gaps)
-    image.setAttribute('preserveAspectRatio', options.preserveAspectRatio || 'xMidYMid slice')
+    image.setAttribute('preserveAspectRatio', options.preserveAspectRatio || 'xMidYMid meet')
     
     image.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', imageUrl)
     image.setAttribute('href', imageUrl)

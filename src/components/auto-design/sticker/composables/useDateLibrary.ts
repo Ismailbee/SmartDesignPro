@@ -192,9 +192,29 @@ export function useDateLibrary() {
       console.error('❌ Error parsing date SVG template:', parserError.textContent)
       return svgContent
     }
+
+    // IMPORTANT: CorelDRAW exports SVG Fonts (<font> in <defs>). These are deprecated and
+    // not consistently supported (notably on mobile Safari), and can cause SVG text to disappear.
+    // Strip them and force a safe system font so the date always renders.
+    Array.from(doc.querySelectorAll('defs font')).forEach((fontEl) => fontEl.remove())
     
     // Get all text elements
     const textElements = Array.from(doc.querySelectorAll('text'))
+
+    // Ensure date text always renders by using a safe system font-family.
+    for (const el of textElements) {
+      // Force a system font to avoid matching the removed SVG font-face family names.
+      el.setAttribute('font-family', 'Arial, Helvetica, sans-serif')
+
+      // Some renderers prefer fill on style rather than attribute inheritance.
+      const fill = (el.getAttribute('fill') || '').trim()
+      if (fill && fill !== 'none') {
+        const currentStyle = (el.getAttribute('style') || '').trim()
+        const styleWithoutFill = currentStyle.replace(/(^|;)\s*fill\s*:[^;]*;?/gi, '$1').trim()
+        const sep = styleWithoutFill && !styleWithoutFill.endsWith(';') ? '; ' : ''
+        el.setAttribute('style', `${styleWithoutFill}${sep}fill: ${fill};`)
+      }
+    }
     
     // The date.svg has these text elements in order:
     // 1. Day number (currently "13") - at x~6.27, y~8.26
@@ -247,7 +267,20 @@ export function useDateLibrary() {
     }
 
     if (dayEl) dayEl.textContent = parsed.day
-    if (ordinalEl) ordinalEl.textContent = parsed.ordinal
+    if (ordinalEl) {
+      ordinalEl.textContent = parsed.ordinal
+
+      // The template positions the ordinal assuming a 2-digit day (e.g. "13").
+      // For 1-digit days (e.g. "6"), shift the ordinal left so it stays close.
+      const ordinalX = parseFloat(ordinalEl.getAttribute('x') || '')
+      const dayDigits = String(parsed.day).replace(/\D/g, '').length
+      if (!Number.isNaN(ordinalX) && dayDigits > 0 && dayDigits < 2) {
+        const shiftPerMissingDigit = 2.0 // tuned for date.svg coordinate system
+        const missingDigits = 2 - dayDigits
+        const newX = ordinalX - (missingDigits * shiftPerMissingDigit)
+        ordinalEl.setAttribute('x', String(newX))
+      }
+    }
     if (monthEl) monthEl.textContent = parsed.month
     if (yearEl) yearEl.textContent = parsed.year
     
@@ -269,6 +302,8 @@ export function useDateLibrary() {
     const parsed = parseUserDate(dateStr)
     if (!parsed) {
       console.warn('⚠️ Could not parse date:', dateStr)
+      // Avoid leaving a stale injected date visible.
+      removeDateSVG(svgElement)
       return false
     }
     
@@ -277,6 +312,8 @@ export function useDateLibrary() {
     // Load the date SVG template
     const dateSVGContent = await loadDateSVG()
     if (!dateSVGContent) {
+      // Avoid leaving a stale injected date visible.
+      removeDateSVG(svgElement)
       return false
     }
     
@@ -298,6 +335,8 @@ export function useDateLibrary() {
     const parserError = dateSVGDoc.querySelector('parsererror')
     if (parserError) {
       console.error('❌ Error parsing date SVG:', parserError.textContent)
+      // Avoid leaving a stale injected date visible.
+      removeDateSVG(svgElement)
       return false
     }
     
@@ -318,8 +357,12 @@ export function useDateLibrary() {
           rootSVG.insertBefore(rootDefs, rootSVG.firstChild)
         }
         
-        // Import gradient and font definitions
+        // Import gradient definitions (skip deprecated SVG font definitions)
         Array.from(dateDefs.children).forEach(child => {
+          const tagName = (child as Element).tagName?.toLowerCase?.() || ''
+          if (tagName === 'font' || tagName === 'font-face' || tagName === 'font-face-src' || tagName === 'font-face-name') {
+            return
+          }
           const childId = (child as Element).getAttribute?.('id')
           if (childId && !rootSVG.querySelector(`#${childId}`)) {
             rootDefs!.appendChild(document.importNode(child, true))

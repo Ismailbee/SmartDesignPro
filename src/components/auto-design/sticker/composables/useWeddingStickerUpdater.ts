@@ -422,7 +422,8 @@ export function useWeddingStickerUpdater() {
     }
 
     // Pattern 2: "6th of January, 2024" or "6 of January 2024"
-    const dayOfMonthPattern = /(\d{1,2})(?:st|nd|rd|th)?\s+of\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[,.]?\s*(\d{4})?/i
+    // Guard against partial matches into a year (e.g. "January, 20" inside "January, 2023").
+    const dayOfMonthPattern = /(\d{1,2})(?:st|nd|rd|th)?\s+of\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[,.]?\s*(\d{4})?(?!\d)/i
     const dayOfMonthMatch = description.match(dayOfMonthPattern)
     if (dayOfMonthMatch) {
       const day = parseInt(dayOfMonthMatch[1])
@@ -431,23 +432,25 @@ export function useWeddingStickerUpdater() {
       return `on ${addOrdinalSuffix(day)} ${month}, ${year}`
     }
 
-    // Pattern 3: "January 6th, 2024" or "January, 6th 2024" or "on January, 6th 2024"
-    const monthDayYearPattern = /(?:on\s+)?(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[,.]?\s*(\d{1,2})(?:st|nd|rd|th)?[,.]?\s*(\d{4})?/i
-    const monthDayMatch = description.match(monthDayYearPattern)
-    if (monthDayMatch) {
-      const month = normalizeMonth(monthDayMatch[1])
-      const day = parseInt(monthDayMatch[2])
-      const year = monthDayMatch[3] || new Date().getFullYear().toString()
-      return `on ${addOrdinalSuffix(day)} ${month}, ${year}`
-    }
-
-    // Pattern 4: "6th January, 2024" or "6th January 2024" or "on 6th January, 2024"
-    const dayMonthYearPattern = /(?:on\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[,.]?\s*(\d{4})?/i
+    // Pattern 3: "6th January, 2024" or "6th January 2024" or "on 6th January, 2024"
+    // Prefer day-month-year before month-day-year to avoid false positives inside years.
+    const dayMonthYearPattern = /(?:on\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[,.]?\s*(\d{4})?(?!\d)/i
     const dayMonthMatch = description.match(dayMonthYearPattern)
     if (dayMonthMatch) {
       const day = parseInt(dayMonthMatch[1])
       const month = normalizeMonth(dayMonthMatch[2])
       const year = dayMonthMatch[3] || new Date().getFullYear().toString()
+      return `on ${addOrdinalSuffix(day)} ${month}, ${year}`
+    }
+
+    // Pattern 4: "January 6th, 2024" or "January, 6th 2024" or "on January, 6th 2024"
+    // Guard against partial matches into a year (e.g. "March, 20" inside "March, 2023").
+    const monthDayYearPattern = /(?:on\s+)?(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[,.]?\s*(\d{1,2})(?:st|nd|rd|th)?(?:[,.]?\s*(\d{4}))?(?!\d)/i
+    const monthDayMatch = description.match(monthDayYearPattern)
+    if (monthDayMatch) {
+      const month = normalizeMonth(monthDayMatch[1])
+      const day = parseInt(monthDayMatch[2])
+      const year = monthDayMatch[3] || new Date().getFullYear().toString()
       return `on ${addOrdinalSuffix(day)} ${month}, ${year}`
     }
 
@@ -742,7 +745,7 @@ export function useWeddingStickerUpdater() {
     // Font size adjustment logic:
     // - Use ONLY first name length (not full name with surname) for font scaling
     // - If first name is 4 letters AND second first name is 4-5 letters: increase font size by 15 points
-    // - If either FIRST NAME has 8+ letters: reduce font size by 15 points
+    // - If either FIRST NAME has 8+ letters: reduce font size progressively
     // - Otherwise: keep base font size (84.15px)
     
     // (firstName1, firstName2, lengths, and hasLongName are already defined above)
@@ -752,7 +755,19 @@ export function useWeddingStickerUpdater() {
     // const hasLongName = firstName1Length >= 8 || firstName2Length >= 8 (defined above)
     const baseFontSize = 84.15
     const increasedFontSize = baseFontSize + 15
-    const reducedFontSize = baseFontSize - 15  // Increased reduction from 10px to 15px for more noticeable effect
+    
+    // Progressive font reduction for longer names (subtle adjustment)
+    // 8 letters: reduce by 5px
+    // 9 letters: reduce by 8px
+    // 10 letters: reduce by 10px
+    // 11+ letters: reduce by 12px (max reduction)
+    const longestFirstName = Math.max(firstName1Length, firstName2Length)
+    let nameFontReduction = 0
+    if (longestFirstName >= 8) {
+      const extraLetters = longestFirstName - 8 // 0 for 8 letters, 1 for 9 letters, etc.
+      nameFontReduction = Math.min(5 + (extraLetters * 2.5), 12) // Subtle reduction, max 12px
+    }
+    const reducedFontSize = baseFontSize - nameFontReduction
     
     let fontSize = baseFontSize
     if (name1Is4AndName2Is4to5) {
@@ -1478,13 +1493,15 @@ export function useWeddingStickerUpdater() {
       // Try to inject the decorative date SVG
       const svgRoot = elements.weddingNamesGroup?.ownerSVGElement || elements.dateText?.ownerSVGElement
       if (svgRoot) {
-        const { injectDateSVG } = useDateLibrary()
+        const { injectDateSVG, removeDateSVG } = useDateLibrary()
         try {
           const injected = await injectDateSVG(svgRoot as unknown as SVGSVGElement, extractedDate)
           if (injected) {
             console.log(`📅 Date SVG injected: "${extractedDate}"`)
           } else {
             console.warn('⚠️ Date SVG injection returned false; falling back to plain text')
+            // Ensure we don't keep showing a stale decorative date.
+            removeDateSVG(svgRoot as unknown as SVGSVGElement)
             if (elements.dateText) {
               elements.dateText.textContent = data.date
               elements.dateText.removeAttribute('display')
@@ -1494,6 +1511,9 @@ export function useWeddingStickerUpdater() {
         } catch (err) {
           console.error('❌ Failed to inject date SVG:', err)
           // Fallback to text update if SVG injection fails
+          // Ensure we don't keep showing a stale decorative date.
+          const { removeDateSVG } = useDateLibrary()
+          removeDateSVG(svgRoot as unknown as SVGSVGElement)
           if (elements.dateText) {
             elements.dateText.textContent = data.date
             elements.dateText.removeAttribute('display')
@@ -1511,6 +1531,12 @@ export function useWeddingStickerUpdater() {
       }
     } else {
       console.log('⚠️ No date extracted from description')
+      // Remove any previously-injected decorative date so we don't show stale values.
+      const svgRoot = elements.weddingNamesGroup?.ownerSVGElement || elements.dateText?.ownerSVGElement
+      if (svgRoot) {
+        const { removeDateSVG } = useDateLibrary()
+        removeDateSVG(svgRoot as unknown as SVGSVGElement)
+      }
       // Ensure fallback date text stays hidden when no date is provided
       if (elements.dateText) {
         elements.dateText.textContent = ''
@@ -1529,19 +1555,34 @@ export function useWeddingStickerUpdater() {
       if (elements.courtesyText) {
         elements.courtesyText.textContent = data.courtesy
         
-        // Check if courtesy text is long and adjust font accordingly
-        const courtesyLength = data.courtesy.length
-        if (courtesyLength > 25) {
-          // For long text like "CUT-CEE: The Family Abdulrahman"
-          elements.courtesyText.setAttribute('font-size', '75')
-          elements.courtesyText.setAttribute('font-family', 'Arial, sans-serif')
-        } else {
-          // Default font for shorter text
-          elements.courtesyText.setAttribute('font-size', '100')
-          elements.courtesyText.setAttribute('font-family', 'sans-serif')
+        // Auto-size courtesy text based on WORD COUNT (not character length)
+        // Only reduce font when there are 4 or more words
+        // Reduction is subtle and proportional to word count
+        const courtesyWords = data.courtesy.trim().split(/\s+/)
+        const wordCount = courtesyWords.length
+        const baseFontSize = 85 // Default font size
+        
+        // Calculate font size based on word count
+        // 1-3 words: keep base font size (85px)
+        // 4 words: reduce by 5px (80px)
+        // 5 words: reduce by 8px (77px)
+        // 6 words: reduce by 12px (73px)
+        // 7+ words: reduce by 15px (70px) - minimum
+        let calculatedFontSize = baseFontSize
+        if (wordCount >= 4) {
+          // Subtle reduction: 5px for 4 words, +3px per additional word, max reduction 15px
+          const extraWords = wordCount - 4 // 0 for 4 words, 1 for 5 words, etc.
+          const reduction = Math.min(5 + (extraWords * 3), 15)
+          calculatedFontSize = baseFontSize - reduction
         }
         
-        console.log(`🏠 Courtesy updated: "${data.courtesy}" (length: ${courtesyLength})`)
+        elements.courtesyText.setAttribute('font-size', String(calculatedFontSize))
+        elements.courtesyText.setAttribute('font-family', 'Arial, sans-serif')
+        // Keep text visually secondary
+        elements.courtesyText.setAttribute('font-weight', 'bold')
+        elements.courtesyText.setAttribute('fill', '#333333')
+        
+        console.log(`🏠 Courtesy updated: "${data.courtesy}" (words: ${wordCount}, fontSize: ${calculatedFontSize}px)`)
       } else if (elements.weddingNamesGroup || elements.name1Text) {
         // Only log error if SVG seems to be loaded but element is missing
         console.error('❌ Courtesy element not found in SVG!')
