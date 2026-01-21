@@ -271,12 +271,24 @@
         <ion-button @click="loadUserData">Retry</ion-button>
       </div>
     </ion-content>
+
+    <!-- Back Navigation Loading Overlay -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="showBackLoading" class="back-loading-overlay">
+          <div class="back-loading-content">
+            <div class="back-loading-spinner"></div>
+            <p class="back-loading-text">Loading Letterhead Designer...</p>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </ion-page>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import { App } from '@capacitor/app'
 import {
@@ -316,6 +328,7 @@ import { purchaseTokens, upgradePlan, verifyPayment } from '@/services/user/paym
 
 // Router
 const router = useRouter()
+const route = useRoute()
 
 // Store
 const userStore = useUserStore()
@@ -338,6 +351,7 @@ function notify(
 // State
 const loading = ref(true)
 const error = ref<string | null>(null)
+const showBackLoading = ref(false)
 const tokensSection = ref<HTMLElement>()
 const plansSection = ref<HTMLElement>()
 
@@ -456,7 +470,24 @@ async function handlePendingPaymentVerification() {
 
 // Methods
 function goBack() {
-  router.push('/home')
+  // Check if user came from letterhead page
+  const fromPage = route.query.from
+  
+  if (fromPage === 'letterhead') {
+    // Show loading overlay
+    showBackLoading.value = true
+    
+    // Wait for animation to be visible, then navigate
+    setTimeout(() => {
+      router.push('/letterhead')
+    }, 150)
+  } else if (window.history.length > 1) {
+    // Use browser back if there's history
+    router.back()
+  } else {
+    // Fallback to home
+    router.push('/home')
+  }
 }
 
 async function loadUserData() {
@@ -1512,6 +1543,80 @@ async function handlePlanUpgrade(plan: PlanConfig) {
   .plans-grid {
     padding: 0 12px 24px;
   }
+}
+
+/* Back Navigation Loading Overlay */
+.back-loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9998;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+@media (prefers-color-scheme: dark) {
+  .back-loading-overlay {
+    background: rgba(17, 24, 39, 0.95);
+  }
+}
+
+.back-loading-content {
+  text-align: center;
+}
+
+.back-loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #e5e7eb;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .back-loading-spinner {
+    border-color: #374151;
+    border-top-color: #818cf8;
+  }
+}
+
+.back-loading-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: #374151;
+}
+
+@media (prefers-color-scheme: dark) {
+  .back-loading-text {
+    color: #e5e7eb;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Fade transition for overlay */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
 

@@ -329,14 +329,34 @@ defineExpose({
   gap: 8px;
   margin-top: 20px;
   padding: 10px 20px;
-  background: var(--bg-tertiary);
+  background-color: #3b82f6c4;
   border-radius: 20px;
   font-weight: 500;
-  color: var(--text-primary);
+  position: relative;
+  overflow: hidden;
 }
 
 .token-icon {
   font-size: 1.2rem;
+}
+
+.token-count {
+  font-weight: 700;
+  background: linear-gradient(90deg, #06b6d4 0%, #3b82f6 50%, #06b6d4 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientWipe 3s linear infinite;
+}
+
+@keyframes gradientWipe {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
 }
 
 /* Suggestions */
@@ -350,6 +370,10 @@ defineExpose({
   font-size: 0.875rem;
   color: var(--text-tertiary);
   margin-bottom: 12px;
+}
+
+.dark .suggestions-label {
+  color: #ffffff;
 }
 
 .suggestion-chips {

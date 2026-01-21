@@ -1,5 +1,5 @@
 <template>
-  <div class="letterhead-chat-page" :class="{ 'dark-mode': themeStore.isDark }">
+  <div class="letterhead-chat-page" :class="{ 'dark-mode': isDark }">
     <!-- Header -->
     <div class="page-header">
       <div class="header-content">
@@ -22,7 +22,7 @@
     </div>
 
     <!-- Main Content -->
-    <div class="page-content">
+    <div class="page-content" :class="{ 'single-column': true }">
       <!-- Chat Section -->
       <div class="chat-section">
         <LetterHeadChatMessages
@@ -32,9 +32,19 @@
           :is-authenticated="isAuthenticated"
           :user-name="userName"
           :tokens="userTokens"
+          :stage1-corrections="stage1Corrections"
+          :preview-image-url="previewImageUrl"
+          :show-color-palette="showColorPalette"
+          :show-correction-block="showCorrectionBlock"
+          :show-download-menu="showDownloadMenu"
+          :primary-brand-color="primaryBrandColor"
           @action="handleAction"
+          @update-field="updateStage1Field"
           @login="handleLogin"
           @suggestion="handleSuggestion"
+          @select-color="selectColor"
+          @upload-logo="handleLogoUpload"
+          @form-submit="handleFormSubmit"
         />
         <LetterHeadChatInput
           v-model="userInput"
@@ -43,61 +53,31 @@
           @upload-logo="handleLogoUpload"
         />
       </div>
-
-      <!-- Preview Section -->
-      <div v-if="showPreview" class="preview-section">
-        <div class="preview-header">
-          <h3>Preview</h3>
-          <button @click="closePreview" class="close-btn">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        </div>
-        <div class="preview-content">
-          <img v-if="previewSvg" :src="previewSvg" alt="Letterhead Preview" class="svg-preview" />
-          <div v-else class="preview-placeholder">
-            <span class="placeholder-icon">📄</span>
-            <p>Your letterhead preview will appear here</p>
-          </div>
-        </div>
-        
-        <!-- Brand Color Control -->
-        <div v-if="previewSvg" class="color-controls">
-          <div class="color-control-group">
-            <label class="color-label">
-              Brand Color:
-              <input 
-                v-model="primaryBrandColor" 
-                type="color" 
-                class="color-input"
-                @input="updateBrandColor"
-              />
-              <span class="color-value">{{ primaryBrandColor }}</span>
-            </label>
-          </div>
-        </div>
-        
-        <div class="preview-actions">
-          <button @click="downloadLetterHead" class="action-button primary">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/>
-              <line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-            Download
-          </button>
-          <button @click="regeneratePreview" class="action-button secondary">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="23 4 23 10 17 10"/>
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-            </svg>
-            Regenerate
-          </button>
-        </div>
-      </div>
     </div>
+
+    <!-- Back Navigation Loading Overlay -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="showBackLoading" class="back-loading-overlay">
+          <div class="back-loading-content">
+            <div class="back-loading-spinner"></div>
+            <div class="back-loading-text">Returning to Auto Design...</div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Home Navigation Loading Overlay -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="showHomeLoading" class="home-loading-overlay">
+          <div class="home-loading-content">
+            <div class="home-loading-spinner"></div>
+            <div class="home-loading-text">Loading Home...</div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- Info Panel (Mobile Toggle) -->
     <div v-if="showInfoPanel" class="info-panel">
@@ -158,17 +138,30 @@ const {
   showLetterHeadPreview,
   selectedFormat,
   primaryBrandColor,
+  stage1Corrections,
+  showColorPalette,
+  showCorrectionBlock,
+  showDownloadMenu,
   handleSendMessage,
   handleMessageAction,
   initializeChat,
   handleLogoUpload: composableLogoUpload,
-  updateBrandColor
+  updateBrandColor,
+  updateStage1Field,
+  toggleStage1Menu,
+  startStage1Editing,
+  confirmStage1Corrections,
+  cancelStage1Editing,
+  selectColor
 } = useLetterHeadChat()
 
 // Local state
 const previewSvg = computed(() => previewImageUrl.value)
 const showPreview = computed(() => showLetterHeadPreview.value)
 const showInfoPanel = ref(false)
+const isDark = computed(() => themeStore.isDark)
+const showBackLoading = ref(false)
+const showHomeLoading = ref(false)
 
 // Computed
 const isAuthenticated = computed(() => authStore.isAuthenticated)
@@ -177,12 +170,20 @@ const userTokens = computed(() => userStore.profile?.tokens || 0)
 
 // Methods
 function goBack() {
-  // Navigate to home and trigger auto-design modal to open
-  router.push({ path: '/home', query: { openAutoDesign: 'true' } })
+  // Show loading animation before navigating
+  showBackLoading.value = true
+  setTimeout(() => {
+    // Navigate to home and trigger auto-design modal to open
+    router.push({ path: '/home', query: { openAutoDesign: 'true' } })
+  }, 150)
 }
 
 function goHome() {
-  router.push('/home')
+  // Show loading animation before navigating
+  showHomeLoading.value = true
+  setTimeout(() => {
+    router.push('/home')
+  }, 150)
 }
 
 function handleLogin() {
@@ -202,8 +203,37 @@ function handleLogoUpload(file: File) {
   composableLogoUpload(file)
 }
 
-function handleAction(actionType: string) {
-  handleMessageAction(actionType)
+function handleFormSubmit(formData: {
+  organization_name: string
+  rc_number: string
+  office_address: string
+  other_address: string | null
+  emails: string[] | null
+  phone_numbers: string[] | null
+  motto: string | null
+  description: string | null
+  include_optional_fields: boolean
+}) {
+  // Update the stage1Corrections with the new form data
+  updateStage1Field('organizationName', formData.organization_name)
+  updateStage1Field('registrationNumber', formData.rc_number)
+  updateStage1Field('headOffice', formData.office_address)
+  // Don't convert null to empty string - keep it as null/undefined
+  updateStage1Field('otherAddress', formData.other_address)
+  updateStage1Field('emails', formData.emails || [])
+  updateStage1Field('phones', formData.phone_numbers || [])
+  updateStage1Field('motto', formData.motto || '')
+  updateStage1Field('description', formData.description || '')
+  
+  // Store the optional fields preference
+  updateStage1Field('includeOptionalFields', formData.include_optional_fields)
+  
+  // Confirm the corrections
+  confirmStage1Corrections()
+}
+
+function handleAction(actionType: string, actionData?: any) {
+  handleMessageAction(actionType, actionData)
 }
 
 async function generatePreview() {
@@ -233,7 +263,7 @@ onMounted(() => {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #f8fafc;
+  background: transparent;
 }
 
 /* Header */
@@ -265,6 +295,13 @@ onMounted(() => {
   text-align: center;
 }
 
+.header-title h1 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
 .back-btn,
 .home-btn {
   width: 40px;
@@ -286,28 +323,21 @@ onMounted(() => {
   color: #1e293b;
 }
 
-.header-title h1 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1e293b;
-  margin: 0;
-}
-
 /* Main Content */
 .page-content {
   flex: 1;
-  display: grid;
-  grid-template-columns: 1fr;
+  display: flex;
+  flex-direction: column;
   max-width: 1400px;
   width: 100%;
   margin: 0 auto;
   overflow: hidden;
+  padding: 0;
+  background: transparent;
 }
 
-.page-content.with-preview {
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  padding: 20px;
+.page-content.single-column {
+  max-width: 1000px;
 }
 
 /* Chat Section */
@@ -316,8 +346,9 @@ onMounted(() => {
   flex-direction: column;
   background: white;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   overflow: hidden;
+  height: 100%;
+  min-height: 0; /* Important for flex items to shrink */
 }
 
 /* Preview Section */
@@ -676,5 +707,133 @@ onMounted(() => {
 
 .dark-mode .info-item p {
   color: #e2e8f0;
+}
+
+/* Back Navigation Loading Overlay */
+.back-loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9998;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+@media (prefers-color-scheme: dark) {
+  .back-loading-overlay {
+    background: rgba(17, 24, 39, 0.95);
+  }
+}
+
+.back-loading-content {
+  text-align: center;
+}
+
+.back-loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #e5e7eb;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .back-loading-spinner {
+    border-color: #374151;
+    border-top-color: #818cf8;
+  }
+}
+
+.back-loading-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: #374151;
+}
+
+@media (prefers-color-scheme: dark) {
+  .back-loading-text {
+    color: #e5e7eb;
+  }
+}
+
+/* Home Navigation Loading Overlay */
+.home-loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9998;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+@media (prefers-color-scheme: dark) {
+  .home-loading-overlay {
+    background: rgba(17, 24, 39, 0.95);
+  }
+}
+
+.home-loading-content {
+  text-align: center;
+}
+
+.home-loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #e5e7eb;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .home-loading-spinner {
+    border-color: #374151;
+    border-top-color: #818cf8;
+  }
+}
+
+.home-loading-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: #374151;
+}
+
+@media (prefers-color-scheme: dark) {
+  .home-loading-text {
+    color: #e5e7eb;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Fade transition for overlays */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

@@ -64,8 +64,8 @@ viewBox="0 0 8267.72 11692.91"
     @font-face { font-family:"Montserrat";font-variant:normal;font-style:normal;font-weight:normal;src:url("#FontID1") format(svg)}
     @font-face { font-family:"Montserrat";font-variant:normal;font-style:normal;font-weight:bold;src:url("#FontID0") format(svg)}
     .str3 {stroke:#373435;stroke-width:10.41;stroke-miterlimit:2.61313}
-    .str2 {stroke:#058A6C;stroke-width:10.41;stroke-miterlimit:2.61313}
-    .str1 {stroke:#058A6C;stroke-width:13.89;stroke-miterlimit:2.61313}
+    .str2 {stroke:#000000;stroke-width:10.41;stroke-miterlimit:2.61313}
+    .str1 {stroke:#000000;stroke-width:13.89;stroke-miterlimit:2.61313}
     .str0 {stroke:#CCCCCC;stroke-width:10.42;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:2.61313}
     .fil0 {fill:none}
     .fil12 {fill:#D2D3D5}
@@ -121,16 +121,17 @@ viewBox="0 0 8267.72 11692.91"
   <metadata id="CorelCorpID_0Corel-Layer"/>
   <g id="_1824236448208">
    <rect class="fil0" width="8267.72" height="11692.91"/>
-   <g transform="matrix(1.08481 0 0 1 -30.415 5403.1)">
-    <text x="4133.86" y="5846.46"  class="fil1 fnt0">Tel:</text>
+   <g transform="matrix(1.08481 0 0 1 -30.415 5203.1)">
+    <text x="4133.86" y="5450"  class="fil1 fnt0">Tel:</text>
    </g>
-   <g transform="matrix(1.08481 0 0 1 -30.415 5403.1)">
-    <text x="4360.44" y="5846.46"  class="fil2 fnt0"> </text>
-    <text x="4396.94" y="5846.46"  class="fil2 fnt1">08035976700, 08074383622.</text>
+   <g transform="matrix(1.08481 0 0 1 -30.415 5203.1)">
+    <text x="4360.44" y="5650"  class="fil2 fnt0"> </text>
+    <text x="4396.94" y="5450"  class="fil2 fnt1">08035976700, 08074383622.</text>
    </g>
-   <text x="1646.35" y="11252.93"  class="fil1 fnt2">Email:</text>
-   <text x="2059.16" y="11252.93"  class="fil2 fnt2"> </text>
-   <text x="2095.65" y="11252.93"  class="fil2 fnt3">mathewuzzy@gmail .com</text>
+   <line class="fil0" stroke="#000000" stroke-width="13.89" x1="460.1" y1="10450" x2="7800" y2= "10450" />
+   <text x="1646.35" y="10653.1"  class="fil1 fnt2">Email:</text>
+   <text x="2059.16" y="10853.1"  class="fil2 fnt2"> </text>
+   <text x="2095.65" y="10653.1"  class="fil2 fnt3">mathewuzzy@gmail .com</text>
    <g>
     <path class="fil3" d="M1448.38 949.11c-20.24,76.38 -61.72,144.63 -118.06,198.62 -81.33,77.94 -193.6,126.16 -317.52,126.16 -123.91,0 -236.19,-48.21 -317.52,-126.16 -56.34,-53.99 -97.81,-122.24 -118.06,-198.62l35.6 0c19.38,66.71 56.5,126.35 106.17,173.96 75.11,71.98 178.98,116.51 293.8,116.51 114.81,0 218.69,-44.52 293.8,-116.51 49.68,-47.61 86.79,-107.25 106.17,-173.96l35.6 0z"/>
     <path class="fil4" d="M1012.81 411.07c123.91,0 236.18,48.21 317.52,126.16 57.5,55.11 99.52,125.07 119.28,203.36l-35.48 0c-18.98,-68.63 -56.67,-129.97 -107.52,-178.71 -75.11,-71.98 -178.98,-116.5 -293.8,-116.5 -114.81,0 -218.69,44.52 -293.8,116.5 -50.85,48.74 -88.54,110.08 -107.52,178.71l-35.48 0c19.76,-78.3 61.78,-148.26 119.28,-203.36 81.33,-77.94 193.6,-126.16 317.52,-126.16z"/>
@@ -141,45 +142,25 @@ viewBox="0 0 8267.72 11692.91"
     <path class="fil7" d="M1192.03 715.53l-123 451.8 62.19 0c21.63,-3.89 57.18,-3.3 73.06,-62.01l122.59 -425.02 -80.96 0c-27.81,-1.2 -46.42,12.99 -53.87,35.22z"/>
     <path class="fil8" d="M1012.63 1001.94l-56.83 165.39 -62.19 0c-19.7,-2.53 -55.54,-2.15 -42.31,-40.35l88.15 -276.56 58.99 0c2.03,-0.06 4.17,-0.06 6.41,0l15.57 0c2.24,-0.06 4.37,-0.06 6.41,0l58.99 0 88.15 276.56c13.23,38.2 -22.61,37.82 -42.31,40.35l-62.2 0 -56.82 -165.39z"/>
    </g>
-   <text x="2273.22" y="1098.88" class="fil9 fnt7">Address:</text>
-   <text x="2873.22" y="1098.88" class="fil2 fnt1">No. 5 Hydro Hotel Road, Farm Centre, Minna, Niger State.</text>
+   <text x="2273.22" y="1118.88" class="fil9 fnt7">Address:</text>
+   <text x="2873.22" y="1118.88" class="fil2 fnt1">No. 5 Hydro Hotel Road, Farm Centre, Minna, Niger State.</text>
    <text x="2273.22" y="1238.88" class="fil9 fnt7">Head Office:</text>
    <text x="3073.22" y="1238.88" class="fil2 fnt1">No. 59A Enogie Street, Off Etete GRA, Benin City, Edo State.</text>
-   <line class="fil0 str1" x1="460.1" y1="1877.82" x2="8075" y2= "1877.82" />
-   <line class="fil0 str2" x1="460.1" y1="1905.95" x2="8075" y2= "1905.95" />
+   <line class="fil0 str1" x1="460.1" y1="2072.82" x2="7800" y2= "2072.82" />
+   <line class="fil0 str2" x1="460.1" y1="2100.95" x2="7800" y2= "2100.95" />
    <g>
-    <line class="fil0 str3" x1="1264.32" y1="1796" x2="3136.06" y2= "1796" />
-    <text x="774.14" y="1797.44"  class="fil10 fnt9">Our Ref.</text>
-    <text x="3271.59" y="1797.44"  class="fil10 fnt9">Your</text>
-    <text x="3518.03" y="1797.44"  class="fil10 fnt9"> Ref.</text>
-    <line class="fil0 str3" x1="6047.08" y1="1796" x2="7754.46" y2= "1796" />
-    <text x="5742.01" y="1797.44"  class="fil10 fnt9">Date</text>
-    <text x="6007.64" y="1797.44"  class="fil10 fnt9">:</text>
-    <line class="fil0 str3" x1="3797.54" y1="1796" x2="5669.28" y2= "1796" />
+    <line class="fil0 str3" x1="1264.32" y1="1951" x2="3136.06" y2= "1951" />
+   <text x="774.14" y="1982.44"  class="fil10 fnt9">Our Ref.</text>
+    <text x="3271.59" y="1952.44"  class="fil10 fnt9">Your</text>
+   <text x="3518.03" y="1982.44"  class="fil10 fnt9"> Ref.</text>
+    <line class="fil0 str3" x1="6047.08" y1="1951" x2="7754.46" y2= "1951" />
+   <text x="5742.01" y="1982.44"  class="fil10 fnt9">Date</text>
+   <text x="6007.64" y="1982.44"  class="fil10 fnt9">:</text>
+    <line class="fil0 str3" x1="3797.54" y1="1951" x2="5669.28" y2= "1951" />
    </g>
    <text x="6292.89" y="522.2"  class="fil2 fnt10">RC NO. 8581639</text>
    <text x="1718.57" y="954.14"  class="fil11 fnt11">WILLMIKE &amp;</text>
    <text x="4141.42" y="954.14"  class="fil11 fnt11"> SONS NIG .LTD</text>
-   <g>
-    <polygon class="fil12" points="8714.48,1405.38 7788.29,915.53 8714.48,336.26 "/>
-    <polygon class="fil13" points="8717.72,342.99 7799.47,926.7 7796.05,155.24 8005.15,0 8717.72,0 "/>
-    <g style="clip-path:url(#id0)">
-     <g>
-      <polygon id="_1" class="fil14" points="8718.56,364.32 8024.68,-44.06 8718.56,-528.33 "/>
-     </g>
-    </g>
-    <polygon class="fil0" points="8717.72,342.99 7799.47,926.7 7796.05,155.24 8005.15,0 8717.72,0 "/>
-   </g>
-   <g>
-    <polygon class="fil12" points="-446.76,10287.54 479.43,10777.38 -446.76,11356.66 "/>
-    <polygon class="fil13" points="-450,11349.93 468.25,10766.21 471.67,11537.67 262.56,11692.91 -450,11692.91 "/>
-    <g style="clip-path:url(#id1)">
-     <g>
-      <polygon id="_1_0" class="fil14" points="-450.85,11328.59 243.04,11736.97 -450.85,12221.24 "/>
-     </g>
-    </g>
-    <polygon class="fil0" points="-450,11349.93 468.25,10766.21 471.67,11537.67 262.56,11692.91 -450,11692.91 "/>
-   </g>
   </g>
   <rect class="fil0" width="8267.72" height="11692.91"/>
  </g>

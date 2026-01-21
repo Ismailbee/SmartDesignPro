@@ -116,9 +116,17 @@ defineExpose({
 
 <style scoped>
 .chat-input-area {
-  padding: 16px 20px;
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  padding: 16px;
   background: white;
   border-top: 1px solid #e2e8f0;
+  box-sizing: border-box;
+  z-index: 10;
+  margin-top: auto; /* This pushes it to the bottom of flex container */
 }
 
 .input-container {
@@ -205,7 +213,7 @@ defineExpose({
 /* Responsive */
 @media (max-width: 768px) {
   .chat-input-area {
-    padding: 12px 16px;
+    padding: 12px;
   }
   
   .text-input {

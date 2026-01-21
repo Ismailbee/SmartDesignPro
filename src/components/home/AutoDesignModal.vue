@@ -72,6 +72,16 @@
         </div>
       </div>
     </Transition>
+
+    <!-- Letterhead Loading Overlay -->
+    <Transition name="fade">
+      <div v-if="showLetterheadLoading" class="letterhead-loading-overlay">
+        <div class="letterhead-loading-content">
+          <div class="letterhead-loading-spinner"></div>
+          <div class="letterhead-loading-text">Loading Letterhead Designer...</div>
+        </div>
+      </div>
+    </Transition>
   </Teleport>
 </template>
 
@@ -84,6 +94,7 @@ const emit = defineEmits<{ close: [] }>()
 
 const router = useRouter()
 const searchQuery = ref('')
+const showLetterheadLoading = ref(false)
 
 const closeModal = () => emit('close')
 
@@ -128,9 +139,12 @@ const selectCategory = (category: string) => {
   if (category === 'Invoice/Receipt') {
     router.push({ path: '/invoice-receipt' })
   } 
-  // Special handling for Letter Head - route to templates dashboard
+  // Special handling for Letter Head - route to templates dashboard with loading animation
   else if (category === 'Letter Head') {
-    router.push({ path: '/letterhead' })
+    showLetterheadLoading.value = true
+    setTimeout(() => {
+      router.push({ path: '/letterhead' })
+    }, 150)
   } 
   else {
     router.push({ path: '/auto-design', query: { category: slugify(category) } })
@@ -439,5 +453,79 @@ onUnmounted(() => {
 
 @media (max-width: 1024px) and (min-width: 769px) {
   .categories-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Letterhead Loading Overlay */
+.letterhead-loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+@media (prefers-color-scheme: dark) {
+  .letterhead-loading-overlay {
+    background: rgba(17, 24, 39, 0.95);
+  }
+}
+
+.letterhead-loading-content {
+  text-align: center;
+}
+
+.letterhead-loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #e5e7eb;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .letterhead-loading-spinner {
+    border-color: #374151;
+    border-top-color: #818cf8;
+  }
+}
+
+.letterhead-loading-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: #374151;
+}
+
+@media (prefers-color-scheme: dark) {
+  .letterhead-loading-text {
+    color: #e5e7eb;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Fade transition for overlay */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
