@@ -1,0 +1,37 @@
+# Cache headers for Cloudflare Pages/Workers
+# Prevents stale files while allowing efficient caching
+
+# HTML files - never cache (always fetch fresh for updates)
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+  
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+
+# Service Worker - never cache (critical for updates)
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/workbox-*.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Manifest - short cache for PWA updates
+/manifest.webmanifest
+  Cache-Control: max-age=3600
+
+# JS/CSS assets with content hashes - cache forever (immutable)
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Images - cache for 7 days
+/images/*
+  Cache-Control: public, max-age=604800
+
+/svg/*
+  Cache-Control: public, max-age=604800
+
+# Fonts - cache for 1 year
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable

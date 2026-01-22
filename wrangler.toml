@@ -8,9 +8,10 @@ compatibility_date = "2024-01-01"
 # Enable the free .workers.dev subdomain
 workers_dev = true
 
-# Workers Sites configuration - serves static files from dist/
-[site]
-bucket = "./dist"
+# Static assets (no KV bulk upload)
+[assets]
+directory = "./dist"
+binding = "ASSETS"
 
 # Optional: Add custom routes if you have a domain later
 # routes = [

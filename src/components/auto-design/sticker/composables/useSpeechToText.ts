@@ -607,33 +607,39 @@ export function useSpeechToText(options: SpeechToTextOptions) {
   /**
    * Setup watcher to auto-speak AI messages
    * IMPORTANT: This is the ONLY place that should trigger voice announcements
+   * Only speaks messages that have completed typing animation
    */
   function setupAutoSpeakWatcher() {
-    watch(() => chatMessages.value.length, (newLen, oldLen) => {
-      if (newLen > oldLen && isVoiceEnabled.value && selectedCategory.value === 'wedding') {
-        const lastMsg = chatMessages.value[newLen - 1]
-        // Prevent duplicate announcements by tracking the last spoken message ID
-        if (lastMsg.sender === 'ai' && lastMsg.id !== lastSpokenMessageId) {
-          // Clear any pending speech timeout to prevent duplicates
-          if (speakTimeout) {
-            clearTimeout(speakTimeout)
-            speakTimeout = null
-          }
-          
-          // Mark this message as the one we're about to speak
-          lastSpokenMessageId = lastMsg.id
-          
-          // Use a timeout to debounce rapid message additions
-          speakTimeout = setTimeout(() => {
-            // Only speak if this is still the most recent message we want to speak
-            if (lastSpokenMessageId === lastMsg.id && !lastMsg.isLoading) {
-              speakMessage(lastMsg.text)
+    // Watch for changes in chat messages (both length and content)
+    watch(() => chatMessages.value.map(m => ({ id: m.id, typingComplete: m.typingComplete })), (newMsgs, oldMsgs) => {
+      if (!isVoiceEnabled.value || selectedCategory.value !== 'wedding') return
+      
+      // Find messages that just completed typing
+      for (const msg of newMsgs) {
+        const oldMsg = oldMsgs?.find(m => m.id === msg.id)
+        // If this message just became typingComplete (wasn't before, is now)
+        if (msg.typingComplete && (!oldMsg || !oldMsg.typingComplete)) {
+          const fullMsg = chatMessages.value.find(m => m.id === msg.id)
+          if (fullMsg && fullMsg.sender === 'ai' && fullMsg.id !== lastSpokenMessageId && !fullMsg.skipSpeech) {
+            // Clear any pending speech timeout
+            if (speakTimeout) {
+              clearTimeout(speakTimeout)
+              speakTimeout = null
             }
-            speakTimeout = null
-          }, 300) // 300ms debounce to prevent rapid-fire speaking
+            
+            lastSpokenMessageId = fullMsg.id
+            
+            // Speak the complete message
+            speakTimeout = setTimeout(() => {
+              if (lastSpokenMessageId === fullMsg.id) {
+                speakMessage(fullMsg.text)
+              }
+              speakTimeout = null
+            }, 100) // Small delay to ensure UI is updated
+          }
         }
       }
-    })
+    }, { deep: true })
   }
 
   // ============================================================================

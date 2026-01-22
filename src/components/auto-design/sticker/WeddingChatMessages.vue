@@ -1,7 +1,43 @@
 <template>
-  <div class="chat-container" ref="chatContainer">
+  <div class="chat-wrapper">
+    <!-- Chat Header with Controls - Fixed at top -->
+    <div class="chat-header">
+      <button @click="$emit('toggle-sidebar')" class="header-btn menu-btn" title="Projects">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      
+      <span class="header-title">Wedding Sticker</span>
+      
+      <div class="header-actions">
+        <button 
+          @click="$emit('toggle-voice')" 
+          class="header-btn" 
+          :class="{ 'active': isVoiceEnabled }"
+          :title="isVoiceEnabled ? 'Voice On' : 'Voice Off'"
+        >
+          <svg v-if="isVoiceEnabled" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+          </svg>
+          <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+            <path d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+          </svg>
+        </button>
+        
+        <button @click="$emit('home')" class="header-btn home-btn" title="Go Home">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+        </button>
+      </div>
+    </div>
+    
+    <!-- Scrollable Chat Container -->
+    <div class="chat-container" ref="chatContainer">
     <!-- Welcome Screen -->
-    <div v-if="messages.length === 0 && !isGeneratingPreview" class="welcome-screen">
+    <div v-if="visibleMessages.length === 0 && !isGeneratingPreview" class="welcome-screen">
       <div class="welcome-icon">💍</div>
       <h2 class="welcome-title">Wedding Sticker Designer</h2>
       <p class="welcome-subtitle" v-if="isAuthenticated">
@@ -44,10 +80,10 @@
       </div>
     </div>
 
-    <!-- Messages List -->
+    <!-- Messages List (filtered to hide voice-only messages) -->
     <TransitionGroup v-else name="message" tag="div" class="messages-list">
       <div 
-        v-for="msg in messages" 
+        v-for="msg in visibleMessages" 
         :key="msg.id" 
         class="message"
         :class="[msg.sender, { 'with-preview': msg.type === 'preview' }]"
@@ -88,12 +124,12 @@
                   </svg>
                   Download
                 </button>
-                <button @click="$emit('action', { type: 'regenerate' })" class="preview-btn regenerate" title="Try a different background">
+                <button @click="$emit('action', { type: 'regenerate' })" class="preview-btn regenerate" title="Regenerate with new background">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="23 4 23 10 17 10"/>
                     <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
                   </svg>
-                  New BG
+                  Regenerate
                 </button>
               </div>
             </div>
@@ -140,11 +176,12 @@
       <div class="simple-spinner"></div>
       <p class="generating-text">{{ generatingMessage || 'Creating your design...' }}</p>
     </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
 import type { ChatMessage } from './types'
 
 // Props
@@ -156,6 +193,7 @@ const props = defineProps<{
   userName?: string
   tokens: number
   generatingMessage?: string
+  isVoiceEnabled?: boolean
 }>()
 
 // Emits
@@ -163,7 +201,15 @@ defineEmits<{
   (e: 'login'): void
   (e: 'action', action: { type: string; label?: string }): void
   (e: 'suggestion', text: string): void
+  (e: 'home'): void
+  (e: 'toggle-sidebar'): void
+  (e: 'toggle-voice'): void
 }>()
+
+// Filter messages to only show visible ones (hide voice-only messages)
+const visibleMessages = computed(() => 
+  props.messages.filter(msg => msg.visibleInChat !== false)
+)
 
 // Refs
 const chatContainer = ref<HTMLDivElement | null>(null)
@@ -240,6 +286,101 @@ defineExpose({
 </script>
 
 <style scoped>
+/* Chat Header */
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--bg-secondary, #f8f9fa);
+  border-bottom: 1px solid var(--border-primary, #e8e8e8);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin: -20px -20px 16px -20px;
+}
+
+.header-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--bg-primary, white);
+  border: 1px solid var(--border-primary, #e0e0e0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary, #666);
+  transition: all 0.2s ease;
+}
+
+.header-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+.header-btn:hover {
+  background: var(--bg-hover, #f0f0f0);
+  color: var(--text-primary, #333);
+}
+
+.header-btn.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: transparent;
+}
+
+.home-btn {
+  background: linear-gradient(135deg, #10b98120 0%, #059e6d20 100%);
+  border-color: #10b98140;
+}
+
+.home-btn:hover {
+  background: linear-gradient(135deg, #10b98140 0%, #059e6d40 100%);
+}
+
+.menu-btn {
+  background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+  border-color: #667eea40;
+}
+
+.menu-btn:hover {
+  background: linear-gradient(135deg, #667eea40 0%, #764ba240 100%);
+}
+
+.header-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Chat Wrapper - Full height flex container */
+.chat-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Chat Header - Fixed at top */
+.chat-header {
+  flex-shrink: 0;
+  position: relative;
+  margin: 0;
+}
+
 .chat-container {
   flex: 1;
   min-height: 0;
@@ -530,6 +671,14 @@ defineExpose({
   padding: 12px;
   border-top: 1px solid var(--border-primary);
   background: var(--bg-secondary);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.preview-actions::-webkit-scrollbar {
+  display: none;
 }
 
 .preview-btn {
@@ -543,6 +692,8 @@ defineExpose({
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .preview-btn.edit {
@@ -698,8 +849,8 @@ defineExpose({
   .preview-actions {
     padding: 10px;
     gap: 6px;
-    flex-wrap: wrap;
-    justify-content: center;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
   }
   
   .preview-btn {

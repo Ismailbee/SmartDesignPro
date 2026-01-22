@@ -62,20 +62,17 @@ export function handleMultipleImageUploadsUtil(deps: ChatUtilsDeps): void {
   } = deps
   
   const unusedImages = uploadedImages.value.filter(img => !img.used)
+  const imageCount = unusedImages.length
   
   // Pre-generation: Multiple images uploaded
-  if (!showWeddingStickerPreview.value && unusedImages.length > 1) {
+  if (!showWeddingStickerPreview.value && imageCount > 1) {
     awaitingImageChoice.value = true
 
-    const aiMessage = `Multiple pictures uploaded. Use FIRST or NEW one?`
+    // Build message based on number of images uploaded
+    const countWord = imageCount === 2 ? 'two' : imageCount === 3 ? 'three' : imageCount === 4 ? 'four' : String(imageCount)
+    const aiMessage = `You uploaded ${countWord} pictures. Which one would you like to use as the main picture? Say "first" or "last" (most recent).`
 
-    chatMessages.value.push({
-      id: Date.now(),
-      text: aiMessage,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-    scrollToBottom()
+    addAIMessageWithTypingUtil(aiMessage, chatMessages, scrollToBottom, { skipSpeech: true } as any)
   }
 
   // Post-generation: New image uploaded after design is created
@@ -83,15 +80,9 @@ export function handleMultipleImageUploadsUtil(deps: ChatUtilsDeps): void {
     awaitingImageUpdateConfirmation.value = true
     pendingImageFile.value = lastUploadedImage.value
 
-    const aiMessage = "I see you've uploaded a new picture! Would you like me to replace the current image in your design? Say 'yes' or 'no'!"
+    const aiMessage = "You uploaded a new picture. Would you like to replace the current image? Say 'yes' or 'no'."
     
-    chatMessages.value.push({
-      id: Date.now(),
-      text: aiMessage,
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-    scrollToBottom()
+    addAIMessageWithTypingUtil(aiMessage, chatMessages, scrollToBottom, { skipSpeech: true } as any)
   }
 }
 
@@ -113,7 +104,8 @@ export function addUserMessageUtil(
 }
 
 /**
- * Add an AI message to the chat
+ * Add an AI message to the chat with typing animation
+ * This is the standard way to add AI messages - always uses typing effect
  */
 export function addAIMessageUtil(
   text: string,
@@ -123,21 +115,29 @@ export function addAIMessageUtil(
     image?: string
     type?: 'text' | 'preview'
     actions?: ChatMessage['actions']
+    skipTyping?: boolean // Skip typing animation for instant messages
   }
-): void {
-  chatMessages.value.push({
-    id: Date.now(),
-    text,
-    sender: 'ai',
-    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    ...options
-  })
-  scrollToBottom()
+): Promise<void> {
+  // For instant messages or preview types, push directly
+  if (options?.skipTyping || options?.type === 'preview') {
+    chatMessages.value.push({
+      id: Date.now(),
+      text,
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      ...options
+    })
+    scrollToBottom()
+    return Promise.resolve()
+  }
+  
+  // Use typing animation for all other AI messages
+  return addAIMessageWithTypingUtil(text, chatMessages, scrollToBottom, options)
 }
 
 /**
- * Add an AI message with typing indicator animation
- * Shows three dots loading animation for 1 second, then reveals the actual message
+ * Add an AI message with typing animation effect
+ * Reveals text character by character for a natural typing feel
  */
 export function addAIMessageWithTypingUtil(
   text: string,
@@ -147,12 +147,14 @@ export function addAIMessageWithTypingUtil(
     image?: string
     type?: 'text' | 'preview'
     actions?: ChatMessage['actions']
-    typingDelay?: number // default 1000ms
+    typingDelay?: number // delay before starting (default 300ms)
+    charDelay?: number // delay per character (default 20ms)
   }
 ): Promise<void> {
   return new Promise((resolve) => {
     const messageId = Date.now()
-    const delay = options?.typingDelay ?? 1000
+    const startDelay = options?.typingDelay ?? 300
+    const charDelay = options?.charDelay ?? 20
     
     // First add a loading message (typing indicator)
     chatMessages.value.push({
@@ -160,26 +162,61 @@ export function addAIMessageWithTypingUtil(
       text: '',
       sender: 'ai',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isLoading: true
+      isLoading: true,
+      isTyping: true, // Mark as typing in progress
+      typingComplete: false
     })
     scrollToBottom()
     
-    // After delay, replace loading with actual message
+    // After initial delay, start typing animation
     setTimeout(() => {
       const index = chatMessages.value.findIndex(m => m.id === messageId)
-      if (index !== -1) {
-        chatMessages.value[index] = {
-          id: messageId,
-          text,
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          isLoading: false,
-          ...options
+      if (index === -1) {
+        resolve()
+        return
+      }
+      
+      // Stop loading and start typing
+      chatMessages.value[index].isLoading = false
+      
+      let currentIndex = 0
+      const fullText = text
+      
+      // Type character by character
+      const typeNextChar = () => {
+        if (currentIndex < fullText.length) {
+          // Add next character
+          chatMessages.value[index].text = fullText.substring(0, currentIndex + 1)
+          currentIndex++
+          
+          // Scroll on every few characters
+          if (currentIndex % 10 === 0) {
+            scrollToBottom()
+          }
+          
+          // Variable delay for natural feel
+          const nextDelay = fullText[currentIndex - 1] === '.' || fullText[currentIndex - 1] === '!' || fullText[currentIndex - 1] === '?' 
+            ? charDelay * 5 // Pause longer at sentence ends
+            : fullText[currentIndex - 1] === ',' 
+              ? charDelay * 2 // Short pause at commas
+              : charDelay
+          
+          setTimeout(typeNextChar, nextDelay)
+        } else {
+          // Typing complete - add any additional options and mark as complete
+          chatMessages.value[index] = {
+            ...chatMessages.value[index],
+            ...options,
+            isTyping: false,
+            typingComplete: true
+          }
+          scrollToBottom()
+          resolve()
         }
       }
-      scrollToBottom()
-      resolve()
-    }, delay)
+      
+      typeNextChar()
+    }, startDelay)
   })
 }
 

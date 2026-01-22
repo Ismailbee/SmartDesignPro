@@ -21,6 +21,7 @@ export interface UseUploadChatFlowDeps {
   accumulatedDescription: Ref<string>
   formData: { description: string }
   requestWeddingPreviewGeneration: () => void
+  
 }
 
 export interface UseUploadChatFlowReturn {

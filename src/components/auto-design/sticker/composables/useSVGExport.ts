@@ -22,6 +22,36 @@ const DEFAULT_EXPORT_OPTIONS: Required<ExportOptions> = {
 }
 
 export function useSVGExport() {
+  function forceWeddingNameTextBold(svg: SVGSVGElement): void {
+    const allTexts = Array.from(svg.querySelectorAll('text')) as SVGTextElement[]
+    allTexts.forEach(textEl => {
+      const id = (textEl.getAttribute('id') || '').trim()
+      const cls = (textEl.getAttribute('class') || '').trim()
+      const dataRender = (textEl.getAttribute('data-render-on-canvas') || '').trim()
+      const dataIsName = (textEl.getAttribute('data-is-name-text') || '').trim()
+
+      const isNameText = (
+        id.startsWith('name1') ||
+        id.startsWith('name2') ||
+        id === 'name-separator' ||
+        cls.includes('name-fnt') ||
+        dataRender === 'true' ||
+        dataIsName === 'true'
+      )
+
+      if (!isNameText) return
+
+      // Ensure exported viewers render names with a thick/bold weight.
+      textEl.setAttribute('font-weight', '700')
+
+      const currentStyle = (textEl.getAttribute('style') || '').trim()
+      if (!/font-weight\s*:/i.test(currentStyle)) {
+        const sep = currentStyle && !currentStyle.endsWith(';') ? '; ' : (currentStyle ? ' ' : '')
+        textEl.setAttribute('style', `${currentStyle}${sep}font-weight: 700;`)
+      }
+    })
+  }
+
   function escapeAttrValue(value: string): string {
     return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
   }
@@ -706,6 +736,17 @@ export function useSVGExport() {
       await document.fonts.ready
     }
 
+    const normalizeFontWeight = (value: string): number => {
+      const v = String(value || '').trim().toLowerCase()
+      if (!v) return 400
+      if (v === 'normal') return 400
+      if (v === 'bold') return 700
+      if (v === 'bolder') return 800
+      if (v === 'lighter') return 300
+      const n = parseFloat(v)
+      return Number.isFinite(n) ? n : 400
+    }
+
     for (const textEl of nameTexts) {
       const text = textEl.textContent || ''
       if (!text.trim()) continue
@@ -719,8 +760,10 @@ export function useSVGExport() {
       const dominantBaseline = textEl.getAttribute('dominant-baseline') || ''
 
       // Get original font properties from the SVG element
-      const originalFontFamily = textEl.getAttribute('font-family') || 'Georgia'
-      const originalFontWeight = textEl.getAttribute('font-weight') || '400'
+      // These may be missing if the template relies on CSS classes; we infer sensible defaults.
+      const originalFontFamily = (textEl.getAttribute('font-family') || '').trim() || 'Georgia'
+      const originalFontWeightRaw = (textEl.getAttribute('font-weight') || '').trim() || '400'
+      const originalFontWeight = normalizeFontWeight(originalFontWeightRaw)
       
       console.log(`   Processing "${text}": original pos (${x}, ${y}), fontSize=${fontSize}, font=${originalFontFamily}, weight=${originalFontWeight}`)
 
@@ -729,19 +772,35 @@ export function useSVGExport() {
       const scaledY = (y - vbMinY) * scaleY
       const scaledFontSize = fontSize * Math.min(scaleX, scaleY)
 
+      const idLower = id.toLowerCase()
+      const clsLower = (textEl.getAttribute('class') || '').toLowerCase()
+      const fontLower = originalFontFamily.toLowerCase()
+
       // Map original font-family to our canvas-loaded font
       let canvasFontFamily: string
-      if (originalFontFamily.toLowerCase().includes('ubuntu')) {
+      if (fontLower.includes('ubuntu') || idLower.includes('name') || clsLower.includes('name-fnt')) {
         canvasFontFamily = `"${UBUNTU_CANVAS_FONT}", Arial, Helvetica, sans-serif`
-      } else if (originalFontFamily.toLowerCase().includes('cinzel')) {
+      } else if (fontLower.includes('cinzel') || clsLower.includes('name-fnt')) {
         canvasFontFamily = `"${CINZEL_CANVAS_FONT}", "Cinzel Decorative", Georgia, serif`
       } else {
         canvasFontFamily = `${originalFontFamily}, Georgia, serif`
       }
 
+      // Pick a reliable weight that actually exists for the chosen font.
+      // Ubuntu supports 400/700; Cinzel Decorative is effectively 700 in our exporter.
+      let canvasFontWeight = originalFontWeight
+      if (canvasFontFamily.includes(UBUNTU_CANVAS_FONT)) {
+        // Export requirement: names should look thick/bold.
+        // Force Ubuntu names to 700 so downloads match the editor's intended look.
+        canvasFontWeight = 700
+      }
+      if (canvasFontFamily.includes(CINZEL_CANVAS_FONT) || canvasFontFamily.includes('Cinzel Decorative')) {
+        canvasFontWeight = 700
+      }
+
       // Set font - use the mapped canvas font with original weight
       // The font string format: [font-weight] font-size font-family
-      const fontString = `${originalFontWeight} ${scaledFontSize}px ${canvasFontFamily}`
+      const fontString = `${canvasFontWeight} ${scaledFontSize}px ${canvasFontFamily}`
       ctx.font = fontString
       ctx.fillStyle = fill
 
@@ -754,8 +813,16 @@ export function useSVGExport() {
       console.log(`   Setting ctx.font = "${fontString}"`)
       console.log(`   Actual ctx.font after set = "${ctx.font}"`)
       
-      // Draw the text
-      ctx.fillText(text, scaledX, scaledY)
+      // Draw the text. For Ubuntu names, do a light multi-pass fill to make it appear thicker
+      // even in cases where browsers synthesize bold slightly differently.
+      const shouldEmbolden = canvasFontFamily.includes(UBUNTU_CANVAS_FONT)
+      if (shouldEmbolden) {
+        ctx.fillText(text, scaledX, scaledY)
+        ctx.fillText(text, scaledX + 0.75, scaledY)
+        ctx.fillText(text, scaledX, scaledY + 0.75)
+      } else {
+        ctx.fillText(text, scaledX, scaledY)
+      }
       console.log(`   ✅ Drew "${text}" at (${scaledX.toFixed(0)}, ${scaledY.toFixed(0)}) with fontSize=${scaledFontSize.toFixed(0)}px, fill=${fill}`)
     }
     
@@ -802,6 +869,33 @@ export function useSVGExport() {
     // First, try to preload fonts
     await preloadFonts()
 
+    const PLAYFAIR_700_WOFF2_URL = 'https://fonts.gstatic.com/s/playfairdisplay/v36/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKd3vXDTbtPY_Q.woff2'
+
+    const cachedFontDataUrlByUrl = (embedFontsInSVG as any)._cache as Map<string, string> | undefined
+    const cache = cachedFontDataUrlByUrl || new Map<string, string>()
+    ;(embedFontsInSVG as any)._cache = cache
+
+    const fetchFontAsDataUrl = async (url: string): Promise<string | null> => {
+      if (cache.has(url)) return cache.get(url) || null
+
+      try {
+        const resolvedUrl = url.startsWith('/') ? window.location.origin + url : url
+        const resp = await fetch(resolvedUrl, { cache: 'force-cache', mode: url.startsWith('http') ? 'cors' : 'same-origin' })
+        if (!resp.ok) return null
+        const blob = await resp.blob()
+        const dataUrl = await new Promise<string | null>((resolve) => {
+          const reader = new FileReader()
+          reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null)
+          reader.onerror = () => resolve(null)
+          reader.readAsDataURL(blob)
+        })
+        if (dataUrl) cache.set(url, dataUrl)
+        return dataUrl
+      } catch {
+        return null
+      }
+    }
+
     // Find or create defs element
     let defs = svgElement.querySelector('defs')
     if (!defs) {
@@ -817,25 +911,70 @@ export function useSVGExport() {
       }
     })
 
-    // Add embedded font-face declaration
+    const [cinzelDataUrl, ubuntu400DataUrl, ubuntu700DataUrl, playfair700DataUrl] = await Promise.all([
+      fetchCinzelFontAsBase64(),
+      fetchFontAsDataUrl(UBUNTU_FONT_URLS.regular),
+      fetchFontAsDataUrl(UBUNTU_FONT_URLS.bold),
+      fetchFontAsDataUrl(PLAYFAIR_700_WOFF2_URL)
+    ])
+
+    const cssChunks: string[] = []
+
+    if (cinzelDataUrl) {
+      cssChunks.push(`
+        @font-face {
+          font-family: 'Cinzel Decorative';
+          font-style: normal;
+          font-weight: 700;
+          src: url('${cinzelDataUrl}') format('woff2');
+        }
+      `)
+    }
+
+    if (playfair700DataUrl) {
+      cssChunks.push(`
+        @font-face {
+          font-family: 'Playfair Display';
+          font-style: normal;
+          font-weight: 700;
+          src: url('${playfair700DataUrl}') format('woff2');
+        }
+      `)
+    }
+
+    if (ubuntu400DataUrl) {
+      cssChunks.push(`
+        @font-face {
+          font-family: 'Ubuntu';
+          font-style: normal;
+          font-weight: 400;
+          src: url('${ubuntu400DataUrl}') format('woff2');
+        }
+      `)
+    }
+
+    if (ubuntu700DataUrl) {
+      cssChunks.push(`
+        @font-face {
+          font-family: 'Ubuntu';
+          font-style: normal;
+          font-weight: 700;
+          src: url('${ubuntu700DataUrl}') format('woff2');
+        }
+      `)
+    }
+
+    // Safety fallback (won't override explicit font-family attributes)
+    cssChunks.push(`
+      .name-fnt0 {
+        font-weight: 700;
+        font-family: 'Cinzel Decorative', Georgia, 'Times New Roman', serif;
+      }
+    `)
+
     const styleElement = document.createElementNS('http://www.w3.org/2000/svg', 'style')
     styleElement.setAttribute('type', 'text/css')
-    styleElement.textContent = `
-      @font-face {
-        font-family: 'Cinzel Decorative Embedded';
-        font-weight: 700;
-        src: url('https://fonts.gstatic.com/s/cinzeldecorative/v16/daaHSScvJGqLYhG8nNt8KPPswUAPniZoadlES.woff2') format('woff2');
-      }
-      @font-face {
-        font-family: 'Playfair Display';
-        font-weight: 700;
-        src: url('https://fonts.gstatic.com/s/playfairdisplay/v36/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKd3vXDTbtPY_Q.woff2') format('woff2');
-      }
-      .name-fnt0 { 
-        font-weight: 700; 
-        font-family: 'Georgia', 'Times New Roman', serif;
-      }
-    `
+    styleElement.textContent = cssChunks.join('\n')
     defs.insertBefore(styleElement, defs.firstChild)
   }
 
@@ -966,6 +1105,10 @@ export function useSVGExport() {
       const tempSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
       tempSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
       tempSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink')
+
+      // Ensure any web fonts used by the title are embedded for rasterization.
+      // Without this, <img src="blob:..."> rendering can fall back to default fonts.
+      await embedFontsInSVG(tempSvg)
       
       // Get the title styles from the parent SVG and include them
       const titleStyles = parentSvg.querySelector('#wedding-title-styles')
@@ -1324,6 +1467,9 @@ export function useSVGExport() {
           style.remove()
         }
       })
+
+      // Embed key fonts as data: URLs so canvas export can preserve typography.
+      await embedFontsInSVG(svgElement)
       
       // HIDE name text elements - they will be rendered on canvas with correct font
       // We set opacity to 0 instead of removing so we can still read their positions
@@ -1353,28 +1499,8 @@ export function useSVGExport() {
         }
       })
 
-      // Convert remaining non-name text elements to use system fonts
-      // IMPORTANT: Exclude text elements inside the wedding-title-replacement group
-      // The title group has embedded SVG fonts that should be preserved
-      const otherTextElements = svgElement.querySelectorAll('text:not([data-render-on-canvas]):not([id^="name"]):not(.name-fnt0):not([class*="name-fnt"]), tspan')
-      otherTextElements.forEach(el => {
-        // Skip text elements inside the title replacement group - they have embedded fonts
-        if (el.closest('#wedding-title-replacement')) {
-          return
-        }
-        
-        const currentFont = el.getAttribute('font-family') || ''
-        
-        // Map known fonts to system fallbacks for non-name text
-        let targetFont = 'Arial, sans-serif'
-        if (currentFont.includes('Playfair')) {
-          targetFont = 'Georgia, "Times New Roman", serif'
-        } else if (currentFont.includes('Lato') || currentFont.includes('Montserrat')) {
-          targetFont = 'Arial, Helvetica, sans-serif'
-        }
-        
-        el.setAttribute('font-family', targetFont)
-      })
+      // Do not rewrite non-name font families here.
+      // We embed fonts above so the exported PNG keeps the same typography.
 
       console.log('📝 SVG prepared for canvas export')
       return
@@ -1387,49 +1513,14 @@ export function useSVGExport() {
       return
     }
 
-    // Add font imports to defs (only for SVG export, not canvas)
+    // Embed fonts into SVG for reliable downloads (avoid @import which may not load in external viewers)
     let defs = svgElement.querySelector('defs')
     if (!defs) {
       defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs')
       svgElement.insertBefore(defs, svgElement.firstChild)
     }
 
-    const styleElement = document.createElementNS('http://www.w3.org/2000/svg', 'style')
-    styleElement.setAttribute('type', 'text/css')
-    styleElement.textContent = `
-      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Lato:wght@400;700&display=swap');
-      
-      text {
-        font-family: 'Lato', 'Arial', 'Helvetica', sans-serif;
-      }
-      
-      /* IMPORTANT: Preserve embedded Ubuntu fonts for decorative name elements */
-      text#name1-first {
-        font-family: 'Ubuntu', Arial, Helvetica, sans-serif !important;
-        font-weight: 700 !important;
-      }
-
-      text#name1-last,
-      text#name2-last {
-        font-family: 'Ubuntu', Arial, Helvetica, sans-serif !important;
-        font-weight: 400 !important;
-      }
-
-      text#name2-first {
-        font-family: 'Ubuntu', Arial, Helvetica, sans-serif !important;
-        font-weight: 700 !important;
-      }
-
-      text#name-separator {
-        font-family: 'Ubuntu', Arial, Helvetica, sans-serif !important;
-        font-weight: 700 !important;
-      }
-      
-      .serif-font {
-        font-family: 'Playfair Display', 'Times New Roman', 'Georgia', serif;
-      }
-    `
-    defs.insertBefore(styleElement, defs.firstChild)
+    await embedFontsInSVG(svgElement)
   }
 
   /**
@@ -1537,14 +1628,9 @@ export function useSVGExport() {
     if (forCanvas) {
       // Remove any @import statements that might have slipped through
       svgString = svgString.replace(/@import\s+url\([^)]+\)\s*;?/gi, '')
-      
-      // Replace web font references in CSS with system fonts
-      // NOTE: Do NOT replace Agraham or Campton Book - these are embedded SVG fonts from the title SVG
-      svgString = svgString.replace(/font-family:\s*['"]?Lato['"]?[^;'"}\n]*/gi, 'font-family: Arial, sans-serif')
-      svgString = svgString.replace(/font-family:\s*['"]?Playfair[^;'"}\n]*/gi, 'font-family: "Times New Roman", serif')
-      svgString = svgString.replace(/font-family:\s*['"]?Cinzel[^;'"}\n]*/gi, 'font-family: "Times New Roman", serif')
-      svgString = svgString.replace(/font-family:\s*['"]?Montserrat[^;'"}\n]*/gi, 'font-family: Arial, sans-serif')
-      svgString = svgString.replace(/font-family:\s*['"]?Great Day[^;'"}\n]*/gi, 'font-family: cursive')
+
+      // Do not rewrite font-family during canvas export.
+      // Fonts are embedded via @font-face data URLs earlier so typography is preserved.
       
       // Remove empty style tags that might cause issues
       // BUT preserve style blocks that contain embedded SVG font definitions (Agraham, Campton)
@@ -1751,6 +1837,9 @@ export function useSVGExport() {
       // This prevents title tracking (e.g. CEREMONY letter-spacing) changing in exported SVG viewers.
       inlineComputedTextStylesForCanvasExport(exportSVG, svgElement)
 
+      // Ensure wedding name weights export thick/bold.
+      forceWeddingNameTextBold(exportSVG)
+
       if (config.includeImages && images.length > 0) {
         exportSVG = embedImagesInSVG(exportSVG, images)
       }
@@ -1847,9 +1936,20 @@ export function useSVGExport() {
       // Clone and embed images
       let exportSVG = svgElement.cloneNode(true) as SVGSVGElement
 
+      // Ensure key fonts are loaded BEFORE we freeze computed text styles.
+      // Otherwise the computed styles may reflect fallback fonts (which would get "baked in").
+      await loadUbuntuFontsForCanvas()
+      await loadCinzelFontForCanvas()
+      if (document.fonts) {
+        await document.fonts.ready
+      }
+
       // Freeze computed text sizes/families from the live editor SVG.
       // This prevents CSS-driven text from changing size/position at export time.
       inlineComputedTextStylesForCanvasExport(exportSVG, svgElement)
+
+      // Ensure wedding name weights export thick/bold (also helps in-case any viewer uses SVG text directly).
+      forceWeddingNameTextBold(exportSVG)
       
       // Debug: Check if title replacement exists in ORIGINAL SVG
       const originalTitleGroup = svgElement.querySelector('#wedding-title-replacement')

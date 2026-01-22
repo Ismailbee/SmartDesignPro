@@ -188,7 +188,7 @@ export function getGreetingResponse(msg: string, ctx: OfflineResponseContext) {
 
   // If user just said hi/greeting, ask for all their information
   if (!ctx.hasTitle && !ctx.hasName && !ctx.hasDate) {
-    return createMessage(`${greet} I'm here to help you create a beautiful wedding sticker. Please provide your wedding details — the couple names (in brackets like “(Aisha & Suleiman)”), the wedding date, and any special message or heading you'd like.`)
+    return createMessage(`${greet} Please provide your information.`)
   }
 
   // Otherwise ask for the next missing piece

@@ -8,7 +8,12 @@ export interface ChatMessage {
   image?: string
   type?: 'text' | 'preview'
   isLoading?: boolean
+  isTyping?: boolean // True while typing animation is in progress
+  typingComplete?: boolean // True when typing animation has finished
   actions?: MessageAction[]
+  skipSpeech?: boolean // Don't read this message aloud
+  visibleInChat?: boolean // If false, message is voice-only (not shown in UI)
+  voiceRead?: boolean // Track if message has been read aloud
 }
 
 export interface MessageAction {

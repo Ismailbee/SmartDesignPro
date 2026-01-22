@@ -8,6 +8,7 @@
 import { ref, computed, nextTick, type Ref, type ComputedRef } from 'vue'
 import type { ChatMessage } from './useSpeechToText'
 import { parseSizeToInches } from '../utils/previewUtils'
+import { addAIMessageWithTypingUtil } from '../utils/chatUtils'
 import type { BackgroundItem } from '@/services/background/background.types'
 
 // Types
@@ -134,13 +135,11 @@ export function useWeddingPreviewGeneration(deps: GenerationDependencies): UseWe
     deps.awaitingSizeDecision.value = true
     deps.isAnalyzing.value = false
 
-    deps.chatMessages.value.push({
-      id: Date.now(),
-      text: "What size would you like the sticker? (e.g., '3x3' or type 'default' for 4x4 inches)",
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-    deps.scrollToBottom()
+    addAIMessageWithTypingUtil(
+      "What size would you like the sticker? (e.g., '3x3' or type 'default' for 4x4 inches)",
+      deps.chatMessages,
+      deps.scrollToBottom
+    )
   }
 
   function setWeddingSize(sizeRaw: string): void {
@@ -178,16 +177,16 @@ export function useWeddingPreviewGeneration(deps: GenerationDependencies): UseWe
         message: 'Please login or create an account to generate designs.',
         type: 'info'
       })
-      deps.chatMessages.value.push({
-        id: Date.now(),
-        text: "Hold on!\n\nYou need to login or create a free account to generate your design.\n\nWhy sign up?\n💎 Get 100 FREE tokens instantly!\n💾 Save and download your designs\n🎨 Access premium features",
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        actions: [
-          { type: 'login', label: 'Login to Continue', variant: 'primary' }
-        ]
-      })
-      deps.scrollToBottom()
+      addAIMessageWithTypingUtil(
+        "Hold on!\n\nYou need to login or create a free account to generate your design.\n\nWhy sign up?\n💎 Get 100 FREE tokens instantly!\n💾 Save and download your designs\n🎨 Access premium features",
+        deps.chatMessages,
+        deps.scrollToBottom,
+        {
+          actions: [
+            { type: 'login', label: 'Login to Continue', variant: 'primary' }
+          ]
+        }
+      )
       return
     }
 
@@ -195,13 +194,11 @@ export function useWeddingPreviewGeneration(deps: GenerationDependencies): UseWe
     const resolvedDescription = (deps.formData.description || '').trim() || (deps.accumulatedDescription.value || '').trim()
 
     if (!resolvedDescription) {
-      deps.chatMessages.value.push({
-        id: Date.now(),
-        text: "Please provide your details first.\n\nExample:\n(John & Mary) 8th March 2025 courtesy: Smith family",
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
-      deps.scrollToBottom()
+      addAIMessageWithTypingUtil(
+        "Please provide your details first.\n\nExample:\n(John & Mary) 8th March 2025 courtesy: Smith family",
+        deps.chatMessages,
+        deps.scrollToBottom
+      )
       return
     }
 
@@ -347,7 +344,7 @@ export function useWeddingPreviewGeneration(deps: GenerationDependencies): UseWe
       deps.isDescriptionVisible.value = false
       deps.showWeddingStickerPreview.value = true
 
-      // Add preview message
+      // Add preview message (instant for preview type)
       deps.chatMessages.value.push({
         id: Date.now(),
         text: '',
@@ -356,12 +353,12 @@ export function useWeddingPreviewGeneration(deps: GenerationDependencies): UseWe
         type: 'preview'
       })
 
-      deps.chatMessages.value.push({
-        id: Date.now() + 1,
-        text: "Your design is ready! Looking great! 🎉\n\n💡 **Tip:** You can drag the image to reposition it. Click 'Edit' for more options!",
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
+      // Add success message with typing animation
+      await addAIMessageWithTypingUtil(
+        "Your design is ready! Looking great! You can drag the image to reposition it.",
+        deps.chatMessages,
+        deps.scrollToBottom
+      )
 
       await nextTick()
       await nextTick()
@@ -416,14 +413,11 @@ export function useWeddingPreviewGeneration(deps: GenerationDependencies): UseWe
       deps.updateChatPreviewSVG()
       deps.isGeneratingPreview.value = false
 
-      deps.chatMessages.value.push({
-        id: Date.now() + 1,
-        text: "Here's a new design variation! 🎨 Like this one better?",
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
-
-      deps.scrollToBottom()
+      addAIMessageWithTypingUtil(
+        "Here's a new design variation! 🎨 Like this one better?",
+        deps.chatMessages,
+        deps.scrollToBottom
+      )
     } else {
       deps.isGeneratingPreview.value = false
     }
@@ -450,12 +444,11 @@ export function useWeddingPreviewGeneration(deps: GenerationDependencies): UseWe
       // Use the proper updateChatPreviewSVG to clone master SVG to all preview containers
       deps.updateChatPreviewSVG()
 
-      deps.chatMessages.value.push({
-        id: Date.now(),
-        text: "Your design has been updated with a fresh new look! ✨🎨",
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
+      await addAIMessageWithTypingUtil(
+        "Your design has been updated with a fresh new look! ✨🎨",
+        deps.chatMessages,
+        deps.scrollToBottom
+      )
 
       deps.isGeneratingPreview.value = false
     } else {
