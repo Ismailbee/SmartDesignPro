@@ -1095,7 +1095,7 @@ export function useWeddingStickerUpdater() {
       }
 
       // STEP 2: Find the main group element containing the names and decorative elements
-      // In name02.svg, this is the outer <g> element
+      // In name1.svg, this is the outer <g> element
       const svgRoot = svgDoc.documentElement
       let mainGroup = svgRoot.querySelector('g#Layer_x0020_1_0')
       if (!mainGroup) {
@@ -1421,10 +1421,10 @@ export function useWeddingStickerUpdater() {
 
           console.log('✅ Decorative SVG successfully loaded and injected')
           console.log('   Position: transform="translate(270, 950) scale(3)"')
-          console.log('   Font: Cinzel Decorative Bold (preserved from external SVG)')
+          console.log('   Font: Grand Hotel (preserved from external SVG)')
         } else {
           console.error('❌ Failed to load decorative SVG')
-          console.error('💡 Check if file exists at: public/svg/weddingStiker/weddingTwoNames/name02.svg')
+          console.error('💡 Check if file exists at: public/names/name1.svg')
         }
       } catch (error) {
         console.error('❌ Error in SVG replacement system:', error)

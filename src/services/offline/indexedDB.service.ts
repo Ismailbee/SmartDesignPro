@@ -146,22 +146,70 @@ async function getDB(): Promise<IDBDatabase> {
 // ==================== PROJECTS ====================
 
 /**
+ * Sanitize project data for IndexedDB storage.
+ * Removes Vue reactive wrappers and non-cloneable objects.
+ */
+function sanitizeProjectForStorage(project: Project): Project {
+  try {
+    // Use JSON stringify/parse to create a plain object clone
+    // This removes Vue reactive wrappers and any non-serializable data
+    return JSON.parse(JSON.stringify(project))
+  } catch (e) {
+    console.error('Failed to sanitize project:', e)
+    // Fallback: manually copy only the expected fields
+    return {
+      id: project.id,
+      name: project.name,
+      thumbnail: project.thumbnail,
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+      extractedInfo: {
+        title: project.extractedInfo?.title ?? null,
+        names: {
+          name1: project.extractedInfo?.names?.name1 ?? null,
+          name2: project.extractedInfo?.names?.name2 ?? null
+        },
+        date: project.extractedInfo?.date ?? null,
+        courtesy: project.extractedInfo?.courtesy ?? null
+      },
+      backgroundFileName: project.backgroundFileName ?? null,
+      svgContent: project.svgContent ?? null,
+      description: typeof project.description === 'string' ? project.description : null,
+      imagePositions: Array.isArray(project.imagePositions) 
+        ? project.imagePositions.map(pos => ({
+            id: pos.id,
+            x: pos.x,
+            y: pos.y,
+            width: pos.width,
+            height: pos.height,
+            rotation: pos.rotation,
+            flipped: pos.flipped
+          }))
+        : []
+    }
+  }
+}
+
+/**
  * Save a project to IndexedDB
  */
 export async function saveProject(project: Project): Promise<void> {
   const database = await getDB()
+  
+  // Sanitize project to remove Vue reactive wrappers and non-cloneable objects
+  const sanitizedProject = sanitizeProjectForStorage(project)
   
   return new Promise((resolve, reject) => {
     const transaction = database.transaction([STORES.PROJECTS], 'readwrite')
     const store = transaction.objectStore(STORES.PROJECTS)
     
     // Update timestamp
-    project.updatedAt = Date.now()
+    sanitizedProject.updatedAt = Date.now()
     
-    const request = store.put(project)
+    const request = store.put(sanitizedProject)
     
     request.onsuccess = () => {
-      console.log('✅ Project saved:', project.id)
+      console.log('✅ Project saved:', sanitizedProject.id)
       resolve()
     }
     
@@ -581,7 +629,8 @@ export function createNewProject(name?: string): Project {
  * Get the last opened project ID from settings
  */
 export async function getLastProjectId(): Promise<string | null> {
-  return getSetting<string>('lastProjectId', null) ?? null
+  const lastId = await getSetting<string>('lastProjectId')
+  return lastId ?? null
 }
 
 /**

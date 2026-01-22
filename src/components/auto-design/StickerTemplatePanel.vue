@@ -163,12 +163,6 @@
       @cancel="cancelMainImageAction"
     />
       
-    <!-- Auto-Save Indicator - Using extracted component -->
-    <AutoSaveIndicator
-      :is-saving="isSaving"
-      :show-saved="showSavedIndicator"
-    />
-      
     <!-- Loading Overlays - Using extracted component -->
     <LoadingOverlays
       :is-swapping="isSwapping"
@@ -2221,7 +2215,7 @@ function goBack() {
 // Navigate to home page directly
 async function goHome() {
   // Persist the latest design snapshot + thumbnail before leaving.
-  // This avoids coming back to a fallback template (e.g. name02.svg).
+  // This ensures the design state is fully saved before navigation.
   await persistCurrentDesignSnapshot({ forceThumbnail: true })
   await saveChatMessagesToStorage()
   router.push('/home')
@@ -2305,6 +2299,15 @@ async function handleSelectProject(projectId: string) {
   chatMessages.value = []
   savedMessageIds.clear()
   
+  // Reset wedding state completely before loading new project
+  // This prevents old design from bleeding into the new project
+  showWeddingStickerPreview.value = false
+  hasDesignBeenGenerated.value = false
+  if (weddingPreviewContainer.value) {
+    weddingPreviewContainer.value.innerHTML = ''
+  }
+  svgImageManager.clearAllImages()
+  
   // Load the selected project
   await loadProject(projectId)
   
@@ -2378,11 +2381,10 @@ async function handleDeleteProject(projectId: string) {
 }
 
 /**
- * Handle opening settings
+ * Handle opening settings - navigate to settings page
  */
 function handleOpenSettings() {
-  // TODO: Implement settings modal
-  console.log('Opening settings...')
+  router.push('/settings')
 }
 
 /**
@@ -2474,6 +2476,18 @@ async function restoreDesignFromSavedProject(): Promise<boolean> {
 
     await nextTick()
     updateChatPreviewSVG()
+    
+    // Wait longer and retry to ensure chat preview container is fully rendered
+    // This is needed because the chat messages need time to render the preview placeholder
+    await new Promise(resolve => setTimeout(resolve, 300))
+    await nextTick()
+    updateChatPreviewSVG()
+    
+    // One more retry after a longer delay to ensure handlers are attached
+    await new Promise(resolve => setTimeout(resolve, 500))
+    await nextTick()
+    updateChatPreviewSVG()
+    
     return true
   } catch (e) {
     console.warn('Failed to restore design from saved project:', e)
@@ -2499,6 +2513,7 @@ const generateThumbnailDebounced = () => {
 
 /**
  * Generate thumbnail from the chat preview SVG
+ * Enhanced to properly capture background images
  */
 async function generateThumbnail(options: { overwrite?: boolean } = {}) {
   if (!currentProject.value) return
@@ -2517,6 +2532,27 @@ async function generateThumbnail(options: { overwrite?: boolean } = {}) {
     clonedSvg.setAttribute('width', String(thumbnailSize))
     clonedSvg.setAttribute('height', String(thumbnailSize))
     
+    // Convert external images to data URLs for proper rendering
+    const images = clonedSvg.querySelectorAll('image')
+    await Promise.all(Array.from(images).map(async (img) => {
+      const href = img.getAttribute('href') || img.getAttributeNS('http://www.w3.org/1999/xlink', 'href')
+      if (href && !href.startsWith('data:')) {
+        try {
+          const response = await fetch(href, { mode: 'cors' })
+          const blob = await response.blob()
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader()
+            reader.onloadend = () => resolve(reader.result as string)
+            reader.readAsDataURL(blob)
+          })
+          img.setAttribute('href', dataUrl)
+          img.removeAttributeNS('http://www.w3.org/1999/xlink', 'href')
+        } catch {
+          // If fetch fails, keep original - thumbnail may not show background
+        }
+      }
+    }))
+    
     // Serialize to string
     const serializer = new XMLSerializer()
     const svgString = serializer.serializeToString(clonedSvg)
@@ -2525,6 +2561,7 @@ async function generateThumbnail(options: { overwrite?: boolean } = {}) {
     
     // Draw to canvas
     const img = new Image()
+    img.crossOrigin = 'anonymous'
     img.onload = async () => {
       const canvas = document.createElement('canvas')
       canvas.width = thumbnailSize

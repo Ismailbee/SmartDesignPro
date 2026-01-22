@@ -70,6 +70,10 @@ export function useOfflineStorage(options: UseOfflineStorageOptions = {}) {
       // Load project list
       projectList.value = await getAllProjects()
       
+      // Debug: Log projects with thumbnails
+      const projectsWithThumbnails = projectList.value.filter(p => !!p.thumbnail)
+      console.log(`📂 Loaded ${projectList.value.length} projects (${projectsWithThumbnails.length} with thumbnails)`)
+      
       // Try to restore last project
       const lastProjectId = await getLastProjectId()
       if (lastProjectId) {
@@ -347,6 +351,7 @@ export function useOfflineStorage(options: UseOfflineStorageOptions = {}) {
 
     if (!shouldOverwrite && currentProject.value.thumbnail) {
       syncProjectListThumbnail(currentProject.value.id, currentProject.value.thumbnail)
+      console.log('📸 Thumbnail already exists, syncing to project list')
       return
     }
     
@@ -354,6 +359,7 @@ export function useOfflineStorage(options: UseOfflineStorageOptions = {}) {
     currentProject.value.updatedAt = Date.now()
     
     await saveCurrentProject()
+    console.log('💾 Thumbnail saved to IndexedDB (size:', thumbnailDataUrl.length, 'chars)')
 
     syncProjectListThumbnail(currentProject.value.id, thumbnailDataUrl)
   }
