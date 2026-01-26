@@ -118,6 +118,15 @@
                 </svg>
                 Change Color
               </button>
+              <button @click="$emit('action', 'change_style')" class="preview-btn change-style">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="7" height="7"/>
+                  <rect x="14" y="3" width="7" height="7"/>
+                  <rect x="14" y="14" width="7" height="7"/>
+                  <rect x="3" y="14" width="7" height="7"/>
+                </svg>
+                Change Style
+              </button>
             </div>
           </div>
           
@@ -213,7 +222,7 @@
             v-model="formData.description"
             type="text"
             class="field-input"
-            placeholder="e.g., General printing and related contract services."
+            placeholder="e.g., General printing Contracts"
           />
         </div>
         
@@ -562,7 +571,7 @@ function handleDownloadFormat(format: 'png' | 'jpeg' | 'pdf') {
 
 // Suggestions
 const suggestions = [
-  "My organization name is Maxrange Enterprises Description: General printing and related contract services. Motto: Bringing Your Ideas To Life Branch: Garki Area 11, Abuja. Head Office: Plot 22, Adeola Odeku Street, Victoria Island, Lagos. RC: 1549321 Tel: 090****, 081**** Email: info@maxrange.com, maxrange@gmail.com"
+  "My organization name is Maxrange Enterprises Description: General printing Contracts Motto: Bringing Your Ideas To Life Branch: Garki Area 11, Abuja. Head Office: Plot 22, Adeola Odeku Street, Victoria Island, Lagos. RC: 1549321 Tel: 090****, 081**** Email: info@maxrange.com, maxrange@gmail.com"
 ]
 
 // Color palette options
@@ -615,8 +624,10 @@ watch(() => props.showCorrectionBlock, (isOpen) => {
     formData.description = props.stage1Corrections.description || ''
     
     // Initialize showOptionalFields based on includeOptionalFields preference
-    // Default to true (show optional fields, hide description)
-    showOptionalFields.value = true
+    // Use the actual value from stage1Corrections, default to true if not set
+    showOptionalFields.value = props.stage1Corrections.includeOptionalFields !== undefined 
+      ? props.stage1Corrections.includeOptionalFields 
+      : true
   }
 })
 
@@ -1628,6 +1639,11 @@ defineExpose({
   color: white;
 }
 
+.preview-btn.change-style {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+}
+
 .preview-btn:hover {
   transform: translateY(-1px);
   filter: brightness(1.1);
@@ -1767,8 +1783,8 @@ defineExpose({
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border: 2px solid #e5e7eb;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -1778,7 +1794,7 @@ defineExpose({
 }
 
 .optional-fields-toggle:hover {
-  background: #f3f4f6;
+  background: #f9fafb;
   border-color: #d1d5db;
 }
 
@@ -1793,7 +1809,8 @@ defineExpose({
 }
 
 .optional-fields-toggle svg circle {
-  stroke: currentColor;
+  stroke: #9ca3af;
+  fill: transparent;
 }
 
 .optional-fields-toggle.active svg circle {

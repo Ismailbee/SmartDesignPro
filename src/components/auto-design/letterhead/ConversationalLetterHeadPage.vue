@@ -29,6 +29,7 @@
           :messages="chatMessages"
           :is-analyzing="isAnalyzing"
           :is-generating-preview="isGeneratingPreview"
+          :generating-message="generatingMessage"
           :is-authenticated="isAuthenticated"
           :user-name="userName"
           :tokens="userTokens"
@@ -133,6 +134,7 @@ const {
   chatInputText: userInput,
   isAnalyzing,
   isGeneratingPreview,
+  generatingMessage,
   extractedInfo,
   previewImageUrl,
   showLetterHeadPreview,

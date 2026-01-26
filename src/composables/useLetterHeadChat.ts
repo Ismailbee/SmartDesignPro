@@ -175,6 +175,7 @@ export function useLetterHeadChat() {
   
   // Background configuration state
   const currentBackgroundId = ref<number | null>(null)
+  const currentTemplateName = ref<string>('letter head') // Track current template
   
   // Stage tracking state
   const stageStatus = ref<StageStatus>({
@@ -515,7 +516,11 @@ export function useLetterHeadChat() {
         }
         
         // Render the SVG with new background
-        const { svg: renderedSvg } = await renderLetterHead(data)
+        const { svg: renderedSvg, backgroundId, templateName } = await renderLetterHead(data)
+        
+        // Save the background ID and template name
+        currentBackgroundId.value = backgroundId
+        currentTemplateName.value = templateName
         
         // Create blob URL for preview
         const blob = new Blob([renderedSvg], { type: 'image/svg+xml' })
@@ -1677,7 +1682,7 @@ Choose your preferred file format:`
       addAiMessage(`Kindly provide the required details in your next message.
 
 For example:
-"My organization name is Maxrange Enterprises Description: General printing and related contract services. Motto: Bringing Your Ideas To Life Branch: Garki Area 11, Abuja. Head Office: Plot 22, Adeola Odeku Street, Victoria Island, Lagos. RC: 1549321 Tel: 090****, 081**** Email: info@maxrange.com, maxrange@gmail.com"`, actions)
+"My organization name is Maxrange Enterprises Description: General printing Contracts Motto: Bringing Your Ideas To Life Branch: Garki Area 11, Abuja. Head Office: Plot 22, Adeola Odeku Street, Victoria Island, Lagos. RC: 1549321 Tel: 090****, 081**** Email: info@maxrange.com, maxrange@gmail.com"`, actions)
       
       stageStatus.value.step = 'collecting'
       return
@@ -1913,8 +1918,8 @@ Try again with all details.`)
         }
       }
       
-      // Render the SVG with updated data
-      const { svg: renderedSvg } = await renderLetterHead(updatedData)
+      // Render the SVG with updated data, preserving current template
+      const { svg: renderedSvg } = await renderLetterHead(updatedData, false, currentTemplateName.value)
       
       // Create blob URL for preview
       const blob = new Blob([renderedSvg], { type: 'image/svg+xml' })
@@ -2167,10 +2172,11 @@ Try again with all details.`)
         }
         
         // Render the SVG with new background
-        const { svg: renderedSvg, backgroundId: usedBackgroundId } = await renderLetterHead(data)
+        const { svg: renderedSvg, backgroundId: usedBackgroundId, templateName } = await renderLetterHead(data, false, currentTemplateName.value)
         
-        // Save the new background ID (should be same as above)
+        // Save the new background ID and template name
         currentBackgroundId.value = usedBackgroundId
+        currentTemplateName.value = templateName
         
         // Create blob URL for preview
         const blob = new Blob([renderedSvg], { type: 'image/svg+xml' })
@@ -2179,6 +2185,61 @@ Try again with all details.`)
       } catch (error) {
         console.error('Background change error:', error)
         addAiMessage("Sorry, I couldn't change the background. Please try again.")
+      } finally {
+        isGeneratingPreview.value = false
+        generatingMessage.value = ''
+      }
+    } else if (actionType === 'change_style') {
+      // Change letterhead template style
+      // Clear preview to show loading animation
+      previewImageUrl.value = ''
+      
+      // Set the generating message and state
+      isGeneratingPreview.value = true
+      generatingMessage.value = 'Changing style...'
+      
+      // Update the existing letterhead with different template
+      try {
+        
+        // Wait 4 seconds before changing style
+        await new Promise(resolve => setTimeout(resolve, 4000))
+        
+        // Determine which template to switch to (toggle between 'letter head' and 'headed')
+        const newTemplate = currentTemplateName.value === 'headed' ? 'letter head' : 'headed'
+        
+        // Prepare data for rendering with same background
+        const data: LetterHeadData = {
+          organizationName: extractedInfo.value.organizationName,
+          registrationNumber: extractedInfo.value.registrationNumber,
+          headOffice: extractedInfo.value.headOffice,
+          otherAddress: extractedInfo.value.otherAddress,
+          phones: extractedInfo.value.phones,
+          emails: extractedInfo.value.emails,
+          motto: extractedInfo.value.motto,
+          description: extractedInfo.value.description,
+          logoDataUrl: extractedInfo.value.logoDataUrl,
+          primaryBrandColor: primaryBrandColor.value,
+          backgroundId: currentBackgroundId.value, // Keep same background
+          includeOptionalFields: extractedInfo.value.includeOptionalFields,
+          referenceFields: {
+            ref: extractedInfo.value.referenceFields.ourRef,
+            date: extractedInfo.value.referenceFields.date || new Date().toLocaleDateString()
+          }
+        }
+        
+        // Render the SVG with specific template (toggle between templates, keep background)
+        const { svg: renderedSvg, backgroundId: usedBackgroundId, templateName } = await renderLetterHead(data, true, newTemplate)
+        
+        // Save the template name used (background ID stays the same)
+        currentTemplateName.value = templateName
+        
+        // Create blob URL for preview
+        const blob = new Blob([renderedSvg], { type: 'image/svg+xml' })
+        previewImageUrl.value = URL.createObjectURL(blob)
+        
+      } catch (error) {
+        console.error('Style change error:', error)
+        addAiMessage("Sorry, I couldn't change the style. Please try again.")
       } finally {
         isGeneratingPreview.value = false
         generatingMessage.value = ''
@@ -2263,10 +2324,11 @@ Try again with all details.`)
       }
       
       // Render the SVG with data
-      const { svg: renderedSvg, backgroundId: usedBackgroundId } = await renderLetterHead(data)
+      const { svg: renderedSvg, backgroundId: usedBackgroundId, templateName } = await renderLetterHead(data, false, currentTemplateName.value)
       
-      // Save the background ID that was used (should be same as above)
+      // Save the background ID and template name that was used
       currentBackgroundId.value = usedBackgroundId
+      currentTemplateName.value = templateName
       
       // Create blob URL for preview
       const blob = new Blob([renderedSvg], { type: 'image/svg+xml' })
@@ -2303,7 +2365,7 @@ Try again with all details.`)
       }
       
       // Render the SVG
-      const { svg: renderedSvg } = await renderLetterHead(data)
+      const { svg: renderedSvg } = await renderLetterHead(data, false, currentTemplateName.value)
       
       // Download based on format
       const filename = `${extractedInfo.value.organizationName || 'letterhead'}_${Date.now()}`
@@ -2334,6 +2396,12 @@ Try again with all details.`)
       const reader = new FileReader()
       reader.onload = async (e) => {
         extractedInfo.value.logoDataUrl = e.target?.result as string
+        
+        // Check if correction block is open - if so, don't auto-generate
+        if (showCorrectionBlock.value) {
+          // Just store the logo, don't generate - wait for user to click confirm
+          return
+        }
         
         // Update the existing letterhead with the new logo instead of regenerating
         if (previewImageUrl.value) {

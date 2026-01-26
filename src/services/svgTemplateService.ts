@@ -82,6 +82,37 @@ function validateAndNormalizePhones(phones: string[]): string[] {
 }
 
 /**
+ * Template management - random selection between letter head.svg and headed.svg
+ */
+let templateQueue: string[] = []
+
+function initializeTemplateQueue(): void {
+  // Shuffle the two templates
+  const templates = ['letter head', 'headed']
+  templateQueue = Math.random() > 0.5 ? templates : templates.reverse()
+  console.log('🎲 Initialized template queue:', templateQueue)
+}
+
+/**
+ * Get random template name from available templates
+ * Ensures both templates are used before repeating
+ * @param includeHeaded - Whether to include the 'headed' template in selection
+ */
+export function getRandomTemplate(includeHeaded: boolean = false): string {
+  if (!includeHeaded) {
+    // Always return 'letter head' when headed is not included
+    return 'letter head'
+  }
+  
+  if (templateQueue.length === 0) {
+    initializeTemplateQueue()
+  }
+  const template = templateQueue.pop()!
+  console.log(`📋 Selected template "${template}", ${templateQueue.length} remaining in queue`)
+  return template
+}
+
+/**
  * Background management functions for letterhead templates
  */
 
@@ -127,8 +158,8 @@ function shuffleArray(array: number[]): number[] {
 }
 
 function initializeBackgroundQueue(): void {
-  // Create array [1, 2, 3, ..., 19] and shuffle it
-  const allBackgrounds = Array.from({ length: 19 }, (_, i) => i + 1)
+  // Create array [2, 3, 4, ..., 19] (excluding bg1) and shuffle it
+  const allBackgrounds = Array.from({ length: 18 }, (_, i) => i + 2)
   backgroundQueue = shuffleArray(allBackgrounds)
   console.log('🎲 Initialized background queue:', backgroundQueue)
 }
@@ -369,13 +400,13 @@ export function clearTemplateCache(): void {
  * Load the letter head SVG template from the public directory
  * Includes caching to improve performance on subsequent loads
  */
-export async function loadLetterHeadTemplate(): Promise<string> {
+export async function loadLetterHeadTemplate(templateName: string = 'letter head'): Promise<string> {
   // Force reload by skipping cache for now
   cachedTemplate = null
   
   // Return cached template if available
   if (cachedTemplate) {
-    console.log('📦 Using cached SVG template')
+    console.log('📦 Using cached SVG template:', templateName)
     return cachedTemplate
   }
 
@@ -388,10 +419,10 @@ export async function loadLetterHeadTemplate(): Promise<string> {
   // Load template and cache result
   templateLoadPromise = (async () => {
     try {
-      console.log('📥 Loading SVG template from server')
+      console.log(`📥 Loading SVG template "${templateName}" from server`)
       // Add cache-busting parameter to always get latest version
       const cacheBuster = Date.now()
-      const response = await fetch(`/templates/letterhead/letter head.svg?v=${cacheBuster}`)
+      const response = await fetch(`/templates/letterhead/${templateName}.svg?v=${cacheBuster}`)
       if (!response.ok) {
         throw new Error(`Failed to load template: ${response.statusText}`)
       }
@@ -399,7 +430,7 @@ export async function loadLetterHeadTemplate(): Promise<string> {
       console.log('✅ SVG template loaded and cached')
       return cachedTemplate
     } catch (error) {
-      console.error('Failed to load letter head template:', error)
+      console.error(`Failed to load template "${templateName}":`, error)
       throw error
     } finally {
       // Clear promise after load completes
@@ -413,10 +444,17 @@ export async function loadLetterHeadTemplate(): Promise<string> {
 /**
  * Render letterhead with provided data
  * Returns the rendered SVG and the background ID that was used
+ * @param data - Letterhead data
+ * @param includeHeaded - Whether to include 'headed' template in random selection
+ * @param specificTemplate - If provided, use this specific template instead of random selection
  */
-export async function renderLetterHead(data: LetterHeadData): Promise<{ svg: string; backgroundId: number }> {
+export async function renderLetterHead(data: LetterHeadData, includeHeaded: boolean = false, specificTemplate?: string): Promise<{ svg: string; backgroundId: number; templateName: string }> {
   try {
-    const template = await loadLetterHeadTemplate()
+    // Use specific template if provided, otherwise randomly select
+    const templateName = specificTemplate || getRandomTemplate(includeHeaded)
+    console.log(`🎨 Using template: ${templateName}`)
+    
+    const template = await loadLetterHeadTemplate(templateName)
     const parser = new DOMParser()
     const svgDoc = parser.parseFromString(template, 'image/svg+xml')
     
@@ -426,26 +464,33 @@ export async function renderLetterHead(data: LetterHeadData): Promise<{ svg: str
       throw new Error('Failed to parse SVG template')
     }
 
-    // Apply background if specified or generate random one
-    let usedBackgroundId = data.backgroundId || getRandomBackgroundId()
-    try {
-      if (!data.backgroundId) {
-        console.log('Generated random background ID:', usedBackgroundId)
-      } else {
-        console.log('Using specified background ID:', usedBackgroundId)
+    // Apply background only for letter head template (skip for headed template)
+    let usedBackgroundId = typeof data.backgroundId === 'number' ? data.backgroundId : 
+                          typeof data.backgroundId === 'string' ? parseInt(data.backgroundId, 10) : 
+                          getRandomBackgroundId()
+    
+    if (templateName !== 'headed') {
+      try {
+        if (!data.backgroundId) {
+          console.log('Generated random background ID:', usedBackgroundId)
+        } else {
+          console.log('Using specified background ID:', usedBackgroundId)
+        }
+        
+        console.log('Loading background SVG...')
+        const backgroundSvg = await loadBackgroundSvg(usedBackgroundId)
+        if (backgroundSvg) {
+          console.log('Applying background to main SVG...')
+          applyBackgroundToSvg(svgDoc, backgroundSvg)
+        } else {
+          console.log('No background SVG loaded')
+        }
+      } catch (bgError) {
+        console.error('Background loading failed, continuing without background:', bgError)
+        // Continue with rendering even if background fails
       }
-      
-      console.log('Loading background SVG...')
-      const backgroundSvg = await loadBackgroundSvg(usedBackgroundId)
-      if (backgroundSvg) {
-        console.log('Applying background to main SVG...')
-        applyBackgroundToSvg(svgDoc, backgroundSvg)
-      } else {
-        console.log('No background SVG loaded')
-      }
-    } catch (bgError) {
-      console.error('Background loading failed, continuing without background:', bgError)
-      // Continue with rendering even if background fails
+    } else {
+      console.log('Skipping background for headed template')
     }
 
     const svg = svgDoc.documentElement as unknown as SVGElement
@@ -458,111 +503,981 @@ export async function renderLetterHead(data: LetterHeadData): Promise<{ svg: str
     document.body.appendChild(tempContainer)
     tempContainer.appendChild(svg)
 
-    // Update text elements based on their positions (approximate line numbers from SVG)
-    // We'll search for specific text patterns and replace them
-
-
-    // Find and update organization name (split across two text elements)
-    if (data.organizationName) {
-      const orgNameUpper = data.organizationName.toUpperCase()
+    // Route to template-specific rendering
+    if (templateName === 'headed') {
       
-      // Find and update organization name text
-      const orgTextElement = findTextElement(svg, 'WILLMIKE')
-      
-      if (orgTextElement) {
-        /**
-         * Dynamic organization name fitting:
-         * - Must stay within fixed width boundary
-         * - If text exceeds width, reduce font size to fit
-         * - Font size: starts at 60 if > 25 chars, otherwise 120
-         * - Reduces font size until text fits
-         */
+      // Headed template has different element positions and structure
+      // Organization name is in green header bar with different font
+      if (data.organizationName) {
+        const orgNameUpper = data.organizationName.toUpperCase()
+        const orgTextElement = findTextElement(svg, 'WILLMIKE')
         
-        // Define boundaries - much more generous to allow larger fonts
-        const logoEndX = 2400 // Right edge of logo with margin
-        const greenStartX = 7200 // Much further right to give more space (was 6400)
-        const maxWidth = greenStartX - logoEndX // ~4800 units maximum width (increased)
-        const safeZoneCenterX = logoEndX + (maxWidth / 2) - 300 // Center point shifted left by 300 units
-        
-        // Always center the text in the available space (shifted left)
-        orgTextElement.setAttribute('x', safeZoneCenterX.toString())
-        orgTextElement.setAttribute('text-anchor', 'middle') // Ensures text is centered around the x position
-        
-        // Get base font size
-        const baseFontSize = parseFloat(orgTextElement.getAttribute('font-size') || '120')
-        
-        // Count total characters (alphabets, symbols, spaces)
-        const charCount = orgNameUpper.length
-        
-        // Set font size based on character count - Large size for short names, very large for long names
-        let fontSize = 3400 // Use 3400px for short names (25 or fewer characters)
-        if (charCount > 25) {
-          fontSize = baseFontSize * 20.0 // Use large size (2400) for long names only
+        if (orgTextElement) {
+          // The green header path has been extended to width ~5400 units
+          // Use very conservative width with large safety margin
+          const maxWidth = 4200 // Much more conservative to prevent overflow
+          
+          console.log('🎨 Organization name:', orgNameUpper, 'Length:', orgNameUpper.length)
+          
+          // Split the organization name intelligently across two lines
+          const words = orgNameUpper.split(' ')
+          
+          // Find the second line element (SONS)
+          const allTexts = Array.from(svg.querySelectorAll('text'))
+          const sonsElement = allTexts.find(text => text.textContent?.includes('SONS'))
+          
+          let firstLine = ''
+          let secondLine = ''
+          
+          if (words.length === 1) {
+            // Single word - put it all on first line
+            firstLine = orgNameUpper
+            secondLine = ''
+          } else if (words.length === 2) {
+            // Two words - one per line
+            firstLine = words[0]
+            secondLine = words[1]
+          } else {
+            // Multiple words - split at middle
+            const midPoint = Math.ceil(words.length / 2)
+            firstLine = words.slice(0, midPoint).join(' ')
+            secondLine = words.slice(midPoint).join(' ')
+          }
+          
+          // Use same font size logic as letterhead template
+          // Count total characters to determine starting font size
+          const charCount = orgNameUpper.length
+          
+          // Use very conservative starting font sizes
+          let fontSize = 300 // Even smaller starting point
+          if (charCount <= 10) {
+            fontSize = 450 // Reduced for very short names
+          } else if (charCount <= 20) {
+            fontSize = 380 // Reduced for medium names
+          }
+          // For long names (> 20 chars), keep 300
+          
+          console.log('🎨 Starting with fontSize:', fontSize, 'for charCount:', charCount)
+          
+          // Set initial text and styling
+          // Use brand color if provided, otherwise use green
+          const brandColor = data.primaryBrandColor || '#068A4F'
+          
+          orgTextElement.textContent = firstLine
+          orgTextElement.setAttribute('fill', brandColor)
+          orgTextElement.setAttribute('font-size', fontSize.toString())
+          orgTextElement.setAttribute('font-family', 'Montserrat ExtraBold')
+          orgTextElement.setAttribute('font-weight', '800')
+          
+          // Set up second line if it exists
+          if (sonsElement && secondLine) {
+            sonsElement.textContent = secondLine
+            sonsElement.setAttribute('fill', brandColor)
+            sonsElement.setAttribute('font-size', fontSize.toString())
+            sonsElement.setAttribute('font-family', 'Montserrat ExtraBold')
+            sonsElement.setAttribute('font-weight', '800')
+          } else if (sonsElement) {
+            sonsElement.textContent = ''
+          }
+          
+          // Measure both lines and reduce font size more gently until both fit
+          let firstLineWidth = orgTextElement.getBBox().width
+          let secondLineWidth = sonsElement && secondLine ? sonsElement.getBBox().width : 0
+          let maxLineWidth = Math.max(firstLineWidth, secondLineWidth)
+          
+          console.log('🎨 Initial measurements - First line width:', firstLineWidth, 'Second line width:', secondLineWidth, 'Max:', maxLineWidth, 'MaxWidth:', maxWidth, 'Font size:', fontSize)
+          
+          // Reduce font size more aggressively if needed
+          let iterations = 0
+          while (maxLineWidth > maxWidth && fontSize > 50) { // Lower minimum from 100 to 50
+            // Use larger reduction steps if very far from target
+            const overBy = maxLineWidth - maxWidth
+            const reductionStep = overBy > 2000 ? 50 : overBy > 1000 ? 25 : 10
+            
+            fontSize -= reductionStep
+            orgTextElement.setAttribute('font-size', fontSize.toString())
+            if (sonsElement && secondLine) {
+              sonsElement.setAttribute('font-size', fontSize.toString())
+            }
+            
+            firstLineWidth = orgTextElement.getBBox().width
+            secondLineWidth = sonsElement && secondLine ? sonsElement.getBBox().width : 0
+            maxLineWidth = Math.max(firstLineWidth, secondLineWidth)
+            
+            iterations++
+            if (iterations % 5 === 0 || iterations === 1) {
+              console.log(`🎨 Iteration ${iterations} - Font size: ${fontSize}, Max line width: ${maxLineWidth}, Over by: ${maxLineWidth - maxWidth}`)
+            }
+          }
+          
+          console.log('🎨 Final - Font size:', fontSize, 'First line width:', firstLineWidth, 'Second line width:', secondLineWidth, 'Fits:', maxLineWidth <= maxWidth)
         }
         
-        // Calculate if text needs font size reduction instead of horizontal scaling
-        // Average character width is more generous for uppercase text
-        const avgCharWidthRatio = 0.45 // Reduced from 0.60 to allow bigger fonts
-        let estimatedWidth = charCount * fontSize * avgCharWidthRatio
-        
-        // If text is too wide, reduce font size more gently
-        while (estimatedWidth > maxWidth && fontSize > 200) { // Higher minimum (was 80)
-          fontSize -= 10 // Smaller reduction steps (was 20)
-          estimatedWidth = charCount * fontSize * avgCharWidthRatio
-        }
-        
-        // Remove horizontal scaling - text should never be compressed
-        const scaleX = 1.0 // Always keep normal width
-        
-        // Set the text content and styling
-        // IMPORTANT: Remove class to prevent CSS override, use inline style
-        orgTextElement.textContent = orgNameUpper
-        orgTextElement.removeAttribute('class') // Remove CSS class that overrides font-size
-        
-        // Apply font size without any horizontal compression
-        // Use CSS variable for brand color, fallback to default if not provided
-        const brandColor = data.primaryBrandColor ? 'var(--primary-brand-color)' : '#058A6C'
-        let styleString = `font-size:${fontSize}px; font-family:'Sans Inserat'; font-weight:normal; fill:${brandColor};`
-        // Remove horizontal scaling - text maintains natural proportions
-        orgTextElement.setAttribute('style', styleString)
-        
-        // Hide the second part of template org name since we put everything in first element
-        hideTextElements(svg, 'SONS')
+        // Update separator lines to match organization name color
+        const orgNameColor = orgTextElement?.getAttribute('fill') || '#FEFEFE'
+        const separatorLines = svg.querySelectorAll('line')
+        separatorLines.forEach(line => {
+          const y1 = line.getAttribute('y1')
+          const y2 = line.getAttribute('y2')
+          // Only update the two specific separator lines below reference fields
+          if ((y1 === '1912.82' && y2 === '1912.82') || (y1 === '1940.95' && y2 === '1940.95')) {
+            line.style.stroke = orgNameColor
+          }
+        })
       }
       
-      // Find and update registration number - position based on logo presence
-      if (data.registrationNumber && data.registrationNumber !== 'N/A' && orgTextElement) {
-        const rcTextElement = findTextElement(svg, 'RC NO.')
+      // Add Motto below organization name in headed template
+      if (data.motto && data.motto.trim()) {
+        const allTexts = Array.from(svg.querySelectorAll('text'))
         
-        if (rcTextElement) {
-          // First, set the RC number text with smaller font size
-          rcTextElement.textContent = `RC NO.: ${data.registrationNumber}`
-          
-          // Set RC font size to be smaller (10px or 12% of org name font size)
-          const orgFontSize = parseFloat(orgTextElement.getAttribute('font-size') || '120')
-          const rcFontSize = Math.max(10, orgFontSize * 0.12)
-          rcTextElement.setAttribute('font-size', rcFontSize.toString())
-          
-          // Position RC number consistently regardless of logo presence
-          try {
-            // Always position RC above org name, shifted left from right edge
-            const bbox = orgTextElement.getBBox()
-            const orgNameRightEdge = bbox.x + bbox.width
-            const orgNameTop = bbox.y
-            
-            const rcX = orgNameRightEdge - 200 // Shift 200 units to the left
-            const rcY = orgNameTop + 40 // Position below with spacing (changed from -5 to +40)
-            
-            rcTextElement.setAttribute('x', rcX.toString())
-            rcTextElement.setAttribute('y', rcY.toString())
-            rcTextElement.setAttribute('text-anchor', 'end') // Right-align
-            rcTextElement.setAttribute('dominant-baseline', 'auto')
-          } catch (e) {
-            // Fallback to default position if getBBox fails
-            rcTextElement.setAttribute('x', '712')
-            rcTextElement.setAttribute('y', '890')
-            rcTextElement.setAttribute('text-anchor', 'start')
+        // Position motto on same line as branch office second line (y ~1232)
+        // But if no description, move motto up to description position (y ~1050)
+        const hasDescription = data.description && data.description.trim()
+        const mottoY = hasDescription ? 1232 : 1050 // Move up if no description
+        const mottoX = 1026.58 // Aligned with organization name (moved right by 50 units)
+        
+        // Create motto text element
+        const mottoElement = svg.ownerDocument!.createElementNS('http://www.w3.org/2000/svg', 'text')
+        mottoElement.setAttribute('x', mottoX.toString())
+        mottoElement.setAttribute('y', mottoY.toString())
+        mottoElement.setAttribute('font-size', '165')
+        mottoElement.setAttribute('font-family', 'Montserrat')
+        
+        // Create tspan for label (red and bold)
+        const labelTspan = svg.ownerDocument!.createElementNS('http://www.w3.org/2000/svg', 'tspan')
+        labelTspan.textContent = 'Motto: '
+        labelTspan.setAttribute('fill', '#ED3237') // Red color
+        labelTspan.setAttribute('font-weight', 'bold')
+        
+        // Create tspan for content (black and not bold)
+        const contentTspan = svg.ownerDocument!.createElementNS('http://www.w3.org/2000/svg', 'tspan')
+        contentTspan.textContent = data.motto
+        contentTspan.setAttribute('fill', '#373435') // Black color
+        contentTspan.setAttribute('font-weight', 'normal')
+        
+        mottoElement.appendChild(labelTspan)
+        mottoElement.appendChild(contentTspan)
+        
+        // Insert motto element after organization name elements
+        const orgElements = allTexts.filter(text => 
+          text.textContent?.includes('WILLMIKE') || 
+          text.textContent?.includes('SONS') ||
+          text.getAttribute('x') === '976.58'
+        )
+        if (orgElements.length > 0) {
+          const lastOrgElement = orgElements[orgElements.length - 1]
+          lastOrgElement.parentNode?.insertBefore(mottoElement, lastOrgElement.nextSibling)
+        } else {
+          svg.appendChild(mottoElement)
+        }
+      }
+      
+      // Add Description above motto in headed template
+      if (data.description && data.description.trim()) {
+        const descriptionY = 1050 // Above motto (motto is at 1200)
+        const descriptionX = 1026.58 // Aligned with motto label
+        
+        // Create description text element
+        const descriptionElement = svg.ownerDocument!.createElementNS('http://www.w3.org/2000/svg', 'text')
+        descriptionElement.setAttribute('x', descriptionX.toString())
+        descriptionElement.setAttribute('y', descriptionY.toString())
+        descriptionElement.setAttribute('font-size', '180')
+        descriptionElement.setAttribute('font-family', 'Montserrat')
+        descriptionElement.setAttribute('fill', '#373435')
+        descriptionElement.setAttribute('font-weight', 'normal')
+        descriptionElement.textContent = toTitleCase(data.description)
+        
+        // Insert description before motto or after org name
+        const allTexts = Array.from(svg.querySelectorAll('text'))
+        const mottoElement = allTexts.find(text => text.textContent?.includes('Motto:'))
+        if (mottoElement) {
+          mottoElement.parentNode?.insertBefore(descriptionElement, mottoElement)
+        } else {
+          const orgElements = allTexts.filter(text => 
+            text.textContent?.includes('WILLMIKE') || 
+            text.textContent?.includes('SONS') ||
+            text.getAttribute('x') === '976.58'
+          )
+          if (orgElements.length > 0) {
+            const lastOrgElement = orgElements[orgElements.length - 1]
+            lastOrgElement.parentNode?.insertBefore(descriptionElement, lastOrgElement.nextSibling)
+          } else {
+            svg.appendChild(descriptionElement)
           }
+        }
+      }
+      
+      // Head Office and Branch Office in headed template
+      // Collect ALL elements FIRST before modifying any of them
+      const allTexts = Array.from(svg.querySelectorAll('text'))
+      
+      // Find all address-related elements before modification
+      const abdulsamElements = allTexts.filter(text => text.textContent?.includes('Abdulsalam'))
+      const minnaElements = allTexts.filter(text => text.textContent?.includes('Minna'))
+      
+      console.log('🏢 Found Abdulsalam elements:', abdulsamElements.length)
+      console.log('🏢 Found Minna elements:', minnaElements.length)
+      
+      // Store references
+      const headOfficeFirstLine = abdulsamElements[0]
+      const headOfficeSecondLine = minnaElements[0]
+      const branchOfficeFirstLine = abdulsamElements[1]
+      const branchOfficeSecondLine = minnaElements[1]
+      
+      // Now modify head office
+      if (data.headOffice && !isFieldSkipped(data.headOffice)) {
+        const fullAddress = toTitleCase(data.headOffice)
+        
+        if (headOfficeFirstLine) {
+          // Use actual width measurement to prevent overflow
+          const maxWidth = 2800 // Reduced to ensure wrapping happens
+          
+          // Set full address initially
+          headOfficeFirstLine.textContent = fullAddress
+          let firstLineWidth = headOfficeFirstLine.getBBox().width
+          
+          console.log('📏 Head Office - Full address width:', firstLineWidth, 'Max:', maxWidth)
+          
+          if (firstLineWidth <= maxWidth) {
+            // Fits on one line
+            if (headOfficeSecondLine) headOfficeSecondLine.textContent = ''
+            console.log('📏 Head Office fits on one line')
+          } else {
+            // Need to wrap - split by words and find best fit
+            const words = fullAddress.split(' ')
+            let firstLine = ''
+            let secondLine = ''
+            
+            for (let i = 0; i < words.length; i++) {
+              const testLine = firstLine + (firstLine ? ' ' : '') + words[i]
+              headOfficeFirstLine.textContent = testLine
+              const testWidth = headOfficeFirstLine.getBBox().width
+              
+              console.log(`📏 Testing word ${i}: "${testLine}" width: ${testWidth}`)
+              
+              if (testWidth > maxWidth && firstLine) {
+                // This word pushes us over, move it to second line
+                secondLine = words.slice(i).join(' ')
+                console.log('📏 Breaking at word', i, '- Second line:', secondLine)
+                break
+              } else {
+                firstLine = testLine
+              }
+            }
+            
+            headOfficeFirstLine.textContent = firstLine
+            if (headOfficeSecondLine) {
+              headOfficeSecondLine.textContent = secondLine
+            }
+            console.log('📏 Final - First line:', firstLine, '| Second line:', secondLine)
+          }
+        }
+      } else {
+        // Hide head office if skipped (but only if there's no branch address to display there)
+        const hasBranchAddress = data.otherAddress && !isFieldSkipped(data.otherAddress)
+        if (!hasBranchAddress) {
+          const headOfficeLabel = allTexts.find(text => text.textContent?.includes('Head Office:'))
+          if (headOfficeLabel) headOfficeLabel.textContent = ''
+          if (headOfficeFirstLine) headOfficeFirstLine.textContent = ''
+          if (headOfficeSecondLine) headOfficeSecondLine.textContent = ''
+        }
+      }
+      
+      // Now modify branch office (using pre-collected references)
+      if (data.otherAddress && !isFieldSkipped(data.otherAddress)) {
+        console.log('🏢 Setting branch address:', data.otherAddress)
+        console.log('🏢 Branch first line element:', branchOfficeFirstLine)
+        console.log('🏢 Branch second line element:', branchOfficeSecondLine)
+        
+        const fullAddress = toTitleCase(data.otherAddress)
+        
+        // Check if head office is provided
+        const hasHeadOffice = data.headOffice && !isFieldSkipped(data.headOffice)
+        
+        // If no head office, use head office position and change label to "Address:"
+        if (!hasHeadOffice) {
+          // Use head office elements and position
+          const allTexts = Array.from(svg.querySelectorAll('text'))
+          const headOfficeLabel = allTexts.find(text => text.textContent?.includes('Head Office:'))
+          
+          if (headOfficeLabel) {
+            headOfficeLabel.textContent = 'Address:'
+          }
+          
+          if (headOfficeFirstLine) {
+            // Use actual width measurement to prevent overflow
+            const maxWidth = 2800
+            
+            // Set full address initially
+            headOfficeFirstLine.textContent = fullAddress
+            let firstLineWidth = headOfficeFirstLine.getBBox().width
+            
+            console.log('📏 Address (no head office) - Full address width:', firstLineWidth, 'Max:', maxWidth)
+            
+            if (firstLineWidth <= maxWidth) {
+              // Fits on one line
+              if (headOfficeSecondLine) headOfficeSecondLine.textContent = ''
+              console.log('📏 Address fits on one line')
+            } else {
+              // Need to wrap - split by words and find best fit
+              const words = fullAddress.split(' ')
+              let firstLine = ''
+              let secondLine = ''
+              
+              for (let i = 0; i < words.length; i++) {
+                const testLine = firstLine + (firstLine ? ' ' : '') + words[i]
+                headOfficeFirstLine.textContent = testLine
+                const testWidth = headOfficeFirstLine.getBBox().width
+                
+                console.log(`📏 Testing word ${i}: "${testLine}" width: ${testWidth}`)
+                
+                if (testWidth > maxWidth && firstLine) {
+                  // This word pushes us over, move it to second line
+                  secondLine = words.slice(i).join(' ')
+                  console.log('📏 Breaking at word', i, '- Second line:', secondLine)
+                  break
+                } else {
+                  firstLine = testLine
+                }
+              }
+              
+              headOfficeFirstLine.textContent = firstLine
+              if (headOfficeSecondLine) {
+                headOfficeSecondLine.textContent = secondLine
+              }
+              console.log('📏 Final - First line:', firstLine, '| Second line:', secondLine)
+            }
+          }
+          
+          // Hide branch office elements
+          const branchOfficeLabel = allTexts.find(text => text.textContent?.includes('Branch Office:'))
+          if (branchOfficeLabel) branchOfficeLabel.textContent = ''
+          if (branchOfficeFirstLine) branchOfficeFirstLine.textContent = ''
+          if (branchOfficeSecondLine) branchOfficeSecondLine.textContent = ''
+          
+          // Hide the two footer lines at y=11151.38
+          const footerLines = svg.querySelectorAll('line')
+          footerLines.forEach(line => {
+            const y1 = line.getAttribute('y1')
+            const y2 = line.getAttribute('y2')
+            if (y1 === '11151.38' && y2 === '11151.38') {
+              line.setAttribute('opacity', '0')
+            }
+          })
+          
+          // Reposition Tel and Email below the address when no head office
+          const phoneLabel = findTextElement(svg, 'Tel:')
+          const phoneElement = findTextElement(svg, '09027222282')
+          const emailLabel = findTextElement(svg, 'Email:')
+          const emailElement = findTextElement(svg, 'mattewwsonadl')
+          
+          // Address content has transform matrix(0.942221 0 0 1 1503.98 -5462.27)
+          // Content is at x=4133.86 in template, transform shifts it by 1503.98
+          // Actual X position: (4133.86 * 0.942221) + 1503.98 = 5398.94
+          // Y transform: -5462.27, so y=5999.51 becomes 537.24, y=6152.56 becomes 690.29
+          const addressContentX = 5398.94  // Actual X position after transform
+          const telY = 920  // Below address second line
+          const emailY = 1080  // Below Tel
+          
+          // Check if phone is provided
+          const hasPhones = data.phones && data.phones.length > 0 && data.phones.some(p => p && p.trim())
+          
+          // Reposition and style Tel with label and content on same line
+          if (phoneLabel && phoneElement && hasPhones) {
+            phoneLabel.removeAttribute('class')
+            phoneLabel.setAttribute('y', telY.toString())
+            phoneLabel.setAttribute('fill', '#ED3237')  // Red color
+            phoneLabel.setAttribute('font-weight', 'bold')
+            phoneLabel.setAttribute('x', addressContentX.toString())
+            phoneLabel.setAttribute('font-family', 'Montserrat')
+            phoneLabel.setAttribute('font-size', '140.33')
+            
+            phoneElement.removeAttribute('class')
+            phoneElement.setAttribute('y', telY.toString())
+            phoneElement.setAttribute('x', (addressContentX + 300).toString())  // Offset after "Tel: "
+            phoneElement.setAttribute('fill', '#373435')  // Same color as address content
+            phoneElement.setAttribute('font-weight', 'normal')  // Not bold
+            phoneElement.setAttribute('font-family', 'Montserrat')
+            phoneElement.setAttribute('font-size', '140.33')
+          } else if (phoneLabel && phoneElement) {
+            // Hide phone if not provided
+            phoneLabel.textContent = ''
+            phoneElement.textContent = ''
+          }
+          
+          // Reposition and style Email with label and content on same line
+          // If no phone, email takes tel position (telY), otherwise uses emailY
+          const actualEmailY = hasPhones ? emailY : telY
+          
+          if (emailLabel && emailElement) {
+            emailLabel.removeAttribute('class')
+            emailLabel.setAttribute('y', actualEmailY.toString())
+            emailLabel.setAttribute('fill', '#ED3237')  // Red color
+            emailLabel.setAttribute('font-weight', 'bold')
+            emailLabel.setAttribute('x', addressContentX.toString())
+            emailLabel.setAttribute('font-family', 'Montserrat')
+            emailLabel.setAttribute('font-size', '140.33')
+            
+            // Handle multiple emails in no head office layout
+            const emailsArray = data.emails ? [...data.emails] : []
+            const emails = emailsArray.filter(email => email && email.trim()).slice(0, 2)
+            
+            if (emails.length > 0) {
+              // First email
+              // Use Tel's X offset when no phones (300 + 165 for spacing), otherwise use Email's offset (500)
+              const emailContentX = hasPhones ? (addressContentX + 500) : (addressContentX + 465)
+              
+              emailElement.removeAttribute('class')
+              emailElement.textContent = emails[0]
+              emailElement.setAttribute('y', actualEmailY.toString())
+              emailElement.setAttribute('x', emailContentX.toString())
+              emailElement.setAttribute('fill', '#373435')  // Same color as address content
+              emailElement.setAttribute('font-weight', 'normal')  // Not bold
+              emailElement.setAttribute('font-family', 'Montserrat')
+              emailElement.setAttribute('font-size', '140.33')
+              
+              // Second email below the Email: label
+              if (emails.length > 1) {
+                const secondEmailY = actualEmailY + 140 // Position below Email: label
+                
+                // Create or update second email element
+                let secondEmailElement = svg.querySelector(`text[data-email-below-label="true"]`) as SVGTextElement | null
+                if (!secondEmailElement) {
+                  secondEmailElement = document.createElementNS('http://www.w3.org/2000/svg', 'text')
+                  secondEmailElement.setAttribute('data-email-below-label', 'true')
+                  emailElement.parentNode?.appendChild(secondEmailElement)
+                }
+                
+                secondEmailElement.textContent = emails[1]
+                secondEmailElement.setAttribute('x', emailContentX.toString())
+                secondEmailElement.setAttribute('y', secondEmailY.toString())
+                secondEmailElement.setAttribute('fill', '#373435')  // Same color as address content
+                secondEmailElement.setAttribute('font-weight', 'normal')  // Not bold
+                secondEmailElement.setAttribute('font-family', emailElement.getAttribute('font-family') || '')
+                secondEmailElement.setAttribute('font-size', emailElement.getAttribute('font-size') || '')
+              }
+            }
+          }
+        } else {
+          // Head office exists, use normal branch office position
+          if (branchOfficeFirstLine) {
+            // Use actual width measurement to prevent overflow
+            const maxWidth = 2800 // Reduced to ensure wrapping happens
+            
+            // Set full address initially
+            branchOfficeFirstLine.textContent = fullAddress
+            let firstLineWidth = branchOfficeFirstLine.getBBox().width
+            
+            console.log('📏 Branch Office - Full address width:', firstLineWidth, 'Max:', maxWidth)
+            
+            if (firstLineWidth <= maxWidth) {
+              // Fits on one line
+              if (branchOfficeSecondLine) branchOfficeSecondLine.textContent = ''
+              console.log('📏 Branch Office fits on one line')
+              console.log('🏢 Set first line to:', branchOfficeFirstLine.textContent)
+            } else {
+              // Need to wrap - split by words and find best fit
+              const words = fullAddress.split(' ')
+              let firstLine = ''
+              let secondLine = ''
+              
+              for (let i = 0; i < words.length; i++) {
+                const testLine = firstLine + (firstLine ? ' ' : '') + words[i]
+                branchOfficeFirstLine.textContent = testLine
+                const testWidth = branchOfficeFirstLine.getBBox().width
+                
+                console.log(`📏 Testing word ${i}: "${testLine}" width: ${testWidth}`)
+                
+                if (testWidth > maxWidth && firstLine) {
+                  // This word pushes us over, move it to second line
+                  secondLine = words.slice(i).join(' ')
+                  console.log('📏 Breaking at word', i, '- Second line:', secondLine)
+                  break
+                } else {
+                  firstLine = testLine
+                }
+              }
+              
+              branchOfficeFirstLine.textContent = firstLine
+              console.log('🏢 Set first line to:', branchOfficeFirstLine.textContent)
+              if (branchOfficeSecondLine) {
+                branchOfficeSecondLine.textContent = secondLine
+                console.log('🏢 Set second line to:', branchOfficeSecondLine.textContent)
+              }
+              console.log('📏 Final - First line:', firstLine, '| Second line:', secondLine)
+            }
+          } else {
+            console.error('🏢 ❌ Could not find branch office first line element')
+          }
+        }
+      } else {
+        // Hide branch office if skipped
+        const allTexts = Array.from(svg.querySelectorAll('text'))
+        const branchOfficeLabel = allTexts.find(text => text.textContent?.includes('Branch Office:'))
+        if (branchOfficeLabel) branchOfficeLabel.textContent = ''
+        const abdulsamElements = allTexts.filter(text => text.textContent?.includes('Abdulsalam'))
+        if (abdulsamElements[1]) abdulsamElements[1].textContent = ''
+        const minnaElements = allTexts.filter(text => text.textContent?.includes('Minna'))
+        if (minnaElements[1]) minnaElements[1].textContent = ''
+      }
+      
+      // Handle phones with comprehensive logic (using letter head template logic)
+      if (!isFieldSkipped(data.phones)) {
+        const validatedPhones = validateAndNormalizePhones(data.phones!)
+        const phoneElement = findTextElement(svg, '09027222282')
+        
+        if (phoneElement && validatedPhones.length > 0) {
+          const hasEmails = !isFieldSkipped(data.emails)
+          const hasHeadOffice = data.headOffice && !isFieldSkipped(data.headOffice)
+          
+          // Find phone label
+          const phoneLabel = findTextElement(svg, 'Tel:')
+          
+          // Skip normal phone positioning if we're in the no head office layout (already handled above)
+          if (hasHeadOffice) {
+            if (validatedPhones.length === 1) {
+            phoneElement.textContent = validatedPhones[0]
+            
+            // If no emails, center the phone number
+            if (!hasEmails) {
+              phoneElement.setAttribute('x', '4133.86')
+              phoneElement.setAttribute('text-anchor', 'middle')
+              
+              if (phoneLabel) {
+                phoneLabel.setAttribute('x', '3200')
+              }
+            } else {
+              // Has emails: keep phone on same line as email (y=11211.98)
+              // Don't apply any transform - let it stay aligned with email
+              console.log('📞 Keeping single phone aligned with emails on same line')
+            }
+          } else if (validatedPhones.length === 2) {
+            // Show both on same line with spacing (regardless of email presence)
+            phoneElement.textContent = ''
+            for (let i = 0; i < validatedPhones.length; i++) {
+              const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan')
+              tspan.textContent = validatedPhones[i]
+              if (i > 0) tspan.setAttribute('dx', '30')
+              phoneElement.appendChild(tspan)
+            }
+            
+            // If no emails, center the phone numbers
+            if (!hasEmails) {
+              phoneElement.setAttribute('x', '4133.86')
+              phoneElement.setAttribute('text-anchor', 'middle')
+              
+              if (phoneLabel) {
+                phoneLabel.setAttribute('x', '2600')
+              }
+            }
+          } else if (validatedPhones.length === 3) {
+            // For exactly 3 numbers: first 2 on first line with spacing, 3rd below the first
+            phoneElement.textContent = ''
+            
+            // Create tspan elements for first two numbers
+            for (let i = 0; i < 2; i++) {
+              const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan')
+              tspan.textContent = validatedPhones[i]
+              if (i > 0) tspan.setAttribute('dx', '30')
+              phoneElement.appendChild(tspan)
+            }
+            
+            // Get the position and styling of the current text element
+            const x = phoneElement.getAttribute('x')
+            const y = phoneElement.getAttribute('y')
+            const textClass = phoneElement.getAttribute('class')
+            const fontSize = phoneElement.getAttribute('font-size')
+            const fontFamily = phoneElement.getAttribute('font-family')
+            const fill = phoneElement.getAttribute('fill')
+            
+            // If no emails, center the phone numbers
+            if (!hasEmails) {
+              phoneElement.setAttribute('x', '4133.86')
+              phoneElement.setAttribute('text-anchor', 'middle')
+              
+              if (phoneLabel) {
+                phoneLabel.setAttribute('x', '2600')
+              }
+            }
+            
+            if (x && y) {
+              const yNum = parseFloat(y)
+              const lineHeight = 140
+              
+              // Create a new text element for the 3rd number (below first number)
+              const thirdPhone = document.createElementNS('http://www.w3.org/2000/svg', 'text')
+              const centerX = !hasEmails ? '4133.86' : x
+              thirdPhone.setAttribute('x', centerX)
+              thirdPhone.setAttribute('y', (yNum + lineHeight).toString())
+              if (!hasEmails) thirdPhone.setAttribute('text-anchor', 'middle')
+              if (textClass) thirdPhone.setAttribute('class', textClass)
+              if (fontSize) thirdPhone.setAttribute('font-size', fontSize)
+              if (fontFamily) thirdPhone.setAttribute('font-family', fontFamily)
+              if (fill) thirdPhone.setAttribute('fill', fill)
+              thirdPhone.textContent = validatedPhones[2]
+              
+              phoneElement.parentElement?.appendChild(thirdPhone) || phoneElement.parentNode?.appendChild(thirdPhone)
+            }
+          } else {
+            // For 4+ numbers: first 2 on first line with spacing, next 2 on second line with spacing
+            phoneElement.textContent = ''
+            
+            // Create tspan elements for first two numbers
+            for (let i = 0; i < 2; i++) {
+              const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan')
+              tspan.textContent = validatedPhones[i]
+              if (i > 0) tspan.setAttribute('dx', '30')
+              phoneElement.appendChild(tspan)
+            }
+            
+            // If no emails, center the phone numbers
+            if (!hasEmails) {
+              phoneElement.setAttribute('x', '4133.86')
+              phoneElement.setAttribute('text-anchor', 'middle')
+              
+              if (phoneLabel) {
+                phoneLabel.setAttribute('x', '2600')
+              }
+            }
+            
+            // Get the position and styling of the current text element
+            const x = phoneElement.getAttribute('x')
+            const y = phoneElement.getAttribute('y')
+            const textClass = phoneElement.getAttribute('class')
+            const fontSize = phoneElement.getAttribute('font-size')
+            const fontFamily = phoneElement.getAttribute('font-family')
+            const fill = phoneElement.getAttribute('fill')
+            
+            if (x && y) {
+              const yNum = parseFloat(y)
+              const lineHeight = 150
+              
+              // Create a new text element for the 3rd and 4th numbers on second line
+              const secondLineText = document.createElementNS('http://www.w3.org/2000/svg', 'text')
+              const centerX = !hasEmails ? '4133.86' : x
+              secondLineText.setAttribute('x', centerX)
+              secondLineText.setAttribute('y', (yNum + lineHeight).toString())
+              if (!hasEmails) secondLineText.setAttribute('text-anchor', 'middle')
+              if (textClass) secondLineText.setAttribute('class', textClass)
+              if (fontSize) secondLineText.setAttribute('font-size', fontSize)
+              if (fontFamily) secondLineText.setAttribute('font-family', fontFamily)
+              if (fill) secondLineText.setAttribute('fill', fill)
+              
+              // Use tspan elements for proper spacing on second line too
+              for (let i = 2; i < Math.min(4, validatedPhones.length); i++) {
+                const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan')
+                tspan.textContent = validatedPhones[i]
+                if (i > 2) tspan.setAttribute('dx', '30')
+                secondLineText.appendChild(tspan)
+              }
+              
+              phoneElement.parentElement?.appendChild(secondLineText) || phoneElement.parentNode?.appendChild(secondLineText)
+            }
+          }
+          }
+        }
+      } else {
+        hideTextElements(svg, '09027222282')
+        hideTextElements(svg, 'Tel:')
+      }
+      
+      // Handle emails with comprehensive logic (using letter head template logic)
+      if (!isFieldSkipped(data.emails)) {
+        const emailElement = findTextElement(svg, 'mattewwsonadl')
+        const emailsArray = data.emails ? [...data.emails] : []
+        const emails = emailsArray.filter(email => email && email.trim()).slice(0, 2)
+        
+        if (emailElement && emails.length > 0) {
+          const hasPhones = !isFieldSkipped(data.phones)
+          const hasHeadOffice = data.headOffice && !isFieldSkipped(data.headOffice)
+          
+          // Find email label
+          const emailLabel = findTextElement(svg, 'Email:')
+          
+          // Skip normal email positioning if we're in the no head office layout (already handled above)
+          if (hasHeadOffice) {
+            if (emails.length === 1) {
+              emailElement.textContent = emails[0]
+              
+              // If no phones, center the email
+              if (!hasPhones) {
+                emailElement.removeAttribute('class')
+                emailElement.setAttribute('x', '4500')
+                emailElement.setAttribute('text-anchor', 'middle')
+                emailElement.setAttribute('font-family', 'Montserrat')
+                emailElement.setAttribute('font-size', '140.33')
+                
+                if (emailLabel) {
+                  emailLabel.removeAttribute('class')
+                  emailLabel.setAttribute('x', '3200')
+                  emailLabel.setAttribute('font-family', 'Montserrat')
+                  emailLabel.setAttribute('font-size', '140.33')
+                  emailLabel.setAttribute('font-weight', 'bold')
+                  console.log('📧 Email label positioned at x=3200, content at x=4500')
+                }
+              }
+            } else if (emails.length === 2) {
+              if (!hasPhones) {
+                // No phones: show both on same line with spacing and center them
+                emailElement.removeAttribute('class')
+                emailElement.textContent = `${emails[0]}     ${emails[1]}`
+                emailElement.setAttribute('x', '4600')
+                emailElement.setAttribute('text-anchor', 'middle')
+                emailElement.setAttribute('font-family', 'Montserrat')
+                emailElement.setAttribute('font-size', '140.33')
+                
+                if (emailLabel) {
+                  emailLabel.removeAttribute('class')
+                  emailLabel.setAttribute('x', '2500')
+                  emailLabel.setAttribute('font-family', 'Montserrat')
+                  emailLabel.setAttribute('font-size', '140.33')
+                  emailLabel.setAttribute('font-weight', 'bold')
+                }
+              } else {
+                // Has phones: render vertically with alignment to phone lines
+                emailElement.textContent = emails[0]
+                
+                const x = emailElement.getAttribute('x')
+                const y = emailElement.getAttribute('y')
+                const textClass = emailElement.getAttribute('class')
+                const fontSize = emailElement.getAttribute('font-size')
+                const fontFamily = emailElement.getAttribute('font-family')
+                const fill = emailElement.getAttribute('fill')
+                
+                if (x && y) {
+                  const yNum = parseFloat(y)
+                  const secondEmail = document.createElementNS('http://www.w3.org/2000/svg', 'text')
+                  secondEmail.setAttribute('x', x)
+                  secondEmail.setAttribute('y', (yNum + 140).toString())
+                  if (textClass) secondEmail.setAttribute('class', textClass)
+                  if (fontSize) secondEmail.setAttribute('font-size', fontSize)
+                  if (fontFamily) secondEmail.setAttribute('font-family', fontFamily)
+                  if (fill) secondEmail.setAttribute('fill', fill)
+                  secondEmail.textContent = emails[1]
+                  
+                  emailElement.parentElement?.appendChild(secondEmail) || emailElement.parentNode?.appendChild(secondEmail)
+                }
+              }
+            }
+          }
+        }
+      } else {
+        hideTextElements(svg, 'mattewwsonadl')
+        hideTextElements(svg, 'Email:')
+      }
+      
+      // Handle registration number (RC NO) in headed template
+      const rcTextElement = findTextElement(svg, 'RC NO')
+      if (rcTextElement && data.registrationNumber && data.registrationNumber !== 'N/A') {
+        // Remove transform from parent group if it exists
+        const parentG = rcTextElement.parentElement
+        if (parentG && parentG.tagName === 'g') {
+          parentG.removeAttribute('transform')
+        }
+        
+        rcTextElement.removeAttribute('class')  // Remove CSS class that might hide content
+        rcTextElement.textContent = `RC NO.: ${data.registrationNumber}`
+        rcTextElement.setAttribute('font-family', 'Montserrat')
+        rcTextElement.setAttribute('font-size', '92.98')
+        rcTextElement.setAttribute('font-weight', 'bold')
+        rcTextElement.setAttribute('fill', '#373435')  // Black text
+        rcTextElement.style.fill = '#373435'
+        rcTextElement.setAttribute('opacity', '1')
+        // Position inside the green curved shape below logo (y range ~180-1289)
+        rcTextElement.setAttribute('x', '537.77')  // Centered under logo
+        rcTextElement.setAttribute('y', '1150')  // Inside green curved shape
+        rcTextElement.setAttribute('text-anchor', 'middle')
+        console.log('📋 RC NO set:', rcTextElement.textContent)
+        console.log('📋 RC NO position:', rcTextElement.getAttribute('x'), rcTextElement.getAttribute('y'))
+        console.log('📋 RC NO parent transform removed:', parentG?.hasAttribute('transform') === false)
+      } else if (rcTextElement) {
+        // Hide RC element if no registration number provided
+        rcTextElement.textContent = ''
+      }
+      
+      // Hide ellipse placeholder in headed template (always, regardless of logo upload)
+      const ellipse = svg.querySelector('ellipse[cx="643.77"]')
+      if (ellipse) {
+        ellipse.setAttribute('opacity', '0')
+      }
+      
+      // Logo injection for headed template
+      removeTemplateLogo(svg)
+      if (data.logoDataUrl) {
+        // Headed template has image placeholder - inject there
+        await injectLogo(svg, data.logoDataUrl, data.organizationName || '', 'headed')
+        
+        // Add transparent watermark logo in the center
+        await injectWatermarkLogo(svg, data.logoDataUrl)
+      }
+      
+      // Remove optional fields if not included
+      if (!data.includeOptionalFields) {
+        removeOptionalFields(svg)
+      }
+    } else {
+      // Original letter head template rendering
+      await renderLetterHeadTemplate(svg, data)
+    }
+
+    // Get final SVG content
+    const serializer = new XMLSerializer()
+    
+    // Serialize the svg element directly (not svgDoc, which has null documentElement after appendChild)
+    let finalSvg = serializer.serializeToString(svg)
+    
+    // Remove SVG from temporary container and clean up
+    document.body.removeChild(tempContainer)
+    
+    // Inject CSS variables for brand color
+    if (data.primaryBrandColor) {
+      finalSvg = injectCSSVariables(finalSvg, data.primaryBrandColor)
+    }
+    
+    return { svg: finalSvg, backgroundId: usedBackgroundId, templateName }
+  } catch (error) {
+    console.error('❌ Error rendering letterhead:', error)
+    throw error
+  }
+}
+
+/**
+ * Render fields for original letter head template
+ */
+/**
+ * Render fields for original letter head template
+ */
+async function renderLetterHeadTemplate(svg: SVGElement, data: LetterHeadData): Promise<void> {
+  console.log('📝 renderLetterHeadTemplate called with data:', {
+    organizationName: data.organizationName,
+    headOffice: data.headOffice,
+    otherAddress: data.otherAddress,
+    phones: data.phones,
+    emails: data.emails
+  })
+  
+  // Find and update organization name (split across two text elements)
+  if (data.organizationName) {
+    const orgNameUpper = data.organizationName.toUpperCase()
+    
+    // Find and update organization name text
+    const orgTextElement = findTextElement(svg, 'WILLMIKE')
+      
+    if (orgTextElement) {
+      /**
+       * Dynamic organization name fitting:
+       * - Must stay within fixed width boundary
+       * - If text exceeds width, reduce font size to fit
+       * - Font size: starts at 60 if > 25 chars, otherwise 120
+       * - Reduces font size until text fits
+       */
+      
+      // Define boundaries - much more generous to allow larger fonts
+      const logoEndX = 2400 // Right edge of logo with margin
+      const greenStartX = 7200 // Much further right to give more space (was 6400)
+      const maxWidth = greenStartX - logoEndX // ~4800 units maximum width (increased)
+      const safeZoneCenterX = logoEndX + (maxWidth / 2) - 300 // Center point shifted left by 300 units
+      
+      // Always center the text in the available space (shifted left)
+      orgTextElement.setAttribute('x', safeZoneCenterX.toString())
+      orgTextElement.setAttribute('text-anchor', 'middle') // Ensures text is centered around the x position
+      
+      // Get base font size
+      const baseFontSize = parseFloat(orgTextElement.getAttribute('font-size') || '120')
+      
+      // Count total characters (alphabets, symbols, spaces)
+      const charCount = orgNameUpper.length
+      
+      // Check if organization name has exactly two words
+      const words = orgNameUpper.trim().split(/\s+/)
+      const isTwoWords = words.length === 2
+      
+      // Set font size based on character count - Large size for short names, very large for long names
+      let fontSize = 3400 // Use 3400px for short names (25 or fewer characters)
+      
+      // For two-word names using Montserrat, use moderate sizing
+      if (isTwoWords) {
+        if (charCount <= 10) {
+          fontSize = 500  // Further reduced
+        } else if (charCount <= 20) {
+          fontSize = 410  // Further reduced
+        } else {
+          fontSize = 330  // Further reduced
+        }
+      } else if (charCount > 25) {
+        fontSize = baseFontSize * 20.0 // Use large size (2400) for long names only
+      }
+      
+      // Calculate if text needs font size reduction instead of horizontal scaling
+      // Average character width is more generous for uppercase text
+      const avgCharWidthRatio = 0.45 // Reduced from 0.60 to allow bigger fonts
+      let estimatedWidth = charCount * fontSize * avgCharWidthRatio
+      
+      // If text is too wide, reduce font size more gently
+      while (estimatedWidth > maxWidth && fontSize > 200) { // Higher minimum (was 80)
+        fontSize -= 10 // Smaller reduction steps (was 20)
+        estimatedWidth = charCount * fontSize * avgCharWidthRatio
+      }
+      
+      // Remove horizontal scaling - text should never be compressed
+      const scaleX = 1.0 // Always keep normal width
+      
+      // Set the text content and styling
+      // IMPORTANT: Remove class to prevent CSS override, use inline style
+      orgTextElement.textContent = orgNameUpper
+      orgTextElement.removeAttribute('class') // Remove CSS class that overrides font-size
+      
+      // Apply font size without any horizontal compression
+      // Use CSS variable for brand color, fallback to default if not provided
+      const brandColor = data.primaryBrandColor ? 'var(--primary-brand-color)' : '#058A6C'
+      
+      // Use the words variable already declared above for font selection
+      const fontFamily = words.length === 2 ? 'Montserrat ExtraBold' : 'Oswald'
+      const fontWeight = words.length === 2 ? '800' : '600'
+      
+      let styleString = `font-size:${fontSize}px; font-family:'${fontFamily}'; font-weight:${fontWeight}; fill:${brandColor};`
+      // Remove horizontal scaling - text maintains natural proportions
+      orgTextElement.setAttribute('style', styleString)
+      
+      // Hide the second part of template org name since we put everything in first element
+      hideTextElements(svg, 'SONS')
+    }
+    
+    // Find and update registration number - position based on logo presence
+    if (data.registrationNumber && data.registrationNumber !== 'N/A' && orgTextElement) {
+      const rcTextElement = findTextElement(svg, 'RC NO.')
+      
+      if (rcTextElement) {
+        // First, set the RC number text with smaller font size
+        rcTextElement.textContent = `RC NO.: ${data.registrationNumber}`
+        
+        // Set RC font size to be smaller (10px or 12% of org name font size)
+        const orgFontSize = parseFloat(orgTextElement.getAttribute('font-size') || '120')
+        const rcFontSize = Math.max(10, orgFontSize * 0.12)
+        rcTextElement.setAttribute('font-size', rcFontSize.toString())
+        rcTextElement.setAttribute('font-family', 'Montserrat')
+        rcTextElement.setAttribute('font-weight', 'bold')
+        
+        // Position RC number consistently regardless of logo presence
+        try {
+          // Always position RC above org name, shifted left from right edge
+          const bbox = orgTextElement.getBBox()
+          const orgNameRightEdge = bbox.x + bbox.width
+          const orgNameTop = bbox.y
+          
+          const rcX = orgNameRightEdge - 200 // Shift 200 units to the left
+          const rcY = orgNameTop + 40 // Position below with spacing (changed from -5 to +40)
+          
+          rcTextElement.setAttribute('x', rcX.toString())
+          rcTextElement.setAttribute('y', rcY.toString())
+          rcTextElement.setAttribute('text-anchor', 'end') // Right-align
+          rcTextElement.setAttribute('dominant-baseline', 'auto')
+        } catch (e) {
+          // Fallback to default position if getBBox fails
+          rcTextElement.setAttribute('x', '712')
+          rcTextElement.setAttribute('y', '890')
+          rcTextElement.setAttribute('text-anchor', 'start')
+        }
         }
       } else {
         hideTextElements(svg, 'RC NO.')
@@ -582,6 +1497,13 @@ export async function renderLetterHead(data: LetterHeadData): Promise<{ svg: str
 
     // Find and update other address - blank everything if skipped
     const allTexts = Array.from(svg.querySelectorAll('text'))
+    
+    console.log('🔍 Address Debug:', {
+      otherAddress: data.otherAddress,
+      headOffice: data.headOffice,
+      isOtherSkipped: isFieldSkipped(data.otherAddress),
+      isHeadSkipped: isFieldSkipped(data.headOffice)
+    })
     
     // Find the Minna address label
     const addressLabel = allTexts.find(text => text.textContent?.includes('Minna Address:') || text.textContent?.includes('Address:'))
@@ -1264,7 +2186,7 @@ export async function renderLetterHead(data: LetterHeadData): Promise<{ svg: str
       descriptionText.setAttribute('y', branchAddressY.toString()) // At branch address position
       descriptionText.setAttribute('text-anchor', 'middle')
       descriptionText.setAttribute('font-family', 'Montserrat')
-      descriptionText.setAttribute('font-size', '150.00')
+      descriptionText.setAttribute('font-size', '180')
       
       // Only content, no label
       descriptionText.textContent = descriptionTitleCase
@@ -1304,32 +2226,10 @@ export async function renderLetterHead(data: LetterHeadData): Promise<{ svg: str
       svg.appendChild(mottoText)
     }
 
-    // Always remove the template logo, then add user logo if provided
-    removeTemplateLogo(svg)
-    if (data.logoDataUrl) {
-      await injectLogo(svg, data.logoDataUrl, data.organizationName || '')
-    }
-
-    // Serialize the updated SVG before removing from DOM
-    const serializer = new XMLSerializer()
-    let finalSvg = serializer.serializeToString(svg)
-    
-    // Log to check if background is in the serialized output
-    console.log('Serialized SVG length:', finalSvg.length)
-    console.log('Background layer present:', finalSvg.includes('background-layer'))
-    
-    // Remove SVG from temporary container and clean up
-    document.body.removeChild(tempContainer)
-    
-    // Inject CSS variables for brand color
-    if (data.primaryBrandColor) {
-      finalSvg = injectCSSVariables(finalSvg, data.primaryBrandColor)
-    }
-    
-    return { svg: finalSvg, backgroundId: usedBackgroundId }
-  } catch (error) {
-    console.error('Error rendering letterhead:', error)
-    throw error
+  // Always remove the template logo, then add user logo if provided
+  removeTemplateLogo(svg)
+  if (data.logoDataUrl) {
+    await injectLogo(svg, data.logoDataUrl, data.organizationName || '', 'letter head')
   }
 }
 
@@ -1403,7 +2303,7 @@ function removeTemplateLogo(svg: Element): void {
  * Remove optional fields (Our Ref, Your Ref, Date) from SVG
  */
 function removeOptionalFields(svg: Element): void {
-  // Remove text elements with optional field labels
+  // Hide text elements with optional field labels using opacity instead of remove
   const textElements = svg.querySelectorAll('text, tspan')
   
   // Patterns to match optional fields - matching the actual SVG text content
@@ -1421,13 +2321,13 @@ function removeOptionalFields(svg: Element): void {
       // Check if this element contains any of the optional field patterns
       const hasOptionalField = patterns.some(pattern => pattern.test(text))
       if (hasOptionalField) {
-        // Remove the entire text element
-        element.remove()
+        // Hide instead of remove so it can be restored
+        element.setAttribute('opacity', '0')
       }
     }
   }
   
-  // Remove the underline elements for optional fields (three short lines at y=1796)
+  // Hide the underline elements for optional fields (three short lines at y=1801)
   const lineElements = svg.querySelectorAll('line')
   for (const line of lineElements) {
     const y1 = line.getAttribute('y1')
@@ -1435,28 +2335,29 @@ function removeOptionalFields(svg: Element): void {
     const x1 = line.getAttribute('x1')
     const x2 = line.getAttribute('x2')
     
-    // Remove the main horizontal line at the bottom (matches x1=460.1, x2=7800, y1=y2=10450)
+    // Hide the main horizontal line at the bottom (matches x1=460.1, x2=7800, y1=y2=10450)
     if (x1 === '460.1' && x2 === '7800' && y1 === y2) {
       const currentY = parseFloat(y1 || '0')
       if (currentY >= 10400 && currentY <= 11000) {
-        line.remove()
+        line.setAttribute('opacity', '0')
       }
     }
-    // Remove the three underlines for Our Ref, Your Ref, and Date (y=1951)
-    else if (y1 === '1951' && y2 === '1951') {
-      line.remove()
+    // Hide the three underlines for Our Ref, Your Ref, and Date (y=1801 for headed, y=1961 for letterhead)
+    else if ((y1 === '1801' && y2 === '1801') || (y1 === '1961' && y2 === '1961')) {
+      line.setAttribute('opacity', '0')
     }
-    // Remove the two separator lines below optional fields (y=2072.82 and y=2100.95)
-    else if ((y1 === '2072.82' && y2 === '2072.82') || (y1 === '2100.95' && y2 === '2100.95')) {
-      line.remove()
+    // Hide the two separator lines below optional fields (y=1912.82 and y=1940.95 for headed, y=2072.82 and y=2100.95 for letterhead)
+    else if ((y1 === '1912.82' && y2 === '1912.82') || (y1 === '1940.95' && y2 === '1940.95') || 
+             (y1 === '2072.82' && y2 === '2072.82') || (y1 === '2100.95' && y2 === '2100.95')) {
+      line.setAttribute('opacity', '0')
     }
     // Also check for lines with str1 or str2 class that are in the separator area
     else {
       const lineClass = line.getAttribute('class') || ''
       if ((lineClass.includes('str1') || lineClass.includes('str2')) && x1 === '460.1' && x2 === '7800') {
         const currentY = parseFloat(y1 || '0')
-        if (currentY >= 2070 && currentY <= 2105) {
-          line.remove()
+        if (currentY >= 1910 && currentY <= 1945) {
+          line.setAttribute('opacity', '0')
         }
       }
     }
@@ -1477,29 +2378,58 @@ function removeOptionalFields(svg: Element): void {
 /**
  * Inject logo image into SVG
  */
-async function injectLogo(svg: Element, logoDataUrl: string, organizationName: string = ''): Promise<void> {
-  // Dynamic logo sizing based on organization name length
-  let logoWidth = 1400  // Bigger default size
-  let logoHeight = 1260  // Bigger default size
-  let logoX = 100
-  let logoY = 350
+async function injectLogo(svg: Element, logoDataUrl: string, organizationName: string = '', templateName: string = 'letter head'): Promise<void> {
+  let logoWidth: number
+  let logoHeight: number
+  let logoX: number
+  let logoY: number
   
-  // Reduce logo size if organization name is long
-  const nameLength = organizationName.length
-  if (nameLength > 50) {
-    // Very long name - smallest logo
-    logoWidth = 900
-    logoHeight = 810
-    logoX = 250
-    logoY = 450
-  } else if (nameLength > 35) {
-    // Long name - medium logo
-    logoWidth = 1100
-    logoHeight = 990
-    logoX = 180
-    logoY = 400
+  if (templateName === 'headed') {
+    // For headed template, use ellipse element position and size
+    // Ellipse specs: cx="643.77" cy="671.65" rx="318.26" ry="342.02"
+    const ellipseCx = 537.77  // Moved left from 643.77
+    const ellipseCy = 671.65
+    const ellipseRx = 318.26
+    const ellipseRy = 342.02
+    
+    // Logo dimensions match ellipse diameter
+    logoWidth = ellipseRx * 2  // 636.52
+    logoHeight = ellipseRy * 2  // 684.04
+    
+    // Position logo so its center matches ellipse center
+    // SVG image x,y is top-left corner, so subtract half width/height
+    logoX = ellipseCx - ellipseRx  // Center - radius = top-left x
+    logoY = ellipseCy - ellipseRy  // Center - radius = top-left y
+    
+    // Hide/remove the ellipse placeholder
+    const ellipse = svg.querySelector('ellipse[cx="643.77"]')
+    if (ellipse) {
+      ellipse.setAttribute('opacity', '0')
+    }
+  } else {
+    // Letter head template: Dynamic logo sizing based on organization name length
+    logoWidth = 1050  // Reduced from 1400 (30% size)
+    logoHeight = 945  // Reduced from 1260 (30% size)
+    logoX = 100
+    logoY = 350
+    
+    // Reduce logo size if organization name is long
+    const nameLength = organizationName.length
+    if (nameLength > 50) {
+      // Very long name - smallest logo
+      logoWidth = 675  // Reduced from 900
+      logoHeight = 607.5  // Reduced from 810
+      logoX = 250
+      logoY = 450
+    } else if (nameLength > 35) {
+      // Long name - medium logo
+      logoWidth = 825  // Reduced from 1100
+      logoHeight = 742.5  // Reduced from 990
+      logoX = 180
+      logoY = 400
+    }
+    // else: short name - keep largest size
   }
-  // else: short name - keep largest size
   
   // Create new logo image element
   const newImage = document.createElementNS('http://www.w3.org/2000/svg', 'image')
@@ -1520,6 +2450,47 @@ async function injectLogo(svg: Element, logoDataUrl: string, organizationName: s
   } else {
     // Fallback: add to SVG root
     svg.appendChild(newImage)
+  }
+}
+
+/**
+ * Inject transparent watermark logo in the center of the page
+ */
+async function injectWatermarkLogo(svg: Element, logoDataUrl: string): Promise<void> {
+  // SVG dimensions (viewBox: 0 0 8267.72 11692.91)
+  const svgWidth = 8267.72
+  const svgHeight = 11692.91
+  
+  // Watermark logo dimensions - large and centered
+  const watermarkWidth = 3000  // Large watermark
+  const watermarkHeight = 3000
+  
+  // Position in the center of the page
+  const watermarkX = (svgWidth - watermarkWidth) / 2
+  const watermarkY = (svgHeight - watermarkHeight) / 2
+  
+  // Create watermark image element
+  const watermarkImage = document.createElementNS('http://www.w3.org/2000/svg', 'image')
+  watermarkImage.setAttribute('class', 'letterhead-watermark')
+  watermarkImage.setAttribute('x', String(watermarkX))
+  watermarkImage.setAttribute('y', String(watermarkY))
+  watermarkImage.setAttribute('width', String(watermarkWidth))
+  watermarkImage.setAttribute('height', String(watermarkHeight))
+  watermarkImage.setAttribute('href', logoDataUrl)
+  watermarkImage.setAttribute('xlink:href', logoDataUrl)
+  watermarkImage.setAttribute('preserveAspectRatio', 'xMidYMid meet')
+  watermarkImage.setAttribute('opacity', '0.08')  // Very transparent watermark
+  
+  // Insert into the main group - add BEFORE other content so it appears behind
+  const mainGroup = svg.querySelector('g')
+  if (mainGroup && mainGroup.firstChild) {
+    // Insert as first child so it's behind everything
+    mainGroup.insertBefore(watermarkImage, mainGroup.firstChild)
+  } else if (mainGroup) {
+    mainGroup.appendChild(watermarkImage)
+  } else {
+    // Fallback: add to SVG root
+    svg.appendChild(watermarkImage)
   }
 }
 
@@ -1811,6 +2782,6 @@ export async function getPreviewSvg(): Promise<string> {
     }
   }
 
-  return await renderLetterHead(sampleData)
+  return (await renderLetterHead(sampleData)).svg
 }
 
