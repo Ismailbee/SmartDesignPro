@@ -9,6 +9,7 @@ import { ref, computed } from 'vue'
 import type { Ref } from 'vue'
 import type { ChatMessage, ExtractedInfo, LocalExtractionResult, OfflineResponseContext } from '../types'
 import { extractWeddingDetails, isCommonWeddingTitle } from './useLocalExtraction'
+import { addAIMessageWithTypingUtil } from '../utils/chatUtils'
 import {
   offlineDelay,
   isGreeting,
@@ -123,10 +124,25 @@ export function useWeddingChat(options: UseWeddingChatOptions) {
     return normalizeTitle(userTitle) !== normalizeTitle(templateTitle)
   }
 
-  // Add a message to chat
+  // Add a message to chat - AI messages use typing animation
   const addMessage = (message: ChatMessage) => {
-    chatMessages.value.push(message)
-    onScrollToBottom()
+    if (message.sender === 'ai') {
+      // Use typing animation for AI messages
+      addAIMessageWithTypingUtil(
+        message.text,
+        chatMessages,
+        onScrollToBottom,
+        {
+          actions: message.actions,
+          image: message.image,
+          type: message.type
+        }
+      )
+    } else {
+      // User messages are added instantly
+      chatMessages.value.push(message)
+      onScrollToBottom()
+    }
   }
 
   // Apply extracted data to state

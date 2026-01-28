@@ -98,6 +98,14 @@ router.beforeEach((to, from, next) => {
     return
   }
   
+  // Skip route loading for pages that have their own loading state
+  // This prevents double loading spinners
+  const pagesWithOwnLoading = ['/auto-design', '/letterhead']
+  if (pagesWithOwnLoading.some(p => to.path.startsWith(p))) {
+    next()
+    return
+  }
+  
   // Show loading immediately
   isRouteLoading.value = true
   loadingMessage.value = routeLoadingMessages[to.path] || 'Loading...'

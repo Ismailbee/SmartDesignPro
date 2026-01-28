@@ -1,19 +1,21 @@
 <template>
   <div class="sticker-page-wrapper" :class="{ 'wedding-active': selectedCategory === 'wedding' }">
+    <!-- Chat Sidebar for project navigation -->
+    <ChatSidebar
+      :projects="projectList"
+      :current-project-id="currentProject?.id ?? null"
+      v-model:is-open="isSidebarOpen"
+      @select-project="handleSelectProject"
+      @create-project="handleCreateProject"
+      @rename-project="handleRenameProject"
+      @duplicate-project="handleDuplicateProject"
+      @delete-project="handleDeleteProject"
+      @open-settings="handleOpenSettings"
+    />
+    
   <div class="sticker-template-panel">
     <!-- FORM VIEW (Wedding is the only category) -->
     <div class="form-view">
-      <!-- Header - Using extracted PanelHeader component -->
-      <PanelHeader
-        title="Sticker Template"
-        :is-voice-enabled="isVoiceEnabled"
-        @back="goBack"
-        @help="showChatHelp"
-        @toggle-voice="toggleVoice"
-      />
-
-
-
         <!-- Category Selection Grid - Using extracted CategorySelector component -->
         <CategorySelector
           v-if="!selectedCategory"
@@ -39,9 +41,13 @@
           :is-authenticated="authStore.isAuthenticated"
           :user-name="userStore.user?.name?.split(' ')?.[0]"
           :tokens="userStore.user?.tokens ?? 0"
+          :is-voice-enabled="isVoiceEnabled"
           @login="authStore.openAuthModal('login')"
           @action="handleMessageAction"
           @menu-action="handlePreviewMenuAction"
+          @home="goHome"
+          @toggle-sidebar="isSidebarOpen = !isSidebarOpen"
+          @toggle-voice="toggleVoice"
         />
 
         <!-- Chat Input -->
@@ -140,62 +146,29 @@
       @close="closeEditModal"
     />
 
-    <!-- Image Swap Confirmation Modal -->
-    <Teleport to="body">
-      <div v-if="showImageActionModal" class="swap-confirmation-overlay" @click.self="cancelImageAction">
-        <div class="swap-confirmation-modal">
-          <div class="swap-modal-icon">📷</div>
-          <h3 class="swap-modal-title">What would you like to do?</h3>
-          <p class="swap-modal-text">
-            Choose an action for this image
-          </p>
-          <div class="swap-modal-actions image-action-buttons">
-            <button class="swap-btn swap-btn-flip" @click="flipSelectedImage">
-              <span class="btn-icon">↔️</span>
-              Flip Image
-            </button>
-            <button class="swap-btn swap-btn-drag" @click="selectSmallBoxDragMode">
-              <span class="btn-icon">✋</span>
-              Reposition Box
-            </button>
-            <button class="swap-btn swap-btn-confirm" @click="selectSwapMode">
-              <span class="btn-icon">🔄</span>
-              Swap with Main
-            </button>
-            <button class="swap-btn swap-btn-cancel" @click="cancelImageAction">Cancel</button>
-          </div>
-        </div>
-      </div>
+    <!-- Image Swap Confirmation Modal - Using extracted component -->
+    <ImageActionModal
+      :show="showImageActionModal"
+      @flip="flipSelectedImage"
+      @swap="selectSwapMode"
+      @drag="selectSmallBoxDragMode"
+      @cancel="cancelImageAction"
+    />
       
-      <!-- Main Image Action Modal -->
-      <div v-if="showMainImageModal" class="swap-confirmation-overlay" @click.self="cancelMainImageAction">
-        <div class="swap-confirmation-modal">
-          <div class="swap-modal-icon">🖼️</div>
-          <h3 class="swap-modal-title">Main Image Options</h3>
-          <p class="swap-modal-text">
-            Choose an action for the main image
-          </p>
-          <div class="swap-modal-actions image-action-buttons">
-            <button class="swap-btn swap-btn-flip" @click="flipMainImage">
-              <span class="btn-icon">↔️</span>
-              Flip Image
-            </button>
-            <button class="swap-btn swap-btn-drag" @click="selectMainDragMode">
-              <span class="btn-icon">✋</span>
-              Reposition
-            </button>
-            <button class="swap-btn swap-btn-cancel" @click="cancelMainImageAction">Cancel</button>
-            <p class="swap-modal-hint">💡 Tip: Click Reposition to drag the image</p>
-          </div>
-        </div>
-      </div>
+    <!-- Main Image Action Modal - Using extracted component -->
+    <MainImageModal
+      :show="showMainImageModal"
+      @flip="flipMainImage"
+      @drag="selectMainDragMode"
+      @cancel="cancelMainImageAction"
+    />
       
-      <!-- Swapping Loading Overlay -->
-      <div v-if="isSwapping" class="swap-loading-overlay">
-        <div class="swap-loading-spinner"></div>
-        <p class="swap-loading-text">Swapping images...</p>
-      </div>
-    </Teleport>
+    <!-- Loading Overlays - Using extracted component -->
+    <LoadingOverlays
+      :is-swapping="isSwapping"
+      :is-flipping="isFlipping"
+      :is-exporting="isExporting"
+    />
   </div>
   </div>
 </template>
@@ -232,8 +205,7 @@ import { getBackgroundRefsCached } from '@/services/background/background-catalo
 // Lazy load heavy components for better performance
 const ImageCropModal = defineAsyncComponent(() => import('@/components/modals/ImageCropModal.vue'))
 
-// Lazy load sticker sub-components
-const PanelHeader = defineAsyncComponent(() => import('./sticker/PanelHeader.vue'))
+// Lazy load sticker sub-components (PanelHeader removed - controls moved to WeddingChatMessages)
 const CategorySelector = defineAsyncComponent(() => import('./sticker/CategorySelector.vue'))
 const WeddingChatMessages = defineAsyncComponent(() => import('./sticker/WeddingChatMessages.vue'))
 const WeddingChatInput = defineAsyncComponent(() => import('./sticker/WeddingChatInput.vue'))
@@ -243,6 +215,13 @@ const EditDescriptionModal = defineAsyncComponent(() => import('./sticker/EditDe
 const GeneratingPreview = defineAsyncComponent(() => import('./sticker/GeneratingPreview.vue'))
 const ExportButtons = defineAsyncComponent(() => import('./sticker/ExportButtons.vue'))
 const SvgPreview = defineAsyncComponent(() => import('./sticker/SvgPreview.vue'))
+
+// New extracted modal components
+const ImageActionModal = defineAsyncComponent(() => import('./sticker/ImageActionModal.vue'))
+const MainImageModal = defineAsyncComponent(() => import('./sticker/MainImageModal.vue'))
+const LoadingOverlays = defineAsyncComponent(() => import('./sticker/LoadingOverlays.vue'))
+const AutoSaveIndicator = defineAsyncComponent(() => import('./sticker/AutoSaveIndicator.vue'))
+const ChatSidebar = defineAsyncComponent(() => import('./sticker/ChatSidebar.vue'))
 
 // Import types only (no runtime cost)
 import type { ChatMessage, Category, ExtractedInfo } from './sticker'
@@ -288,6 +267,16 @@ import {
   useUploadChatFlow,
   // Wedding State composable
   useWeddingState,
+  // Auto-save composable
+  useAutoSave,
+  // Content protection composable
+  useContentProtection,
+  // Offline storage (IndexedDB)
+  useOfflineStorage,
+  // Orientation handler
+  useOrientationHandler,
+  // Voice control
+  useVoiceControl,
 } from './sticker/composables'
 
 // Import SVG utility functions (extracted for file size reduction)
@@ -522,6 +511,144 @@ const svgImageManager = useSVGImageManager({
 const showImageActionModal = ref(false)
 const pendingActionImageId = ref<string | null>(null)
 const isSwapping = ref(false)
+const isFlipping = ref(false)
+const isExporting = ref(false)
+
+// Auto-save indicator - using composable
+const { isSaving, showSavedIndicator, triggerSaveIndicator } = useAutoSave()
+
+// Content protection - prevent context menu on images
+useContentProtection()
+
+// ========================================
+// OFFLINE STORAGE - Using composable
+// ========================================
+const {
+  currentProject,
+  projectList,
+  isLoading: isLoadingProject,
+  isSaving: isSavingProject,
+  isInitialized: isStorageInitialized,
+  initialize: initializeOfflineStorage,
+  createProject,
+  loadProject,
+  saveCurrentProject,
+  updateProject,
+  updateExtractedInfo: updateProjectExtractedInfo,
+  renameProject,
+  removeProject,
+  copyProject,
+  updateThumbnail,
+  saveChatMsg,
+  getProjectChats,
+  scheduleAutoSave,
+} = useOfflineStorage({
+  autoSave: true,
+  autoSaveDelay: 1500,
+  onSaveStart: () => { isSaving.value = true },
+  onSaveComplete: () => { 
+    isSaving.value = false
+    triggerSaveIndicator()
+  },
+  onSaveError: (error) => { 
+    console.error('Auto-save error:', error)
+    isSaving.value = false
+  }
+})
+
+// ========================================
+// ORIENTATION HANDLER - Using composable
+// ========================================
+const {
+  screenWidth,
+  screenHeight,
+  orientation,
+  isMobile,
+  isTablet,
+  isDesktop,
+  forceRecalculate: recalculateLayout,
+} = useOrientationHandler({
+  debounceMs: 200,
+  onOrientationChange: (newOrientation) => {
+    console.log(`📱 Orientation: ${newOrientation}, recalculating layout...`)
+    // Trigger SVG resize after orientation change
+    nextTick(() => {
+      updateChatPreviewSVG()
+    })
+  },
+  onResize: () => {
+    // Update preview on any resize
+    nextTick(() => {
+      updateChatPreviewSVG()
+    })
+  }
+})
+
+// ========================================
+// VOICE CONTROL - Using composable
+// ========================================
+const {
+  isListening: isVoiceListening,
+  isSpeaking: isVoiceSpeaking,
+  isSupported: isVoiceSupported,
+  startListening,
+  stopListening,
+  toggleListening,
+  speak: speakText,
+  registerCommand,
+  createDefaultCommands,
+} = useVoiceControl({
+  language: 'en-US',
+  continuous: false,
+  onCommandRecognized: (command) => {
+    console.log(`🎯 Voice command: ${command.name}`)
+  }
+})
+
+// ========================================
+// LOW-MEMORY MODE - For constrained devices
+// ========================================
+const isLowMemoryMode = ref(false)
+
+// Detect low-memory conditions
+onMounted(() => {
+  // Check if device has limited memory (mobile or low-end)
+  const checkLowMemory = () => {
+    // Check for deviceMemory API (Chrome/Edge)
+    const deviceMemory = (navigator as any).deviceMemory
+    if (deviceMemory && deviceMemory <= 2) {
+      isLowMemoryMode.value = true
+      console.log('📱 Low-memory mode enabled (device memory:', deviceMemory, 'GB)')
+      return
+    }
+    
+    // Check for connection type (slow network = likely constrained device)
+    const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection
+    if (connection) {
+      const slowTypes = ['slow-2g', '2g', '3g']
+      if (slowTypes.includes(connection.effectiveType)) {
+        isLowMemoryMode.value = true
+        console.log('📱 Low-memory mode enabled (slow connection:', connection.effectiveType, ')')
+        return
+      }
+    }
+    
+    // Check viewport size (small screens typically = mobile)
+    if (window.innerWidth <= 360 && window.innerHeight <= 640) {
+      isLowMemoryMode.value = true
+      console.log('📱 Low-memory mode enabled (small viewport)')
+    }
+  }
+  
+  checkLowMemory()
+})
+
+// Apply low-memory optimizations
+const getLowMemoryImageQuality = () => isLowMemoryMode.value ? 0.6 : 0.9
+const getLowMemoryMaxDimension = () => isLowMemoryMode.value ? 1024 : 2048
+
+// Chat sidebar state
+const isSidebarOpen = ref(false)
 
 // Main image action modal state
 const showMainImageModal = ref(false)
@@ -565,6 +692,17 @@ function flipMainImage() {
  */
 function cancelMainImageAction() {
   showMainImageModal.value = false
+}
+
+/**
+ * Handle clicks on modal overlay - only close if clicking directly on overlay
+ * Prevents accidental closure on mobile when tapping inside the modal
+ */
+function handleModalOverlayClick(event: MouseEvent | TouchEvent) {
+  // Only close if the click/touch is directly on the overlay, not bubbled from children
+  if (event.target === event.currentTarget) {
+    cancelMainImageAction()
+  }
 }
 
 /**
@@ -623,6 +761,10 @@ function flipSelectedImage() {
   const image = svgImageManager.images.value.find(img => img.id === pendingActionImageId.value)
   if (!image) return
   
+  // Show loading
+  isFlipping.value = true
+  showImageActionModal.value = false
+  
   // Toggle flip state
   svgImageManager.updateImage(pendingActionImageId.value, { flipped: !image.flipped })
   
@@ -630,9 +772,13 @@ function flipSelectedImage() {
   nextTick(() => {
     _updateSVGWithImages?.()
     updateChatPreviewSVG()
+    
+    // Hide loading after update
+    setTimeout(() => {
+      isFlipping.value = false
+    }, 300)
   })
   
-  showImageActionModal.value = false
   pendingActionImageId.value = null
 }
 
@@ -1108,7 +1254,26 @@ const {
 // Sync background filename to our shared ref (for flourish system)
 watch(bgManagerBackgroundFileName, (newVal) => {
   currentBackgroundFileName.value = newVal
+  // Trigger auto-save on background change
+  if (newVal) {
+    triggerProjectAutoSave()
+  }
 }, { immediate: true })
+
+// Auto-save watchers - trigger save on design changes
+watch(() => svgImageManager.images.value, () => {
+  // Only trigger if there are images (not on initial load)
+  if (svgImageManager.images.value.length > 0) {
+    triggerProjectAutoSave()
+  }
+}, { deep: true })
+
+watch(() => extractedInfo.value, () => {
+  // Trigger save when extracted info changes
+  if (extractedInfo.value.title || extractedInfo.value.names?.name1 || extractedInfo.value.names?.name2) {
+    updateProjectExtractedInfo(extractedInfo.value)
+  }
+}, { deep: true })
 
 // NOTE: State refs (showMenu, selectedCategory, showWeddingStickerPreview, etc.)
 // are now provided by useWeddingState composable above
@@ -1317,6 +1482,13 @@ async function handleEditModalSave(data: { heading: string; name1: string; name2
   // Sync to chat preview after update
   await nextTick()
   updateChatPreviewSVG()
+
+  // Persist changes (SVG + extracted info + thumbnail)
+  updateProjectExtractedInfo(extractedInfo.value)
+  await persistCurrentDesignSnapshot({ forceThumbnail: true })
+
+  // Close modal
+  showEditModal.value = false
   
   // Show confirmation
   authStore.showNotification({
@@ -1413,6 +1585,9 @@ async function generateWeddingPreview() {
   await addPreGenerationExtrasToPreview()
   await nextTick()
   updateChatPreviewSVG()
+
+  // Persist the generated SVG + thumbnail (important for Home → return)
+  await persistCurrentDesignSnapshot({ forceThumbnail: true })
 }
 
 // Regenerate with a new random background (keeps same text/image)
@@ -1428,6 +1603,9 @@ async function regenerateWithNewBackground() {
   
   // Update the chat preview
   updateChatPreviewSVG()
+
+  // Persist regenerated state + thumbnail
+  await persistCurrentDesignSnapshot({ forceThumbnail: true })
   
   // Add a chat message about the change with typing indicator
   addAIMessageWithTyping(`✨ New background applied! Click **New** again to try another style.`)
@@ -1462,6 +1640,106 @@ onMounted(() => {
   initializeVoice()
 })
 
+// Initialize offline storage on mount
+onMounted(async () => {
+  try {
+    await initializeOfflineStorage()
+    console.log('✅ Offline storage initialized')
+    
+    // Load chat messages for current project
+    await loadChatMessagesFromStorage()
+
+    // Restore extracted info for the current project (important on full page reload).
+    if (currentProject.value?.extractedInfo) {
+      extractedInfo.value = {
+        ...extractedInfo.value,
+        ...currentProject.value.extractedInfo,
+        names: {
+          ...extractedInfo.value.names,
+          ...(currentProject.value.extractedInfo.names || {})
+        }
+      }
+    }
+
+    // Prefer restoring from the saved SVG snapshot.
+    const restoredFromSvg = await restoreDesignFromSavedProject()
+    
+    // Check if there's a preview message and restore the design
+    const hasPreviewMessage = chatMessages.value.some(msg => msg.type === 'preview')
+    if (!restoredFromSvg && hasPreviewMessage && !showWeddingStickerPreview.value) {
+      console.log('🔄 Restoring design from saved session...')
+      // Set the preview flag to show the design
+      showWeddingStickerPreview.value = true
+      hasDesignBeenGenerated.value = true
+      
+      // Wait for DOM to update, then restore the SVG
+      await nextTick()
+      await nextTick()
+      
+      // Restore the background and design if persisted
+      const persistedBg = getPersistedWeddingBackground()
+      if (persistedBg) {
+        await loadWeddingBackgroundManifest()
+        const bgItem = availableBackgrounds.value.find(bg => 
+          `${bg.src.type}:${bg.id}` === persistedBg || bg.id === persistedBg || bg.fileName === persistedBg
+        )
+        if (bgItem) {
+          await loadWeddingStickerTemplate()
+          await applyNewBackground(bgItem)
+          setTimeout(() => {
+            updateChatPreviewSVG()
+            console.log('✅ Design restored from saved session')
+          }, 500)
+        }
+      }
+    }
+    
+    // Register voice commands after initialization
+    const voiceCommands = createDefaultCommands({
+      onFlip: flipMainImage,
+      onSave: saveCurrentProject,
+      onExport: () => exportWeddingSticker('png'),
+      onNewBackground: () => handleMessageAction({ type: 'regenerate' })
+    })
+    
+    voiceCommands.forEach(cmd => registerCommand(cmd))
+    console.log('✅ Voice commands registered')
+  } catch (e) {
+    console.error('Failed to initialize offline storage:', e)
+  }
+})
+
+async function inlineSvgImagesAsDataUrls(svgEl: SVGSVGElement): Promise<void> {
+  const images = Array.from(svgEl.querySelectorAll('image')) as SVGImageElement[]
+  const toDataUrl = async (href: string): Promise<string | null> => {
+    try {
+      const resp = await fetch(href, { cache: 'no-cache' })
+      if (!resp.ok) return null
+      const blob = await resp.blob()
+      return await new Promise((resolve) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null)
+        reader.onerror = () => resolve(null)
+        reader.readAsDataURL(blob)
+      })
+    } catch {
+      return null
+    }
+  }
+
+  for (const img of images) {
+    const href = (img.getAttribute('href') || img.getAttributeNS('http://www.w3.org/1999/xlink', 'href') || '').trim()
+    if (!href || href.startsWith('data:')) continue
+
+    // Convert blob:/http(s):/relative(/...) URLs to data URLs so they survive reload.
+    // Relative paths should be same-origin and safe to fetch.
+    const dataUrl = await toDataUrl(href)
+    if (!dataUrl) continue
+    img.setAttribute('href', dataUrl)
+    img.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', dataUrl)
+  }
+}
+
 // NOTE: accumulatedDescription, awaiting states, pendingImageFile, uploadedImages,
 // customHeading, selectedHeadingFont, extractedInfo all provided by useWeddingState composable
 
@@ -1478,21 +1756,37 @@ watch(customHeading, (newHeading) => {
   }
 })
 
+// Auto-save chat messages when new messages are added (debounced)
+// Watch length changes only to avoid deep watching every property change
+let chatSaveTimer: ReturnType<typeof setTimeout> | null = null
+watch(() => chatMessages.value.length, () => {
+  if (chatSaveTimer) clearTimeout(chatSaveTimer)
+  chatSaveTimer = setTimeout(() => {
+    saveChatMessagesToStorage()
+  }, 2000) // Save after 2 seconds of no changes
+})
+
 // WEDDING CHAT COMPOSABLE - Forward declaration for title/names/date/courtesy detection
 let weddingChatProcessor: ReturnType<typeof useWeddingChat> | null = null
 
 // NOTE: State provided by useWeddingState; AI utilities from composables
 
+let scrollTimer: ReturnType<typeof setTimeout> | null = null
 const scrollToBottom = () => {
-  if (weddingChatMessagesRef.value?.scrollToBottom) {
-    weddingChatMessagesRef.value.scrollToBottom()
-  } else {
-    nextTick(() => {
-      if (chatHistoryContainer.value) {
-        chatHistoryContainer.value.scrollTop = chatHistoryContainer.value.scrollHeight
-      }
-    })
-  }
+  // Debounce scroll to prevent multiple rapid scrolls (e.g., after multi-image upload)
+  if (scrollTimer) clearTimeout(scrollTimer)
+  scrollTimer = setTimeout(() => {
+    if (weddingChatMessagesRef.value?.scrollToBottom) {
+      weddingChatMessagesRef.value.scrollToBottom()
+    } else {
+      nextTick(() => {
+        if (chatHistoryContainer.value) {
+          chatHistoryContainer.value.scrollTop = chatHistoryContainer.value.scrollHeight
+        }
+      })
+    }
+    scrollTimer = null
+  }, 100) // 100ms debounce
 }
 
 /**
@@ -1765,6 +2059,47 @@ async function analyzeMessage(lastUserMessage: string) {
   addAIMessageWithTyping(responseText2)
 }
 
+function isLikelyGibberishInput(text: string): boolean {
+  const raw = (text || '').trim()
+  if (raw.length < 6) return false
+
+  // If it has spaces, it's more likely a real sentence.
+  if (/\s/.test(raw)) return false
+
+  // Only consider mostly-letter inputs (avoid flagging dates/sizes like "10x12").
+  const letters = raw.match(/[a-z]/gi) || []
+  const nonLetters = raw.match(/[^a-z]/gi) || []
+  if (letters.length === 0) return false
+  if (nonLetters.length / raw.length > 0.25) return false
+
+  const lower = raw.toLowerCase()
+  const vowels = (lower.match(/[aeiou]/g) || []).length
+  const vowelRatio = vowels / Math.max(1, letters.length)
+
+  // Count max consecutive consonants.
+  let maxConsecutiveConsonants = 0
+  let current = 0
+  for (const ch of lower) {
+    if (/[a-z]/.test(ch) && !/[aeiou]/.test(ch)) {
+      current += 1
+      if (current > maxConsecutiveConsonants) maxConsecutiveConsonants = current
+    } else {
+      current = 0
+    }
+  }
+
+  // Detect long repeated characters like "aaaaaa" or "ssssss".
+  const hasLongRepeat = /(.)\1{4,}/.test(lower)
+
+  // Heuristic: very low vowels and long consonant runs.
+  if (hasLongRepeat) return true
+  if (vowels === 0 && letters.length >= 6) return true
+  if (maxConsecutiveConsonants >= 5 && vowelRatio < 0.25) return true
+  if (letters.length >= 10 && vowelRatio < 0.2) return true
+
+  return false
+}
+
 
 async function sendMessage() {
   const text = chatInputText.value.trim()
@@ -1782,6 +2117,15 @@ async function sendMessage() {
 
   chatInputText.value = ''
   scrollToBottom()
+
+  // If the user typed gibberish, ask for clarification instead of processing.
+  if (isLikelyGibberishInput(text)) {
+    isAnalyzing.value = false
+    addAIMessageWithTyping(
+      "I didn’t understand that. Please can you clarify what you mean? For example: your names, wedding date, sticker size, or upload a photo."
+    )
+    return
+  }
 
   isAnalyzing.value = true
   debouncedAnalyzeMessage(text)
@@ -1865,6 +2209,401 @@ function goBack() {
   } else {
     // Navigate to home immediately
     router.push('/home')
+  }
+}
+
+// Navigate to home page directly
+async function goHome() {
+  // Persist the latest design snapshot + thumbnail before leaving.
+  // This ensures the design state is fully saved before navigation.
+  await persistCurrentDesignSnapshot({ forceThumbnail: true })
+  await saveChatMessagesToStorage()
+  router.push('/home')
+}
+
+// Track which message IDs have been saved to prevent duplicates
+const savedMessageIds = new Set<string | number>()
+
+// Save current chat messages to IndexedDB
+async function saveChatMessagesToStorage() {
+  if (!chatMessages.value.length) return
+  
+  try {
+    for (const msg of chatMessages.value) {
+      // Only save if message hasn't been saved yet (check by ID)
+      const msgId = msg.id?.toString() || `${msg.time}-${msg.sender}`
+      if (!savedMessageIds.has(msgId)) {
+        await saveChatMsg(msg.text, msg.sender, {
+          visibleInChat: msg.visibleInChat,
+          voiceRead: msg.voiceRead,
+          skipSpeech: msg.skipSpeech,
+          image: msg.image,
+          type: msg.type
+        })
+        savedMessageIds.add(msgId)
+      }
+    }
+    console.log('✅ Chat messages saved to storage')
+  } catch (e) {
+    console.error('Failed to save chat messages:', e)
+  }
+}
+
+// Load chat messages from IndexedDB for current project
+async function loadChatMessagesFromStorage() {
+  try {
+    // Clear the saved IDs set since we're loading fresh
+    savedMessageIds.clear()
+    
+    const storedMessages = await getProjectChats()
+    if (storedMessages.length > 0) {
+      // Filter to only show visible messages
+      chatMessages.value = storedMessages.map(msg => {
+        const msgId = msg.id?.toString() || `${msg.time}-${msg.sender}`
+        // Mark as already saved
+        savedMessageIds.add(msgId)
+        return {
+          id: msg.id?.toString() || Date.now().toString(),
+          sender: msg.sender,
+          text: msg.text,
+          time: msg.time,
+          visibleInChat: msg.visibleInChat !== false,
+          voiceRead: msg.voiceRead,
+          skipSpeech: msg.skipSpeech,
+          image: msg.image,
+          type: msg.type
+        }
+      })
+      console.log('✅ Loaded', storedMessages.length, 'chat messages from storage')
+    }
+  } catch (e) {
+    console.error('Failed to load chat messages:', e)
+  }
+}
+
+// ========================================
+// SIDEBAR HANDLERS
+// ========================================
+
+/**
+ * Handle selecting a project from the sidebar
+ */
+async function handleSelectProject(projectId: string) {
+  // Save current chat messages first
+  await saveChatMessagesToStorage()
+  
+  // Persist current design snapshot before switching projects
+  await persistCurrentDesignSnapshot({ forceThumbnail: true })
+  
+  // Clear current chat messages and saved IDs before loading new project
+  chatMessages.value = []
+  savedMessageIds.clear()
+  
+  // Reset wedding state completely before loading new project
+  // This prevents old design from bleeding into the new project
+  showWeddingStickerPreview.value = false
+  hasDesignBeenGenerated.value = false
+  if (weddingPreviewContainer.value) {
+    weddingPreviewContainer.value.innerHTML = ''
+  }
+  svgImageManager.clearAllImages()
+  
+  // Load the selected project
+  await loadProject(projectId)
+  
+  // If project has saved state, restore it
+  if (currentProject.value) {
+    // Restore extracted info
+    if (currentProject.value.extractedInfo) {
+      extractedInfo.value = {
+        ...extractedInfo.value,
+        ...currentProject.value.extractedInfo,
+        names: {
+          ...extractedInfo.value.names,
+          ...(currentProject.value.extractedInfo.names || {})
+        }
+      }
+    }
+    
+    // Load chat messages for this project
+    await loadChatMessagesFromStorage()
+
+    // Restore the last generated SVG (if saved)
+    await restoreDesignFromSavedProject()
+    
+    console.log('✅ Project restored:', currentProject.value.name)
+  }
+}
+
+/**
+ * Handle creating a new project
+ */
+async function handleCreateProject() {
+  // Save current chat messages first
+  await saveChatMessagesToStorage()
+  
+  // Persist current design snapshot before creating a new project
+  await persistCurrentDesignSnapshot({ forceThumbnail: true })
+  
+  // Clear saved message IDs for new project
+  savedMessageIds.clear()
+  
+  // Create new project
+  await createProject()
+  
+  // Reset wedding state for clean start (this also clears chatMessages)
+  resetWeddingState()
+  
+  console.log('✅ New project created')
+}
+
+/**
+ * Handle renaming a project
+ */
+async function handleRenameProject(projectId: string, newName: string) {
+  if (currentProject.value?.id === projectId) {
+    await renameProject(newName)
+  }
+}
+
+/**
+ * Handle duplicating a project
+ */
+async function handleDuplicateProject(projectId: string) {
+  await copyProject(projectId)
+}
+
+/**
+ * Handle deleting a project
+ */
+async function handleDeleteProject(projectId: string) {
+  await removeProject(projectId)
+}
+
+/**
+ * Handle opening settings - navigate to settings page
+ */
+function handleOpenSettings() {
+  router.push('/settings')
+}
+
+/**
+ * Trigger auto-save when project state changes
+ */
+function triggerProjectAutoSave() {
+  if (!currentProject.value) return
+  
+  // Update project with current state
+  updateProject({
+    backgroundFileName: currentBackgroundFileName.value || null,
+    description: (formData.description || accumulatedDescription.value || null) as any,
+    extractedInfo: extractedInfo.value
+  })
+  
+  // Generate thumbnail (debounced)
+  generateThumbnailDebounced()
+}
+
+function getChatPreviewSvgElement(): SVGSVGElement | null {
+  const previewContainer = Array.isArray(chatPreviewContainer.value)
+    ? chatPreviewContainer.value[0]
+    : chatPreviewContainer.value
+  if (!previewContainer) return null
+  return previewContainer.querySelector('svg') as SVGSVGElement | null
+}
+
+function serializeSvg(svgEl: SVGSVGElement): string {
+  const serializer = new XMLSerializer()
+  return serializer.serializeToString(svgEl)
+}
+
+async function persistCurrentDesignSnapshot(options: { forceThumbnail?: boolean } = {}) {
+  if (!currentProject.value) return
+
+  const hadSavedSvgBefore = !!currentProject.value.svgContent
+
+  try {
+    // Prefer the full "master" SVG (export container). Fall back to the chat preview SVG.
+    const masterSvg = weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement | null
+    const svgEl = masterSvg || getChatPreviewSvgElement()
+    let svgContent: string | null = null
+    if (svgEl) {
+      const cloned = svgEl.cloneNode(true) as SVGSVGElement
+      await inlineSvgImagesAsDataUrls(cloned)
+      svgContent = serializeSvg(cloned)
+    }
+
+    updateProject({
+      svgContent,
+      backgroundFileName: currentBackgroundFileName.value || null,
+      description: (formData.description || accumulatedDescription.value || null) as any,
+      extractedInfo: extractedInfo.value
+    })
+
+    // Save immediately (don’t rely only on debounced autosave when navigating).
+    await saveCurrentProject()
+
+    if (options.forceThumbnail) {
+      // Overwrite only on the FIRST saved generation. After that, keep the first generated thumbnail.
+      await generateThumbnail({ overwrite: !hadSavedSvgBefore })
+    } else {
+      generateThumbnailDebounced()
+    }
+  } catch (e) {
+    console.warn('Failed to persist design snapshot:', e)
+  }
+}
+
+async function restoreDesignFromSavedProject(): Promise<boolean> {
+  const project = currentProject.value
+  if (!project?.svgContent) return false
+
+  try {
+    showWeddingStickerPreview.value = true
+    hasDesignBeenGenerated.value = true
+
+    if (project.backgroundFileName) {
+      currentBackgroundFileName.value = project.backgroundFileName
+    }
+
+    // Wait for containers to exist.
+    await nextTick()
+    await nextTick()
+
+    if (weddingPreviewContainer.value) {
+      weddingPreviewContainer.value.innerHTML = project.svgContent
+    }
+
+    await nextTick()
+    updateChatPreviewSVG()
+    
+    // Wait longer and retry to ensure chat preview container is fully rendered
+    // This is needed because the chat messages need time to render the preview placeholder
+    await new Promise(resolve => setTimeout(resolve, 300))
+    await nextTick()
+    updateChatPreviewSVG()
+    
+    // One more retry after a longer delay to ensure handlers are attached
+    await new Promise(resolve => setTimeout(resolve, 500))
+    await nextTick()
+    updateChatPreviewSVG()
+    
+    return true
+  } catch (e) {
+    console.warn('Failed to restore design from saved project:', e)
+    return false
+  }
+}
+
+// Thumbnail generation timer
+let thumbnailTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * Generate a thumbnail from the current preview (debounced)
+ */
+const generateThumbnailDebounced = () => {
+  if (thumbnailTimer) {
+    clearTimeout(thumbnailTimer)
+  }
+  
+  thumbnailTimer = setTimeout(() => {
+    generateThumbnail()
+  }, 2000) // Wait 2 seconds after last change
+}
+
+/**
+ * Generate thumbnail from the chat preview SVG
+ * Enhanced to properly capture background images
+ */
+async function generateThumbnail(options: { overwrite?: boolean } = {}) {
+  if (!currentProject.value) return
+  
+  try {
+    // Prefer the master SVG so thumbnails work even if the chat preview hasn't mounted yet.
+    const svgElement = (weddingPreviewContainer.value?.querySelector('svg') as SVGSVGElement | null)
+      || (getChatPreviewSvgElement() as SVGSVGElement | null)
+    if (!svgElement) return
+    
+    // Clone SVG for thumbnail
+    const clonedSvg = svgElement.cloneNode(true) as SVGSVGElement
+    
+    // Set smaller size for thumbnail
+    const thumbnailSize = 200
+    clonedSvg.setAttribute('width', String(thumbnailSize))
+    clonedSvg.setAttribute('height', String(thumbnailSize))
+    
+    // Convert external images to data URLs for proper rendering
+    const images = clonedSvg.querySelectorAll('image')
+    await Promise.all(Array.from(images).map(async (img) => {
+      const href = img.getAttribute('href') || img.getAttributeNS('http://www.w3.org/1999/xlink', 'href')
+      if (href && !href.startsWith('data:')) {
+        try {
+          const response = await fetch(href, { mode: 'cors' })
+          const blob = await response.blob()
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader()
+            reader.onloadend = () => resolve(reader.result as string)
+            reader.readAsDataURL(blob)
+          })
+          img.setAttribute('href', dataUrl)
+          img.removeAttributeNS('http://www.w3.org/1999/xlink', 'href')
+        } catch {
+          // If fetch fails, keep original - thumbnail may not show background
+        }
+      }
+    }))
+    
+    // Serialize to string
+    const serializer = new XMLSerializer()
+    const svgString = serializer.serializeToString(clonedSvg)
+    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(svgBlob)
+    
+    // Draw to canvas
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = async () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = thumbnailSize
+      canvas.height = thumbnailSize
+      
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        URL.revokeObjectURL(url)
+        return
+      }
+      
+      // White background
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, thumbnailSize, thumbnailSize)
+      
+      // Draw image
+      ctx.drawImage(img, 0, 0, thumbnailSize, thumbnailSize)
+      
+      // Get data URL (low quality for small file size). If canvas export fails
+      // (can happen with certain embedded images), fall back to SVG data URL.
+      let thumbnailDataUrl: string
+      try {
+        thumbnailDataUrl = canvas.toDataURL('image/jpeg', 0.6)
+      } catch {
+        thumbnailDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`
+      }
+      
+      // Update project thumbnail
+      await updateThumbnail(thumbnailDataUrl, { overwrite: options.overwrite === true })
+      
+      // Cleanup
+      URL.revokeObjectURL(url)
+      console.log('📸 Thumbnail generated')
+    }
+    
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+    }
+    
+    img.src = url
+  } catch (e) {
+    console.warn('Failed to generate thumbnail:', e)
   }
 }
 
@@ -2233,15 +2972,21 @@ _updateSVGWithImages = updateSVGWithImages
 
 // Export wedding sticker - using extracted utility
 async function exportWeddingSticker(format: 'svg' | 'png') {
-  const ctx: ExportContext = {
-    weddingPreviewContainer,
-    svgImageManager,
-    exportSVG,
-    validateForExport,
-    PRINT_DPI,
-    showNotification: (opts) => authStore.showNotification(opts)
+  isExporting.value = true
+  
+  try {
+    const ctx: ExportContext = {
+      weddingPreviewContainer,
+      svgImageManager,
+      exportSVG,
+      validateForExport,
+      PRINT_DPI,
+      showNotification: (opts) => authStore.showNotification(opts)
+    }
+    await exportWeddingStickerUtil(format, ctx)
+  } finally {
+    isExporting.value = false
   }
-  await exportWeddingStickerUtil(format, ctx)
 }
 
 // Watch for category changes to load wedding template
@@ -2249,6 +2994,11 @@ watch(selectedCategory, async (newCategory) => {
   if (newCategory === 'wedding') {
     // Load wedding template
     await nextTick()
+    // If we already have a saved SVG snapshot (or we're already showing the preview),
+    // don't overwrite it with the base template on reload.
+    if (currentProject.value?.svgContent || showWeddingStickerPreview.value || hasDesignBeenGenerated.value) {
+      return
+    }
     await loadWeddingStickerTemplate()
   }
 })
@@ -2331,9 +3081,9 @@ async function addPreGenerationExtrasToPreview(): Promise<void> {
     if (autoRemoveBackground.value && isBackgroundRemovalSupported()) {
       try {
         const result = await removeBackground(fileToProcess, {
-          quality: 'high',
+          quality: isLowMemoryMode.value ? 'medium' : 'high',
           outputFormat: 'image/png',
-          maxDimensions: 2048
+          maxDimensions: getLowMemoryMaxDimension()
         })
         fileToProcess = new File([result.blob], fileToProcess.name.replace(/\.[^/.]+$/, '.png'), {
           type: 'image/png',
@@ -2410,13 +3160,7 @@ async function handleModalFileSelect(event: Event) {
           // Normal flow (before generation)
           // Ask user about background removal
           awaitingBackgroundRemovalDecision.value = true
-          chatMessages.value.push({
-            id: Date.now(),
-            text: "Great! Picture received! Would you like me to remove the background? Say 'yes' or 'no'!",
-            sender: 'ai',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          })
-          scrollToBottom()
+          addAIMessageWithTyping("Great! Picture received! Would you like me to remove the background? Say 'yes' or 'no'!")
         }
       }, 500)
 
@@ -2502,6 +3246,8 @@ onMounted(() => {
   nextTick(() => {
     loadWeddingStickerTemplate()
   })
+
+  // Content protection is now handled by useContentProtection composable
 })
 
 // Cleanup on unmount to prevent memory leaks and improve navigation speed
@@ -2512,6 +3258,23 @@ onBeforeUnmount(() => {
   
   // Clear generating messages interval
   stopGeneratingMessages()
+  
+  // Clear chat save timer
+  if (chatSaveTimer) {
+    clearTimeout(chatSaveTimer)
+    chatSaveTimer = null
+  }
+  
+  // Clear scroll timer to prevent memory leak
+  if (scrollTimer) {
+    clearTimeout(scrollTimer)
+    scrollTimer = null
+  }
+  
+  // Save chat messages before unmount
+  saveChatMessagesToStorage()
+  
+  // Content protection cleanup is handled automatically by useContentProtection composable
   
   // Revoke any object URLs
   if (preGeneratedImagePreview.value) {

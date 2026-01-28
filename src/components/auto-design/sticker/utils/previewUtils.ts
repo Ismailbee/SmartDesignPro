@@ -8,6 +8,7 @@
 import { nextTick, type Ref, type ComputedRef } from 'vue'
 import type { ChatMessage, ExtractedInfo } from '../types'
 import type { BackgroundItem } from '@/services/background/background.types'
+import { addAIMessageWithTypingUtil } from './chatUtils'
 
 // Re-export for backward compatibility
 export type { ChatMessage, ExtractedInfo }
@@ -131,13 +132,11 @@ export function promptForWeddingSize(
   awaitingSizeDecision.value = true
   isAnalyzing.value = false
 
-  chatMessages.value.push({
-    id: Date.now(),
-    text: "What size would you like the sticker? (e.g., '3x3' or type 'default' for 4x4 inches)",
-    sender: 'ai',
-    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  })
-  scrollToBottom()
+  addAIMessageWithTypingUtil(
+    "What size would you like the sticker? (e.g., '3x3' or type 'default' for 4x4 inches)",
+    chatMessages,
+    scrollToBottom
+  )
 }
 
 /**
@@ -199,16 +198,16 @@ export async function generateWeddingPreviewUtil(ctx: GenerationContext): Promis
       message: 'Please login or create an account to generate designs.',
       type: 'info'
     })
-    ctx.chatMessages.value.push({
-      id: Date.now(),
-      text: "Hold on!\n\nYou need to login or create a free account to generate your design.\n\nWhy sign up?\n💎 Get 100 FREE tokens instantly!\n💾 Save and download your designs\n🎨 Access premium features",
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      actions: [
-        { type: 'login', label: 'Login to Continue', variant: 'primary' }
-      ]
-    })
-    ctx.scrollToBottom()
+    addAIMessageWithTypingUtil(
+      "Hold on!\n\nYou need to login or create a free account to generate your design.\n\nWhy sign up?\n💎 Get 100 FREE tokens instantly!\n💾 Save and download your designs\n🎨 Access premium features",
+      ctx.chatMessages,
+      ctx.scrollToBottom,
+      {
+        actions: [
+          { type: 'login', label: 'Login to Continue', variant: 'primary' }
+        ]
+      }
+    )
     return
   }
 
@@ -216,13 +215,11 @@ export async function generateWeddingPreviewUtil(ctx: GenerationContext): Promis
   const resolvedDescription = (ctx.formData.description || '').trim() || (ctx.accumulatedDescription.value || '').trim()
 
   if (!resolvedDescription) {
-    ctx.chatMessages.value.push({
-      id: Date.now(),
-      text: "Please provide your details first.\n\nExample:\n(John & Mary) 8th March 2025 courtesy: Smith family",
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-    ctx.scrollToBottom()
+    addAIMessageWithTypingUtil(
+      "Please provide your details first.\n\nExample:\n(John & Mary) 8th March 2025 courtesy: Smith family",
+      ctx.chatMessages,
+      ctx.scrollToBottom
+    )
     return
   }
 
@@ -424,7 +421,7 @@ export async function generateWeddingPreviewUtil(ctx: GenerationContext): Promis
     ctx.isDescriptionVisible.value = false
     ctx.showWeddingStickerPreview.value = true
 
-    // Add preview message
+    // Add preview message (instant, no typing for preview type)
     ctx.chatMessages.value.push({
       id: Date.now(),
       text: '',
@@ -433,12 +430,12 @@ export async function generateWeddingPreviewUtil(ctx: GenerationContext): Promis
       type: 'preview'
     })
 
-    ctx.chatMessages.value.push({
-      id: Date.now() + 1,
-      text: "Your design is ready! Looking great! 🎉\n\n💡 **Tip:** You can drag the image to reposition it. Click 'Edit' for more options!",
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
+    // Add success message with typing animation
+    await addAIMessageWithTypingUtil(
+      "Your design is ready! Looking great! You can drag the image to reposition it.",
+      ctx.chatMessages,
+      ctx.scrollToBottom
+    )
 
     await nextTick()
     await nextTick()
@@ -503,14 +500,11 @@ export async function handleGenerateMoreUtil(
     updateChatPreviewSVG()
     isGeneratingPreview.value = false
 
-    chatMessages.value.push({
-      id: Date.now() + 1,
-      text: "Here's a new design variation! 🎨 Like this one better?",
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
-
-    scrollToBottom()
+    addAIMessageWithTypingUtil(
+      "Here's a new design variation! 🎨 Like this one better?",
+      chatMessages,
+      scrollToBottom
+    )
   } else {
     isGeneratingPreview.value = false
   }
@@ -587,12 +581,11 @@ export async function handleGenerateNewUtil(
       }
     }
 
-    chatMessages.value.push({
-      id: Date.now(),
-      text: "Your design has been updated with a fresh new look! ✨🎨",
-      sender: 'ai',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
+    await addAIMessageWithTypingUtil(
+      "Your design has been updated with a fresh new look! ✨🎨",
+      chatMessages,
+      scrollToBottom
+    )
 
     isGeneratingPreview.value = false
   } else {

@@ -37,11 +37,32 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Activate new service worker as soon as it's installed.
+        // This reduces the chance of clients staying on an old bundle after redeploy.
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
+        // Don't cache index.html - always fetch fresh
+        navigateFallback: null,
+        // Exclude HTML and SW from precache to ensure fresh fetches
+        globIgnores: ['**/index.html'],
         // Default is 2 MiB; our ONNX runtime WASM binaries are much larger.
         // Without this, `vite build` fails during SW generation.
         maximumFileSizeToCacheInBytes: 40 * 1024 * 1024,
         // Cache remote images (e.g., CloudFront/S3 backgrounds) for offline.
         runtimeCaching: [
+          // Network-first for HTML pages to always get latest
+          {
+            urlPattern: /\.html$/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'html-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60, // 1 hour
+              },
+            },
+          },
           {
             urlPattern: ({ request, url }) => {
               if (request.destination !== 'image') return false

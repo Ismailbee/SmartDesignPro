@@ -8,6 +8,7 @@ import './styles/theme.css'
 import './styles/wedding-fonts.css'
 import App from './App.vue'
 import { useThemeStore } from './stores/theme'
+import { registerPWA } from './pwa'
 
 // Font Awesome
 import { library } from '@fortawesome/fontawesome-svg-core'
@@ -135,6 +136,13 @@ async function bootstrap() {
   try {
     app.mount('#app')
     console.log('✅ Vue app mounted successfully')
+
+    // Register PWA service worker (prod only; dev unregisters & skips)
+    try {
+      registerPWA()
+    } catch (e) {
+      console.warn('PWA registration failed:', e)
+    }
   } catch (err) {
     console.error('❌ Failed to mount Vue app:', err)
     const appDiv = document.getElementById('app')

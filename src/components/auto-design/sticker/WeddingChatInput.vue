@@ -26,15 +26,16 @@
         </Transition>
       </div>
 
-      <!-- Input -->
-      <input
+      <!-- Input - Textarea for multiline support -->
+      <textarea
         ref="inputRef"
         v-model="inputText"
-        @keydown.enter.prevent="handleSend"
-        type="text"
+        @keydown.enter.exact.prevent="handleSend"
+        @input="autoResize"
         :placeholder="placeholder"
         class="text-input"
-      />
+        rows="1"
+      ></textarea>
 
       <!-- Voice -->
       <button 
@@ -79,7 +80,7 @@ const emit = defineEmits<{
 }>()
 
 // Refs
-const inputRef = ref<HTMLInputElement | null>(null)
+const inputRef = ref<HTMLTextAreaElement | null>(null)
 const inputText = ref(props.modelValue)
 const showUploadMenu = ref(false)
 let speechRecognition: any = null
@@ -97,6 +98,21 @@ const placeholder = computed(() => {
   if (props.showPreview) return 'Make changes to your design...'
   return 'Describe your wedding sticker...'
 })
+
+// Auto-resize textarea as user types
+function autoResize() {
+  if (inputRef.value) {
+    inputRef.value.style.height = 'auto'
+    inputRef.value.style.height = Math.min(inputRef.value.scrollHeight, 120) + 'px'
+  }
+}
+
+// Reset textarea height after sending
+function resetTextareaHeight() {
+  if (inputRef.value) {
+    inputRef.value.style.height = 'auto'
+  }
+}
 
 // Start Voice
 function startVoice() {
@@ -168,6 +184,7 @@ function handleSend() {
   if (!canSend.value) return
   emit('send')
   inputText.value = ''
+  resetTextareaHeight()
 }
 
 // Upload
@@ -213,12 +230,12 @@ defineExpose({ focus: () => inputRef.value?.focus(), voiceInput })
 
 .input-container {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
   padding: 8px 12px;
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
-  border-radius: 28px;
+  border-radius: 20px;
 }
 
 .input-container:focus-within { border-color: var(--color-primary); }
@@ -279,6 +296,19 @@ defineExpose({ focus: () => inputRef.value?.focus(), voiceInput })
   font-size: 1rem;
   color: var(--text-primary);
   min-width: 0;
+  resize: none;
+  max-height: 120px;
+  line-height: 1.4;
+  font-family: inherit;
+  overflow-y: auto;
+  
+  /* Hide scrollbar */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.text-input::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 .text-input::placeholder { color: var(--text-tertiary); }

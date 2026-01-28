@@ -5,6 +5,7 @@
  */
 
 import type { Ref } from 'vue'
+import { addAIMessageWithTypingUtil } from './chatUtils'
 
 // Type for SVG Image Manager (matches useSVGImageManager)
 interface SVGImageManager {
@@ -309,7 +310,7 @@ export function handlePreGenerationCropUtil(
     uploadedImages.value[uploadIndex].used = true
   }
 
-  // Add cropped image message to chat
+  // Add cropped image message to chat (user message - no typing animation)
   chatMessages.value.push({
     id: Date.now(),
     text: 'Image cropped',
@@ -336,44 +337,37 @@ export function handlePreGenerationCropUtil(
       const hasSize = sizeStepComplete.value || extractedInfo.value.size
       
       if (hasAllInfo && hasSize) {
-        chatMessages.value.push({
-          id: Date.now(),
-          text: "Perfect! Your image is ready! Let me create your sticker now! 🎨",
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        addAIMessageWithTypingUtil(
+          "Perfect! Your image is ready! Let me create your sticker now! 🎨",
+          chatMessages,
+          scrollToBottom
+        ).then(() => {
+          formData.description = accumulatedDescription.value
+          setTimeout(() => generateWeddingPreviewFn(), 300)
         })
-        scrollToBottom()
-        formData.description = accumulatedDescription.value
-        setTimeout(() => generateWeddingPreviewFn(), 300)
       } else if (hasAllInfo && !sizeStepComplete.value) {
-        chatMessages.value.push({
-          id: Date.now(),
-          text: "Perfect! Your image is ready! 📸\n\nWhat size would you like the sticker? (e.g., '3x3' or 'default' for 4x4 inches)",
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        })
+        addAIMessageWithTypingUtil(
+          "Perfect! Your image is ready! 📸\n\nWhat size would you like the sticker? (e.g., '3x3' or 'default' for 4x4 inches)",
+          chatMessages,
+          scrollToBottom
+        )
         awaitingSizeDecision.value = true
-        scrollToBottom()
       } else {
-        chatMessages.value.push({
-          id: Date.now(),
-          text: "Perfect! Your image is ready! 📸\n\n💡 **Tip:** You can drag the image to reposition it after the design is generated!",
-          sender: 'ai',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        })
-        scrollToBottom()
+        addAIMessageWithTypingUtil(
+          "Perfect! Your image is ready! 📸\n\n💡 **Tip:** You can drag the image to reposition it after the design is generated!",
+          chatMessages,
+          scrollToBottom
+        )
       }
     }, 300)
   } else {
     pendingImageFile.value = croppedFile
     setTimeout(() => {
-      chatMessages.value.push({
-        id: Date.now(),
-        text: "Nice crop! Would you like me to remove the background from this image? Say 'yes' or 'no'.",
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      })
-      scrollToBottom()
+      addAIMessageWithTypingUtil(
+        "Nice crop! Would you like me to remove the background from this image? Say 'yes' or 'no'.",
+        chatMessages,
+        scrollToBottom
+      )
       awaitingBackgroundRemovalDecision.value = true
     }, 500)
   }

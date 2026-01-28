@@ -272,3 +272,44 @@ export {
   type UseUploadChatFlowDeps,
   type UseUploadChatFlowReturn,
 } from './useUploadChatFlow'
+
+// Auto-save indicator
+export {
+  useAutoSave,
+  type AutoSaveOptions,
+} from './useAutoSave'
+
+// Image actions (flip, swap, drag modes)
+export {
+  useImageActions,
+  type ImageActionsOptions,
+} from './useImageActions'
+
+// Content protection (prevent context menu on images)
+export {
+  useContentProtection,
+  type ContentProtectionOptions,
+} from './useContentProtection'
+
+// Offline storage (IndexedDB)
+export {
+  useOfflineStorage,
+  type UseOfflineStorageOptions,
+  type UseOfflineStorageReturn,
+} from './useOfflineStorage'
+
+// Orientation handler
+export {
+  useOrientationHandler,
+  type Orientation,
+  type UseOrientationHandlerOptions,
+  type UseOrientationHandlerReturn,
+} from './useOrientationHandler'
+
+// Voice control
+export {
+  useVoiceControl,
+  type VoiceCommand,
+  type UseVoiceControlOptions,
+  type UseVoiceControlReturn,
+} from './useVoiceControl'

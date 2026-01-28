@@ -1,7 +1,43 @@
 <template>
-  <div class="chat-container" ref="chatContainer">
+  <div class="chat-wrapper">
+    <!-- Chat Header with Controls - Fixed at top -->
+    <div class="chat-header">
+      <button @click="$emit('toggle-sidebar')" class="header-btn menu-btn" title="Projects">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      
+      <span class="header-title">Wedding Sticker</span>
+      
+      <div class="header-actions">
+        <button 
+          @click="$emit('toggle-voice')" 
+          class="header-btn" 
+          :class="{ 'active': isVoiceEnabled }"
+          :title="isVoiceEnabled ? 'Voice On' : 'Voice Off'"
+        >
+          <svg v-if="isVoiceEnabled" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+          </svg>
+          <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+            <path d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+          </svg>
+        </button>
+        
+        <button @click="$emit('home')" class="header-btn home-btn" title="Go Home">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+        </button>
+      </div>
+    </div>
+    
+    <!-- Scrollable Chat Container -->
+    <div class="chat-container" ref="chatContainer">
     <!-- Welcome Screen -->
-    <div v-if="messages.length === 0 && !isGeneratingPreview" class="welcome-screen">
+    <div v-if="visibleMessages.length === 0 && !isGeneratingPreview" class="welcome-screen">
       <div class="welcome-icon">💍</div>
       <h2 class="welcome-title">Wedding Sticker Designer</h2>
       <p class="welcome-subtitle" v-if="isAuthenticated">
@@ -44,10 +80,10 @@
       </div>
     </div>
 
-    <!-- Messages List -->
+    <!-- Messages List (filtered to hide voice-only messages) -->
     <TransitionGroup v-else name="message" tag="div" class="messages-list">
       <div 
-        v-for="msg in messages" 
+        v-for="msg in visibleMessages" 
         :key="msg.id" 
         class="message"
         :class="[msg.sender, { 'with-preview': msg.type === 'preview' }]"
@@ -88,12 +124,12 @@
                   </svg>
                   Download
                 </button>
-                <button @click="$emit('action', { type: 'regenerate' })" class="preview-btn regenerate" title="Try a different background">
+                <button @click="$emit('action', { type: 'regenerate' })" class="preview-btn regenerate" title="Regenerate with new background">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="23 4 23 10 17 10"/>
                     <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
                   </svg>
-                  New BG
+                  Regenerate
                 </button>
               </div>
             </div>
@@ -140,11 +176,12 @@
       <div class="simple-spinner"></div>
       <p class="generating-text">{{ generatingMessage || 'Creating your design...' }}</p>
     </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
 import type { ChatMessage } from './types'
 
 // Props
@@ -156,6 +193,7 @@ const props = defineProps<{
   userName?: string
   tokens: number
   generatingMessage?: string
+  isVoiceEnabled?: boolean
 }>()
 
 // Emits
@@ -163,7 +201,15 @@ defineEmits<{
   (e: 'login'): void
   (e: 'action', action: { type: string; label?: string }): void
   (e: 'suggestion', text: string): void
+  (e: 'home'): void
+  (e: 'toggle-sidebar'): void
+  (e: 'toggle-voice'): void
 }>()
+
+// Filter messages to only show visible ones (hide voice-only messages)
+const visibleMessages = computed(() => 
+  props.messages.filter(msg => msg.visibleInChat !== false)
+)
 
 // Refs
 const chatContainer = ref<HTMLDivElement | null>(null)
@@ -240,6 +286,107 @@ defineExpose({
 </script>
 
 <style scoped>
+/* Chat Header - Modern Glassmorphism */
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.95) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin: -20px -20px 16px -20px;
+  box-shadow: 0 2px 20px rgba(0,0,0,0.04);
+}
+
+.header-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #64748b;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.header-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+.header-btn:hover {
+  background: #f8fafc;
+  color: #334155;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.header-btn.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: transparent;
+}
+
+.home-btn {
+  background: linear-gradient(135deg, #10b98120 0%, #059e6d20 100%);
+  border-color: #10b98140;
+}
+
+.home-btn:hover {
+  background: linear-gradient(135deg, #10b98140 0%, #059e6d40 100%);
+}
+
+.menu-btn {
+  background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+  border-color: #667eea40;
+}
+
+.menu-btn:hover {
+  background: linear-gradient(135deg, #667eea40 0%, #764ba240 100%);
+}
+
+.header-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Chat Wrapper - Full height flex container */
+.chat-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Chat Header - Fixed at top */
+.chat-header {
+  flex-shrink: 0;
+  position: relative;
+  margin: 0;
+}
+
 .chat-container {
   flex: 1;
   min-height: 0;
@@ -261,7 +408,7 @@ defineExpose({
   margin-bottom: 8px;
 }
 
-/* Welcome Screen */
+/* Welcome Screen - Premium Look */
 .welcome-screen {
   flex: 1;
   display: flex;
@@ -270,31 +417,37 @@ defineExpose({
   justify-content: center;
   text-align: center;
   padding: 40px 20px;
+  background: linear-gradient(180deg, transparent 0%, rgba(102, 126, 234, 0.03) 100%);
 }
 
 .welcome-icon {
-  font-size: 64px;
-  margin-bottom: 16px;
-  animation: bounce 2s ease-in-out infinite;
+  font-size: 72px;
+  margin-bottom: 20px;
+  animation: floatBounce 3s ease-in-out infinite;
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,0.1));
 }
 
-@keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+@keyframes floatBounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-12px) scale(1.05); }
 }
 
 .welcome-title {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--text-primary);
+  font-size: 1.85rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   margin-bottom: 12px;
+  letter-spacing: -0.5px;
 }
 
 .welcome-subtitle {
   font-size: 1rem;
-  color: var(--text-secondary);
-  line-height: 1.6;
-  max-width: 320px;
+  color: #64748b;
+  line-height: 1.7;
+  max-width: 340px;
 }
 
 .login-hint {
@@ -326,28 +479,28 @@ defineExpose({
 .token-badge {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   margin-top: 20px;
-  padding: 10px 20px;
-  background-color: #3b82f6c4;
-  border-radius: 20px;
-  font-weight: 500;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 25px;
+  font-weight: 600;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
 }
 
 .token-icon {
-  font-size: 1.2rem;
+  font-size: 1.3rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 
 .token-count {
   font-weight: 700;
-  background: linear-gradient(90deg, #06b6d4 0%, #3b82f6 50%, #06b6d4 100%);
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: gradientWipe 3s linear infinite;
+  font-size: 1rem;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  letter-spacing: 0.5px;
 }
 
 @keyframes gradientWipe {
@@ -395,23 +548,26 @@ defineExpose({
 }
 
 .suggestion-chip:hover {
-  background: var(--color-primary);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  border-color: var(--color-primary);
+  border-color: transparent;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
-/* Messages */
+/* Messages - Premium */
 .messages-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
+  padding-bottom: 20px;
 }
 
 .message {
   display: flex;
   gap: 12px;
   max-width: 85%;
-  animation: slideIn 0.3s ease;
+  animation: messageSlide 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Allow preview messages to be wider */
@@ -419,14 +575,14 @@ defineExpose({
   max-width: 95%;
 }
 
-@keyframes slideIn {
+@keyframes messageSlide {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(15px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -440,21 +596,27 @@ defineExpose({
 }
 
 .message-avatar {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
-  background: var(--bg-tertiary);
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 2px solid white;
+}
+
+.message.ai .message-avatar {
+  background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
 }
 
 .message-content {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .message.user .message-content {
@@ -462,29 +624,32 @@ defineExpose({
 }
 
 .message-text {
-  padding: 12px 16px;
-  border-radius: 18px;
+  padding: 14px 18px;
+  border-radius: 20px;
   font-size: 0.95rem;
-  line-height: 1.5;
+  line-height: 1.6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .message.user .message-text {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  border-bottom-right-radius: 4px;
+  border-bottom-right-radius: 6px;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.25);
 }
 
 .message.ai .message-text {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-primary);
-  border-bottom-left-radius: 4px;
+  background: white;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  border-bottom-left-radius: 6px;
 }
 
 .message-time {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-  padding: 0 4px;
+  font-size: 0.7rem;
+  color: #94a3b8;
+  padding: 0 6px;
+  font-weight: 500;
 }
 
 /* Loading Dots */
@@ -530,6 +695,14 @@ defineExpose({
   padding: 12px;
   border-top: 1px solid var(--border-primary);
   background: var(--bg-secondary);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.preview-actions::-webkit-scrollbar {
+  display: none;
 }
 
 .preview-btn {
@@ -543,6 +716,8 @@ defineExpose({
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .preview-btn.edit {
@@ -698,8 +873,8 @@ defineExpose({
   .preview-actions {
     padding: 10px;
     gap: 6px;
-    flex-wrap: wrap;
-    justify-content: center;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
   }
   
   .preview-btn {

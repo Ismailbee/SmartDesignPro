@@ -13,19 +13,8 @@
     </div>
     
     <!-- Show Sticker Template Panel if category is sticker -->
-    <Suspense v-else-if="selectedCategory === 'sticker'">
-      <template #default>
-        <StickerTemplatePanel @celebrate="triggerCelebration" />
-      </template>
-      <template #fallback>
-        <div class="flex items-center justify-center min-h-screen">
-          <div class="text-center">
-            <div class="w-16 h-16 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"></div>
-            <p class="text-gray-600 text-lg">Loading designer...</p>
-          </div>
-        </div>
-      </template>
-    </Suspense>
+    <!-- Removed Suspense fallback to prevent double loading spinners - isInitialLoading handles the initial state -->
+    <StickerTemplatePanel v-else-if="selectedCategory === 'sticker'" @celebrate="triggerCelebration" />
 
     <!-- NamingPanel removed - wedding-only mode -->
 
@@ -589,13 +578,13 @@ const showSizePopup = ref(false)
 // Initial loading state - shows immediately on mount then fades out
 const isInitialLoading = ref(true)
 
-// Hide initial loading after a brief moment to allow DOM to settle
+// Hide initial loading after components have time to mount
 onMounted(() => {
   // Use requestAnimationFrame to ensure UI has rendered
   requestAnimationFrame(() => {
     setTimeout(() => {
       isInitialLoading.value = false
-    }, 100)
+    }, 300) // Increased delay to ensure StickerTemplatePanel has mounted
   })
 })
 
