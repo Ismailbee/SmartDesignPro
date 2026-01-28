@@ -28,6 +28,7 @@ export interface LetterHeadData {
   primaryBrandColor?: string
   backgroundId?: string | number // Add background support
   includeOptionalFields?: boolean // Control whether to show Our Ref, Your Ref, Date
+  selectedOrgFont?: string // Font for organization name
   referenceFields?: {
     ref?: string
     date?: string
@@ -358,15 +359,19 @@ function applyBackgroundToSvg(mainSvg: Document, backgroundSvgContent: string): 
 function isFieldSkipped(value: string | string[] | undefined): boolean {
   if (!value) return true
   
-  // Handle array (for phones)
+  // Handle array (for phones and emails)
   if (Array.isArray(value)) {
     if (value.length === 0) return true
-    // Check if all phone entries are skipped
-    return value.every(v => isFieldSkipped(v))
+    // Filter out empty strings and check if there are any valid entries
+    const nonEmptyValues = value.filter(v => v && v.trim() !== '')
+    if (nonEmptyValues.length === 0) return true
+    // Check if all entries are skipped
+    return nonEmptyValues.every(v => isFieldSkipped(v))
   }
   
   // Handle string
   const normalized = value.toLowerCase().trim()
+  if (normalized === '') return true
   const skipPatterns = [
     'n/a',
     'no',
@@ -463,6 +468,12 @@ export async function renderLetterHead(data: LetterHeadData, includeHeaded: bool
     if (parserError) {
       throw new Error('Failed to parse SVG template')
     }
+    
+    // Inject Dancing Script font for reference fields
+    injectDancingScriptFont(svgDoc)
+    
+    // Inject letterhead fonts for organization name
+    injectLetterheadFonts(svgDoc)
 
     // Apply background only for letter head template (skip for headed template)
     let usedBackgroundId = typeof data.backgroundId === 'number' ? data.backgroundId : 
@@ -563,19 +574,46 @@ export async function renderLetterHead(data: LetterHeadData, includeHeaded: bool
           // Use brand color if provided, otherwise use green
           const brandColor = data.primaryBrandColor || '#068A4F'
           
+          // Use selected font if provided, otherwise use default
+          let fontFamily: string
+          let fontWeight: string
+          
+          if (data.selectedOrgFont) {
+            // Use the selected font from the font selector
+            fontFamily = data.selectedOrgFont
+            console.log('🎨 [Headed] Selected font:', fontFamily)
+            // Use appropriate weight for each font's actual boldness
+            const fontWeights: Record<string, string> = {
+              'Montserrat': '800',
+              'Oswald': '700'
+            }
+            fontWeight = fontWeights[fontFamily] || '700'
+            console.log('🎨 [Headed] Applied weight:', fontWeight, 'for font:', fontFamily)
+          } else {
+            // Default font for headed template
+            fontFamily = 'Montserrat'
+            fontWeight = '800'
+          }
+          
           orgTextElement.textContent = firstLine
           orgTextElement.setAttribute('fill', brandColor)
           orgTextElement.setAttribute('font-size', fontSize.toString())
-          orgTextElement.setAttribute('font-family', 'Montserrat ExtraBold')
-          orgTextElement.setAttribute('font-weight', '800')
+          orgTextElement.setAttribute('font-family', fontFamily)
+          orgTextElement.setAttribute('font-weight', fontWeight)
+          
+          // Store original Y position of second line before any modifications
+          let originalSecondLineY: number | null = null
           
           // Set up second line if it exists
           if (sonsElement && secondLine) {
+            // Store original Y position
+            originalSecondLineY = parseFloat(sonsElement.getAttribute('y') || '0')
+            
             sonsElement.textContent = secondLine
             sonsElement.setAttribute('fill', brandColor)
             sonsElement.setAttribute('font-size', fontSize.toString())
-            sonsElement.setAttribute('font-family', 'Montserrat ExtraBold')
-            sonsElement.setAttribute('font-weight', '800')
+            sonsElement.setAttribute('font-family', fontFamily)
+            sonsElement.setAttribute('font-weight', fontWeight)
           } else if (sonsElement) {
             sonsElement.textContent = ''
           }
@@ -611,6 +649,12 @@ export async function renderLetterHead(data: LetterHeadData, includeHeaded: bool
           }
           
           console.log('🎨 Final - Font size:', fontSize, 'First line width:', firstLineWidth, 'Second line width:', secondLineWidth, 'Fits:', maxLineWidth <= maxWidth)
+          
+          // After font size is finalized, adjust second line Y position for Oswald with 2 words
+          if (sonsElement && secondLine && words.length === 2 && fontFamily === 'Oswald' && originalSecondLineY !== null) {
+            sonsElement.setAttribute('y', (originalSecondLineY + 40).toString())
+            console.log('🎨 Moved second line down by 40 units for Oswald (2 words)')
+          }
         }
         
         // Update separator lines to match organization name color
@@ -674,7 +718,7 @@ export async function renderLetterHead(data: LetterHeadData, includeHeaded: bool
       
       // Add Description above motto in headed template
       if (data.description && data.description.trim()) {
-        const descriptionY = 1050 // Above motto (motto is at 1200)
+        const descriptionY = 1070 // Shifted down by 20 units (was 1050)
         const descriptionX = 1026.58 // Aligned with motto label
         
         // Create description text element
@@ -726,11 +770,17 @@ export async function renderLetterHead(data: LetterHeadData, includeHeaded: bool
       
       // Now modify head office
       if (data.headOffice && !isFieldSkipped(data.headOffice)) {
-        const fullAddress = toTitleCase(data.headOffice)
+        let fullAddress = toTitleCase(data.headOffice)
+        
+        // Truncate if too long (max 120 characters)
+        if (fullAddress.length > 120) {
+          fullAddress = fullAddress.substring(0, 120)
+        }
         
         if (headOfficeFirstLine) {
           // Use actual width measurement to prevent overflow
-          const maxWidth = 2800 // Reduced to ensure wrapping happens
+          const maxWidth = 2400 // Further reduced to prevent overflow
+          const maxSecondLineWidth = 2400 // Same limit for second line
           
           // Set full address initially
           headOfficeFirstLine.textContent = fullAddress
@@ -766,8 +816,30 @@ export async function renderLetterHead(data: LetterHeadData, includeHeaded: bool
             }
             
             headOfficeFirstLine.textContent = firstLine
-            if (headOfficeSecondLine) {
+            if (headOfficeSecondLine && secondLine) {
+              // Check if second line fits, truncate with ellipsis if needed
               headOfficeSecondLine.textContent = secondLine
+              let secondLineWidth = headOfficeSecondLine.getBBox().width
+              
+              if (secondLineWidth > maxSecondLineWidth) {
+                // Truncate second line
+                const secondWords = secondLine.split(' ')
+                let truncated = ''
+                for (let i = 0; i < secondWords.length; i++) {
+                  const testLine = truncated + (truncated ? ' ' : '') + secondWords[i]
+                  headOfficeSecondLine.textContent = testLine
+                  if (headOfficeSecondLine.getBBox().width > maxSecondLineWidth) {
+                    if (truncated) {
+                      headOfficeSecondLine.textContent = truncated
+                    } else {
+                      // Even first word is too long, truncate it
+                      headOfficeSecondLine.textContent = secondWords[0].substring(0, 40)
+                    }
+                    break
+                  }
+                  truncated = truncated + (truncated ? ' ' : '') + secondWords[i]
+                }
+              }
             }
             console.log('📏 Final - First line:', firstLine, '| Second line:', secondLine)
           }
@@ -789,7 +861,12 @@ export async function renderLetterHead(data: LetterHeadData, includeHeaded: bool
         console.log('🏢 Branch first line element:', branchOfficeFirstLine)
         console.log('🏢 Branch second line element:', branchOfficeSecondLine)
         
-        const fullAddress = toTitleCase(data.otherAddress)
+        let fullAddress = toTitleCase(data.otherAddress)
+        
+        // Truncate if too long (max 120 characters)
+        if (fullAddress.length > 120) {
+          fullAddress = fullAddress.substring(0, 120)
+        }
         
         // Check if head office is provided
         const hasHeadOffice = data.headOffice && !isFieldSkipped(data.headOffice)
@@ -806,7 +883,8 @@ export async function renderLetterHead(data: LetterHeadData, includeHeaded: bool
           
           if (headOfficeFirstLine) {
             // Use actual width measurement to prevent overflow
-            const maxWidth = 2800
+            const maxWidth = 2400
+            const maxSecondLineWidth = 2400
             
             // Set full address initially
             headOfficeFirstLine.textContent = fullAddress
@@ -842,8 +920,30 @@ export async function renderLetterHead(data: LetterHeadData, includeHeaded: bool
               }
               
               headOfficeFirstLine.textContent = firstLine
-              if (headOfficeSecondLine) {
+              if (headOfficeSecondLine && secondLine) {
+                // Check if second line fits, truncate with ellipsis if needed
                 headOfficeSecondLine.textContent = secondLine
+                let secondLineWidth = headOfficeSecondLine.getBBox().width
+                
+                if (secondLineWidth > maxSecondLineWidth) {
+                  // Truncate second line
+                  const secondWords = secondLine.split(' ')
+                  let truncated = ''
+                  for (let i = 0; i < secondWords.length; i++) {
+                    const testLine = truncated + (truncated ? ' ' : '') + secondWords[i]
+                    headOfficeSecondLine.textContent = testLine
+                    if (headOfficeSecondLine.getBBox().width > maxSecondLineWidth) {
+                      if (truncated) {
+                        headOfficeSecondLine.textContent = truncated
+                      } else {
+                        // Even first word is too long, truncate it
+                        headOfficeSecondLine.textContent = secondWords[0].substring(0, 40)
+                      }
+                      break
+                    }
+                    truncated = truncated + (truncated ? ' ' : '') + secondWords[i]
+                  }
+                }
               }
               console.log('📏 Final - First line:', firstLine, '| Second line:', secondLine)
             }
@@ -962,7 +1062,8 @@ export async function renderLetterHead(data: LetterHeadData, includeHeaded: bool
           // Head office exists, use normal branch office position
           if (branchOfficeFirstLine) {
             // Use actual width measurement to prevent overflow
-            const maxWidth = 2800 // Reduced to ensure wrapping happens
+            const maxWidth = 2400 // Further reduced to prevent overflow
+            const maxSecondLineWidth = 2400
             
             // Set full address initially
             branchOfficeFirstLine.textContent = fullAddress
@@ -1000,9 +1101,33 @@ export async function renderLetterHead(data: LetterHeadData, includeHeaded: bool
               
               branchOfficeFirstLine.textContent = firstLine
               console.log('🏢 Set first line to:', branchOfficeFirstLine.textContent)
-              if (branchOfficeSecondLine) {
+              if (branchOfficeSecondLine && secondLine) {
                 branchOfficeSecondLine.textContent = secondLine
                 console.log('🏢 Set second line to:', branchOfficeSecondLine.textContent)
+                
+                // Check if second line fits, truncate with ellipsis if needed
+                let secondLineWidth = branchOfficeSecondLine.getBBox().width
+                
+                if (secondLineWidth > maxSecondLineWidth) {
+                  // Truncate second line
+                  const secondWords = secondLine.split(' ')
+                  let truncated = ''
+                  for (let i = 0; i < secondWords.length; i++) {
+                    const testLine = truncated + (truncated ? ' ' : '') + secondWords[i]
+                    branchOfficeSecondLine.textContent = testLine
+                    if (branchOfficeSecondLine.getBBox().width > maxSecondLineWidth) {
+                      if (truncated) {
+                        branchOfficeSecondLine.textContent = truncated
+                      } else {
+                        // Even first word is too long, truncate it
+                        branchOfficeSecondLine.textContent = secondWords[0].substring(0, 40)
+                      }
+                      break
+                    }
+                    truncated = truncated + (truncated ? ' ' : '') + secondWords[i]
+                  }
+                  console.log('🏢 Truncated second line to:', branchOfficeSecondLine.textContent)
+                }
               }
               console.log('📏 Final - First line:', firstLine, '| Second line:', secondLine)
             }
@@ -1431,9 +1556,26 @@ async function renderLetterHeadTemplate(svg: SVGElement, data: LetterHeadData): 
       // Use CSS variable for brand color, fallback to default if not provided
       const brandColor = data.primaryBrandColor ? 'var(--primary-brand-color)' : '#058A6C'
       
-      // Use the words variable already declared above for font selection
-      const fontFamily = words.length === 2 ? 'Montserrat ExtraBold' : 'Oswald'
-      const fontWeight = words.length === 2 ? '800' : '600'
+      // Use selected font if provided, otherwise use default logic
+      let fontFamily: string
+      let fontWeight: string
+      
+      if (data.selectedOrgFont) {
+        // Use the selected font from the font selector
+        fontFamily = data.selectedOrgFont
+        console.log('🎨 Selected font:', fontFamily)
+        // Use appropriate weight for each font's actual boldness
+        const fontWeights: Record<string, string> = {
+          'Montserrat': '800',
+          'Oswald': '700'
+        }
+        fontWeight = fontWeights[fontFamily] || '700'
+        console.log('🎨 Applied weight:', fontWeight, 'for font:', fontFamily)
+      } else {
+        // Default logic: Use the words variable already declared above for font selection
+        fontFamily = words.length === 2 ? 'Montserrat' : 'Oswald'
+        fontWeight = words.length === 2 ? '800' : '700'
+      }
       
       let styleString = `font-size:${fontSize}px; font-family:'${fontFamily}'; font-weight:${fontWeight}; fill:${brandColor};`
       // Remove horizontal scaling - text maintains natural proportions
@@ -1749,20 +1891,12 @@ async function renderLetterHeadTemplate(svg: SVGElement, data: LetterHeadData): 
               }
               phoneLabel.removeAttribute('text-anchor')
               
-              // Create a horizontal line above the phone section (no emails case)
+              // Store phone line Y position for positioning the original line
               const phoneLabelY = parseFloat(phoneLabel.getAttribute('y') || '0')
               const phoneLineY = phoneLabelY + 5000 // Position line below the phone numbers
               
-              const phoneLine = document.createElementNS('http://www.w3.org/2000/svg', 'line')
-              phoneLine.setAttribute('class', 'fil0')
-              phoneLine.setAttribute('stroke', '#000000')
-              phoneLine.setAttribute('stroke-width', '13.89')
-              phoneLine.setAttribute('x1', '860.1')
-              phoneLine.setAttribute('y1', phoneLineY.toString())
-              phoneLine.setAttribute('x2', '7400')
-              phoneLine.setAttribute('y2', phoneLineY.toString())
-              
-              svg.appendChild(phoneLine)
+              // Store this Y position for adjusting the original line later
+              ;(svg as any)._phoneLineY = phoneLineY
             }
           }
           // If emails exist, use original multi-line layout for 3+ phones
@@ -1937,28 +2071,11 @@ async function renderLetterHeadTemplate(svg: SVGElement, data: LetterHeadData): 
     // Find the email label
     const emailLabel = emailTexts.find(text => text.textContent?.includes('Email:'))
     
-    // Check if phone numbers were provided
-    const hasPhones = data.phones && data.phones.length > 0
+    // Check if phone numbers were provided (not skipped)
+    const hasPhones = !isFieldSkipped(data.phones)
     
-    // Check if emails were provided
-    const hasEmails = data.emails && data.emails.length > 0
-    
-    // Remove the original horizontal line at y=10450 first
-    const allLines = svg.querySelectorAll('line')
-    for (const line of allLines) {
-      const y1 = line.getAttribute('y1')
-      const y2 = line.getAttribute('y2')
-      const x1 = line.getAttribute('x1')
-      const x2 = line.getAttribute('x2')
-      
-      // Remove the original line (matches x1=460.1, x2=7800, y around 10450)
-      if (x1 === '460.1' && x2 === '7800' && y1 === y2) {
-        const currentY = parseFloat(y1 || '0')
-        if (currentY >= 10400 && currentY <= 11000) {
-          line.remove()
-        }
-      }
-    }
+    // Check if emails were provided (not skipped)
+    const hasEmails = !isFieldSkipped(data.emails)
     
     console.log('Email data:', data.emails)
     console.log('Has phones:', hasPhones)
@@ -2006,6 +2123,10 @@ async function renderLetterHeadTemplate(svg: SVGElement, data: LetterHeadData): 
               const currentY = parseFloat(text.getAttribute('y') || '0')
               text.setAttribute('y', (currentY + 840).toString())
               
+              // Store email line Y position: currentY + 640 (matching position when both are available)
+              const emailLineY = currentY + 640
+              ;(svg as any)._emailLineY = emailLineY
+              
               if (emailLabel) {
                 emailLabel.textContent = 'Email:'
                 emailLabel.setAttribute('x', '3200')
@@ -2013,17 +2134,34 @@ async function renderLetterHeadTemplate(svg: SVGElement, data: LetterHeadData): 
                 emailLabel.setAttribute('y', (labelY + 840).toString())
               }
             } else {
-              // Has phone numbers - shift to the left as before
+              // Has phone numbers - position email on left side, same line as phone
               const currentX = parseFloat(text.getAttribute('x') || '0')
               const currentY = parseFloat(text.getAttribute('y') || '0')
-              text.setAttribute('x', (currentX - 500).toString())
-              text.setAttribute('y', (currentY + 640).toString())
+              
+              // Calculate target Y: Original email Y (10653.1) + shift (640) = 11293.1
+              // This aligns email on same horizontal line as phone number
+              const phoneY = currentY + 640
+              
+              // Store line Y position: 200 units above email/phone text to avoid overlap
+              const emailLineY = phoneY - 200
+              ;(svg as any)._emailLineY = emailLineY
+              
+              console.log('📧 Single email - Original Y:', currentY, 'Target Y:', phoneY, 'Line Y:', emailLineY)
+              
+              // Position email on left side (preserve original X ~1646) on same line as phone
+              text.setAttribute('x', currentX.toString()) // Keep on left side
+              text.setAttribute('y', phoneY.toString()) // Same Y as phone
+              text.removeAttribute('text-anchor') // Remove any centering
+              
               if (emailLabel) {
                 emailLabel.textContent = 'Email:'
                 const labelX = parseFloat(emailLabel.getAttribute('x') || '0')
                 const labelY = parseFloat(emailLabel.getAttribute('y') || '0')
-                emailLabel.setAttribute('x', (labelX - 500).toString())
-                emailLabel.setAttribute('y', (labelY + 640).toString())
+                const emailLabelY = labelY + 640
+                emailLabel.setAttribute('x', labelX.toString()) // Keep label on left
+                emailLabel.setAttribute('y', emailLabelY.toString())
+                emailLabel.removeAttribute('text-anchor') // Remove any centering
+                console.log('📧 Email label positioned at X:', labelX, 'Y:', emailLabelY)
               }
             }
           } else if (emails.length === 2) {
@@ -2039,6 +2177,10 @@ async function renderLetterHeadTemplate(svg: SVGElement, data: LetterHeadData): 
               const currentY = parseFloat(text.getAttribute('y') || '0')
               text.setAttribute('y', (currentY + 840).toString())
               
+              // Store email line Y position: currentY + 640 (matching position when both are available)
+              const emailLineY = currentY + 640
+              ;(svg as any)._emailLineY = emailLineY
+              
               // Keep label visible and position it to the left with more spacing
               if (emailLabel) {
                 emailLabel.textContent = 'Email:'
@@ -2047,7 +2189,7 @@ async function renderLetterHeadTemplate(svg: SVGElement, data: LetterHeadData): 
                 emailLabel.setAttribute('y', (labelY + 840).toString())
               }
             } else {
-              // Has phone numbers - render vertically (never inline)
+              // Has phone numbers - render vertically with first email on same line as phone
               // First email replaces the existing text
               text.textContent = emails[0]
               const currentX = parseFloat(text.getAttribute('x') || '0')
@@ -2058,36 +2200,36 @@ async function renderLetterHeadTemplate(svg: SVGElement, data: LetterHeadData): 
               const fill = text.getAttribute('fill')
               const parentGroup = text.parentElement
               
-              // Find the phone text element to get its Y position for alignment
-              // Look for any text element that contains a phone number pattern (digits with optional spaces/dashes)
-              const phoneTexts = Array.from(svg.querySelectorAll('text'))
-              const phoneText = phoneTexts.find(t => {
-                const content = t.textContent || ''
-                // Check if it matches a phone pattern or contains the user's phone numbers
-                return /\d{3,}/.test(content) && (
-                  content.includes('08035976700') || 
-                  content.includes('08074383622') ||
-                  (data.phones && data.phones.some(phone => content.includes(phone.replace(/\D/g, ''))))
-                )
-              })
-              const phoneY = phoneText ? parseFloat(phoneText.getAttribute('y') || '0') : (currentY + 640)
+              // Calculate target Y: Original email Y + shift = final position
+              // This puts first email on same horizontal line as phone number
+              const phoneY = currentY + 640
               
-              // Position first email with left alignment and align with first phone line
-              const alignedX = currentX - 500
-              text.setAttribute('x', alignedX.toString())
-              text.setAttribute('y', phoneY.toString())
+              // Store line Y position: 200 units above email/phone text to avoid overlap
+              const emailLineY = phoneY - 200
+              ;(svg as any)._emailLineY = emailLineY
               
-              // Shift email label to match first phone's Y position
+              console.log('📧 Two emails - Original Y:', currentY, 'Target Y:', phoneY, 'Line Y:', emailLineY)
+              
+              // Position first email on left side (preserve X ~1646), same Y line as phone
+              text.setAttribute('x', currentX.toString()) // Keep on left side
+              text.setAttribute('y', phoneY.toString()) // Same Y as phone
+              text.removeAttribute('text-anchor') // Remove any centering
+              
+              // Position email label on left side, same Y as phone/email
               if (emailLabel) {
+                emailLabel.textContent = 'Email:'
                 const labelX = parseFloat(emailLabel.getAttribute('x') || '0')
-                emailLabel.setAttribute('x', (labelX - 50).toString())
-                emailLabel.setAttribute('y', phoneY.toString())
+                const labelY = parseFloat(emailLabel.getAttribute('y') || '0')
+                const emailLabelY = labelY + 640
+                emailLabel.setAttribute('x', labelX.toString()) // Keep label on left
+                emailLabel.setAttribute('y', emailLabelY.toString())
+                emailLabel.removeAttribute('text-anchor') // Remove any centering
               }
               
-              // Create text element for the second email positioned on same line as 3rd phone
+              // Create text element for second email - positioned below first email
               const secondEmail = document.createElementNS('http://www.w3.org/2000/svg', 'text')
-              secondEmail.setAttribute('x', alignedX.toString()) // Same x position for perfect alignment
-              secondEmail.setAttribute('y', (phoneY + 140).toString()) // 140 units below first phone to align with 3rd phone position
+              secondEmail.setAttribute('x', currentX.toString()) // Same X as first email (left side)
+              secondEmail.setAttribute('y', (phoneY + 140).toString()) // 140 units below first email
               
               // Copy all styling attributes to ensure visual consistency
               if (textClass) secondEmail.setAttribute('class', textClass)
@@ -2103,13 +2245,6 @@ async function renderLetterHeadTemplate(svg: SVGElement, data: LetterHeadData): 
               } else {
                 text.parentNode?.appendChild(secondEmail)
               }
-              
-              // Position email label
-              if (emailLabel) {
-                emailLabel.textContent = 'Email:'
-                const labelX = parseFloat(emailLabel.getAttribute('x') || '0')
-                emailLabel.setAttribute('x', (labelX - 500).toString())
-              }
             }
           }
         } else {
@@ -2118,6 +2253,59 @@ async function renderLetterHeadTemplate(svg: SVGElement, data: LetterHeadData): 
           if (emailLabel) emailLabel.textContent = ''
         }
         break
+      }
+    }
+    
+    // Move original horizontal line to phone or email line position and adjust dimensions
+    // This runs after phone and email positioning so _phoneLineY and _emailLineY are available
+    const allLines = svg.querySelectorAll('line')
+    const phoneLineY = (svg as any)._phoneLineY
+    const emailLineY = (svg as any)._emailLineY
+    const targetLineY = phoneLineY || emailLineY // Use phone line Y if available, otherwise email line Y
+    
+    // Hide line if both phone and email are not provided
+    const shouldHideLine = !hasPhones && !hasEmails
+    
+    console.log('Moving line - phoneLineY:', phoneLineY, 'emailLineY:', emailLineY, 'targetLineY:', targetLineY, 'shouldHideLine:', shouldHideLine)
+    
+    for (const line of allLines) {
+      const y1 = line.getAttribute('y1')
+      const y2 = line.getAttribute('y2')
+      const x1 = line.getAttribute('x1')
+      const x2 = line.getAttribute('x2')
+      
+      // Move original line to phone/email line position and adjust dimensions (x1=460.1, x2=7400)
+      if (x1 === '460.1' && x2 === '7800' && y1 === y2) {
+        const currentY = parseFloat(y1 || '0')
+        if (currentY >= 10400 && currentY <= 11000) {
+          console.log('Found original line at Y:', currentY, '- moving to:', targetLineY)
+          
+          // Hide line if both phone and email are not provided
+          if (shouldHideLine) {
+            line.setAttribute('stroke', 'none')
+            line.setAttribute('visibility', 'hidden')
+          } else {
+            line.setAttribute('x1', '860.1')
+            line.setAttribute('x2', '7400')
+            // Position at phone or email line Y if available
+            if (targetLineY) {
+              line.setAttribute('y1', targetLineY.toString())
+              line.setAttribute('y2', targetLineY.toString())
+            }
+          }
+        }
+      }
+      
+      // Hide headed template side lines when both phone and email are not provided
+      // Left line: x1="0" y1="11151.38" x2="900" y2="11151.38"
+      // Right line: x1="7500" y1="11151.38" x2="8267.72" y2="11151.38"
+      if (shouldHideLine && y1 === y2) {
+        const yValue = parseFloat(y1 || '0')
+        if ((x1 === '0' && x2 === '900' && yValue >= 11100 && yValue <= 11200) ||
+            (x1 === '7500' && x2 === '8267.72' && yValue >= 11100 && yValue <= 11200)) {
+          line.setAttribute('stroke', 'none')
+          line.setAttribute('visibility', 'hidden')
+        }
       }
     }
     
@@ -2134,38 +2322,40 @@ async function renderLetterHeadTemplate(svg: SVGElement, data: LetterHeadData): 
       }
     }
     
-    // Add a horizontal line at the top of email/phone section (after all updates are done)
-    // Create line when emails are present (with or without phones)
-    if (hasEmails) {
-      const allTexts = Array.from(svg.querySelectorAll('text'))
-      
-      // Find Email: or Tel: labels (these have been shifted)
-      const emailLabelElement = allTexts.find(text => text.textContent?.trim() === 'Email:')
-      const phoneLabelElement = allTexts.find(text => text.textContent?.trim() === 'Tel:' || text.textContent?.trim() === 'Telephone:')
-      
-      const referenceText = emailLabelElement || phoneLabelElement
-      if (referenceText) {
-        const textY = parseFloat(referenceText.getAttribute('y') || '0')
-        // Position line 150 units above the label to ensure it's not touching
-        const lineY = textY - 150
-        
-        // Create the duplicate line element
-        const newLine = document.createElementNS('http://www.w3.org/2000/svg', 'line')
-        newLine.setAttribute('class', 'fil0')
-        newLine.setAttribute('stroke', '#000000')
-        newLine.setAttribute('stroke-width', '13.89')
-        newLine.setAttribute('x1', '860.1')
-        newLine.setAttribute('y1', lineY.toString())
-        newLine.setAttribute('x2', '7400')
-        newLine.setAttribute('y2', lineY.toString())
-        
-        // Insert the line into the SVG
-        svg.appendChild(newLine)
-      }
-    }
+    // Keep the original line in the template (no longer creating a new one)
+    // if (hasEmails) {
+    //   const allTexts = Array.from(svg.querySelectorAll('text'))
+    //   
+    //   // Find Email: or Tel: labels (these have been shifted)
+    //   const emailLabelElement = allTexts.find(text => text.textContent?.trim() === 'Email:')
+    //   const phoneLabelElement = allTexts.find(text => text.textContent?.trim() === 'Tel:' || text.textContent?.trim() === 'Telephone:')
+    //   
+    //   const referenceText = emailLabelElement || phoneLabelElement
+    //   if (referenceText) {
+    //     const textY = parseFloat(referenceText.getAttribute('y') || '0')
+    //     // Position line 150 units above the label to ensure it's not touching
+    //     const lineY = textY - 150
+    //     
+    //     // Create the duplicate line element
+    //     const newLine = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+    //     newLine.setAttribute('class', 'fil0')
+    //     newLine.setAttribute('stroke', '#000000')
+    //     newLine.setAttribute('stroke-width', '13.89')
+    //     newLine.setAttribute('x1', '860.1')
+    //     newLine.setAttribute('y1', lineY.toString())
+    //     newLine.setAttribute('x2', '7400')
+    //     newLine.setAttribute('y2', lineY.toString())
+    //     
+    //     // Insert the line into the SVG
+    //     svg.appendChild(newLine)
+    //   }
+    // }
 
     // Update or remove reference fields based on user preference
     if (data.includeOptionalFields && data.referenceFields) {
+      // Style all reference field labels with Dancing Script font
+      styleReferenceFieldLabels(svg)
+      
       // Include optional fields - update them with values
       if (data.referenceFields.ref) {
         updateTextByPattern(svg, /REF:/i, `REF: ${data.referenceFields.ref}`)
@@ -2264,17 +2454,118 @@ function updateTextByContent(svg: Element, searchText: string, newText: string):
 /**
  * Update text element by pattern match (supports partial matches)
  */
+/**
+ * Inject Dancing Script font into SVG and update reference field font classes
+ */
+function injectDancingScriptFont(svgDoc: Document): void {
+  const svg = svgDoc.documentElement
+  
+  // Find existing style elements
+  const styleElements = svg.querySelectorAll('style')
+  
+  for (const styleElement of styleElements) {
+    let styleContent = styleElement.textContent || ''
+    
+    // Replace Brush Script font in letterhead template (fnt9 class)
+    // Original: .fnt9 {font-weight:normal;font-size:166.67px;font-family:'Brush Script'}
+    styleContent = styleContent.replace(
+      /\.fnt9\s*\{[^}]*font-family\s*:\s*['"]Brush Script['"]\s*\}/gi,
+      ".fnt9 {font-weight:normal;font-size:166.67px;font-family:'Dancing Script'}"
+    )
+    
+    // Replace Arial font in headed template (fnt5 class)
+    // Original: .fnt5 {font-weight:normal;font-size:138.89px;font-family:'Arial'}
+    styleContent = styleContent.replace(
+      /\.fnt5\s*\{[^}]*font-family\s*:\s*['"]Arial['"]\s*\}/gi,
+      ".fnt5 {font-weight:normal;font-size:138.89px;font-family:'Dancing Script'}"
+    )
+    
+    styleElement.textContent = styleContent
+  }
+  
+  // Adjust position of "Your" text in letterhead template to accommodate Dancing Script
+  const textElements = svg.querySelectorAll('text')
+  for (const text of textElements) {
+    const content = text.textContent?.trim()
+    const x = text.getAttribute('x')
+    const y = text.getAttribute('y')
+    
+    // Shift "Your" text to the left in letterhead (y=1962.44)
+    if (content === 'Your' && x === '3271.59' && y === '1962.44') {
+      text.setAttribute('x', '3200')
+    }
+  }
+  
+  // Also add Google Fonts import for Dancing Script
+  let defsElement = svg.querySelector('defs')
+  if (!defsElement) {
+    defsElement = document.createElementNS('http://www.w3.org/2000/svg', 'defs')
+    svg.insertBefore(defsElement, svg.firstChild)
+  }
+  
+  const fontStyleElement = document.createElementNS('http://www.w3.org/2000/svg', 'style')
+  fontStyleElement.textContent = `
+    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400&display=swap');
+  `
+  defsElement.appendChild(fontStyleElement)
+}
+
 function updateTextByPattern(svg: Element, pattern: RegExp, newText: string): boolean {
   const textElements = svg.querySelectorAll('text, tspan')
   
   for (const element of textElements) {
     if (element.textContent && pattern.test(element.textContent)) {
       element.textContent = newText
+      // Set font to Dancing Script for reference fields (Our Ref, Your Ref, Date)
+      element.setAttribute('font-family', 'Dancing Script')
+      element.setAttribute('font-weight', 'normal')
       return true
     }
   }
   
   return false
+}
+
+/**
+ * Inject letterhead fonts into SVG for organization name
+ */
+function injectLetterheadFonts(svg: Element): void {
+  // Google Fonts import for letterhead fonts (Montserrat and Oswald only)
+  const fontImport = '@import url(\'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Oswald:wght@400;600;700;800&display=swap\');'
+
+  const defs = svg.querySelector('defs')
+  if (defs) {
+    const fontStyleElement = document.createElementNS('http://www.w3.org/2000/svg', 'style')
+    fontStyleElement.textContent = fontImport
+    defs.insertBefore(fontStyleElement, defs.firstChild)
+  }
+}
+
+/**
+ * Style all reference field labels with Dancing Script font
+ */
+function styleReferenceFieldLabels(svg: Element): void {
+  const textElements = svg.querySelectorAll('text, tspan')
+  
+  // Patterns for reference field labels
+  const patterns = [
+    /Our\s*Ref/i,
+    /Your/i,
+    /Ref\./i,
+    /Date/i,
+    /REF:/i,
+    /DATE:/i
+  ]
+  
+  for (const element of textElements) {
+    const text = element.textContent?.trim() || ''
+    if (text && patterns.some(pattern => pattern.test(text))) {
+      // Apply Dancing Script font
+      element.setAttribute('font-family', 'Dancing Script')
+      element.setAttribute('font-weight', 'normal')
+      // Preserve existing font-size and position
+    }
+  }
 }
 
 /**
@@ -2359,6 +2650,53 @@ function removeOptionalFields(svg: Element): void {
         if (currentY >= 1910 && currentY <= 1945) {
           line.setAttribute('opacity', '0')
         }
+      }
+    }
+  }
+  
+  // Move content below optional fields up to close the gap
+  // The optional fields section is approximately at y=1700-2100
+  // Move all content that's below y=2150 up by approximately 400 units
+  const shiftAmount = 400
+  const minYToShift = 2150
+  
+  // Move text elements up
+  for (const element of svg.querySelectorAll('text')) {
+    const y = element.getAttribute('y')
+    if (y) {
+      const yNum = parseFloat(y)
+      if (yNum >= minYToShift && yNum < 10000) { // Don't shift footer elements (y > 10000)
+        element.setAttribute('y', (yNum - shiftAmount).toString())
+      }
+    }
+  }
+  
+  // Move line elements up
+  for (const element of svg.querySelectorAll('line')) {
+    const y1 = element.getAttribute('y1')
+    const y2 = element.getAttribute('y2')
+    
+    if (y1 && y2) {
+      const y1Num = parseFloat(y1)
+      const y2Num = parseFloat(y2)
+      
+      if (y1Num >= minYToShift && y1Num < 10000) {
+        element.setAttribute('y1', (y1Num - shiftAmount).toString())
+      }
+      if (y2Num >= minYToShift && y2Num < 10000) {
+        element.setAttribute('y2', (y2Num - shiftAmount).toString())
+      }
+    }
+  }
+  
+  // Move other shape elements (rect, circle, path, etc.) up if they have y attributes
+  for (const element of svg.querySelectorAll('rect, circle, ellipse')) {
+    const y = element.getAttribute('y') || element.getAttribute('cy')
+    if (y) {
+      const yNum = parseFloat(y)
+      if (yNum >= minYToShift && yNum < 10000) {
+        const attr = element.hasAttribute('y') ? 'y' : 'cy'
+        element.setAttribute(attr, (yNum - shiftAmount).toString())
       }
     }
   }

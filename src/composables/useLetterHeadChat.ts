@@ -173,6 +173,10 @@ export function useLetterHeadChat() {
   const showCorrectionBlock = ref(false)
   const showDownloadMenu = ref(false)
   
+  // Font configuration state
+  const showFontSelector = ref(false)
+  const selectedOrgFont = ref('Montserrat ExtraBold')
+  
   // Background configuration state
   const currentBackgroundId = ref<number | null>(null)
   const currentTemplateName = ref<string>('letter head') // Track current template
@@ -509,6 +513,7 @@ export function useLetterHeadChat() {
           primaryBrandColor: primaryBrandColor.value,
           backgroundId: currentBackgroundId.value,
           includeOptionalFields: extractedInfo.value.includeOptionalFields,
+          selectedOrgFont: selectedOrgFont.value,
           referenceFields: {
             ref: extractedInfo.value.referenceFields.ourRef,
             date: extractedInfo.value.referenceFields.date || new Date().toLocaleDateString()
@@ -1915,7 +1920,8 @@ Try again with all details.`)
         referenceFields: {
           ref: extractedInfo.value.referenceFields.ourRef,
           date: extractedInfo.value.referenceFields.date || new Date().toLocaleDateString()
-        }
+        },
+        selectedOrgFont: selectedOrgFont.value
       }
       
       // Render the SVG with updated data, preserving current template
@@ -2165,6 +2171,7 @@ Try again with all details.`)
           primaryBrandColor: primaryBrandColor.value,
           backgroundId: currentBackgroundId.value,
           includeOptionalFields: extractedInfo.value.includeOptionalFields,
+          selectedOrgFont: selectedOrgFont.value,
           referenceFields: {
             ref: extractedInfo.value.referenceFields.ourRef,
             date: extractedInfo.value.referenceFields.date || new Date().toLocaleDateString()
@@ -2221,6 +2228,7 @@ Try again with all details.`)
           primaryBrandColor: primaryBrandColor.value,
           backgroundId: currentBackgroundId.value, // Keep same background
           includeOptionalFields: extractedInfo.value.includeOptionalFields,
+          selectedOrgFont: selectedOrgFont.value,
           referenceFields: {
             ref: extractedInfo.value.referenceFields.ourRef,
             date: extractedInfo.value.referenceFields.date || new Date().toLocaleDateString()
@@ -2261,6 +2269,24 @@ Try again with all details.`)
       const success = await updateExistingLetterHeadContent()
       if (success) {
         // Message removed - color updates silently
+      }
+    } else if (actionType === 'change_font') {
+      // Show font selector
+      showFontSelector.value = true
+    } else if (actionType === 'close_font_selector') {
+      // Hide font selector
+      showFontSelector.value = false
+    } else if (actionType === 'select_font') {
+      // Apply selected font
+      const font = data?.font
+      if (font) {
+        selectedOrgFont.value = font
+        showFontSelector.value = false
+        // Update existing letterhead with new font
+        const success = await updateExistingLetterHeadContent()
+        if (success) {
+          // Font updates silently
+        }
       }
     } else if (actionType === 'edit') {
       // Show correction block for editing
@@ -2317,6 +2343,7 @@ Try again with all details.`)
         primaryBrandColor: primaryBrandColor.value,
         backgroundId: currentBackgroundId.value, // Include background ID
         includeOptionalFields: extractedInfo.value.includeOptionalFields,
+        selectedOrgFont: selectedOrgFont.value,
         referenceFields: {
           ref: extractedInfo.value.referenceFields.ourRef,
           date: extractedInfo.value.referenceFields.date || new Date().toLocaleDateString()
@@ -2358,6 +2385,7 @@ Try again with all details.`)
         primaryBrandColor: primaryBrandColor.value,
         backgroundId: currentBackgroundId.value, // Include background ID
         includeOptionalFields: extractedInfo.value.includeOptionalFields,
+        selectedOrgFont: selectedOrgFont.value,
         referenceFields: {
           ref: extractedInfo.value.referenceFields.ourRef,
           date: extractedInfo.value.referenceFields.date || new Date().toLocaleDateString()
@@ -2444,6 +2472,7 @@ Try again with all details.`)
         primaryBrandColor: primaryBrandColor.value,
         backgroundId: currentBackgroundId.value,
         includeOptionalFields: extractedInfo.value.includeOptionalFields,
+        selectedOrgFont: selectedOrgFont.value,
         referenceFields: {
           ref: extractedInfo.value.referenceFields.ourRef,
           date: extractedInfo.value.referenceFields.date || new Date().toLocaleDateString()
@@ -2524,6 +2553,8 @@ Let's begin!`)
     showColorPalette,
     showCorrectionBlock,
     showDownloadMenu,
+    showFontSelector,
+    selectedOrgFont,
     fieldValidation,
     lastExtractedFields,
     

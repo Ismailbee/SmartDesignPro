@@ -97,36 +97,82 @@
                 </svg>
                 Download
               </button>
-              <button @click="$emit('action', 'regenerate_preview')" class="preview-btn regenerate">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="23 4 23 10 17 10"/>
-                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-                </svg>
-                Change Design
-              </button>
-              <button @click="$emit('action', 'change_color')" class="preview-btn regenerate">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="13.5" cy="6.5" r=".5"/>
-                  <circle cx="17.5" cy="10.5" r=".5"/>
-                  <circle cx="8.5" cy="7.5" r=".5"/>
-                  <circle cx="6.5" cy="11.5" r=".5"/>
-                  <circle cx="12.5" cy="13.5" r=".5"/>
-                  <circle cx="16.5" cy="17.5" r=".5"/>
-                  <circle cx="6.5" cy="15.5" r=".5"/>
-                  <path d="m9 19 3-8 3 8"/>
-                  <path d="m8 14-6 6h20l-6-6"/>
-                </svg>
-                Change Color
-              </button>
-              <button @click="$emit('action', 'change_style')" class="preview-btn change-style">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="3" y="3" width="7" height="7"/>
-                  <rect x="14" y="3" width="7" height="7"/>
-                  <rect x="14" y="14" width="7" height="7"/>
-                  <rect x="3" y="14" width="7" height="7"/>
-                </svg>
-                Change Style
-              </button>
+              <div class="more-button-wrapper">
+                <button @click.stop="showPreviewMenu = !showPreviewMenu" class="preview-btn more">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="5" r="1" fill="currentColor"/>
+                    <circle cx="12" cy="12" r="1" fill="currentColor"/>
+                    <circle cx="12" cy="19" r="1" fill="currentColor"/>
+                  </svg>
+                  More
+                </button>
+                <!-- Dropdown menu -->
+                <div 
+                  v-if="showPreviewMenu" 
+                  class="preview-dropdown-menu"
+                  @click.stop
+                >
+                  <button @click="handleMenuAction('regenerate_preview')" class="menu-item">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="23 4 23 10 17 10"/>
+                      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                    </svg>
+                    <span>Change Design</span>
+                  </button>
+                  <button @click="handleMenuAction('change_color')" class="menu-item">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="13.5" cy="6.5" r=".5"/>
+                      <circle cx="17.5" cy="10.5" r=".5"/>
+                      <circle cx="8.5" cy="7.5" r=".5"/>
+                      <circle cx="6.5" cy="11.5" r=".5"/>
+                      <circle cx="12.5" cy="13.5" r=".5"/>
+                      <circle cx="16.5" cy="17.5" r=".5"/>
+                      <circle cx="6.5" cy="15.5" r=".5"/>
+                      <path d="m9 19 3-8 3 8"/>
+                      <path d="m8 14-6 6h20l-6-6"/>
+                    </svg>
+                    <span>Change Color</span>
+                  </button>
+                  <button @click="handleMenuAction('change_style')" class="menu-item">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="3" width="7" height="7"/>
+                      <rect x="14" y="3" width="7" height="7"/>
+                      <rect x="14" y="14" width="7" height="7"/>
+                      <rect x="3" y="14" width="7" height="7"/>
+                    </svg>
+                    <span>Change Style</span>
+                  </button>
+                  <button @click="handleMenuAction('change_font')" class="menu-item">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="4 7 4 4 20 4 20 7"/>
+                      <line x1="9" y1="20" x2="15" y2="20"/>
+                      <line x1="12" y1="4" x2="12" y2="20"/>
+                    </svg>
+                    <span>Change Font</span>
+                  </button>
+                </div>
+                
+                <!-- Font Selector Dropdown -->
+                <div 
+                  v-if="showFontSelector" 
+                  class="font-selector-dropdown"
+                  @click.stop
+                >
+                  <button 
+                    v-for="font in fontOptions" 
+                    :key="font"
+                    @click="$emit('action', 'select_font', { font })"
+                    class="font-item"
+                    :class="{ selected: selectedOrgFont === font }"
+                    :style="{ 
+                      fontFamily: font,
+                      fontWeight: getFontWeight(font)
+                    }"
+                  >
+                    {{ font }}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
           
@@ -336,6 +382,9 @@
       </div>
     </div>
     
+    <!-- Font Selector Backdrop -->
+    <div v-if="showFontSelector" class="dropdown-backdrop-fixed" @click="$emit('action', 'close_font_selector')"></div>
+    
     <!-- Color Palette Popup -->
     <div v-if="showColorPalette" class="popup-backdrop" @click="$emit('action', 'close_color_palette')">
       <div class="color-palette-popup" @click.stop>
@@ -491,7 +540,9 @@ const props = defineProps<{
   showColorPalette?: boolean
   showCorrectionBlock?: boolean
   showDownloadMenu?: boolean
+  showFontSelector?: boolean
   primaryBrandColor?: string
+  selectedOrgFont?: string
   stage1Corrections?: {
     organizationName: string
     registrationNumber: string
@@ -509,7 +560,7 @@ const props = defineProps<{
 
 // Emits
 const emit = defineEmits<{
-  (e: 'action', actionType: string): void
+  (e: 'action', actionType: string, data?: any): void
   (e: 'update-field', field: string, value: string): void
   (e: 'login'): void
   (e: 'suggestion', suggestion: string): void
@@ -532,6 +583,7 @@ const chatContainer = ref<HTMLDivElement | null>(null)
 const showNavigationLoading = ref(false)
 const showDownloadLoading = ref(false)
 const downloadLoadingMessage = ref('Preparing download...')
+const showPreviewMenu = ref(false)
 
 // Navigate to tokens and plans page
 function navigateToTokens() {
@@ -545,6 +597,19 @@ function navigateToTokens() {
       query: { from: 'letterhead' }
     })
   }, 150) // Small delay to show loading starts
+}
+
+// Handle menu action
+function handleMenuAction(action: string) {
+  showPreviewMenu.value = false
+  emit('action', action)
+}
+
+// Close menu when clicking outside
+if (typeof window !== 'undefined') {
+  document.addEventListener('click', () => {
+    showPreviewMenu.value = false
+  })
 }
 
 // Handle download with loading overlay
@@ -589,6 +654,26 @@ const colorOptions = [
   '#DC2626', // Dark Red
   '#059669'  // Dark Green
 ]
+
+const fontOptions = [
+  'Montserrat',
+  'Oswald'
+]
+
+// Map display names to actual Google Font family names for preview
+const fontFamilyMap: Record<string, string> = {
+  'Montserrat': 'Montserrat',
+  'Oswald': 'Oswald'
+}
+
+// Get appropriate font weight for each font
+const getFontWeight = (font: string): string => {
+  const fontWeights: Record<string, string> = {
+    'Montserrat': '800',
+    'Oswald': '700'
+  }
+  return fontWeights[font] || '700'
+}
 
 // Form data for correction popup
 const formData = reactive({
@@ -1540,6 +1625,98 @@ defineExpose({
   align-items: center;
 }
 
+/* More button wrapper */
+.more-button-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+/* Dropdown backdrop for click-outside (transparent overlay) */
+.dropdown-backdrop-fixed {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 19;
+  background: transparent;
+}
+
+/* More button styling */
+.preview-btn.more {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+/* Dropdown menu */
+.preview-dropdown-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  z-index: 20;
+  min-width: 200px;
+  padding: 6px;
+  animation: dropdownSlide 0.2s ease-out;
+}
+
+@keyframes dropdownSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.preview-dropdown-menu .menu-item {
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.preview-dropdown-menu .menu-item:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.preview-dropdown-menu .menu-item svg {
+  flex-shrink: 0;
+  color: #64748b;
+}
+
+.preview-dropdown-menu .menu-item:hover svg {
+  color: #475569;
+}
+
+/* Mobile responsiveness for dropdown */
+@media (max-width: 640px) {
+  .preview-dropdown-menu {
+    min-width: 180px;
+  }
+  
+  .preview-dropdown-menu .menu-item {
+    padding: 9px 10px;
+    font-size: 13px;
+  }
+}
+
 .preview-actions-direct {
   display: flex;
   justify-content: center;
@@ -1997,6 +2174,48 @@ defineExpose({
 
 .palette-btn.secondary:hover {
   background: #e5e7eb;
+}
+
+/* Font Selector Dropdown (positioned beside More button) */
+.font-selector-dropdown {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  z-index: 20;
+  min-width: 200px;
+  padding: 6px;
+  animation: dropdownSlide 0.2s ease-out;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.font-item {
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.font-item:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.font-item.selected {
+  background: #dbeafe;
+  color: #1e40af;
+  font-weight: 600;
 }
 
 /* Download Menu Popup */

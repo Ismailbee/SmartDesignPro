@@ -38,7 +38,9 @@
           :show-color-palette="showColorPalette"
           :show-correction-block="showCorrectionBlock"
           :show-download-menu="showDownloadMenu"
+          :show-font-selector="showFontSelector"
           :primary-brand-color="primaryBrandColor"
+          :selected-org-font="selectedOrgFont"
           @action="handleAction"
           @update-field="updateStage1Field"
           @login="handleLogin"
@@ -144,6 +146,8 @@ const {
   showColorPalette,
   showCorrectionBlock,
   showDownloadMenu,
+  showFontSelector,
+  selectedOrgFont,
   handleSendMessage,
   handleMessageAction,
   initializeChat,
